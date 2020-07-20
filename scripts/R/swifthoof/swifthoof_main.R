@@ -44,7 +44,7 @@ par$prgmTag <- paste(par$prgmDir,'main', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Illumina based directories::
-par$macDir <- '/Users/bbarnes/Documents/CustomerFacing'
+par$macDir <- '/Users/bbarnes/Documents/Projects/methylation/tools'
 par$lixDir <- '/illumina/scratch/darkmatter'
 
 par$retData     <- FALSE
@@ -133,15 +133,16 @@ opt$verbose <- 3
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir)) par$topDir <- par$macDir
-  if (dir.exists(par$lixDir)) par$topDir <- par$lixDir
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$topDir, 'workhorse')
+  par$srcDir     <- file.path(par$macDir, 'Infinium_Methylation_Workhorse')
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -184,7 +185,6 @@ if (args.dat[1]=='RStudio') {
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Unsupported pre-defined method! Exiting...{RET}{RET}"))
   }
-  opt$outDir <- file.path(par$topDir, 'builds', par$prgmTag, opt$expRunStr)
   opt$outDir <- file.path(par$topDir, 'builds')
   
 } else {
