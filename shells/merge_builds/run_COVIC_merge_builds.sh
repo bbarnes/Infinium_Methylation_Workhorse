@@ -24,7 +24,7 @@ verbose=3
 #
 # Standard Options:: DON'T CHANGE::
 #
-prgmTop="workhorse"
+prgmTop="Infinium_Methylation_Workhorse"
 prgmDir="covic"
 prgmTag="merge_builds"
 
