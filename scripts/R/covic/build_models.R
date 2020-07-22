@@ -48,6 +48,10 @@ par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
 opt$outDir    <- NULL
 opt$mergeDir  <- NULL
 
+opt$buildDml    <- TRUE
+opt$buildDbl    <- FALSE
+opt$buildModels <- FALSE
+
 # Run Parameters::
 opt$runName   <- NULL
 
@@ -243,6 +247,14 @@ if (args.dat[1]=='RStudio') {
                 help="Output directory [default= %default]", metavar="character"),
     make_option(c("--mergeDir"), type="character", default=opt$mergeDir, 
                 help="List of Merged Swifthoof Build Directory(s), commas seperated [default= %default]", metavar="character"),
+    
+    make_option(c("--buildDbl"), action="store_true", default=opt$buildDbl, 
+                help="Boolean variable to build delta beta (needs Rcpp) [default= %default]", metavar="boolean"),
+    make_option(c("--buildDml"), action="store_true", default=opt$buildDml, 
+                help="Boolean variable to build DML [default= %default]", metavar="boolean"),
+    make_option(c("--buildModels"), action="store_true", default=opt$buildModels, 
+                help="Boolean variable to build Models [default= %default]", metavar="boolean"),
+    
     
     # Run Parameters::
     make_option(c("--runName"), type="character", default=opt$runName, 
@@ -539,115 +551,120 @@ for (betaKey in lociBetaKey_vec) {
       dml_beg_txt  <- paste(full_dml_csv,'begTime.txt', sep='.')
       dml_end_txt  <- paste(full_dml_csv,'endTime.txt', sep='.')
       
-      if (!opt$clean && file.exists(full_dml_csv) &&
-          file.exists(dml_beg_txt) && file.exists(dml_end_txt) &&
-          file.mtime(dml_beg_txt)  < file.mtime(full_dml_csv) && 
-          file.mtime(full_dml_csv) < file.mtime(dml_end_txt) ) {
-        
-        cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] DMLs already exists! Reading; full_dml_csv={full_dml_csv}...{RET}") )
-        full_dml_tib <- suppressMessages(suppressWarnings( readr::read_csv(full_dml_csv) ))
-        cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Done. Reading Full DMLs{RET}{RET}") )
-        
-      } else {
-        cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Calculating dmls...{RET}") )
-        
-        if (file.exists(dml_beg_txt))  unlink(dml_beg_txt)
-        if (file.exists(full_dml_csv)) unlink(full_dml_csv)
-        if (file.exists(dml_end_txt))  unlink(dml_end_txt)
-        
-        full_dml_tib <- dmlsToTib(dml=DML_Local(
-          betas=beta_masked_mat, sample.data=dplyr::rename(sampleSheet_tib, Class_Var=!!class_var), formula = ~Class_Var ), 
-          verbose=opt$verbose, vt=1, tc=2, tt=cTracker) %>% dplyr::mutate_if(is.double, list(round), opt$percisionPval )
-        
-        cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Writing Full DML(CSV)={full_dml_csv}...{RET}") )
-        system(glue::glue("touch {dml_beg_txt}"))
-        Sys.sleep(1)
-        readr::write_csv(full_dml_tib,full_dml_csv)
-        Sys.sleep(1)
-        system(glue::glue("touch {dml_end_txt}"))
-        cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Done. Writing Full DMLs{RET}{RET}") )
+      if (opt$buildDml) {
+        if (!opt$clean && file.exists(full_dml_csv) &&
+            file.exists(dml_beg_txt) && file.exists(dml_end_txt) &&
+            file.mtime(dml_beg_txt)  < file.mtime(full_dml_csv) && 
+            file.mtime(full_dml_csv) < file.mtime(dml_end_txt) ) {
+          
+          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] DMLs already exists! Reading; full_dml_csv={full_dml_csv}...{RET}") )
+          full_dml_tib <- suppressMessages(suppressWarnings( readr::read_csv(full_dml_csv) ))
+          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Done. Reading Full DMLs{RET}{RET}") )
+          
+        } else {
+          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Calculating dmls...{RET}") )
+          
+          if (file.exists(dml_beg_txt))  unlink(dml_beg_txt)
+          if (file.exists(full_dml_csv)) unlink(full_dml_csv)
+          if (file.exists(dml_end_txt))  unlink(dml_end_txt)
+          
+          full_dml_tib <- dmlsToTib(dml=DML_Local(
+            betas=beta_masked_mat, sample.data=dplyr::rename(sampleSheet_tib, Class_Var=!!class_var), formula = ~Class_Var ), 
+            verbose=opt$verbose, vt=1, tc=2, tt=cTracker) %>% dplyr::mutate_if(is.double, list(round), opt$percisionPval )
+          
+          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Writing Full DML(CSV)={full_dml_csv}...{RET}") )
+          system(glue::glue("touch {dml_beg_txt}"))
+          Sys.sleep(1)
+          readr::write_csv(full_dml_tib,full_dml_csv)
+          Sys.sleep(1)
+          system(glue::glue("touch {dml_end_txt}"))
+          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Done. Writing Full DMLs{RET}{RET}") )
+        }
+        rank_dml_tib <- full_dml_tib %>% dplyr::group_by(Probe_ID) %>% 
+          dplyr::summarise(Rank_Avg=mean(Rank, na.rm=TRUE)) %>% dplyr::arrange(Rank_Avg)
       }
-      rank_dml_tib <- full_dml_tib %>% dplyr::group_by(Probe_ID) %>% 
-        dplyr::summarise(Rank_Avg=mean(Rank, na.rm=TRUE)) %>% dplyr::arrange(Rank_Avg)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                               Build dBLs::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      if (FALSE && !opt$isLinux) {
-        
-        dbl_beg_txt  <- paste(full_dbl_csv,'begTime.txt', sep='.')
-        dbl_end_txt  <- paste(full_dbl_csv,'endTime.txt', sep='.')
-        
-        if (!opt$clean && file.exists(full_dbl_csv) &&
-            file.exists(dbl_beg_txt) && file.exists(dbl_end_txt) &&
-            file.mtime(dbl_beg_txt) < file.mtime(full_dbl_csv) && 
-            file.mtime(dbl_end_txt) > file.mtime(full_dbl_csv) ) {
+      
+      if (opt$buildDbl) {
+        if (!opt$isLinux) {
           
-          cat(glue::glue("[{par$prgmTag}]: deltaBetas already existst full_dbl_csv={full_dbl_csv}. Skipping...{RET}") )
+          dbl_beg_txt  <- paste(full_dbl_csv,'begTime.txt', sep='.')
+          dbl_end_txt  <- paste(full_dbl_csv,'endTime.txt', sep='.')
           
-        } else {
-          cat(glue::glue("[{par$prgmTag}]: Calculating deltaBetas...{RET}") )
-          
-          # Name by Real Classes::
-          #
-          sample_cnt_tib <- beta_labs_df %>% dplyr::group_by(!!class_var) %>% 
-            dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(!!class_var) )
-          sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
-          sample_cnt_vec <- sample_cnt_tib %>% dplyr::pull(Count)
-          
-          dbl_sortMu_key <- paste(paste(sample_key_vec, collapse='_'), 'CSS_mu', sep='_') %>% rlang::sym()
-          dbl_sortQ2_key <- paste(paste(sample_key_vec, collapse='_'), 'CSS_q2', sep='_') %>% rlang::sym()
-          dbl_sdNeg_key  <- paste(sample_key_vec[1], 'beta_sd', sep='_') %>% rlang::sym()
-          dbl_sdPos_key  <- paste(sample_key_vec[2], 'beta_sd', sep='_') %>% rlang::sym()
-          
-          # Need to pick one:: [ full_dblMu_tib or full_dblQ2_tib ]
-          #
-          # full_dblMu_tib %>% names() %>% length() =  65 nan
-          # full_dblMu_tib %>% names() %>% length() =  80 cmb
-          # full_dblMu_tib %>% names() %>% length() = 110 all
-          #
-          # full_dblMu_tib %>% dplyr::select(Probe_ID, dplyr::ends_with("_CSS_mu"))
-          
-          cpp.verbose <- 0
-          
-          sample_key_vec <- sampleSheet_tib %>% dplyr::pull(Sample_Class) %>% unique()
-          sample_cnt_vec <- sampleSheet_tib %>% dplyr::group_by(Sample_Class) %>% dplyr::summarise(Count=n()) %>% dplyr::pull(Count)
-          
-          full_dblMu_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
-            as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID')
-          
-          css_names <- full_dblMu_tib %>% dplyr::select(dplyr::ends_with("_CSS_mu")) %>% names()
-          # TBD::
-          #   Now select Probe_ID,css_names[N] %>% bind_rows()
-          #
-          #
-          
-          if (FALSE) {
+          if (!opt$clean && file.exists(full_dbl_csv) &&
+              file.exists(dbl_beg_txt) && file.exists(dbl_end_txt) &&
+              file.mtime(dbl_beg_txt) < file.mtime(full_dbl_csv) && 
+              file.mtime(dbl_end_txt) > file.mtime(full_dbl_csv) ) {
+            
+            cat(glue::glue("[{par$prgmTag}]: deltaBetas already existst full_dbl_csv={full_dbl_csv}. Skipping...{RET}") )
+            
+          } else {
+            cat(glue::glue("[{par$prgmTag}]: Calculating deltaBetas...{RET}") )
+            
+            # Name by Real Classes::
+            #
+            sample_cnt_tib <- beta_labs_df %>% dplyr::group_by(!!class_var) %>% 
+              dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(!!class_var) )
+            sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
+            sample_cnt_vec <- sample_cnt_tib %>% dplyr::pull(Count)
+            
+            dbl_sortMu_key <- paste(paste(sample_key_vec, collapse='_'), 'CSS_mu', sep='_') %>% rlang::sym()
+            dbl_sortQ2_key <- paste(paste(sample_key_vec, collapse='_'), 'CSS_q2', sep='_') %>% rlang::sym()
+            dbl_sdNeg_key  <- paste(sample_key_vec[1], 'beta_sd', sep='_') %>% rlang::sym()
+            dbl_sdPos_key  <- paste(sample_key_vec[2], 'beta_sd', sep='_') %>% rlang::sym()
+            
+            # Need to pick one:: [ full_dblMu_tib or full_dblQ2_tib ]
+            #
+            # full_dblMu_tib %>% names() %>% length() =  65 nan
+            # full_dblMu_tib %>% names() %>% length() =  80 cmb
+            # full_dblMu_tib %>% names() %>% length() = 110 all
+            #
+            # full_dblMu_tib %>% dplyr::select(Probe_ID, dplyr::ends_with("_CSS_mu"))
+            
+            cpp.verbose <- 0
+            
+            sample_key_vec <- sampleSheet_tib %>% dplyr::pull(Sample_Class) %>% unique()
+            sample_cnt_vec <- sampleSheet_tib %>% dplyr::group_by(Sample_Class) %>% dplyr::summarise(Count=n()) %>% dplyr::pull(Count)
+            
             full_dblMu_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
-              as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% 
-              tibble::as_tibble() %>% 
-              dplyr::arrange(-!!dbl_sortMu_key) %>% 
-              dplyr::mutate(Rank=row_number()) %>%
-              dplyr::mutate_if(is.double, list(round), opt$percisionPval)
-            readr::write_csv(full_dblMu_tib, full_dbl_csv)
+              as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID')
+            
+            css_names <- full_dblMu_tib %>% dplyr::select(dplyr::ends_with("_CSS_mu")) %>% names()
+            # TBD::
+            #   Now select Probe_ID,css_names[N] %>% bind_rows()
+            #
+            #
+            
+            if (FALSE) {
+              full_dblMu_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
+                as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% 
+                tibble::as_tibble() %>% 
+                dplyr::arrange(-!!dbl_sortMu_key) %>% 
+                dplyr::mutate(Rank=row_number()) %>%
+                dplyr::mutate_if(is.double, list(round), opt$percisionPval)
+              readr::write_csv(full_dblMu_tib, full_dbl_csv)
+            }
+            
+            if (FALSE) {
+              full_dblQ2_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, verbose=cpp.verbose) %>% 
+                as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% 
+                tibble::as_tibble() %>% 
+                dplyr::arrange(-!!dbl_sortQ2_key) %>% 
+                dplyr::mutate(Rank=row_number()) %>%
+                dplyr::mutate_if(is.double, list(round), opt$percisionPval)
+              readr::write_csv(full_dblQ2_tib, full_dbl_csv)
+            }
+            
+            system(glue::glue("touch {dbl_beg_txt}"))
+            readr::write_csv(full_dblMu_tib,full_dbl_csv)
+            system(glue::glue("touch {dbl_end_txt}"))
+            Sys.sleep(1)
+            
+            cat(glue::glue("[{par$prgmTag}]: Done. Writing deltaBetas...{RET}{RET}") )
           }
-          
-          if (FALSE) {
-            full_dblQ2_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, verbose=cpp.verbose) %>% 
-              as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% 
-              tibble::as_tibble() %>% 
-              dplyr::arrange(-!!dbl_sortQ2_key) %>% 
-              dplyr::mutate(Rank=row_number()) %>%
-              dplyr::mutate_if(is.double, list(round), opt$percisionPval)
-            readr::write_csv(full_dblQ2_tib, full_dbl_csv)
-          }
-          
-          system(glue::glue("touch {dbl_beg_txt}"))
-          readr::write_csv(full_dblMu_tib,full_dbl_csv)
-          system(glue::glue("touch {dbl_end_txt}"))
-          Sys.sleep(1)
-          
-          cat(glue::glue("[{par$prgmTag}]: Done. Writing deltaBetas...{RET}{RET}") )
         }
       }
       
@@ -662,140 +679,144 @@ for (betaKey in lociBetaKey_vec) {
       #                           Build Feature Sets::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      # TBD::
-      #  - [DONE]: Loop over top feature sizes from DML AND create tag
-      #  - [DONE]: Loop over pre-defined features and extract them from DML AND create tag
-      #  - [DONE]: Condense top/pre features and sort by Probe_ID
+      if (opt$buildModels) {
       
-      gen_opt_tib <- opt_tib %>% dplyr::filter(
-        Option %in% c('lociBetaKey','lociPvalKey','lociPvalMin','samplePvalName', 
-                      'samplePvalPerc','platform' ,'version' ,'trainClass','runName')) %>%
-        dplyr::mutate(Type="User")
-      
-      sel_cgn_tib <- tibble::tibble()
-      if (!is.null(featuresCsv_vec) && length(featuresCsv_vec)!=0)
-        sel_cgn_tib <- full_dml_tib %>% dplyr::filter(Probe_ID %in% cgn_pre_tib$Probe_ID) %>% 
-        dplyr::distinct(Probe_ID) %>%
-        dplyr::arrange(Probe_ID)
-      
-      for (dmlSize in featuresDml_vec) {
+        # TBD::
+        #  - [DONE]: Loop over top feature sizes from DML AND create tag
+        #  - [DONE]: Loop over pre-defined features and extract them from DML AND create tag
+        #  - [DONE]: Condense top/pre features and sort by Probe_ID
         
-        # TBD:: Add flags for Top/Pre selection source...
-        dml_top_str <- paste('dml',dmlSize, sep='-')
-        dml_top_tib <- rank_dml_tib %>% head(n=dmlSize) %>% dplyr::bind_rows()
-        # dml_top_tib <- full_dml_tib %>% head(n=dmlSize) %>% dplyr::bind_rows()
+        gen_opt_tib <- opt_tib %>% dplyr::filter(
+          Option %in% c('lociBetaKey','lociPvalKey','lociPvalMin','samplePvalName', 
+                        'samplePvalPerc','platform' ,'version' ,'trainClass','runName')) %>%
+          dplyr::mutate(Type="User")
         
-        # Update Current Output Name and Current Output Directory::
-        dml_cur_str <- dml_top_str
-        if (!is.null(cgn_pre_str) && length(cgn_pre_str)>0)
-          dml_cur_str <- paste(dml_top_str,cgn_pre_str, sep='-')
-        curName <- paste(outName,dml_cur_str, sep='_')
-        
-        cur_dml_dir <- file.path(cur_opt_dir, dml_cur_str)
-        if (!dir.exists(cur_dml_dir)) dir.create(cur_dml_dir, recursive=TRUE)
-        
-        # Combine CGN Features::
-        cgn_cur_tib <- dplyr::bind_rows(dml_top_tib, sel_cgn_tib) %>% 
-          dplyr::distinct(Probe_ID, .keep_all=TRUE) %>% 
+        sel_cgn_tib <- tibble::tibble()
+        if (!is.null(featuresCsv_vec) && length(featuresCsv_vec)!=0)
+          sel_cgn_tib <- full_dml_tib %>% dplyr::filter(Probe_ID %in% cgn_pre_tib$Probe_ID) %>% 
+          dplyr::distinct(Probe_ID) %>%
           dplyr::arrange(Probe_ID)
         
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        #                Sub-set Beta Matrix by Current CGN Features::
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        
-        dml_opt_tib <- gen_opt_tib %>% 
-          tibble::add_row( Option="featureSizeDml", Value=as.character(dmlSize), Type="Feature" ) %>%
-          tibble::add_row( Option="featureNamePre", Value=cgn_pre_str, Type="Feature" )
-        
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        #                               Build Models::
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        
-        beta_impute_matT <- beta_impute_mat %>% t()
-        
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        #                       Run Directly or Launch Cluster::
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        
-        for (seed_val in seed_vec) {
-          cat(glue::glue("[{par$prgmTag}]:{TAB} Starting; seed_val={seed_val}...{RET}") )
+        for (dmlSize in featuresDml_vec) {
           
-          seed_str  <- paste('seed',seed_val, sep='-')
-          seed_dir  <- file.path(cur_dml_dir, seed_str)
-          seed_name <- paste(curName,seed_str, sep='_')
-          if (!dir.exists(seed_dir)) dir.create(seed_dir, recursive=TRUE)
+          # TBD:: Add flags for Top/Pre selection source...
+          dml_top_str <- paste('dml',dmlSize, sep='-')
+          dml_top_tib <- rank_dml_tib %>% head(n=dmlSize) %>% dplyr::bind_rows()
+          # dml_top_tib <- full_dml_tib %>% head(n=dmlSize) %>% dplyr::bind_rows()
           
-          if (opt$cluster) {
+          # Update Current Output Name and Current Output Directory::
+          dml_cur_str <- dml_top_str
+          if (!is.null(cgn_pre_str) && length(cgn_pre_str)>0)
+            dml_cur_str <- paste(dml_top_str,cgn_pre_str, sep='-')
+          curName <- paste(outName,dml_cur_str, sep='_')
+          
+          cur_dml_dir <- file.path(cur_opt_dir, dml_cur_str)
+          if (!dir.exists(cur_dml_dir)) dir.create(cur_dml_dir, recursive=TRUE)
+          
+          # Combine CGN Features::
+          cgn_cur_tib <- dplyr::bind_rows(dml_top_tib, sel_cgn_tib) %>% 
+            dplyr::distinct(Probe_ID, .keep_all=TRUE) %>% 
+            dplyr::arrange(Probe_ID)
+          
+          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+          #                Sub-set Beta Matrix by Current CGN Features::
+          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+          
+          dml_opt_tib <- gen_opt_tib %>% 
+            tibble::add_row( Option="featureSizeDml", Value=as.character(dmlSize), Type="Feature" ) %>%
+            tibble::add_row( Option="featureNamePre", Value=cgn_pre_str, Type="Feature" )
+          
+          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+          #                               Build Models::
+          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+          
+          beta_impute_matT <- beta_impute_mat %>% t()
+          
+          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+          #                       Run Directly or Launch Cluster::
+          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+          
+          for (seed_val in seed_vec) {
+            cat(glue::glue("[{par$prgmTag}]:{TAB} Starting; seed_val={seed_val}...{RET}") )
             
-            run_sh <- file.path(seed_dir, paste(seed_name,'sh', sep='.'))
+            seed_str  <- paste('seed',seed_val, sep='-')
+            seed_dir  <- file.path(cur_dml_dir, seed_str)
+            seed_name <- paste(curName,seed_str, sep='_')
+            if (!dir.exists(seed_dir)) dir.create(seed_dir, recursive=TRUE)
             
-            if (FALSE) {
-              exe_path <- paste(file.path(par$scrDir,par$prgmDir,par$prgmTag),'R', sep='.')
-              opt_str  <- paste(exe_path,'--lociBetaKey',betaKey,'--lociPvalKey',pvalKey,
-                                '--lociPvalMin',pvalMin,'--featuresDml',dmlSize,' ', sep=' ')
-              opt_cnt <- opt_tib %>% base::nrow()
-              for (idx in c(1:opt_cnt)) {
-                key <- opt_tib$Option[idx]
-                val <- opt_tib$Value[idx]
-                if (key=="cluster" || key=="lociBetaKey" || key=="lociPvalKey" || key=="lociPvalMin" || key=='featuresDml') {
-                } else if (val=="FALSE") {
-                } else if (val=="TRUE") {
-                  opt_str <- paste0(opt_str,'--',key,' ')
-                } else {
-                  opt_str <- paste0(opt_str,'--',key,' ',val,' ')
+            if (opt$cluster) {
+              
+              run_sh <- file.path(seed_dir, paste(seed_name,'sh', sep='.'))
+              
+              if (FALSE) {
+                exe_path <- paste(file.path(par$scrDir,par$prgmDir,par$prgmTag),'R', sep='.')
+                opt_str  <- paste(exe_path,'--lociBetaKey',betaKey,'--lociPvalKey',pvalKey,
+                                  '--lociPvalMin',pvalMin,'--featuresDml',dmlSize,' ', sep=' ')
+                opt_cnt <- opt_tib %>% base::nrow()
+                for (idx in c(1:opt_cnt)) {
+                  key <- opt_tib$Option[idx]
+                  val <- opt_tib$Value[idx]
+                  if (key=="cluster" || key=="lociBetaKey" || key=="lociPvalKey" || key=="lociPvalMin" || key=='featuresDml') {
+                  } else if (val=="FALSE") {
+                  } else if (val=="TRUE") {
+                    opt_str <- paste0(opt_str,'--',key,' ')
+                  } else {
+                    opt_str <- paste0(opt_str,'--',key,' ',val,' ')
+                  }
                 }
+                opt_str <- paste(opt$Rscript,opt_str, sep=' ')
+                readr::write_lines(opt_str, path=run_sh)
+                Sys.chmod(run_sh, mode="0777")
+                
+              } else {
+                add_tib <- tibble::tibble(Option=c("lociBetaKey","lociPvalKey","lociPvalMin","featuresDml"),
+                                          Value=c(betaKey,pvalKey,pvalMin,dmlSize))
+                rm_vec <- c("cluster","lociBetaKey","lociPvalKey","lociPvalMin","featuresDml")
+                
+                cmd <- optsToCommand(opts=opt_tib, pre=opt$Rscript, exe=par$exePath, rm=rm_vec, add=add_tib, 
+                                     file=run_sh, verbose=opt$verbose,vt=1,tc=1,tt=NULL)
               }
-              opt_str <- paste(opt$Rscript,opt_str, sep=' ')
-              readr::write_lines(opt_str, path=run_sh)
-              Sys.chmod(run_sh, mode="0777")
+              cat(glue::glue("[{par$prgmTag}]:{TAB}. Wrote shell={run_sh}.{RET}{RET}") )
+              
+              run_id <- paste0('bm-',seed_val)
+              cmd <- paste(opt$lanExe,run_id,run_sh, sep=' ')
+              if (stringr::str_length(opt$lanExe)==0) cmd <- run_sh
+              cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching: cmd={cmd}...{RET}{RET}") )
+              system(cmd)
+              
+              if (opt$single) break
               
             } else {
-              add_tib <- tibble::tibble(Option=c("lociBetaKey","lociPvalKey","lociPvalMin","featuresDml"),
-                                        Value=c(betaKey,pvalKey,pvalMin,dmlSize))
-              rm_vec <- c("cluster","lociBetaKey","lociPvalKey","lociPvalMin","featuresDml")
               
-              cmd <- optsToCommand(opts=opt_tib, pre=opt$Rscript, exe=par$exePath, rm=rm_vec, add=add_tib, 
-                                   file=run_sh, verbose=opt$verbose,vt=1,tc=1,tt=NULL)
-            }
-            cat(glue::glue("[{par$prgmTag}]:{TAB}. Wrote shell={run_sh}.{RET}{RET}") )
-            
-            run_id <- paste0('bm-',seed_val)
-            cmd <- paste(opt$lanExe,run_id,run_sh, sep=' ')
-            if (stringr::str_length(opt$lanExe)==0) cmd <- run_sh
-            cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching: cmd={cmd}...{RET}{RET}") )
-            system(cmd)
+              fTracker <- timeTracker$new(verbose=opt$verbose)
+              cur_time_csv <- file.path(cur_opt_dir, paste(curName,'time-tracker.csv.gz', sep='.') )
+              
+              files_tib <- NULL
+              sed_opt_tib <- dml_opt_tib %>% tibble::add_row( Option="seed", Value=as.character(seed_val), Type="seed" )
+              
+              file_tib <- glmnetRforestWrapper(
+                beta=beta_impute_matT, ss=sampleSheet_tib, cgns=cgn_cur_tib, pars=sed_opt_tib, 
+                class_idx=class_idx, seed=seed_val, outName=seed_name, dir=seed_dir, 
+                alpha_min=opt$alphaMin, alpha_max=opt$alphaMax, opt$alphaInc, parallel=FALSE,
+                crossTrain=TRUE,class_var=class_var,cross_perc_min=opt$cross_perc_min,
+                verbose=opt$verbose, vt=1, tc=2, tt=fTracker)
+              
+              # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+              #                       Write Current Params/Options::
+              # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+              
+              fTracker_tib <- fTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+              readr::write_csv(fTracker_tib, cur_time_csv)
+              
+            } # if opt$cluster==TRUE
             
             if (opt$single) break
-            
-          } else {
-            
-            fTracker <- timeTracker$new(verbose=opt$verbose)
-            cur_time_csv <- file.path(cur_opt_dir, paste(curName,'time-tracker.csv.gz', sep='.') )
-            
-            files_tib <- NULL
-            sed_opt_tib <- dml_opt_tib %>% tibble::add_row( Option="seed", Value=as.character(seed_val), Type="seed" )
-            
-            file_tib <- glmnetRforestWrapper(
-              beta=beta_impute_matT, ss=sampleSheet_tib, cgns=cgn_cur_tib, pars=sed_opt_tib, 
-              class_idx=class_idx, seed=seed_val, outName=seed_name, dir=seed_dir, 
-              alpha_min=opt$alphaMin, alpha_max=opt$alphaMax, opt$alphaInc, parallel=FALSE,
-              crossTrain=TRUE,class_var=class_var,cross_perc_min=opt$cross_perc_min,
-              verbose=opt$verbose, vt=1, tc=2, tt=fTracker)
-            
-            # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-            #                       Write Current Params/Options::
-            # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-            
-            fTracker_tib <- fTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
-            readr::write_csv(fTracker_tib, cur_time_csv)
-            
-          } # if opt$cluster==TRUE
+          } # seed_val
           
           if (opt$single) break
-        } # seed_val
+        } # dmlSize
         
-        if (opt$single) break
-      } # dmlSize
+      }
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                       Write Current Params/Options::

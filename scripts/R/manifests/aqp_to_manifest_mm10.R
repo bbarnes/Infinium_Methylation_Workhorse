@@ -41,7 +41,7 @@ par$prgmTag <- paste(par$prgmDir,'aqp_to_manifest_mm10', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Illumina based directories::
-par$macDir <- '/Users/bbarnes/Documents/CustomerFacing'
+par$macDir <- '/Users/bbarnes/Documents/Projects/methylation/tools'
 par$lixDir <- '/illumina/scratch/darkmatter'
 
 par$retData <- FALSE
@@ -88,15 +88,16 @@ opt$verbose <- 3
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir)) par$topDir <- par$macDir
-  if (dir.exists(par$lixDir)) par$topDir <- par$lixDir
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$topDir, 'workhorse')
+  par$srcDir     <- file.path(par$macDir, 'Infinium_Methylation_Workhorse')
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -440,9 +441,9 @@ if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_ctl_tib) %>% 
-  dplyr::select(-AlleleA_Probe_Sequence,-AlleleB_Probe_Sequence) %>%
+  # dplyr::select(-AlleleA_Probe_Sequence,-AlleleB_Probe_Sequence) %>%
   dplyr::arrange(Probe_ID)
-if (opt$write_ses) readr::write_csv(ses_man_tib, ses_man_csv)
+readr::write_csv(ses_man_tib, ses_man_csv)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Genome Studio Manifest::
@@ -461,14 +462,14 @@ gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="[Assay]", Value="")
 #  IlmnID,Name,AddressA_ID,AlleleA_ProbeSeq,AddressB_ID,AlleleB_ProbeSeq,
 #   Infinium_Design_Type,Next_Base,Color_Channel,Forward_Sequence,
 #   Genome_Build,CHR,MAPINFO,SourceSeq,Strand
-gs_body_tib <- out_man_tib %>% head(n=1000) %>%
+gs_body_tib <- out_man_tib %>% # head(n=1000) %>%
   dplyr::rename(IlmnID=Probe_ID,
                 AddressA_ID=U,AlleleA_ProbeSeq=AlleleA_Probe_Sequence,
                 AddressB_ID=M,AlleleB_ProbeSeq=AlleleB_Probe_Sequence,
                 Infinium_Design_Type=DESIGN,Color_Channel=col) %>%
-  dplyr::mutate(Name=IlmnID,Forward_Sequence='N',Genome_Build=opt$genomeBuild,CHR='chr1',MAPINFO=1,SourceSeq='N',Strand='F') %>%
+  dplyr::mutate(Name=IlmnID,Forward_Sequence='N',Genome_Build=opt$genomeBuild,CHR='chr1',MAPINFO=1,Source_Seq='N',Strand='F') %>%
   dplyr::select(IlmnID,Name,AddressA_ID,AlleleA_ProbeSeq,AddressB_ID,AlleleB_ProbeSeq,
-                Infinium_Design_Type,Next_Base,Color_Channel,Forward_Sequence,Genome_Build,CHR,MAPINFO,SourceSeq,Strand) %>%
+                Infinium_Design_Type,Next_Base,Color_Channel,Forward_Sequence,Genome_Build,CHR,MAPINFO,Source_Seq,Strand) %>%
   dplyr::arrange(IlmnID)
 ctl_head_df <- tibble::tibble(Head="[Controls]")
 
