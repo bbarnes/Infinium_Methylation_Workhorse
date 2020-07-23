@@ -595,7 +595,8 @@ safeSexKaryo = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
     try_str <- ''
     val = tryCatch({
       try_str <- 'Pass'
-      suppressWarnings(sesame::inferSexKaryotypes(sset) )
+      suppressWarnings(inferSexKaryotypes_Copy(sset) )
+      # suppressWarnings(sesame::inferSexKaryotypes(sset) )
     }, warning = function(w) {
       try_str <- paste('warning',funcTag, sep='-')
       NA
@@ -640,7 +641,8 @@ safeSex = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
     try_str <- ''
     val = tryCatch({
       try_str <- 'Pass'
-      suppressWarnings(sesame::inferSex(sset) )
+      suppressWarnings(inferSex_Copy(sset) )
+      # suppressWarnings(sesame::inferSex(sset) )
     }, warning = function(w) {
       try_str <- paste('warning',funcTag, sep='-')
       NA
@@ -1204,6 +1206,81 @@ templateFuncT = function(x, verbose=0,vt=3,tc=1,tt=NULL) {
   x
 }
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Extracted Sesame Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+inferSexKaryotypes_Copy = function (sset) 
+{
+  stopifnot(is(sset, "SigSet"))
+  sex.info <- getSexInfo_Copy(sset)
+  auto.median <- median(sex.info[paste0("chr", seq_len(22))], 
+                        na.rm = TRUE)
+  XdivAuto <- sex.info["medianX"]/auto.median
+  YdivAuto <- sex.info["medianY"]/auto.median
+  if (XdivAuto > 1.2) {
+    if (sex.info["fracXlinked"] >= 0.5) 
+      sexX <- "XaXi"
+    else if (sex.info["fracXmeth"] > sex.info["fracXunmeth"]) 
+      sexX <- "XiXi"
+    else sexX <- "XaXa"
+  }
+  else {
+    if (sex.info["fracXmeth"] > sex.info["fracXunmeth"]) 
+      sexX <- "Xi"
+    else sexX <- "Xa"
+  }
+  if ((sexX == "Xi" || sexX == "Xa") && XdivAuto >= 1 && sex.info["fracXlinked"] >= 
+      0.5) 
+    sexX <- "XaXi"
+  if (YdivAuto > 0.3 || sex.info["medianY"] > 2000) 
+    sexY <- "Y"
+  else sexY <- ""
+  karyotype <- paste0(sexX, sexY)
+  karyotype
+}
+
+inferSex_Copy = function (sset) 
+{
+  stopifnot(is(sset, "SigSet"))
+  sex.info <- getSexInfo_Copy(sset)[seq_len(3)]
+  as.character(predict(sesameDataGet("sex.inference"), sex.info))
+}
+
+# 
+# sesameData::sesameDataGet(paste0(rdat$raw_sset@platform, '.probeInfo'))$chrY.clean
+# sex_info <- getSexInfo_Copy(sset=rdat$raw_sset)
+# kar_info <- sesame::inferSexKaryotypes(sset=rdat$raw_sset)
+getSexInfo_Copy = function (sset) 
+{
+  if (is(sset, "SigSetList")) 
+    return(do.call(cbind, lapply(sset, getSexInfo)))
+  stopifnot(is(sset, "SigSet"))
+  cleanY <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrY.clean
+  # cleanY %>% length() %>% print()
+  
+  xLinked <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrX.xlinked
+  # xLinked %>% length() %>% print()
+  
+  probe2chr <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$probe2chr.hg19
+  # print(probe2chr)
+  
+  xLinkedBeta <- getBetas(subsetSignal(sset, xLinked), quality.mask = FALSE)
+  intens <- totalIntensities(sset)
+  probes <- intersect(names(intens), names(probe2chr))
+  intens <- intens[probes]
+  probe2chr <- probe2chr[probes]
+  # print(probe2chr)
+  
+  # return( subsetSignal(sset, cleanY) )
+  # return( median(totalIntensities(subsetSignal(sset, cleanY))) )
+  
+  c(medianY = median(totalIntensities(subsetSignal(sset, cleanY)), na.rm=TRUE), 
+    medianX = median(totalIntensities(subsetSignal(sset, xLinked)), na.rm=TRUE), fracXlinked = 
+      (sum(xLinkedBeta > 0.3 & xLinkedBeta < 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta))) ), 
+    fracXmeth = (sum(xLinkedBeta > 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    fracXunmeth = (sum(xLinkedBeta < 0.3, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    tapply(intens, probe2chr, median, na.rm=TRUE))
+}
 
 # End of file

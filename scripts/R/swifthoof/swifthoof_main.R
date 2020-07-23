@@ -39,6 +39,7 @@ RET <- "\n"
 par <- NULL
 opt <- NULL
 
+par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'swifthoof'
 par$prgmTag <- paste(par$prgmDir,'main', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
@@ -142,7 +143,7 @@ if (args.dat[1]=='RStudio') {
   
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$macDir, 'Infinium_Methylation_Workhorse')
+  par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -158,15 +159,17 @@ if (args.dat[1]=='RStudio') {
   
   opt$workflows <- 'ind'
   
-  opt$buildSubDir  <- TRUE
+  opt$buildSubDir  <- FALSE
   opt$autoDetect   <- TRUE
   opt$writeCalls   <- TRUE
   opt$writeSsheet  <- TRUE
   
-  isCOVIC <- TRUE
+  par$retData <- TRUE
+  
+  isCORE  <- TRUE
+  isCOVIC <- FALSE
   if (isCOVIC) {
     opt$platform   <- 'EPIC'
-    opt$manifest   <- 'B4'
     opt$manifest   <- 'C0'
     
     opt$platform   <- NULL
@@ -175,17 +178,34 @@ if (args.dat[1]=='RStudio') {
     # Set-1
     opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
     opt$expChipNum <- '204500250013'
-    opt$idatsDir   <- file.path('/Users/bbarnes/Documents/Projects/workhorse', 'idats',opt$expRunStr, opt$expChipNum)
     
-    opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+  } else if (isCORE) {
+    opt$platform   <- 'EPIC'
+    opt$manifest   <- 'B4'
     
-    opt$verbose <- 3
-    opt$verbose <- 6
+    # opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
+    # opt$expChipNum <- '201502830033'
+    
+    opt$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
+    opt$expChipNum <- '202761400007'
 
+    opt$expRunStr  <- 'idats_ADRN-blood-nonAtopic_EPIC'
+    opt$expChipNum <- '201125090068'
+    
+    opt$expRunStr  <- 'idats_GSE122126_EPIC'
+    opt$expChipNum <- '202410280180'
+    
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Unsupported pre-defined method! Exiting...{RET}{RET}"))
   }
-  opt$outDir <- file.path(par$topDir, 'builds')
+  
+  opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/data/idats', opt$expRunStr, opt$expChipNum)
+  opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+  
+  opt$verbose <- 3
+  opt$verbose <- 6
+  
+  opt$outDir <- file.path(par$topDir, par$prgmDir, opt$expRunStr)
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -487,10 +507,7 @@ if (opt$cluster) {
   
   if (opt$autoDetect) {
     cat(glue::glue("[{par$prgmTag}]:{TAB} Loading auto_sam_csv={opt$auto_sam_csv}...{RET}"))
-    
-    stime <- system.time({  auto_sam_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$auto_sam_csv) ))  })
-    pTracker$addTime(stime,'loadAutoSamples_New')
-    
+    auto_sam_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$auto_sam_csv) ))
     cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}"))
   }
   
@@ -511,25 +528,25 @@ if (opt$cluster) {
     cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: Starting...{RET}"))
 
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
-      val <- NULL
+      rdat <- NULL
       try_str <- ''
-      val = tryCatch({
+      rdat = tryCatch({
         try_str <- 'Pass'
-        sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                             retData=par$retData, workflows=workflows_vec, tc=3)
+        rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+                                     retData=par$retData, workflows=workflows_vec, tc=3)
       }, warning = function(w) {
         try_str <- paste('warning',funcTag, sep='-')
-        NA
+        rdat <- NA
       }, error = function(e) {
         try_str <- paste('error',funcTag, sep='-')
-        NA
+        rdat <- NA
       }, finally = {
         try_str <- paste('cleanup',funcTag, sep='-')
-        NA
+        rdat <- NA
       })
       cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       
-      val
+      rdat
     }
     
   } else {
@@ -537,40 +554,28 @@ if (opt$cluster) {
 
     cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: Starting...{RET}"))
     
-    if (FALSE) {
-      for (prefix in names(chipPrefixes)) {
-        cat(glue::glue("[{par$prgmTag}]:{TAB} prefix={prefix}.{RET}"))
-        
-        rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt,
+    for (prefix in names(chipPrefixes)) {
+      rdat <- NULL
+      try_str <- ''
+      rdat = tryCatch({
+        try_str <- 'Pass'
+        rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                      retData=par$retData, workflows=workflows_vec, tc=3)
-        
-        if (opt$single) break
-      }
-    } else {
-      for (prefix in names(chipPrefixes)) {
-        val <- NULL
-        try_str <- ''
-        
-        val = tryCatch({
-          try_str <- 'Pass'
-          sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt,
-                               retData=par$retData, workflows=workflows_vec, tc=3)
-        }, warning = function(w) {
-          try_str <- paste('warning',funcTag, sep='-')
-          NA
-        }, error = function(e) {
-          try_str <- paste('error',funcTag, sep='-')
-          NA
-        }, finally = {
-          try_str <- paste('cleanup',funcTag, sep='-')
-          NA
-        })
-        cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
-        
-        val
-      }
+      }, warning = function(w) {
+        try_str <- paste('warning',funcTag, sep='-')
+        rdat <- NA
+      }, error = function(e) {
+        try_str <- paste('error',funcTag, sep='-')
+        rdat <- NA
+      }, finally = {
+        try_str <- paste('cleanup',funcTag, sep='-')
+        rdat <- NA
+      })
+      cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+      
+      if (opt$single) break
     }
-    
+
     cat(glue::glue("[{par$prgmTag}] parallelFunc={funcTag}: Done.{RET}{RET}"))
   }
   
