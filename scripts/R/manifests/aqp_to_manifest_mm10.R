@@ -111,6 +111,8 @@ if (args.dat[1]=='RStudio') {
   opt$genomeBuild <- 'mm10'
   opt$platform    <- 'LEGX'
   opt$version     <- 'B3'
+  opt$version     <- 'B4'
+  opt$version     <- 'B5'
   
   opt$frmt_original <- TRUE
   
@@ -394,9 +396,22 @@ uniq_man_tib <- full_man_tib %>% dplyr::group_by(Probe_ID) %>%
 uniq_man_tib %>% dplyr::select(Probe_ID) %>% dplyr::group_by(Probe_ID) %>% dplyr::mutate(Rep=row_number()) %>% dplyr::ungroup() %>% 
   dplyr::group_by(Rep) %>% dplyr::summarise(Count=n()) %>% print()
 
-out_man_tib <- uniq_man_tib %>% dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, 
-                                              AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
+out_man_tib <- uniq_man_tib %>% 
+  dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, 
+                AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
   dplyr::mutate(Version=opt$tar_version)
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   Extract Probe CGN Positions for cg & mu::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+cgn_key_tib <- out_man_tib %>% dplyr::filter(Probe_Type=='mu' | Probe_Type=='cg') %>% 
+  dplyr::mutate(CGN=stringr::str_remove(Probe_ID,'_.*$')) %>% 
+  dplyr::mutate(CGN=stringr::str_replace(CGN,'^mu','cg')) %>% 
+  dplyr::select(CGN,Probe_ID,Probe_Type) %>% dplyr::arrange(CGN)
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               Format Infinium Methylation Standard Controls::
@@ -462,22 +477,52 @@ gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="[Assay]", Value="")
 #  IlmnID,Name,AddressA_ID,AlleleA_ProbeSeq,AddressB_ID,AlleleB_ProbeSeq,
 #   Infinium_Design_Type,Next_Base,Color_Channel,Forward_Sequence,
 #   Genome_Build,CHR,MAPINFO,SourceSeq,Strand
+#
+#   Missing: Source_Seq
+#
+src_seq <- as.character(paste(rep('N',50), collapse='') )
 gs_body_tib <- out_man_tib %>% # head(n=1000) %>%
   dplyr::rename(IlmnID=Probe_ID,
                 AddressA_ID=U,AlleleA_ProbeSeq=AlleleA_Probe_Sequence,
                 AddressB_ID=M,AlleleB_ProbeSeq=AlleleB_Probe_Sequence,
                 Infinium_Design_Type=DESIGN,Color_Channel=col) %>%
-  dplyr::mutate(Name=IlmnID,Forward_Sequence='N',Genome_Build=opt$genomeBuild,CHR='chr1',MAPINFO=1,Source_Seq='N',Strand='F') %>%
+  dplyr::mutate(Name=IlmnID,Forward_Sequence='N',Genome_Build=opt$genomeBuild,
+                CHR='chr1',MAPINFO=1,Strand='F',Source_Seq=!!src_seq) %>%
   dplyr::select(IlmnID,Name,AddressA_ID,AlleleA_ProbeSeq,AddressB_ID,AlleleB_ProbeSeq,
-                Infinium_Design_Type,Next_Base,Color_Channel,Forward_Sequence,Genome_Build,CHR,MAPINFO,Source_Seq,Strand) %>%
+                Infinium_Design_Type,Next_Base,Color_Channel,Forward_Sequence,Genome_Build,CHR,MAPINFO,Source_Seq,Strand,Source_Seq) %>%
   dplyr::arrange(IlmnID)
 ctl_head_df <- tibble::tibble(Head="[Controls]")
+
+# Silly addition of commas to the end of the controls section...
+#
+org_ctl_tib <- org_ctl_tib %>% dplyr::mutate(Probe_ID=paste0(Probe_ID,",,,,,,"))
+
+# Silly incosistent padding of Tango Addresses..
+gs_body_tib <- gs_body_tib %>% dplyr::mutate(
+  AddressA_ID=stringr::str_pad(string=AddressA_ID, pad='0', side="left", width=10), 
+  AddressB_ID=stringr::str_pad(string=AddressB_ID, pad='0', side="left", width=10),
+  Color_Channel=dplyr::case_when(
+    Color_Channel=='R' ~ 'Red',
+    Color_Channel=='G' ~ 'Grn',
+    TRUE ~ ''
+  )
+)
 
 # Write Genome Studio CSV::
 write_delim(x=gs_head_tib, path=gss_man_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=FALSE)
 write_delim(x=gs_body_tib, path=gss_man_csv, delim=',', col_names=TRUE,  quote_escape=FALSE, na='', append=TRUE)
 write_delim(x=ctl_head_df, path=gss_man_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
 write_delim(x=org_ctl_tib, path=gss_man_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
+
+# Follow up silly command to remove quotes::
+#  gzip -dc /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-B4/mm10_LEGX_B4.manifest.GenomeStudio.cpg-sorted.csv.gz | perl -pe 's/\"//gi' | gzip -c - > /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-B4/mm10_LEGX_B4.manifest.GenomeStudio.cpg-sorted.clean.csv.gz
+
+# gss_man_zip <- paste(gss_man_csv,'gz', sep='.')
+# cmd <- glue::glue("cat {gss_man_csv} | perl -pe perl -pe 's/\"//gi' | gzip -c - > {gss_man_zip}")
+# system(cmd)
+
+# Follow up silly command to remove quotes::
+#  cat /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-B5/mm10_LEGX_B5.manifest.GenomeStudio.cpg-sorted.csv | perl -pe 's/\"//gi' | gzip -c - > /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-B5/mm10_LEGX_B5.manifest.GenomeStudio.cpg-sorted.clean.csv.gz
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Write mm10 Manifest::
@@ -513,8 +558,6 @@ if (FALSE) {
   hits_ann_tib <- gene_ann_tib %>% dplyr::select(Probe_ID:DT, Probe_Chrom, Probe_Beg, Probe_End, Strand_FR) %>% dplyr::distinct() %>% 
     dplyr::add_count(Probe_ID, name='Aln_Count') %>% dplyr::arrange(-Aln_Count) %>% dplyr::distinct(Probe_ID, Aln_Count)
   
-  
-
   gene_man_tib <- full_man_tib %>% dplyr::inner_join(gene_ann_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
   misA_man_tib <- full_man_tib %>% dplyr::anti_join(gene_ann_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
   misB_man_tib <- gene_ann_tib %>% dplyr::anti_join(full_man_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))

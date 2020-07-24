@@ -133,11 +133,12 @@ if (args.dat[1]=='RStudio') {
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   
-  opt$classVar <- 'Karyotype_0_Call'
-  opt$classVar <- 'Karyotype_1_Call'
   opt$classVar <- 'Sample_Name'
   opt$classVar <- 'Sample_Class'
   
+  opt$classVar <- 'Karyotype_0_Call'
+  opt$classVar <- 'Karyotype_1_Call'
+
   opt$clean    <- TRUE
   opt$clean    <- FALSE
   
@@ -145,6 +146,8 @@ if (args.dat[1]=='RStudio') {
   opt$cluster  <- TRUE
   opt$cluster  <- FALSE
   opt$parallel <- FALSE
+  
+  opt$runName <- 'BETA-DELTA-8x1-EPIC-Core'
   
   if (opt$classVar=='Sample_Class') {
     platform  <- 'EPIC'
@@ -163,15 +166,28 @@ if (args.dat[1]=='RStudio') {
   } else if (opt$classVar=='Karyotype_0_Call' || opt$classVar=='Karyotype_1_Call') {
     platform  <- 'EPIC'
     version   <- 'C0'
-    
-    runName1  <- "COVIC-Set1-15052020"
-    runName5  <- "COVIC-Set5-10062020"
-    opt$runName <- runName5
+
+    if (opt$runName=='BETA-DELTA-8x1-EPIC-Core') {
+      opt$runName <- 'BETA-8x1-EPIC-Ref'
+      opt$runName <- 'BETA-DELTA-8x1-EPIC-Core'
+
+      version  <- 'B4'
+      
+    } else {
+      runName1  <- "COVIC-Set1-15052020"
+      runName5  <- "COVIC-Set5-10062020"
+      opt$runName <- runName5
+      
+    }
+
+    opt$buildDir  <- paste(
+      file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker',opt$runName),
+      sep=',')
     
     opt$mergeDir <- paste(
       file.path(par$topDir, 'merge_builds', opt$classVar, opt$runName, platform, version),
       sep=',')
-    
+
     # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
     opt$trainClass <- paste('XaXi','XaY', sep=',')
     
@@ -192,7 +208,7 @@ if (args.dat[1]=='RStudio') {
     # opt$runNameC  <- 'BETA-DELTA-Core'
     #
     # opt$mergeDir <- paste(
-    #   file.path(par$topDir, 'merge_builds',opt$classVar,opt$runNameC,opt$platform,opt$version ),
+    #   file.path(par$topDir, 'merge_builds',opt$classVar,opt$runNameC,opt$platform,version  ),
     #   sep=',')
     
     opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')

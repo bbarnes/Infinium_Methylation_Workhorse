@@ -148,14 +148,22 @@ if (args.dat[1]=='RStudio') {
     opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
     
   } else if (opt$classVar=='Karyotype_0_Call' || opt$classVar=='Karyotype_1_Call') {
-    opt$runName   <- 'BETA-DELTA-8x1-EPIC-Core'
+    opt$runName <- 'BETA-DELTA-8x1-EPIC-Core'
+    opt$runName <- 'BETA-8x1-EPIC-Ref'
+    opt$version <- 'B4'
+    
     if (opt$runName=='BETA-DELTA-8x1-EPIC-Core') {
-      opt$version   <- 'B4'
       
       opt$buildDir  <- paste(
         file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker'),
         sep=',')
-
+      
+    } else if (opt$runName=='BETA-8x1-EPIC-Ref') {
+      
+      opt$buildDir  <- paste(
+        file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker', opt$runName),
+        sep=',')
+      
     } else {
       opt$version   <- 'C0'
       
@@ -214,7 +222,7 @@ if (args.dat[1]=='RStudio') {
     # Directory Parameters::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("--buildDirs"), type="character", default=opt$buildDir, 
+    make_option(c("-i","--buildDirs"), type="character", default=opt$buildDir, 
                 help="List of Build Directory [default= %default]", metavar="character"),
     
     # Run Parameters::
@@ -428,13 +436,19 @@ cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len
 #  - Assume any unidentified sample is COVID-
 #  - Add Nasal Swabs to master sample sheet
 #
-hum_ss_tib <- NULL
+hum_ss_tib  <- NULL
+labs_ss_tib <- NULL
 if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
   
   cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
   
   hum_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(opt$sampleCsv) ))
   hum_ss_len <- hum_ss_tib %>% base::nrow()
+  
+  # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
+  # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+  #
+  labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
   
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Human Classification; hum_ss_len={hum_ss_len}!{RET}{RET}") )
   # print(hum_ss_tib)
@@ -444,18 +458,17 @@ if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
   cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
   
   hum_ss_tib <- auto_ss_tib %>% dplyr::select(Sentrix_Name, !!class_var) %>% dplyr::arrange(!!class_var)
+  
+  # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
+  # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+  #
+  auto_ss_tib <- auto_ss_tib %>% dplyr::select(- !!class_var)
+  labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Join Human and Auto Sample Sheets::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-labs_ss_tib <- NULL
-
-# Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
-# labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
-#
-labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
 
 # This seems like correct way, but we'll skip it for now and directly force missing values...
 #

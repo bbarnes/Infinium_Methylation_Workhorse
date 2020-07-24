@@ -1265,18 +1265,18 @@ getSexInfo_Copy = function (sset)
   probe2chr <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$probe2chr.hg19
   # print(probe2chr)
   
-  xLinkedBeta <- getBetas(subsetSignal(sset, xLinked), quality.mask = FALSE)
-  intens <- totalIntensities(sset)
+  xLinkedBeta <- sesame::getBetas(sesame::subsetSignal(sset, xLinked), quality.mask = FALSE)
+  intens <- sesame::totalIntensities(sset)
   probes <- intersect(names(intens), names(probe2chr))
   intens <- intens[probes]
   probe2chr <- probe2chr[probes]
   # print(probe2chr)
   
-  # return( subsetSignal(sset, cleanY) )
-  # return( median(totalIntensities(subsetSignal(sset, cleanY))) )
+  # return( sesame::subsetSignal(sset, cleanY) )
+  # return( median(sesame::totalIntensities(sesame::subsetSignal(sset, cleanY))) )
   
-  c(medianY = median(totalIntensities(subsetSignal(sset, cleanY)), na.rm=TRUE), 
-    medianX = median(totalIntensities(subsetSignal(sset, xLinked)), na.rm=TRUE), fracXlinked = 
+  c(medianY = median(sesame::totalIntensities(sesame::subsetSignal(sset, cleanY)), na.rm=TRUE), 
+    medianX = median(sesame::totalIntensities(sesame::subsetSignal(sset, xLinked)), na.rm=TRUE), fracXlinked = 
       (sum(xLinkedBeta > 0.3 & xLinkedBeta < 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta))) ), 
     fracXmeth = (sum(xLinkedBeta > 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
     fracXunmeth = (sum(xLinkedBeta < 0.3, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 

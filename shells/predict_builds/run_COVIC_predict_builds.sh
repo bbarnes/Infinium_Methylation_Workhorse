@@ -4,6 +4,7 @@ if [ "$#" -lt 7 ]; then
     echo "Usage: $0 mergeDir(s) modelDir runName classVar[Sample_Class,Sample_Name] trainClass[nSARSCov2,pSARSCov2] version[B4,C0] seedStr[seed-13,seed-42,seed-61]"
     exit 1
 fi
+
 mergeDir=$1
 modelDir=$2
 runName=$3
@@ -39,7 +40,7 @@ verbose=3
 # Standard Options:: DON'T CHANGE:: 
 #
 prgmTop="workhorse"
-prgmDir="covic"
+prgmDir="analysis"
 prgmTag="predict_builds"
 
 TOP_MAC=/Users/bbarnes/Documents/CustomerFacing

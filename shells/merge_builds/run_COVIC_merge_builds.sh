@@ -25,7 +25,7 @@ verbose=3
 # Standard Options:: DON'T CHANGE::
 #
 prgmTop="Infinium_Methylation_Workhorse"
-prgmDir="covic"
+prgmDir="analysis"
 prgmTag="merge_builds"
 
 TOP_MAC=/Users/bbarnes/Documents/CustomerFacing
@@ -95,6 +95,6 @@ CMD+=" --"verbose=${verbose}
 echo ${CMD}
 echo
 
-${CMD}
+# ${CMD}
 
 ## End of file

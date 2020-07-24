@@ -53,7 +53,7 @@ verbose=3
 # Standard Options:: DON'T CHANGE::
 #
 prgmTop="Infinium_Methylation_Workhorse"
-prgmDir="covic"
+prgmDir="analysis"
 prgmTag="build_models"
 
 TOP_MAC=/Users/bbarnes/Documents/CustomerFacing

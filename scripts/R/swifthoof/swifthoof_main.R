@@ -168,6 +168,7 @@ if (args.dat[1]=='RStudio') {
   
   isCORE  <- TRUE
   isCOVIC <- FALSE
+  isCOVIC <- TRUE
   if (isCOVIC) {
     opt$platform   <- 'EPIC'
     opt$manifest   <- 'C0'
