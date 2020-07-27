@@ -147,7 +147,7 @@ if (args.dat[1]=='RStudio') {
   opt$cluster  <- TRUE
   opt$cluster  <- FALSE
   opt$parallel <- FALSE
-  
+
   par$platform <- 'EPIC'
   par$version  <- 'B4'
   
@@ -211,7 +211,7 @@ if (args.dat[1]=='RStudio') {
     # Directory Parameters::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("--mergeDir"), type="character", default=opt$mergeDir, 
+    make_option(c("-m","--mergeDir"), type="character", default=opt$mergeDir, 
                 help="List of Merged Swifthoof Build Directory(s), commas seperated [default= %default]", metavar="character"),
     
     make_option(c("--buildDbl"), action="store_true", default=opt$buildDbl, 
@@ -220,7 +220,6 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to build DML [default= %default]", metavar="boolean"),
     make_option(c("--buildModels"), action="store_true", default=opt$buildModels, 
                 help="Boolean variable to build Models [default= %default]", metavar="boolean"),
-    
     
     # Run Parameters::
     make_option(c("--runName"), type="character", default=opt$runName, 
