@@ -578,15 +578,26 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, classes=NULL,
           if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Imputing Class={sName}...{RET}") )
           cur_ss_tib <- sort_ss_tib %>% dplyr::filter(!!class_var == sName)
           
+          # cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_ss_tib::{RET}") )
+          # print(cur_ss_tib)
+          
           cur_masked_mat <- beta_masked_mat[ , dplyr::pull(cur_ss_tib, !!sentrix_name) ]
+          # cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_masked_mat::{RET}") )
+          # cur_masked_mat %>% head(n=3) %>% print()
+          
           cur_impute_mat <- impute_matrix_mean(mat=cur_masked_mat)
+          # cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_impute_mat(dim-1)::{RET}") )
           # cur_impute_mat %>% dim() %>% print()
+          # 
+          # cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_impute_mat::{RET}") )
+          # cur_impute_mat %>% head(n=3) %>% print()
           
           if (is.null(beta_impute_mat)) {
             beta_impute_mat <- cur_impute_mat
           } else {
             beta_impute_mat <- cbind(beta_impute_mat, cur_impute_mat[match(rownames(beta_impute_mat), rownames(cur_impute_mat)), ] )
           }
+          # cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_impute_mat(dim-2)::{RET}") )
           # beta_impute_mat %>% dim() %>% print()
         }
         # return(beta_impute_mat)

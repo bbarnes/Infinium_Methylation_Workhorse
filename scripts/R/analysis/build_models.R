@@ -399,13 +399,16 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source=
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
-if (!opt$isLinux) {
+if (!opt$isLinux && opt$buildDbl) {
+  suppressWarnings(suppressPackageStartupMessages( require("Rcpp") ))
+  
   par$sourceCpp <- file.path(par$scrDir, 'R/Rcpp/cpgLociVariation.cpp')
   if (!file.exists(par$sourceCpp)) par$sourceCpp <- file.path(par$scrDir, 'Rcpp/cpgLociVariation.cpp')
   if (!file.exists(par$sourceCpp)) stop(glue::glue("[{par$prgmTag}]: Source={par$sourceCpp} does not exist!{RET}"))
   Rcpp::sourceCpp(par$sourceCpp)
+  
+  cat(glue::glue("[{par$prgmTag}]: Loading Source Files form sourceCpp={par$sourceCpp}!{RET}{RET}") )
 }
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Source_Dir={opt$source_dir}!{RET}{RET}") )
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Preprocessing:: General Params
