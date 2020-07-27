@@ -101,12 +101,13 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir)) par$topDir <- par$macDir
-  if (dir.exists(par$lixDir)) par$topDir <- par$lixDir
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$topDir, par$codeDir)
+  par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   

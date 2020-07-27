@@ -115,12 +115,13 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir)) par$topDir <- par$macDir
-  if (dir.exists(par$lixDir)) par$topDir <- par$lixDir
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$topDir, par$codeDir)
+  par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -147,72 +148,19 @@ if (args.dat[1]=='RStudio') {
   opt$cluster  <- FALSE
   opt$parallel <- FALSE
   
-  opt$runName <- 'BETA-DELTA-8x1-EPIC-Core'
+  par$platform <- 'EPIC'
+  par$version  <- 'B4'
   
-  if (opt$classVar=='Sample_Class') {
-    platform  <- 'EPIC'
-    version   <- 'C0'
-    
-    runName1 <- "COVIC-Set1-15052020"
-    runName5 <- "COVIC-Set5-10062020"
-    opt$runName <- runName5
-    
-    opt$mergeDir  <- paste(
-      file.path(par$topDir, 'merge_builds', platform, version, opt$classVar, opt$runName),
-      sep=',')
-    
-    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
-    
-  } else if (opt$classVar=='Karyotype_0_Call' || opt$classVar=='Karyotype_1_Call') {
-    platform  <- 'EPIC'
-    version   <- 'C0'
+  opt$runName  <- 'BETA-8x1-EPIC-Ref'
+  
+  opt$mergeDir  <- paste(
+    file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
+    sep=',')
 
-    if (opt$runName=='BETA-DELTA-8x1-EPIC-Core') {
-      opt$runName <- 'BETA-8x1-EPIC-Ref'
-      opt$runName <- 'BETA-DELTA-8x1-EPIC-Core'
-
-      version  <- 'B4'
-      
-    } else {
-      runName1  <- "COVIC-Set1-15052020"
-      runName5  <- "COVIC-Set5-10062020"
-      opt$runName <- runName5
-      
-    }
-
-    opt$buildDir  <- paste(
-      file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker',opt$runName),
-      sep=',')
-    
-    opt$mergeDir <- paste(
-      file.path(par$topDir, 'merge_builds', opt$classVar, opt$runName, platform, version),
-      sep=',')
-
-    # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
-    opt$trainClass <- paste('XaXi','XaY', sep=',')
-    
-  } else if (opt$classVar=='Sample_Name') {
-    platform  <- "EPIC"
-    version   <- "B4"
-    
-    runNameA <- 'BETA-8x1-EPIC-Core'
-    runNameB <- 'DELTA-8x1-EPIC-Core'
-    opt$runName <- "BETA-DELTA-Decoder"
-    
-    opt$mergeDir <- paste(
-      file.path(par$topDir, 'merge_builds',opt$classVar,runNameA,platform,version ),
-      file.path(par$topDir, 'merge_builds',opt$classVar,runNameB,platform,version ),
-      sep=',')
-    
-    # opt$runName   <- "BETA-DELTA-Decoder-Full"
-    # opt$runNameC  <- 'BETA-DELTA-Core'
-    #
-    # opt$mergeDir <- paste(
-    #   file.path(par$topDir, 'merge_builds',opt$classVar,opt$runNameC,opt$platform,version  ),
-    #   sep=',')
-    
-    opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
-  }
+  opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+  opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
+  # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
+  opt$trainClass <- paste('XaXi','XaY', sep=',')
   
   # Sample Level Filtering Parameters::
   opt$samplePvalName <- "Poob_Pass_0_Perc"
@@ -240,11 +188,12 @@ if (args.dat[1]=='RStudio') {
   # K-means Clustering Local params::
   #
   opt$lociBetaKey <- "ind_beta"
+  opt$lociPvalKey <- "ind_poob"
   opt$lociPvalKey <- "i_poob"
   opt$lociPvalMin <- 0.1
   opt$featuresDml <- "1000"
   
-  opt$outDir <- file.path(par$topDir, par$prgmTag, platform, version)
+  opt$outDir <- file.path(par$topDir, par$prgmTag, par$platform, par$version)
   
 } else {
   par$runMode    <- 'CommandLine'

@@ -113,6 +113,7 @@ if (args.dat[1]=='RStudio') {
   opt$version     <- 'B3'
   opt$version     <- 'B4'
   opt$version     <- 'B5'
+  opt$version     <- 'cp'
   
   opt$frmt_original <- TRUE
   
@@ -489,7 +490,8 @@ gs_body_tib <- out_man_tib %>% # head(n=1000) %>%
   dplyr::mutate(Name=IlmnID,Forward_Sequence='N',Genome_Build=opt$genomeBuild,
                 CHR='chr1',MAPINFO=1,Strand='F',Source_Seq=!!src_seq) %>%
   dplyr::select(IlmnID,Name,AddressA_ID,AlleleA_ProbeSeq,AddressB_ID,AlleleB_ProbeSeq,
-                Infinium_Design_Type,Next_Base,Color_Channel,Forward_Sequence,Genome_Build,CHR,MAPINFO,Source_Seq,Strand,Source_Seq) %>%
+                Infinium_Design_Type,Next_Base,Color_Channel,Forward_Sequence,
+                Genome_Build,CHR,MAPINFO,Source_Seq,Strand,Source_Seq,Probe_Type,Probe_Source) %>%
   dplyr::arrange(IlmnID)
 ctl_head_df <- tibble::tibble(Head="[Controls]")
 

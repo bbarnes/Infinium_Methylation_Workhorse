@@ -102,15 +102,16 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir)) par$topDir <- par$macDir
-  if (dir.exists(par$lixDir)) par$topDir <- par$lixDir
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$topDir, par$codeDir)
+  par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
-  
+
   par$prgmTag <- base::sub('\\.R$', '', base::basename(par$exePath))
   par$locPath <- base::dirname(par$exePath)
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
@@ -222,7 +223,7 @@ if (args.dat[1]=='RStudio') {
     # Directory Parameters::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("-i","--buildDirs"), type="character", default=opt$buildDir, 
+    make_option(c("-b","--buildDirs"), type="character", default=opt$buildDir, 
                 help="List of Build Directory [default= %default]", metavar="character"),
     
     # Run Parameters::
@@ -470,13 +471,13 @@ if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
 #                        Join Human and Auto Sample Sheets::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# This seems like correct way, but we'll skip it for now and directly force missing values...
+#
+# TBD:: Not sure this is needed yet, but its to force every sample to have
+#  a class. Should default to the last classs in opt$trainClass
 #
 # null_class <- 'nSARSCov2'
 # null_class <- rlang::sym(null_class)
-# labs_ss_tib %>% dplyr::mutate(!!opt$classVar := dplyr::case_when(is.na(!!opt$classVar) ~ !!null_class), TRUE ~ !!opt$classVar)
-# labs_ss_tib <- labs_ss_tib %>% dplyr::mutate(Sample_Class=dplyr::case_when(is.na(Sample_Class) ~ 'nSARSCov2', TRUE ~ Sample_Class) )
-labs_ss_tib <- labs_ss_tib %>% dplyr::mutate(!!class_var := dplyr::case_when(is.na(!!class_var) ~ 'nSARSCov2', TRUE ~ !!class_var) )
+# labs_ss_tib <- labs_ss_tib %>% dplyr::mutate(!!class_var := dplyr::case_when(is.na(!!class_var) ~ 'nSARSCov2', TRUE ~ !!class_var) )
 
 labs_ss_len <- labs_ss_tib %>% base::nrow()
 cat(glue::glue("[{par$prgmTag}]: Done. Joining Human Classification and Auto Sample Sheets; Total={labs_ss_len}.{RET}{RET}"))

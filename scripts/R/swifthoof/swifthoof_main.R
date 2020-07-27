@@ -55,7 +55,6 @@ opt$Rscript <- NULL
 
 # Directories::
 opt$outDir     <- NULL
-opt$datDir     <- NULL
 opt$idatsDir   <- NULL
 
 # Optional Files::
@@ -227,8 +226,6 @@ if (args.dat[1]=='RStudio') {
     # Directories::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("-d", "--datDir"), type="character", default=opt$datDir, 
-                help="Dat Directory [default= %default]", metavar="character"),
     make_option(c("-i", "--idatsDir"), type="character", default=opt$idatsDir, 
                 help="idats directory [default= %default]", metavar="character"),
     
