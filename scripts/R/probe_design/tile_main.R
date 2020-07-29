@@ -516,18 +516,24 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   #                            Write Fasta File::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-  prb_fas <- ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
-  bsp_tsv <- prb_fas %>% stringr::str_replace('.fa.gz$', '.bsp.tsv')
-  # Run BSMAP Alignment
+  prb_fas  <- ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
+  bsp_name <- prb_fas %>% stringr::str_remove('.fa.gz$')
 
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                            Run BSP Alignments::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
   gen_cnt <- length(genAlign_vec)
   cat(glue::glue("[{par$prgmTag}]: Ready to launch bsmap alignments; genomes count={gen_cnt}...{RET}"))
   for (gen_idx in c(1:gen_cnt)) {
     gen_path <- genAlign_vec[gen_idx]
+    gen_name <- gen_path %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
 
     shell_dir <- file.path(opt$outDir, 'shells')
     if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
-    bsp_shell <- file.path(shell_dir, paste0('run_bsp-',gen_idx,'.sh') )
+    bsp_shell <- file.path(shell_dir, paste0('run_bsp-',gen_name,'.sh') )
+    
+    bsp_tsv <- paste(bsp_name,gen_name,'tsv.gz', sep='.')
 
     bsp_cmd <- paste(par$bsp_exe,
                      '-a',prb_fas,
