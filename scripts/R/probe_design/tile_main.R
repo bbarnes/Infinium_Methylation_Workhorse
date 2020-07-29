@@ -375,8 +375,15 @@ all_des_tib <- tibble::tibble(
 
 # Read cDNA Designs::
 prb_snp_fas <- NULL
-prb_dna_best_csv  <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/370845_SARS-CoV-2_probes_BEST.score.csv'
-prb_dna_other_csv <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/370846_SARS-CoV-2_probes_OTHER.score.csv'
+prb_dna_best_csv <- NULL
+prb_dna_other_csv <- NULL
+# prb_dna_best_csv  <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/370845_SARS-CoV-2_probes_BEST.score.csv'
+# prb_dna_other_csv <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/370846_SARS-CoV-2_probes_OTHER.score.csv'
+
+if (opt$isLinux) {
+  prb_dna_best_csv  <- 'designs/370845_SARS-CoV-2_probes_BEST.score.csv'
+  prb_dna_other_csv <- 'designs/370846_SARS-CoV-2_probes_OTHER.score.csv'
+}
 
 if (file.exists(prb_dna_best_csv) && file.exists(prb_dna_other_csv)) {
   prb_dna_best_tib <- readr::read_csv(file=prb_dna_best_csv, skip=15)
