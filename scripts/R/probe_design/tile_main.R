@@ -633,7 +633,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
       # /illumina/thirdparty/bowtie2/bowtie2-2.2.2/bowtie2 -f -x /illumina/scratch/darkmatter/Projects/COVIC/fas/nCoV_Wuhan_Sequence_MN908947.3.fa -U /illumina/scratch/darkmatter/Projects/COVIC/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.fa.gz
       bow_cmd <- paste(par$bow_exe,
                        '-f -x',gen_path,
-                       '-U',prb_cgn_fas,
+                       '-U',prb_snp_fas,
                        '| gzip -c ->',bow_tsv,
                        sep=' ')
       
