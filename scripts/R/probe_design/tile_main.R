@@ -533,8 +533,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
     if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
     bsp_shell <- file.path(shell_dir, paste0('run_bsp-',gen_name,'.sh') )
     
-    bsp_tsv <- paste(bsp_name,gen_name,'tsv.gz', sep='.')
-
+    bsp_tsv <- paste(bsp_name,gen_name,'tsv', sep='.')
     bsp_cmd <- paste(par$bsp_exe,
                      '-a',prb_fas,
                      '-d',gen_path,
