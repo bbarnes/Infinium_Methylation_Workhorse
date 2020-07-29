@@ -363,11 +363,15 @@ if (opt$isLinux) {
     '-n', par$mer_file,
     '-a', par$tan_file,
     '-V - 2>',imp_out_log,
-    'gzip -c - >',imp_out_tsv,
+    '| gzip -c - >',imp_out_tsv,
     sep=' '
   )
   
   readr::write_lines(x=cmd, path=shell_file, append=FALSE)
+  
+  Sys.chmod(paths=shell_file, mode="0777")
+  
+  base::system(shell_file)
   
 }
 
