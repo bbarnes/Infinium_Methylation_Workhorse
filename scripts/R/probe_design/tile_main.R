@@ -52,6 +52,10 @@ par$prgmTag <- 'tile_main'
 par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
 par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
 
+par$improbe_exe <- '/illumina/scratch/darkmatter/bin/improbe'
+par$tan_file <- '/illumina/scratch/darkmatter/dat/Tango_A_or_B_11mer_s1.dat'
+par$mer_file <- '/illumina/scratch/darkmatter/dat/human-36.1-methyl-and-unmethyl-13mer-s3-for-infinium-methylation.dat'
+
 # Directory Parameters::
 opt$outDir    <- NULL
 
@@ -245,6 +249,8 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
+opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
+
 fas_files_vec  <- opt$fasta %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 fas_dat <- Biostrings::readDNAStringSet(fas_files_vec[1])
@@ -331,6 +337,37 @@ cgn_org_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-org.tsv.gz', 
 readr::write_csv(all_des_tib,all_des_csv)
 readr::write_tsv(cgn_des_tib,cgn_des_tsv)
 readr::write_tsv(cgn_org_tib,cgn_org_tsv)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Run improbe design::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (opt$isLinux) {
+  if (! file.exists(par$tan_file))
+    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: On linux and can't find tangos={par$tan_file}!{RET}{RET}"))
+  if (! file.exists(par$mer_file))
+    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: On linux and can't find 13-mer={par$mer_file}!{RET}{RET}"))
+
+  shell_dir <- file.path(opt$outDir, 'shells')
+  if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
+  
+  shell_file <- file.path(shell_dir, 'run_improbe.sh')
+  
+  imp_out_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-improbe-designs.tsv.gz', sep='_') )
+  imp_out_log <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-improbe-designs.log', sep='_') )
+  
+  cmd <- paste(
+    'gzip -dc',cgn_des_tsv,'|',
+    par$improbe_exe,
+    '-oASPE -tBOTH -cBoth',
+    '-n', par$mer_file,
+    '-a', par$tan_file,
+    '-V - 2>',imp_out_log,
+    'gzip -c - >',imp_out_tsv,
+    sep=' '
+  )
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
