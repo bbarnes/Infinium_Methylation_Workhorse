@@ -55,6 +55,7 @@ par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
 par$improbe_exe <- '/illumina/scratch/darkmatter/bin/improbe'
 par$tan_file <- '/illumina/scratch/darkmatter/dat/Tango_A_or_B_11mer_s1.dat'
 par$mer_file <- '/illumina/scratch/darkmatter/dat/human-36.1-methyl-and-unmethyl-13mer-s3-for-infinium-methylation.dat'
+par$bsp_exe  <- '/illumina/scratch/methylation/software/bsmap-2.90/bsmap'
 
 # Directory Parameters::
 opt$outDir    <- NULL
@@ -286,6 +287,7 @@ pTracker <- timeTracker$new(verbose=opt$verbose)
 strandCO_vec <- opt$strandCO %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 cpgRank_vec  <- opt$minCpgRank %>% str_split(pattern=',', simplify=TRUE) %>% as.integer() %>% as.vector()
 scrRank_vec  <- opt$minScrRank %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
+genAlign_vec <- opt$genome %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
 
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 
@@ -391,7 +393,6 @@ if (opt$isLinux) {
 
   shell_dir <- file.path(opt$outDir, 'shells')
   if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
-  
   shell_file <- file.path(shell_dir, 'run_improbe.sh')
   
   cmd <- paste(
@@ -406,11 +407,8 @@ if (opt$isLinux) {
   )
   
   readr::write_lines(x=cmd, path=shell_file, append=FALSE)
-  
   Sys.chmod(paths=shell_file, mode="0777")
-  
   base::system(shell_file)
-  
 }
 
 if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
@@ -516,25 +514,33 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   #                            Write Fasta File::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-  ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
-  
-  new_ord_tib %>% dplyr::mutate(
-    line=dplyr::case_when(
-      Normalization_Bin=='C' ~ paste0('>',AlleleA_Probe_Id,'\n',AlleleA_Probe_Sequence),
-      Normalization_Bin!='C' ~ paste0('>',AlleleA_Probe_Id,'\n',AlleleA_Probe_Sequence,
-                                      '>',AlleleB_Probe_Id,'\n',AlleleA_Probe_Sequence),
-      TRUE ~ NA_character_ ) )
-      
-                                      
-  
-  new_ord_tib %>% dplyr::filter(Normalization_Bin=='C') %>% dplyr::mutate(line=paste0('>',AlleleA_Probe_Id,'\n',AlleleA_Probe_Sequence)) 
-  
-  
-  ordToFas()
-  
-  writeBedFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
-  
+  prb_fas <- ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
+  bsp_tsv <- prb_fas %>% stringr::str_replace('.fa.gz$', '.bsp.tsv')
   # Run BSMAP Alignment
+
+  gen_cnt <- length(genAlign_vec)
+  for (gen_idx in c(1:gen_cnt)) {
+    gen_path <- genAlign_vec[gen_idx]
+
+    shell_dir <- file.path(opt$outDir, 'shells')
+    if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
+    bsp_shell <- file.path(shell_dir, paste0('run_bsp-',gen_idx,'.sh') )
+
+    bsp_cmd <- paste(par$bsp_exe,
+                     '-a',prb_fas,
+                     '-d',gen_path,
+                     '-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R',
+                     # '-u -R',
+                     '-o',bsp_tsv,
+                     sep=' ')
+    
+    # bsp_cmd <- paste(bsp_cmd,'\ngzip',)
+    
+    readr::write_lines(x=bsp_cmd, path=bsp_shell, append=FALSE)
+    Sys.chmod(paths=bsp_shell, mode="0777")
+    base::system(bsp_shell)
+  }
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

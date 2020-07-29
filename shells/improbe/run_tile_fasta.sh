@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ "$#" -lt 6 ]; then
-    echo "Usage: $0 fasta outDir runName platform version build"
+    echo "Usage: $0 fasta outDir runName platform version build genome"
     exit 1
 fi
 fasta=$1
@@ -11,6 +11,7 @@ runName=$3
 platform=$4
 version=$5
 build=$6
+genome=$7
 
 verbose=3
 
@@ -50,6 +51,7 @@ CMD+=" --fasta"=${fasta}
 CMD+=" --platform"=${platform}
 CMD+=" --version"=${version}
 CMD+=" --build"=${build}
+CMD+=" --genome"=${genome}
 
 # Verbosity Options::
 CMD+=" --"verbose=${verbose}
