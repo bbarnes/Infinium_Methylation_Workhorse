@@ -287,7 +287,7 @@ pTracker <- timeTracker$new(verbose=opt$verbose)
 strandCO_vec <- opt$strandCO %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 cpgRank_vec  <- opt$minCpgRank %>% str_split(pattern=',', simplify=TRUE) %>% as.integer() %>% as.vector()
 scrRank_vec  <- opt$minScrRank %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
-genAlign_vec <- opt$genome %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
+genAlign_vec <- opt$genome %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 print(genAlign_vec)
 
