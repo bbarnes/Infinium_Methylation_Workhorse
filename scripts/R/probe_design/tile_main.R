@@ -606,7 +606,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
   prb_cgn_fas  <- ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
-  bsp_name <- prb_cgn_fas %>% stringr::str_remove('.cgn.fa.gz$')
+  bsp_name <- prb_cgn_fas %>% stringr::str_remove('.fa.gz$')
 
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                            Build Alignments::

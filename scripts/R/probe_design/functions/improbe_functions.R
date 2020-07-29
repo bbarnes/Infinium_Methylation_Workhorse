@@ -24,7 +24,7 @@ ordToFas = function(tib, dir, name, verbose=0,vt=4,tc=1,tabsStr='') {
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} name={name}, dir={dir}.{RET}"))
   
   if (!dir.exists(dir)) dir.create(dir, recursive=TRUE)
-  fas_file <- file.path(dir, paste0(name,'.fa.gz'))
+  fas_file <- file.path(dir, paste0(name,'.cgn.fa.gz'))
   
   fas_tib <- tib %>% dplyr::mutate(
     line=dplyr::case_when(
