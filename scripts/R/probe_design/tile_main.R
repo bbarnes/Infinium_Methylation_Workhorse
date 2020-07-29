@@ -638,7 +638,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
       
       # bsp_cmd <- glue::glue("{bow_cmd}{RET}gzip {bow_tsv}{RET}")
       
-      readr::write_lines(x=bow_cmd, path=bsp_shell, append=FALSE)
+      readr::write_lines(x=bow_cmd, path=bow_shell, append=FALSE)
       Sys.chmod(paths=bow_shell, mode="0777")
       base::system(bow_shell)
       
