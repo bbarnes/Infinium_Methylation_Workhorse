@@ -289,6 +289,8 @@ cpgRank_vec  <- opt$minCpgRank %>% str_split(pattern=',', simplify=TRUE) %>% as.
 scrRank_vec  <- opt$minScrRank %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
 genAlign_vec <- opt$genome %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
 
+print(genAlign_vec)
+
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 
 fas_files_vec  <- opt$fasta %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
@@ -519,6 +521,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   # Run BSMAP Alignment
 
   gen_cnt <- length(genAlign_vec)
+  cat(glue::glue("[{par$prgmTag}]: Ready to launch bsmap alignments; genomes count={gen_cnt}...{RET}"))
   for (gen_idx in c(1:gen_cnt)) {
     gen_path <- genAlign_vec[gen_idx]
 
@@ -534,8 +537,8 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
                      '-o',bsp_tsv,
                      sep=' ')
     
-    # bsp_cmd <- paste(bsp_cmd,'\ngzip',)
-    
+    bsp_cmd <- glue::glue("{bsp_cmd}{RET}gzip {bsp_tsv}{RET}")
+
     readr::write_lines(x=bsp_cmd, path=bsp_shell, append=FALSE)
     Sys.chmod(paths=bsp_shell, mode="0777")
     base::system(bsp_shell)
