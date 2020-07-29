@@ -387,8 +387,8 @@ if (opt$isLinux) {
 }
 
 if (file.exists(prb_dna_best_csv) && file.exists(prb_dna_other_csv)) {
-  prb_dna_best_tib <- readr::read_csv(file=prb_dna_best_csv, skip=15)
-  prb_dna_other_tib <- readr::read_csv(file=prb_dna_other_csv, skip=15)
+  prb_dna_best_tib  <- suppressMessages(suppressWarnings( readr::read_csv(file=prb_dna_best_csv, skip=15) ))
+  prb_dna_other_tib <- suppressMessages(suppressWarnings( readr::read_csv(file=prb_dna_other_csv, skip=15) ))
   
   # Join Score Files::
   prb_dna_tib <- dplyr::bind_rows(prb_dna_best_tib,prb_dna_other_tib) %>% 
@@ -613,7 +613,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   gen_cnt <- length(genAlign_vec)
-  cat(glue::glue("[{par$prgmTag}]: Ready to launch bsmap alignments; genomes count={gen_cnt}...{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Ready to launch alignments; genomes count={gen_cnt}...{RET}"))
   for (gen_idx in c(1:gen_cnt)) {
     gen_path <- genAlign_vec[gen_idx]
     gen_name <- gen_path %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
@@ -639,6 +639,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
       
       # bsp_cmd <- glue::glue("{bow_cmd}{RET}gzip {bow_tsv}{RET}")
       
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Launching bowtie alignments({gen_idx}); {gen_name}...{RET}"))
       readr::write_lines(x=bow_cmd, path=bow_shell, append=FALSE)
       Sys.chmod(paths=bow_shell, mode="0777")
       base::system(bow_shell)
@@ -661,11 +662,13 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
     
     bsp_cmd <- glue::glue("{bsp_cmd}{RET}gzip {bsp_tsv}{RET}")
 
+    cat(glue::glue("[{par$prgmTag}]:{TAB} Launching bsmap alignments({gen_idx}); {gen_name}...{RET}"))
     readr::write_lines(x=bsp_cmd, path=bsp_shell, append=FALSE)
     Sys.chmod(paths=bsp_shell, mode="0777")
     base::system(bsp_shell)
   }
-  
+  cat(glue::glue("[{par$prgmTag}]: Done launching alignments.{RET}{RET}"))
+
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
