@@ -140,6 +140,9 @@ if (args.dat[1]=='RStudio') {
   opt$classVar <- 'Karyotype_0_Call'
   opt$classVar <- 'Karyotype_1_Call'
 
+  opt$buildDml    <- TRUE
+  opt$buildModels <- TRUE
+  
   opt$clean    <- TRUE
   opt$clean    <- FALSE
   
@@ -152,6 +155,7 @@ if (args.dat[1]=='RStudio') {
   par$version  <- 'B4'
   
   opt$runName  <- 'BETA-8x1-EPIC-Ref'
+  opt$runName  <- 'COVIC-Set5-10062020'
   
   opt$mergeDir  <- paste(
     file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
@@ -175,14 +179,15 @@ if (args.dat[1]=='RStudio') {
   opt$lociPvalMin <- 0.1
   
   opt$seeds <- "13,17,42,43,57,61,69"
-  opt$seeds <- "13,42,61"
+  opt$seeds <- "13,42"
   
   # Loci (Feature) Selection Parameters::
-  opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
-                            # file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
-                            # file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
-                            sep=',')
-  opt$featuresDml <- "100,1000"
+  opt$featuresCsv <- NULL
+  # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
+  #                           # file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
+  #                           # file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
+  #                           sep=',')
+  opt$featuresDml <- "100"
   opt$featuresDml <- "100"
   
   # K-means Clustering Local params::
@@ -439,6 +444,7 @@ cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 #                  Preprocessing:: Load Feature Selection
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+cgn_pre_str <- NULL
 if (!is.null(featuresCsv_vec) && length(featuresCsv_vec)!=0 ) {
   cgn_pre_str <- featuresCsv_vec %>% base::basename() %>% stringr::str_remove('.csv.gz$') %>% paste(collapse='-')
   cgn_pre_tib <- lapply(featuresCsv_vec, loadCgnFeatures, id="Probe_ID", verbose=opt$verbose) %>% 
@@ -525,28 +531,29 @@ for (betaKey in lociBetaKey_vec) {
             file.mtime(dml_beg_txt)  < file.mtime(full_dml_csv) && 
             file.mtime(full_dml_csv) < file.mtime(dml_end_txt) ) {
           
-          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] DMLs already exists! Reading; full_dml_csv={full_dml_csv}...{RET}") )
+          cat(glue::glue("[{par$prgmTag}]:{TAB} DMLs already exists! Reading; full_dml_csv={full_dml_csv}...{RET}") )
           full_dml_tib <- suppressMessages(suppressWarnings( readr::read_csv(full_dml_csv) ))
-          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Done. Reading Full DMLs{RET}{RET}") )
+          cat(glue::glue("[{par$prgmTag}]:{TAB} Done. Reading Full DMLs{RET}{RET}") )
           
         } else {
-          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Calculating dmls...{RET}") )
+          cat(glue::glue("[{par$prgmTag}]:{TAB} Calculating dmls...{RET}") )
           
           if (file.exists(dml_beg_txt))  unlink(dml_beg_txt)
           if (file.exists(full_dml_csv)) unlink(full_dml_csv)
           if (file.exists(dml_end_txt))  unlink(dml_end_txt)
           
-          full_dml_tib <- dmlsToTib(dml=DML_Local(
-            betas=beta_masked_mat, sample.data=dplyr::rename(sampleSheet_tib, Class_Var=!!class_var), formula = ~Class_Var ), 
-            verbose=opt$verbose, vt=1, tc=2, tt=cTracker) %>% dplyr::mutate_if(is.double, list(round), opt$percisionPval )
+          samp_dml_tib <- sampleSheet_tib %>% dplyr::rename(Class_Var = !!class_var)
+          full_dml_tib <- dmlsToTib( DML_Local(betas=beta_masked_mat, sample.data=samp_dml_tib, formula = ~Class_Var ), 
+                                     verbose=opt$verbose, vt=1, tc=2, tt=cTracker) %>% 
+            dplyr::mutate_if( is.double, list(round), opt$percisionPval )
           
-          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Writing Full DML(CSV)={full_dml_csv}...{RET}") )
+          cat(glue::glue("[{par$prgmTag}]:{TAB} Writing Full DML(CSV)={full_dml_csv}...{RET}") )
           system(glue::glue("touch {dml_beg_txt}"))
           Sys.sleep(1)
           readr::write_csv(full_dml_tib,full_dml_csv)
           Sys.sleep(1)
           system(glue::glue("touch {dml_end_txt}"))
-          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Done. Writing Full DMLs{RET}{RET}") )
+          cat(glue::glue("[{par$prgmTag}]:{TAB} Done. Writing Full DMLs{RET}{RET}") )
         }
         rank_dml_tib <- full_dml_tib %>% dplyr::group_by(Probe_ID) %>% 
           dplyr::summarise(Rank_Avg=mean(Rank, na.rm=TRUE)) %>% dplyr::arrange(Rank_Avg)
@@ -691,9 +698,11 @@ for (betaKey in lociBetaKey_vec) {
           # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
           
           dml_opt_tib <- gen_opt_tib %>% 
-            tibble::add_row( Option="featureSizeDml", Value=as.character(dmlSize), Type="Feature" ) %>%
-            tibble::add_row( Option="featureNamePre", Value=cgn_pre_str, Type="Feature" )
+            tibble::add_row( Option="featureSizeDml", Value=as.character(dmlSize), Type="Feature" )
           
+          if (!is.null(cgn_pre_str))
+            dml_opt_tib <- dml_opt_tib %>% tibble::add_row( Option="featureNamePre", Value=cgn_pre_str, Type="Feature" )
+
           # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
           #                               Build Models::
           # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -748,10 +757,13 @@ for (betaKey in lociBetaKey_vec) {
               
               run_id <- paste0('bm-',seed_val)
               cmd <- paste(opt$lanExe,run_id,run_sh, sep=' ')
-              if (stringr::str_length(opt$lanExe)==0) cmd <- run_sh
+              if (is.null(opt$lanExe) || stringr::str_length(opt$lanExe)==0) cmd <- run_sh
               cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching: cmd={cmd}...{RET}{RET}") )
-              system(cmd)
+              sys_ret_val <- base::system(cmd)
               
+              if (!sys_ret_val)
+                stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed System Command({sys_ret_val}); cmd='{cmd}'{RET}{RET}"))
+
               if (opt$single) break
               
             } else {
@@ -775,6 +787,7 @@ for (betaKey in lociBetaKey_vec) {
               
               fTracker_tib <- fTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
               readr::write_csv(fTracker_tib, cur_time_csv)
+              
               
             } # if opt$cluster==TRUE
             

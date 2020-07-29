@@ -670,6 +670,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, classes=NULL,
         readr::write_csv(masked_idx_tib,mask_csv)
         Sys.sleep(1)
         readr::write_rds(beta_impute_mat,beta_rds, compress="gz")
+        Sys.sleep(1)
         system(glue::glue("touch {end_txt}"))
       }
       

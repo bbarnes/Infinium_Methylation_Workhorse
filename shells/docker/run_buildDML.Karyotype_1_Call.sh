@@ -17,7 +17,7 @@
     --featuresDml=100,1000 \
     --lociBetaKey=ind_beta \
     --lociPvalKey=i_poob \
-    --lociPvalMin=0.9 \
+    --lociPvalMin=1.0 \
     --parallel \
     --cluster \
     --verbose=6

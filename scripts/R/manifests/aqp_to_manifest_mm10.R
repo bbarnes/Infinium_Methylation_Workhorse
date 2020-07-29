@@ -565,6 +565,19 @@ if (FALSE) {
   misB_man_tib <- gene_ann_tib %>% dplyr::anti_join(full_man_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
   
   # full_man_tib %>% dplyr::filter(stringr::str_starts( 'cg00065388' ) )
+  
+  
+  #
+  # Quick look up for Fasial for chr18 HLA region coverage "ESTIMATE"
+  #
+  #  hg19: chr5 140164938 140864474
+  #  mm10: chr18 36930065 37815275
+  #
+  #
+  # mm_tib <- readr::read_tsv('/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/to-order/designW.Final_Dec-10-2019.cpg-only/Mus_musculus.annotation.genomic.sorted-cgn.chr-pos.tsv', col_names = c("Probe_ID",'Pos'))
+  
+  
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

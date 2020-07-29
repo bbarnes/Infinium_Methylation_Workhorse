@@ -36,17 +36,20 @@ getMaskedTib = function(mat, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
   
-  # mis_tib <- tibble::tibble(Probe_ID=character(), idx=integer())
+  mis_tib <- tibble::tibble(Probe_ID=character(), idx=integer())
   stime <- system.time({
     
+    mis_len <- 0
+    mis_vec <- NULL
     mis_dat <- which(is.na(mat) | !is.finite(mat), arr.ind=TRUE)
     mis_vec <- which(is.na(mat) | !is.finite(mat) )
     # cut_tib <- mis_dat %>% as.data.frame() %>% tibble::as_tibble(rownames="Probe_ID") %>% tibble::add_column(idx=mis_vec)
     # mis_tib <- dplyr::bind_rows(mis_tib,cut_tib)
     
-    mis_tib <- mis_dat %>% as.data.frame() %>% tibble::as_tibble(rownames="Probe_ID") %>% tibble::add_column(idx=mis_vec)
-    mis_len <- mis_tib %>% base::nrow()
-    
+    if (!is.null(mis_vec) && length(mis_vec)>0){
+      mis_tib <- mis_dat %>% as.data.frame() %>% tibble::as_tibble(rownames="Probe_ID") %>% tibble::add_column(idx=mis_vec)
+      mis_len <- mis_tib %>% base::nrow()
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)

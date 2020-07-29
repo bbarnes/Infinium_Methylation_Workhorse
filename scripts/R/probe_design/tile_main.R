@@ -44,11 +44,12 @@ opt <- NULL
 par <- NULL
 
 # Program Parameters::
+par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'probe_design'
 par$prgmTag <- 'tile_main'
 
 # Illumina based directories::
-par$macDir  <- '/Users/bbarnes/Documents/CustomerFacing'
+par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
 par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
 
 # Directory Parameters::
@@ -81,12 +82,13 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir)) par$topDir <- par$macDir
-  if (dir.exists(par$lixDir)) par$topDir <- par$lixDir
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$topDir, 'workhorse')
+  par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -94,7 +96,7 @@ if (args.dat[1]=='RStudio') {
   par$locPath <- base::dirname(par$exePath)
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
-  par$datDir  <- file.path(par$srcDir, 'dat')
+  par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
@@ -103,7 +105,7 @@ if (args.dat[1]=='RStudio') {
   opt$version   <- 'SARS-CoV-2'
   opt$build     <- 'MN908947'
   
-  opt$fasta   <- '/Users/bbarnes/Documents/Projects/iGenomes/COVID-19/nCoV_Wuhan_Sequence_MN908947.3.fa'
+  opt$fasta   <- '/Users/bbarnes/Documents/Projects/iGenomes/COVID-19/nCoV_Wuhan_Sequence_MN908947.3.fa.gz'
   opt$runName <- base::basename(opt$fasta) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.fa')
 
   opt$outDir <- file.path(par$topDir)
@@ -116,7 +118,7 @@ if (args.dat[1]=='RStudio') {
   par$locPath <- base::dirname(par$exePath)
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
-  par$datDir  <- file.path(par$srcDir, 'dat')
+  par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
   args.dat <- commandArgs(trailingOnly = TRUE)
   option_list = list(
@@ -245,11 +247,10 @@ pTracker <- timeTracker$new(verbose=opt$verbose)
 
 fas_files_vec  <- opt$fasta %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
-fas_dat <- readDNAStringSet(fas_files_vec[1])
+fas_dat <- Biostrings::readDNAStringSet(fas_files_vec[1])
 fas_tib <- tibble::tibble(Chrom=names(fas_dat), Sequence=paste(fas_dat),
                           Seq_Length=stringr::str_length(Sequence),
                           platform=opt$platform, version=opt$version, build=opt$build)
-
 
 opt$des_seq_len <- 122
 
@@ -262,34 +263,74 @@ opt$mid_end_pos <- opt$mid_beg_pos + 0
 opt$pos_beg_pos <- opt$mid_end_pos + 1
 opt$pos_end_pos <- opt$des_seq_len
 
-
 beg_vec <- seq(from=1, to=fas_tib$Seq_Length, by=1)
 end_vec <- beg_vec+opt$des_seq_len
 snp_vec <- beg_vec+(opt$mid_beg_pos-1)
 
-des_tib <- tibble::tibble(
-  Chrom=opt$build,
+all_des_tib <- tibble::tibble(
+  Chromosome=opt$build,
+  Coordinate=snp_vec,
   Start=snp_vec,
   End=snp_vec+1,
   Strand='F',
   Forward_Sequence_Raw=stringr::str_sub(fas_tib$Sequence[1], start=beg_vec, end=end_vec),
+  Forward_Sequence_Len=stringr::str_length(Forward_Sequence_Raw),
+  
   Pre_Seq=stringr::str_sub(Forward_Sequence_Raw, opt$pre_beg_pos,opt$pre_end_pos),
   Ref_Nuc=stringr::str_sub(Forward_Sequence_Raw, opt$mid_beg_pos,opt$mid_end_pos),
+  Nxt_Nuc=stringr::str_sub(Forward_Sequence_Raw, opt$mid_end_pos+1,opt$mid_end_pos+1),
   Alt_Nuc=dplyr::case_when( Ref_Nuc=='A' ~ 'G', Ref_Nuc=='T' ~ 'C', Ref_Nuc=='C' ~ 'T', Ref_Nuc=='G' ~ 'A', TRUE ~ NA_character_),
-  Pos_Seq=stringr::str_sub(Forward_Sequence_Raw, opt$pos_beg_pos,opt$pos_end_pos),
-  Forward_Sequence=paste0(Pre_Seq,'[',Ref_Nuc,'/',Alt_Nuc,']',Pos_Seq),
-  platform=opt$platform, version=opt$version, build=opt$build,genome=opt$runName
-)
+  Di_Nuc=paste0(Ref_Nuc,Nxt_Nuc),
+  
+  Pos_NUC_Seq=stringr::str_sub(Forward_Sequence_Raw, opt$pos_beg_pos,opt$pos_end_pos),
+  Pos_CGN_Seq=stringr::str_sub(Forward_Sequence_Raw, opt$pos_beg_pos+1,opt$pos_end_pos),
+  
+  Forward_Sequence_SNP_Des=paste0(Pre_Seq,'[',Ref_Nuc,'/',Alt_Nuc,']',Pos_NUC_Seq),
+  Forward_Sequence_CGN_Org=paste0(Pre_Seq,'[',Ref_Nuc,Nxt_Nuc,']',Pos_CGN_Seq),
+  Forward_Sequence_CGN_Des=paste0(Pre_Seq,'[','C','G',']',Pos_CGN_Seq),
+  platform=opt$platform, version=opt$version, Genome_Build=opt$build,genome=opt$runName,
+  Seq_ID=paste(Genome_Build,Coordinate,Di_Nuc, sep='_')
+) %>% dplyr::filter(Forward_Sequence_Len==opt$des_seq_len+1) %>% 
+  dplyr::select(Seq_ID,Genome_Build,Chromosome,Coordinate, everything())
 
-des_tib %>% head(n=3) %>% as.data.frame()
+cgn_des_tib <- all_des_tib %>% dplyr::select(Seq_ID,Forward_Sequence_CGN_Des,Genome_Build,Chromosome,Coordinate) %>%
+  dplyr::rename(Sequence=Forward_Sequence_CGN_Des) %>%
+  dplyr::mutate(CpG_Island="FALSE")
 
-out_file   <- paste(opt$platform, opt$version, opt$build, opt$runName, 'tiled-genome-forward-sequence.csv.gz', sep='_')
+cgn_org_tib <- all_des_tib %>% dplyr::select(Seq_ID,Forward_Sequence_CGN_Org,Genome_Build,Chromosome,Coordinate) %>%
+  dplyr::rename(Sequence=Forward_Sequence_CGN_Org) %>%
+  dplyr::mutate(CpG_Island="FALSE")
+
+if (opt$verbose>4) {
+  all_des_tib$Forward_Sequence_Raw %>% head(n=3) %>% print()
+  all_des_tib$Forward_Sequence_SNP_Des %>% head(n=3) %>% print()
+  all_des_tib$Forward_Sequence_CGN_Org %>% head(n=3) %>% print()
+  all_des_tib$Forward_Sequence_CGN_Des %>% head(n=3) %>% print()
+  
+  all_des_tib %>% head(n=3) %>% as.data.frame()
+  
+  all_des_tib %>% dplyr::select(Seq_ID, Ref_Nuc, Nxt_Nuc, Di_Nuc, Forward_Sequence_Raw) %>% tail()
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                               Write Outputs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
 
-out_tile_csv <- file.path(opt$outDir, out_file)
-readr::write_csv(des_tib,out_tile_csv)
+list.files(opt$outDir, full.names=TRUE) %>% unlink()
+
+out_des_str <- paste(par$prgmTag, opt$platform, opt$version, opt$build, opt$runName, sep='_')
+
+all_des_csv <- file.path(opt$outDir, paste(out_des_str, 'tiled-all-dat.csv.gz', sep='_') )
+cgn_des_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-des.tsv.gz', sep='_') )
+cgn_org_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-org.tsv.gz', sep='_') )
+
+readr::write_csv(all_des_tib,all_des_csv)
+readr::write_tsv(cgn_des_tib,cgn_des_tsv)
+readr::write_tsv(cgn_org_tib,cgn_org_tsv)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
