@@ -56,6 +56,7 @@ par$improbe_exe <- '/illumina/scratch/darkmatter/bin/improbe'
 par$tan_file <- '/illumina/scratch/darkmatter/dat/Tango_A_or_B_11mer_s1.dat'
 par$mer_file <- '/illumina/scratch/darkmatter/dat/human-36.1-methyl-and-unmethyl-13mer-s3-for-infinium-methylation.dat'
 par$bsp_exe  <- '/illumina/scratch/methylation/software/bsmap-2.90/bsmap'
+par$bow_exe  <- '/illumina/thirdparty/bowtie2/bowtie2-2.2.2/bowtie2'
 
 # Directory Parameters::
 opt$outDir    <- NULL
