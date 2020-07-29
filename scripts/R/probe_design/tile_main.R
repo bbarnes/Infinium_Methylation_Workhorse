@@ -367,6 +367,8 @@ if (opt$isLinux) {
     sep=' '
   )
   
+  readr::write_lines(x=cmd, path=shell_file, append=FALSE)
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
