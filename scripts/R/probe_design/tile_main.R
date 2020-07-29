@@ -65,6 +65,13 @@ opt$fasta   <- NULL
 
 opt$genome  <- NULL
 
+# Probe Filter Parameters::
+opt$minPrbScore <- 0.3
+opt$minCpgRank  <- "3,2,1,0"
+opt$minScrRank  <- "0.6,0.5,0.4,0.3"
+opt$strandCO    <- 'C,O'
+opt$pickBest    <- FALSE
+
 # Parallel/Cluster Options::
 opt$execute  <- TRUE
 opt$single   <- FALSE
@@ -150,6 +157,18 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--build"), type="character", default=opt$build, 
                 help="Manifest build (hg19, hg38) [default= %default]", metavar="character"),
     
+    # Probe Filter Parameters::
+    make_option(c("--minPrbScore"), type="double", default=opt$minPrbScore,
+                help="Minimum Probe Score [default= %default]", metavar="double"),
+    make_option(c("--minCpgRank"), type="character", default=opt$minCpgRank, 
+                help="Infinium I/II Probe Underlying CpG Count Rank String (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--minScrRank"), type="character", default=opt$minScrRank, 
+                help="Infinium I/II Probe Score Rank String (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--strandCO"), type="character", default=opt$strandCO, 
+                help="Target Strand Converted/Opposite to design (C,O) (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--pickBest"), action="store_true", default=opt$pickBest, 
+                help="Boolean variable to only return the best scoring probe for each strand [default= %default]", metavar="boolean"),
+    
     # Parallel/Cluster Parameters::
     make_option(c("--execute"), action="store_true", default=opt$execute, 
                 help="Boolean variable to shell scripts (mostly testing stuff) [default= %default]", metavar="boolean"),
@@ -197,6 +216,10 @@ if (is.null(par$runMode) || is.null(par$prgmDir) || is.null(par$prgmTag) ||
 if (is.null(opt$outDir) || 
     is.null(opt$runName) || is.null(opt$fasta) ||
     is.null(opt$platform) || is.null(opt$version) || is.null(opt$build) ||
+    
+    is.null(opt$minPrbScore) || is.null(opt$minCpgRank) || is.null(opt$minScrRank) ||
+    is.null(opt$strandCO) || is.null(opt$pickBest) ||
+    
     is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
     
     is.null(opt$clean) || is.null(opt$Rscript) || is.null(opt$verbose)) {
@@ -214,6 +237,12 @@ if (is.null(opt$outDir) ||
   if (is.null(opt$platform)) cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
   if (is.null(opt$version))  cat(glue::glue("[Usage]: version is NULL!!!{RET}"))
   if (is.null(opt$build))    cat(glue::glue("[Usage]: build is NULL!!!{RET}"))
+  
+  if (is.null(opt$minPrbScore))  cat(glue::glue("[Usage]: minPrbScore is NULL!!!{RET}"))
+  if (is.null(opt$minCpgRank))   cat(glue::glue("[Usage]: minCpgRank is NULL!!!{RET}"))
+  if (is.null(opt$minScrRank))   cat(glue::glue("[Usage]: minScrRank is NULL!!!{RET}"))
+  if (is.null(opt$strandCO))     cat(glue::glue("[Usage]: strandCO is NULL!!!{RET}"))
+  if (is.null(opt$pickBest))     cat(glue::glue("[Usage]: pickBest is NULL!!!{RET}"))
   
   if (is.null(opt$execute))  cat(glue::glue("[Usage]: execute is NULL!!!{RET}"))
   if (is.null(opt$single))   cat(glue::glue("[Usage]: single is NULL!!!{RET}"))
@@ -253,6 +282,10 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source
 #                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 pTracker <- timeTracker$new(verbose=opt$verbose)
+
+strandCO_vec <- opt$strandCO %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+cpgRank_vec  <- opt$minCpgRank %>% str_split(pattern=',', simplify=TRUE) %>% as.integer() %>% as.vector()
+scrRank_vec  <- opt$minScrRank %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
 
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 
@@ -381,9 +414,127 @@ if (opt$isLinux) {
 }
 
 if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
-  imp_out_tib <- readr::read_tsv(imp_out_tsv)
+  # Load designs and extract original di-nucleotide
+  des_ord_tib <- suppressMessages(suppressWarnings( readr::read_tsv(imp_out_tsv) )) %>% 
+    dplyr::mutate(Di_Nuc=stringr::str_to_upper( stringr::str_remove(Seq_ID,'^.*_') ),
+                  Probe_Type=dplyr::case_when(Di_Nuc=='CG' ~ 'cg', TRUE ~ 'ch' ) )
+
+  des_scr_tib <- des_ord_tib %>% dplyr::select(Seq_ID,Forward_Sequence,Genome_Build,Chromosome,Coordinate,
+                                UnMethyl_Probe_Sequence,Methyl_Probe_Sequence, Probe_Type,
+                                UnMethyl_Final_Score,Methyl_Final_Score,Methyl_Underlying_CpG_Count,
+                                Methyl_Allele_FR_Strand,Methyl_Allele_TB_Strand,Methyl_Allele_CO_Strand) %>% 
+    dplyr::rename(Prb_Seq_IU_IMP=UnMethyl_Probe_Sequence,Prb_Seq_IM_IMP=Methyl_Probe_Sequence,
+                  Prb_Scr_IU=UnMethyl_Final_Score,Prb_Scr_IM=Methyl_Final_Score,CpgCnt=Methyl_Underlying_CpG_Count,
+                  FR_Str=Methyl_Allele_FR_Strand,TB_Str=Methyl_Allele_TB_Strand,CO_Str=Methyl_Allele_CO_Strand) %>%
+    dplyr::mutate(TB_Str=stringr::str_sub(TB_Str,1,1), Probe_ID=paste(Seq_ID, FR_Str,TB_Str,CO_Str, sep='_'), Prb_Scr_Min=pmin(Prb_Scr_IU,Prb_Scr_IM)) %>%
+    dplyr::select(Seq_ID,Probe_ID,everything()) %>%
+    dplyr::filter(Prb_Scr_Min>=opt$minPrbScore) %>% 
+    dplyr::filter(CO_Str %in% strandCO_vec) %>% 
+    dplyr::filter(Prb_Scr_Min>=opt$minPrbScore) %>%
+    dplyr::mutate(Design_Type=dplyr::case_when(
+      CpgCnt==cpgRank_vec[1] & Prb_Scr_Min>=scrRank_vec[1] ~ 'II',
+      CpgCnt==cpgRank_vec[2] & Prb_Scr_Min>=scrRank_vec[2] ~ 'II',
+      CpgCnt==cpgRank_vec[3] & Prb_Scr_Min>=scrRank_vec[3] ~ 'II',
+      CpgCnt==cpgRank_vec[1] & Prb_Scr_Min>=scrRank_vec[1] ~ 'II',
+      TRUE ~ 'I'
+    )) %>% dplyr::arrange(-Prb_Scr_Min) %>% dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  
+  des_scr_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
+  
+  if (!opt$pickBest) {
+    des_scr_tib <- des_scr_tib %>% dplyr::filter(Design_Type=='II') %>% 
+      dplyr::mutate(Design_Type='I') %>% dplyr::bind_rows(des_scr_tib) %>% dplyr::arrange(Seq_ID)
+  }
+  des_scr_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
+  
+  des_fwd_tib <- des_scr_tib %>% dplyr::select(Seq_ID, Forward_Sequence, Probe_Type) %>%
+    dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                            Design All Probes::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  new_prb_tib <- tib2prbs(tib=des_fwd_tib, idsKey="Seq_ID", prbKey="Probe_Type", seqKey="Forward_Sequence", verbose=opt$verbose)
+  new_prb_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                  Match Probes by Strand to Top Picks::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # Previous::
+  # Design_Type Count
+  # <chr>       <int> All
+  # 1 I         16975 29029
+  # 2 II        12054 12054
+  #
+  
+  # sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c("Seq_ID","FR_Str","CO_Str") ) 
+  sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c("Seq_ID","FR_Str","CO_Str","Probe_Type","Forward_Sequence") ) 
+  sel_prb_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
+  
+  # No need to split
+  # sel_prb1_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='I')
+  # sel_prb2_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='II')
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           Format Order File::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  new_ord1_tib <- prbs2order(sel_prb_tib, verbose=opt$verbose) %>% 
+    dplyr::bind_rows() %>% 
+    dplyr::filter(Valid_Design_Bool) %>% 
+    dplyr::select(Assay_Design_Id:Normalization_Bin) %>% dplyr::filter(Normalization_Bin!='C')
+  
+  new_ord2_tib <- prbs2order(sel_prb_tib, verbose=opt$verbose) %>% 
+    dplyr::bind_rows() %>% 
+    dplyr::filter(Valid_Design_Bool) %>% 
+    dplyr::select(Assay_Design_Id:Normalization_Bin) %>% dplyr::filter(Normalization_Bin=='C')
+  
+  new_ord_tib <- dplyr::bind_rows(new_ord1_tib,new_ord2_tib) %>%
+    dplyr::arrange(Assay_Design_Id) %>%
+    dplyr::mutate(
+      AlleleB_Probe_Id=dplyr::case_when(
+        is.na(AlleleB_Probe_Id) ~ '',
+        TRUE ~ AlleleB_Probe_Id
+      ),
+      AlleleB_Probe_Sequence=dplyr::case_when(
+        is.na(AlleleB_Probe_Sequence) ~ '',
+        TRUE ~ AlleleB_Probe_Sequence
+      )
+    ) %>% dplyr::distinct(AlleleA_Probe_Id,AlleleA_Probe_Sequence, .keep_all=TRUE)
+  
+  order2stats(new_ord_tib) %>% print()
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                         Write Final Order File::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  new_ord_csv <- file.path(opt$outDir, paste(opt$runName,'order.csv.gz', sep='.'))
+  readr::write_csv(new_ord_tib, new_ord_csv)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                            Write Fasta File::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+  ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
+  
+  new_ord_tib %>% dplyr::mutate(
+    line=dplyr::case_when(
+      Normalization_Bin=='C' ~ paste0('>',AlleleA_Probe_Id,'\n',AlleleA_Probe_Sequence),
+      Normalization_Bin!='C' ~ paste0('>',AlleleA_Probe_Id,'\n',AlleleA_Probe_Sequence,
+                                      '>',AlleleB_Probe_Id,'\n',AlleleA_Probe_Sequence),
+      TRUE ~ NA_character_ ) )
+      
+                                      
+  
+  new_ord_tib %>% dplyr::filter(Normalization_Bin=='C') %>% dplyr::mutate(line=paste0('>',AlleleA_Probe_Id,'\n',AlleleA_Probe_Sequence)) 
   
   
+  ordToFas()
+  
+  writeBedFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
+  
+  # Run BSMAP Alignment
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

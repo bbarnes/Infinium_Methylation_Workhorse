@@ -154,8 +154,6 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--version"), type="character", default=opt$version, 
                 help="Manifest version (B2, B4, C0) [default= %default]", metavar="character"),
     
-    
-    
     # Probe Filter Parameters::
     make_option(c("--minPrbScore"), type="double", default=opt$minPrbScore,
                 help="Minimum Probe Score [default= %default]", metavar="double"),

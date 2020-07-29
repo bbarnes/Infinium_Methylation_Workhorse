@@ -29,7 +29,7 @@ order2stats = function(tib, verbose=0,vt=2,tc=1,tt=NULL) {
   prb_sum_tib <- tib %>% dplyr::mutate(Probe_Type=stringr::str_sub(Assay_Design_Id, 1,2)) %>% 
     dplyr::group_by(Probe_Type) %>% dplyr::summarise(Type_Count=n()) %>% tidyr::spread(Probe_Type, Type_Count) %>%
     purrr::set_names(paste(names(.),"Count", sep='_'))
-  print(prb_sum_tib)
+  # print(prb_sum_tib)
   
   tot_ids_cnt <- tib %>% base::nrow()
   unq_ids_cnt <- tib %>% dplyr::distinct(Assay_Design_Id) %>% base::nrow()

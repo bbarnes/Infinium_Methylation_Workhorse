@@ -17,8 +17,32 @@ BNG <- "|"
 #                Infinium Methylation Probe toStrings::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+ordToFas = function(tib, dir, name, verbose=0,vt=4,tc=1,tabsStr='') {
+  funcTag <- 'writeBedFas'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} name={name}, dir={dir}.{RET}"))
+  
+  if (!dir.exists(dir)) dir.create(dir, recursive=TRUE)
+  fas_file <- file.path(dir, paste0(name,'.fa.gz'))
+  
+  fas_tib <- tib %>% dplyr::mutate(
+    line=dplyr::case_when(
+      Normalization_Bin=='C' ~ paste0('>',AlleleA_Probe_Id,'\n',AlleleA_Probe_Sequence),
+      Normalization_Bin!='C' ~ paste0('>',AlleleA_Probe_Id,'\n',AlleleA_Probe_Sequence,'\n',
+                                      '>',AlleleB_Probe_Id,'\n',AlleleB_Probe_Sequence),
+      TRUE ~ NA_character_ ) ) %>%
+    dplyr::filter(!is.na(line)) %>% dplyr::pull(line)
+  
+  readr::write_lines(x=fas_tib, path=fas_file)
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  
+  fas_file
+}
+
 writeBedFas = function(tib, dir, name, verbose=0,vt=4,tc=1,tabsStr='') {
-  funcTag <- 'prbs2order'
+  funcTag <- 'writeBedFas'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} name={name}, dir={dir}.{RET}"))
