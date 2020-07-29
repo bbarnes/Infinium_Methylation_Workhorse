@@ -300,6 +300,22 @@ fas_tib <- tibble::tibble(Chrom=names(fas_dat), Sequence=paste(fas_dat),
                           Seq_Length=stringr::str_length(Sequence),
                           platform=opt$platform, version=opt$version, build=opt$build)
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                               Defined Outputs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
+if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
+cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
+
+if (opt$clean) list.files(opt$outDir, full.names=TRUE) %>% unlink()
+
+out_des_str <- paste(par$prgmTag, opt$platform, opt$version, opt$build, opt$runName, sep='_')
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                                  Main::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 opt$des_seq_len <- 122
 
 opt$pre_beg_pos <- 1
@@ -337,9 +353,94 @@ all_des_tib <- tibble::tibble(
   Forward_Sequence_CGN_Org=paste0(Pre_Seq,'[',Ref_Nuc,Nxt_Nuc,']',Pos_CGN_Seq),
   Forward_Sequence_CGN_Des=paste0(Pre_Seq,'[','C','G',']',Pos_CGN_Seq),
   platform=opt$platform, version=opt$version, Genome_Build=opt$build,genome=opt$runName,
-  Seq_ID=paste0(Genome_Build,'.',Coordinate,'_',Di_Nuc)
+  Seq_ID=paste0(Genome_Build,'.',Coordinate,'_',Di_Nuc),
+  
+  # Build SNP Forward Probes::
+  Prb_SNP_F_IA = paste0(stringr::str_sub(Pre_Seq, stringr::str_length(Pre_Seq) - 48), Ref_Nuc ),
+  Prb_SNP_F_IB = paste0(stringr::str_sub(Pre_Seq, stringr::str_length(Pre_Seq) - 48), Alt_Nuc ),
+  Prb_SNP_F_II = paste0(stringr::str_sub(Pre_Seq, stringr::str_length(Pre_Seq) - 49), '' ),
+  
+  # Build SNP Reverse Probes::
+  Prb_SNP_R_IA = revCmp( paste0(Ref_Nuc,stringr::str_sub(Pos_NUC_Seq, 1,49) ) ),
+  Prb_SNP_R_IB = revCmp( paste0(Alt_Nuc,stringr::str_sub(Pos_NUC_Seq, 1,49) ) ),
+  Prb_SNP_R_II = revCmp( paste0('',stringr::str_sub(Pos_NUC_Seq, 1,50) ) )
+  
 ) %>% dplyr::filter(Forward_Sequence_Len==opt$des_seq_len+1) %>% 
   dplyr::select(Seq_ID,Genome_Build,Chromosome,Coordinate, everything())
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Build cDNA Probes::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Read cDNA Designs::
+prb_snp_fas <- NULL
+prb_dna_best_csv  <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/370845_SARS-CoV-2_probes_BEST.score.csv'
+prb_dna_other_csv <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/370846_SARS-CoV-2_probes_OTHER.score.csv'
+
+if (file.exists(prb_dna_best_csv) && file.exists(prb_dna_other_csv)) {
+  prb_dna_best_tib <- readr::read_csv(file=prb_dna_best_csv, skip=15)
+  prb_dna_other_tib <- readr::read_csv(file=prb_dna_other_csv, skip=15)
+  
+  # Join Score Files::
+  prb_dna_tib <- dplyr::bind_rows(prb_dna_best_tib,prb_dna_other_tib) %>% 
+    dplyr::select(Ilmn_Id,Locus_Name,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,Assay_Type,Final_Score,Sequence) %>% dplyr::distinct()
+
+  # Merge Score Data with Full Design Data::
+  #
+  prb_dna_tib %>% dplyr::inner_join(all_des_tib, by=c("Sequence"="Forward_Sequence_SNP_Des")) %>%
+    dplyr::filter(AlleleA_Probe_Sequence==Prb_SNP_F_IA & AlleleB_Probe_Sequence==Prb_SNP_F_IB) 
+  
+  prb_dna_tib %>% dplyr::inner_join(all_des_tib, by=c("Sequence"="Forward_Sequence_SNP_Des")) %>%
+    dplyr::filter(AlleleA_Probe_Sequence==Prb_SNP_R_IA & AlleleB_Probe_Sequence==Prb_SNP_R_IB) 
+  
+  snp_des_tib <- prb_dna_tib %>% dplyr::inner_join(all_des_tib, by=c("Sequence"="Forward_Sequence_SNP_Des")) %>%
+    dplyr::filter(
+      (AlleleA_Probe_Sequence==Prb_SNP_F_IA & AlleleB_Probe_Sequence==Prb_SNP_F_IB) |
+        (AlleleA_Probe_Sequence==Prb_SNP_R_IA & AlleleB_Probe_Sequence==Prb_SNP_R_IB) ) %>%
+    dplyr::mutate(Ilmn_Id=stringr::str_replace(Ilmn_Id,'_','.'))
+  
+  # Now we have scores and Sequences::
+  #  - [DONE] Validate uniqueness
+  #  - Generate new probe names to match CGN
+  #  - Write Fasta
+  
+  #  - Align (bowtie) to hg19,hg38,COVID,COVID-NCBI
+  #  - Use match descriptor from COVID-NCBI alignments to:
+  #    - Remove probes with underlying SNPs
+  #    - Identify probes with target SNPs
+  #
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                            Write Fasta File::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  prb_snp_tib <- dplyr::bind_rows(
+    snp_des_tib %>% dplyr::select(Ilmn_Id,AlleleA_Probe_Sequence) %>% dplyr::mutate(Fas_Id=paste(Ilmn_Id,'IA', sep='_'), line=paste0('>',Fas_Id,'\n',AlleleA_Probe_Sequence) ),
+    snp_des_tib %>% dplyr::select(Ilmn_Id,AlleleB_Probe_Sequence) %>% dplyr::mutate(Fas_Id=paste(Ilmn_Id,'IB', sep='_'), line=paste0('>',Fas_Id,'\n',AlleleB_Probe_Sequence) )
+  ) %>% dplyr::select(Ilmn_Id, line) %>% dplyr::arrange(Ilmn_Id)
+  
+  prb_snp_str <- prb_snp_tib %>% dplyr::pull(line)
+  
+  # This needs to be split, but we can ignore it for now because alignment 
+  #  can be captured with Infinium I probes, which are the only ones we have
+  #  scores for at the moment anyways...
+  # snp_des_tib %>% dplyr::select(Ilmn_Id,Prb_SNP_F_II,Prb_SNP_R_II) %>% 
+  #   dplyr::mutate(Ilmn_Id=paste(Ilmn_Id,'II', sep='_'), 
+  #                 lineF=paste0('>',Ilmn_Id,'\n',Prb_SNP_F_II),
+  #                 lineR=paste0('>',Ilmn_Id,'\n',Prb_SNP_R_II) ) %>% 
+  #   dplyr::pull(lineF,lineR)
+
+  prb_snp_fas  <- file.path(opt$outDir, paste0(out_des_str,'.snp.fa.gz'))
+  readr::write_lines(x=prb_snp_str, path=prb_snp_fas)
+  bow_name <- prb_snp_fas %>% stringr::str_remove('.fa.gz$')
+  
+}
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Build CGN Tibbles::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 cgn_des_tib <- all_des_tib %>% dplyr::select(Seq_ID,Forward_Sequence_CGN_Des,Genome_Build,Chromosome,Coordinate) %>%
   dplyr::rename(Sequence=Forward_Sequence_CGN_Des) %>%
@@ -363,14 +464,6 @@ if (opt$verbose>4) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                               Write Outputs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
-if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
-
-if (opt$clean) list.files(opt$outDir, full.names=TRUE) %>% unlink()
-
-out_des_str <- paste(par$prgmTag, opt$platform, opt$version, opt$build, opt$runName, sep='_')
 
 all_des_csv <- file.path(opt$outDir, paste(out_des_str, 'tiled-all-dat.csv.gz', sep='_') )
 cgn_des_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-des.tsv.gz', sep='_') )
@@ -461,21 +554,9 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   #                  Match Probes by Strand to Top Picks::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  # Previous::
-  # Design_Type Count
-  # <chr>       <int> All
-  # 1 I         16975 29029
-  # 2 II        12054 12054
-  #
-  
-  # sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c("Seq_ID","FR_Str","CO_Str") ) 
   sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c("Seq_ID","FR_Str","CO_Str","Probe_Type","Forward_Sequence") ) 
   sel_prb_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
-  
-  # No need to split
-  # sel_prb1_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='I')
-  # sel_prb2_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='II')
-  
+
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                           Format Order File::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -516,11 +597,11 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   #                            Write Fasta File::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-  prb_fas  <- ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
-  bsp_name <- prb_fas %>% stringr::str_remove('.fa.gz$')
+  prb_cgn_fas  <- ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
+  bsp_name <- prb_cgn_fas %>% stringr::str_remove('.cgn.fa.gz$')
 
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                            Run BSP Alignments::
+  #                            Build Alignments::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   gen_cnt <- length(genAlign_vec)
@@ -531,11 +612,39 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
 
     shell_dir <- file.path(opt$outDir, 'shells')
     if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                       Run Bowtie Alignments:: SNP
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (!is.null(prb_snp_fas) && file.exists(prb_snp_fas)) {
+      bow_shell <- file.path(shell_dir, paste0('run_bow-',gen_name,'.sh') )
+      
+      bow_tsv <- paste(bow_name,gen_name,'tsv.gz', sep='.')
+      
+      # /illumina/thirdparty/bowtie2/bowtie2-2.2.2/bowtie2 -f -x /illumina/scratch/darkmatter/Projects/COVIC/fas/nCoV_Wuhan_Sequence_MN908947.3.fa -U /illumina/scratch/darkmatter/Projects/COVIC/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.fa.gz
+      bow_cmd <- paste(par$bow_exe,
+                       '-f -x',gen_path,
+                       '-U',prb_cgn_fas,
+                       '| gzip -c ->',bow_tsv,
+                       sep=' ')
+      
+      # bsp_cmd <- glue::glue("{bow_cmd}{RET}gzip {bow_tsv}{RET}")
+      
+      readr::write_lines(x=bow_cmd, path=bsp_shell, append=FALSE)
+      Sys.chmod(paths=bow_shell, mode="0777")
+      base::system(bow_shell)
+      
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Run BSP Alignments:: CGN
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     bsp_shell <- file.path(shell_dir, paste0('run_bsp-',gen_name,'.sh') )
     
     bsp_tsv <- paste(bsp_name,gen_name,'tsv', sep='.')
     bsp_cmd <- paste(par$bsp_exe,
-                     '-a',prb_fas,
+                     '-a',prb_cgn_fas,
                      '-d',gen_path,
                      '-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R',
                      # '-u -R',
