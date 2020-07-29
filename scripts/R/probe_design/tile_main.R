@@ -63,6 +63,8 @@ opt$outDir    <- NULL
 opt$runName <- NULL
 opt$fasta   <- NULL
 
+opt$genome  <- NULL
+
 # Parallel/Cluster Options::
 opt$execute  <- TRUE
 opt$single   <- FALSE
@@ -111,6 +113,7 @@ if (args.dat[1]=='RStudio') {
   
   opt$fasta   <- '/Users/bbarnes/Documents/Projects/iGenomes/COVID-19/nCoV_Wuhan_Sequence_MN908947.3.fa.gz'
   opt$runName <- base::basename(opt$fasta) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.fa')
+  opt$runName <- 'COVIC'
 
   opt$outDir <- file.path(par$topDir)
   
@@ -136,6 +139,8 @@ if (args.dat[1]=='RStudio') {
                 help="Run Name [default= %default]", metavar="character"),
     make_option(c("--fasta"), type="character", default=opt$fasta, 
                 help="Whole Genome Fasta [default= %default]", metavar="character"),
+    make_option(c("--genome"), type="character", default=opt$genome, 
+                help="Genome Fasta to align probes against [default= %default]", metavar="character"),
     
     # Chip Platform and Version Parameters::
     make_option(c("--platform"), type="character", default=opt$platform, 
@@ -295,7 +300,7 @@ all_des_tib <- tibble::tibble(
   Forward_Sequence_CGN_Org=paste0(Pre_Seq,'[',Ref_Nuc,Nxt_Nuc,']',Pos_CGN_Seq),
   Forward_Sequence_CGN_Des=paste0(Pre_Seq,'[','C','G',']',Pos_CGN_Seq),
   platform=opt$platform, version=opt$version, Genome_Build=opt$build,genome=opt$runName,
-  Seq_ID=paste(Genome_Build,Coordinate,Di_Nuc, sep='_')
+  Seq_ID=paste0(Genome_Build,'.',Coordinate,'_',Di_Nuc)
 ) %>% dplyr::filter(Forward_Sequence_Len==opt$des_seq_len+1) %>% 
   dplyr::select(Seq_ID,Genome_Build,Chromosome,Coordinate, everything())
 
@@ -326,7 +331,7 @@ opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
 
-list.files(opt$outDir, full.names=TRUE) %>% unlink()
+if (opt$clean) list.files(opt$outDir, full.names=TRUE) %>% unlink()
 
 out_des_str <- paste(par$prgmTag, opt$platform, opt$version, opt$build, opt$runName, sep='_')
 
@@ -342,6 +347,9 @@ readr::write_tsv(cgn_org_tib,cgn_org_tsv)
 #                             Run improbe design::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+imp_out_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-improbe-designs.tsv.gz', sep='_') )
+imp_out_log <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-improbe-designs.log', sep='_') )
+
 if (opt$isLinux) {
   if (! file.exists(par$tan_file))
     stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: On linux and can't find tangos={par$tan_file}!{RET}{RET}"))
@@ -352,9 +360,6 @@ if (opt$isLinux) {
   if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
   
   shell_file <- file.path(shell_dir, 'run_improbe.sh')
-  
-  imp_out_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-improbe-designs.tsv.gz', sep='_') )
-  imp_out_log <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-improbe-designs.log', sep='_') )
   
   cmd <- paste(
     'gzip -dc',cgn_des_tsv,'|',
@@ -372,6 +377,12 @@ if (opt$isLinux) {
   Sys.chmod(paths=shell_file, mode="0777")
   
   base::system(shell_file)
+  
+}
+
+if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
+  imp_out_tib <- readr::read_tsv(imp_out_tsv)
+  
   
 }
 
