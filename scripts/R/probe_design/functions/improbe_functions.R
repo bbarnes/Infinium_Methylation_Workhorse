@@ -18,7 +18,7 @@ BNG <- "|"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 bowtieProbeAlign = function(exe, fas, gen, dir,
-                            verbose=0,vt=5,tc=1,tt=NULL) {
+                            verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'bowtieProbeAlign'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -49,7 +49,7 @@ bowtieProbeAlign = function(exe, fas, gen, dir,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 bsmapProbeAlign = function(exe, fas, gen, dir,
-                           verbose=0,vt=5,tc=1,tt=NULL) {
+                           verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'bsmapProbeAlign'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
