@@ -125,11 +125,12 @@ if (args.dat[1]=='RStudio') {
   opt$version   <- 'C0'
 
   opt$classVar <- 'Sample_Name'
-  opt$classVar <- 'Sample_Class'
   
   opt$classVar <- 'Karyotype_0_Call'
   opt$classVar <- 'Karyotype_1_Call'
 
+  opt$classVar <- 'Sample_Class'
+  
   opt$clean  <- TRUE
   opt$clean  <- FALSE
   opt$single <- TRUE
@@ -142,10 +143,15 @@ if (args.dat[1]=='RStudio') {
     opt$buildDir  <- paste(
       # file.path(par$topDir, 'builds/swifthoof_main', opt$runName1),
       # file.path(par$topDir, 'builds/swifthoof_main', opt$runName5),
-      file.path(par$topDir, 'builds/swifthoof_main', opt$runName),
+      # file.path(par$topDir, 'builds/swifthoof_main', opt$runName),
+      file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/builds', opt$runName),
       sep=',')
     
-    opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv')
+    # opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv')
+    
+    par$samDir <- '/Users/bbarnes/Documents/Projects/methylation'
+    opt$sampleCsv <- file.path(par$samDir, 'sampleSheets/annotation/Human-Classification_COVID_Count-624_AnnotatedMultiSampleSheet.csv.gz')
+
     opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
     
   } else if (opt$classVar=='Karyotype_0_Call' || opt$classVar=='Karyotype_1_Call') {
@@ -201,7 +207,9 @@ if (args.dat[1]=='RStudio') {
     # readr::write_csv( auto_ss_tib %>% dplyr::select(Sentrix_Name, Auto_Sample_Name) %>% dplyr::rename(Sample_Name=Auto_Sample_Name),
     #                   "/Users/bbarnes/Documents/CustomerFacing/sampleSheets/DELTA/DELTA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz")
     # opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/DELTA', paste(opt$runName, 'Sample_Names.SampleSheet.csv.gz', sep='.'))
-    opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/BETA-DELTA-EPIC-Core/BETA-DELTA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz')
+    
+    par$samDir <- '/Users/bbarnes/Documents/Projects/methylation'
+    opt$sampleCsv <- file.path(par$samDir, 'sampleSheets/BETA-DELTA-EPIC-Core/BETA-DELTA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz')
     
     opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
   }

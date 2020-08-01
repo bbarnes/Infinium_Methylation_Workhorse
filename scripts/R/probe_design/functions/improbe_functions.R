@@ -14,10 +14,74 @@ RET <- "\n"
 BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Bowtie Alignment Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+bowtieProbeAlign = function(exe, fas, gen, dir,
+                            verbose=0,vt=5,tc=1,tt=NULL) {
+  funcTag <- 'bowtieProbeAlign'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} dir={dir}.{RET}"))
+  
+  stime <- system.time({
+    fas_name <- fas %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
+    gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
+    
+    aln_sh  <- file.path(dir, paste0('run_bow-',fas_name,'-',gen_name,'.sh') )
+    aln_sam <- paste0(fas_name,'-',gen_name,'bowtie.sam.gz', sep='.')
+    aln_cmd <- paste(exe, '-f -x',gen, '-U',fas, '| gzip -c ->',aln_sam, sep=' ')
+
+    cat(glue::glue("[{funcTag}]:{TAB} Launching bowtie alignments: {fas_name} vs. {gen_name}...{RET}"))
+    readr::write_lines(x=aln_cmd, path=aln_sh, append=FALSE)
+    Sys.chmod(paths=aln_sh, mode="0777")
+    base::system(aln_sh)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+
+  aln_sam
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Bowtie Alignment Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+bsmapProbeAlign = function(exe, fas, gen, dir,
+                           verbose=0,vt=5,tc=1,tt=NULL) {
+  funcTag <- 'bsmapProbeAlign'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} dir={dir}.{RET}"))
+  
+  stime <- system.time({
+    fas_name <- fas %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
+    gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
+    
+    aln_sh  <- file.path(dir, paste0('run_bsp-',fas_name,'-',gen_name,'.sh') )
+    aln_sam <- paste0(fas_name,'-',gen_name,'bsmap.bsp.gz', sep='.')
+    aln_cmd <- paste(exe, '-a',fas, '-d',gen, '-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R','-o',aln_sam, sep=' ')
+    aln_cmd <- glue::glue("{aln_cmd}{RET}gzip {aln_sam}{RET}")
+    
+    cat(glue::glue("[{funcTag}]:{TAB} Launching bsmap alignments: {fas_name} vs. {gen_name}...{RET}"))
+    readr::write_lines(x=aln_cmd, path=aln_sh, append=FALSE)
+    Sys.chmod(paths=aln_sh, mode="0777")
+    base::system(aln_sh)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  
+  aln_sam
+}
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                Infinium Methylation Probe toStrings::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ordToFas = function(tib, dir, name, verbose=0,vt=4,tc=1,tabsStr='') {
+ordToFas = function(tib, dir, name, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'writeBedFas'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -41,7 +105,7 @@ ordToFas = function(tib, dir, name, verbose=0,vt=4,tc=1,tabsStr='') {
   fas_file
 }
 
-writeBedFas = function(tib, dir, name, verbose=0,vt=4,tc=1,tabsStr='') {
+writeBedFas = function(tib, dir, name, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'writeBedFas'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -68,8 +132,7 @@ writeBedFas = function(tib, dir, name, verbose=0,vt=4,tc=1,tabsStr='') {
   bed_tib
 }
 
-prbs2order = function(tib,
-                      verbose=0,vt=4,tc=1,tabsStr='') {
+prbs2order = function(tib, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'prbs2order'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -144,7 +207,7 @@ prbs2order = function(tib,
 }
 
 printPrbs = function(tib, pr='cg', org=NULL, outDir, plotName, max=NULL,
-                     verbose=0,vt=4,tc=1,tabsStr='') {
+                     verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'printPrbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -280,7 +343,7 @@ srdsToBrac = function(tib,
   
 }
 
-prbsToStr = function(tib, pr, verbose=0,vt=4,tc=1,tabsStr='') {
+prbsToStr = function(tib, pr, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'prbsToStr'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -415,8 +478,7 @@ prbsToStr = function(tib, pr, verbose=0,vt=4,tc=1,tabsStr='') {
   str
 }
 
-prbsToStrMUD = function(tib, mu='U',
-                        verbose=0,vt=1,tc=1,tabsStr='') {
+prbsToStrMUD = function(tib, mu='U', verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'prbsToStr'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -455,7 +517,7 @@ prbsToStrMUD = function(tib, mu='U',
 
 # Function to design all probes from a generic tibble
 tib2prbs = function(tib, idsKey,prbKey,seqKey, 
-                    verbose=0,vt=1,tc=1,tabsStr='') {
+                    verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'tib2prbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -560,7 +622,7 @@ tib2prbs = function(tib, idsKey,prbKey,seqKey,
 }
 
 # Function to design all probes in a single call
-desAllPrbs = function(tib, verbose=0,vt=1,tc=1,tabsStr='') {
+desAllPrbs = function(tib, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'desAllPrbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -578,7 +640,7 @@ desAllPrbs = function(tib, verbose=0,vt=1,tc=1,tabsStr='') {
 #   TBD:: Previous default was 'QC_CPN=TRUE' Not sure if that is needed...
 #
 des2prbs = function(tib, fwd, con, pr, mu, desSeq='DesSeqN', len=48, del='_',QC_CPN=FALSE,
-                    verbose=0,vt=1,tc=1,tabsStr='') {
+                    verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'des2prbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -700,7 +762,7 @@ des2prbs = function(tib, fwd, con, pr, mu, desSeq='DesSeqN', len=48, del='_',QC_
 }
 
 des2prbsNOTES = function(srd, desSeq,
-                         vt=1, tc=0, tabsStr='') {
+                         verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'des2prbs'
   for (i in c(1:tc)) tabsStr <- paste0(tabsStr, TAB)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -751,7 +813,7 @@ des2prbsNOTES = function(srd, desSeq,
 writeImprobeInput = function(tib, name, dir, run=FALSE, 
                              exe=NULL, impTango=NULL, imp13mer=NULL, 
                              tbVar='BOTH', coVar='BOTH',
-                             verbose=0,vt=3,tc=1,tabsStr='') {
+                             verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'writeImprobeInput'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -787,25 +849,12 @@ writeImprobeInput = function(tib, name, dir, run=FALSE,
   
   imp_out_tsv
 }
-# 
-# tibToImprobeInput = function(tib, verbose=0,vt=5,tc=1,tabsStr='') {
-#   funcTag <- 'tibToImprobeInput'
-#   tabsStr <- paste0(rep(TAB, tc), collapse='')
-#   
-#   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-#   
-#   imp_tib <- tib %>% dplyr::mutate(Sequence=stringr::str_replace(Forward_Sequence, '\\[[A-Za-z][A-Za-z]\\]', '[CG]'), 
-#                                    CpG_Island='FALSE' ) %>% 
-#     dplyr::select(IlmnID, Sequence, Genome_Build, CHR, MAPINFO, CpG_Island) %>% 
-#     dplyr::rename(Seq_ID=IlmnID, Chromosome=CHR, Coordinate=MAPINFO)
-#   
-#   imp_tib
-# }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Load/Format Input File Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-loadManifestRS = function(file, swap, revAllele=FALSE, verbose=0,vt=1,tc=1,tabsStr='') {
+loadManifestRS = function(file, swap, revAllele=FALSE, 
+                          verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'loadManifestRS'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -854,7 +903,8 @@ loadManifestRS = function(file, swap, revAllele=FALSE, verbose=0,vt=1,tc=1,tabsS
   snp_man_tib
 }                          
 
-loadManifestCG = function(file, pr='cg', verbose=0,vt=1,tc=1,tabsStr='') {
+loadManifestCG = function(file, pr='cg', 
+                          verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'loadManifestCG'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -874,7 +924,8 @@ loadManifestCG = function(file, pr='cg', verbose=0,vt=1,tc=1,tabsStr='') {
   cpg_man_tib
 }                          
 
-loadManifestCH = function(file, pr='ch', ry='R', verbose=0,vt=1,tc=1,tabsStr='') {
+loadManifestCH = function(file, pr='ch', ry='R', 
+                          verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'loadManifestCH'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -897,7 +948,8 @@ loadManifestCH = function(file, pr='ch', ry='R', verbose=0,vt=1,tc=1,tabsStr='')
   cph_man_tib
 }
 
-loadManifestYH = function(file, pr='ch', verbose=0,vt=1,tc=1,tabsStr='') {
+loadManifestYH = function(file, pr='ch', 
+                          verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'loadManifestCH'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -920,29 +972,8 @@ loadManifestYH = function(file, pr='ch', verbose=0,vt=1,tc=1,tabsStr='') {
   cph_man_tib
 }                          
 
-loadManifestCH_OLD = function(file, pr='ch', verbose=0,vt=1,tc=1,tabsStr='') {
-  funcTag <- 'loadManifestCH_old'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading manifest(CH)={file}.{RET}"))
-  
-  cph_man_tib <- suppressMessages(suppressWarnings(readr::read_csv(cph_man_csv ))) %>% 
-    dplyr::filter(stringr::str_starts(IlmnID,pr)) %>%
-    dplyr::mutate(Strand=stringr::str_sub(IlmnID, -1), FR=Strand, CO='O',
-                  TP=case_when( is.na(AlleleB_ProbeSeq) ~ 'II', TRUE ~ 'I' )) %>%
-    dplyr::mutate(CGN=stringr::str_remove(Name, '_\\.*\\$'),
-                  diNUC=stringr::str_remove(
-                    stringr::str_replace(Forward_Sequence, '^.*\\[([A-Za-z][A-Za-z])].*$', "\\$1"),'^\\\\') ) %>%
-    dplyr::select(IlmnID, Name, AddressA_ID, AlleleA_ProbeSeq, AddressB_ID, AlleleB_ProbeSeq,
-                  Infinium_Design_Type, Next_Base, Color_Channel, Forward_Sequence, 
-                  Genome_Build, CHR, MAPINFO, CGN, diNUC)
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
-  
-  cph_man_tib
-}                          
-
-loadImprobeDesign = function(file=NULL, src_des_tib=NULL, verbose=0,vt=1,tc=1) {
+loadImprobeDesign = function(file=NULL, src_des_tib=NULL, 
+                             verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'loadImprobeDesign'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -1107,7 +1138,7 @@ cmpIUPACs = function(x) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 cmpInfIMU_MisMatch = function(tib, fieldA, fieldB, mu, del='_',
-                              verbose=0,vt=4,tc=1,tabsStr='') {
+                              verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'cmpInfIMU_MisMatch'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -1136,7 +1167,7 @@ cmpInfIMU_MisMatch = function(tib, fieldA, fieldB, mu, del='_',
 }
 
 cmpInfI_MisMatch = function(tib, fieldAU, fieldBU, fieldAM, fieldBM, del='_',
-                            verbose=0,vt=4,tc=1,tabsStr='') {
+                            verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'cmpInfI_MisMatch'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -1154,7 +1185,7 @@ cmpInfI_MisMatch = function(tib, fieldAU, fieldBU, fieldAM, fieldBM, del='_',
 }
 
 cmpInfII_MisMatch = function(tib, fieldA, fieldB, mu='D', del='_',
-                    verbose=0,vt=4,tc=1,tabsStr='') {
+                             verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'cmpInfI'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -1176,7 +1207,7 @@ cmpInfII_MisMatch = function(tib, fieldA, fieldB, mu='D', del='_',
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 cmpInfIMU= function(tib, fieldA, fieldB, mu, del='_',
-                    verbose=0,vt=4,tc=1,tabsStr='') {
+                    verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'cmpInfMU'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -1207,7 +1238,7 @@ cmpInfIMU= function(tib, fieldA, fieldB, mu, del='_',
 }
 
 cmpInfI = function(tib, fieldAU, fieldBU, fieldAM, fieldBM, del='_',
-                   verbose=0,vt=4,tc=1,tabsStr='') {
+                   verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'cmpInfI'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -1224,7 +1255,7 @@ cmpInfI = function(tib, fieldAU, fieldBU, fieldAM, fieldBM, del='_',
 }
 
 cmpInfII = function(tib, fieldA, fieldB, mu='D', del='_',
-                    verbose=0,vt=4,tc=1,tabsStr='') {
+                    verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'cmpInfI'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   

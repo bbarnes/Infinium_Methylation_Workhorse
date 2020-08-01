@@ -60,7 +60,7 @@ opt$version  <- NULL
 opt$minPrbScore <- 0.3
 opt$minCpgRank  <- "3,2,1,0"
 opt$minScrRank  <- "0.6,0.5,0.4,0.3"
-opt$strandCO    <- 'C'
+opt$strandCO    <- 'C,O'
 opt$pickBest    <- FALSE
 
 # Output Format Parameters::
