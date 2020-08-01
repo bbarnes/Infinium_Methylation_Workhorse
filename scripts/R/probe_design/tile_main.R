@@ -613,9 +613,10 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   gen_cnt <- length(genAlign_vec)
-  cat(glue::glue("[{par$prgmTag}]: Ready to launch alignments; genomes count={gen_cnt}...{RET}"))
   for (gen_idx in c(1:gen_cnt)) {
     gen_path <- genAlign_vec[gen_idx]
+    cat(glue::glue("[{par$prgmTag}]: Ready to launch alignments; genomes count={gen_cnt}; gen_path={gen_path}...{RET}"))
+    
     shell_dir <- file.path(opt$outDir, 'shells')
     
     if (file.exists(gen_path)) {
@@ -626,11 +627,14 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
                                  verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
 
     } else if (dir.exists(gen_path)) {
+      cat(glue::glue("[{par$prgmTag}]: Searching directory for genome: gen_path={gen_path}...{RET}"))
       gen_paths <- list.files(gen_path, pattern='.fa[.gz]$', full.names=TRUE)
       
       gen_cnts <- 0
       for (gpath in gen_paths) {
         if (file.exists(gpath)) {
+          cat(glue::glue("[{par$prgmTag}]:{TAB}Ready to launch alignments; genomes count={gen_cnt}/{gen_cnts}; gen_path={gen_path}...{RET}"))
+          
           bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gpath, dir=shell_dir,
                                       verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
           
