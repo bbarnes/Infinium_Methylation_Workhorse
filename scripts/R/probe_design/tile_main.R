@@ -621,7 +621,8 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
 
     if (dir.exists(gen_path)) {
       cat(glue::glue("[{par$prgmTag}]:{TAB} Searching directory for genomes: gen_path={gen_path}...{RET}"))
-      gen_paths <- list.files(gen_path, pattern='.fa[.gz]$', full.names=TRUE)
+      # gen_paths <- list.files(gen_path, pattern='.fa[.gz]$', full.names=TRUE)
+      gen_paths <- list.files(gen_path, pattern='.fa.gz$', full.names=TRUE)
       
       gen_cnts <- 0
       for (gpath in gen_paths) {
