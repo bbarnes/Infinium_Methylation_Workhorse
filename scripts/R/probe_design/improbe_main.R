@@ -121,7 +121,7 @@ if (args.dat[1]=='RStudio') {
   # fin_ord_csv <- file.path(opt$outDir, paste(opt$runName, 'order-summary.csv', sep='.') )
   # des_ord_tsv <- file.path(opt$outDir, 'data', paste(opt$runName,'ForwardSequence.tsv.gz', sep='.') )
   
-  opt$outDir <- file.path(par$topDir, par$prgmTag, 'CustomContent')
+  opt$outDir <- file.path(par$topDir, par$prgmTag, 'CustomContent/CO.standard')
 
 } else {
   par$runMode    <- 'CommandLine'

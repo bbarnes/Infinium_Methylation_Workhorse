@@ -78,16 +78,16 @@ plotSub=5000
 
 # Standard Options:: DON'T CHANGE::
 #
-prgmTop="workhorse"
+prgmTop="Infinium_Methylation_Workhorse"
 prgmDir="swifthoof"
 prgmTag="swifthoof_main"
 
-TOP_MAC=/Users/bbarnes/Documents/CustomerFacing
+TOP_MAC=/Users/bbarnes/Documents/Projects/methylation
 TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC
 
 if [ -e ${TOP_MAC} ]; then
     TOP=${TOP_MAC}
-    SRC=${TOP_MAC}/${prgmTop}
+    SRC=${TOP_MAC}/tools/${prgmTop}
     DAT=${SRC}/dat
     CONDA=mac
     RSCRIPT=/usr/local/bin/Rscript
@@ -120,7 +120,6 @@ auto_sam_csv=${datDir}/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_no
 # idatsDir=NULL
 CMD+=" --auto_sam_csv"=${auto_sam_csv}
 CMD+=" --outDir"=${outDir}
-CMD+=" --datDir"=${datDir}
 CMD+=" --idatsDir"=${idatsDir}
 
 # Optional Files::

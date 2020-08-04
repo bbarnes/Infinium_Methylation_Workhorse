@@ -6,6 +6,9 @@ suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
+# Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

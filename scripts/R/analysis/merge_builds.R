@@ -45,6 +45,9 @@ par$prgmTag <- 'merge_builds'
 par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
 par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
 
+# File Based Parameters::
+opt$inputsCsv <- NULL
+
 # Directory Parameters::
 opt$outDir    <- NULL
 opt$buildDir  <- NULL
@@ -118,102 +121,113 @@ if (args.dat[1]=='RStudio') {
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
-  # Default Options for local Mac::
-  opt$Rscript  <- 'Rscript'
   
-  opt$platform  <- 'EPIC'
-  opt$version   <- 'C0'
-
-  opt$classVar <- 'Sample_Name'
+  opt$inputsCsv <- file.path(par$datDir, 'params', paste0(par$prgmTag,'.default.csv') )
   
-  opt$classVar <- 'Karyotype_0_Call'
-  opt$classVar <- 'Karyotype_1_Call'
-
-  opt$classVar <- 'Sample_Class'
-  
-  opt$clean  <- TRUE
-  opt$clean  <- FALSE
-  opt$single <- TRUE
-
-  if (opt$classVar=='Sample_Class') {
-    opt$runName1  <- 'COVIC-Set1-15052020'
-    opt$runName5  <- 'COVIC-Set5-10062020'
-    opt$runName   <- opt$runName5
+  if (is.null(opt$inputsCsv) || !file.exists(opt$inputsCsv)) {
+    # Default Options for local Mac::
+    opt$Rscript  <- 'Rscript'
     
-    opt$buildDir  <- paste(
-      # file.path(par$topDir, 'builds/swifthoof_main', opt$runName1),
-      # file.path(par$topDir, 'builds/swifthoof_main', opt$runName5),
-      # file.path(par$topDir, 'builds/swifthoof_main', opt$runName),
-      file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/builds', opt$runName),
-      sep=',')
+    opt$platform  <- 'EPIC'
+    opt$version   <- 'C0'
     
-    # opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv')
+    opt$classVar <- 'Sample_Name'
     
-    par$samDir <- '/Users/bbarnes/Documents/Projects/methylation'
-    opt$sampleCsv <- file.path(par$samDir, 'sampleSheets/annotation/Human-Classification_COVID_Count-624_AnnotatedMultiSampleSheet.csv.gz')
-
-    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+    opt$classVar <- 'Karyotype_0_Call'
+    opt$classVar <- 'Karyotype_1_Call'
     
-  } else if (opt$classVar=='Karyotype_0_Call' || opt$classVar=='Karyotype_1_Call') {
-    opt$runName <- 'BETA-DELTA-8x1-EPIC-Core'
-    opt$runName <- 'BETA-8x1-EPIC-Ref'
-    opt$version <- 'B4'
+    opt$classVar <- 'Sample_Class'
     
-    if (opt$runName=='BETA-DELTA-8x1-EPIC-Core') {
+    opt$clean  <- TRUE
+    opt$clean  <- FALSE
+    opt$single <- TRUE
+    
+    if (opt$classVar=='Sample_Class') {
+      opt$runName1  <- 'COVIC-Set1-15052020'
+      opt$runName5  <- 'COVIC-Set5-10062020'
+      opt$runName   <- opt$runName5
+      opt$runName   <- opt$runName1
       
       opt$buildDir  <- paste(
-        file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker'),
+        # file.path(par$topDir, 'builds/swifthoof_main', opt$runName1),
+        # file.path(par$topDir, 'builds/swifthoof_main', opt$runName5),
+        # file.path(par$topDir, 'builds/swifthoof_main', opt$runName),
+        file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/builds', opt$runName),
         sep=',')
       
-    } else if (opt$runName=='BETA-8x1-EPIC-Ref') {
+      # opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv')
+      
+      par$samDir <- '/Users/bbarnes/Documents/Projects/methylation'
+      opt$sampleCsv <- file.path(par$samDir, 'sampleSheets/annotation/Human-Classification_COVID_Count-624_AnnotatedMultiSampleSheet.csv.gz')
+      
+      opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+      
+    } else if (opt$classVar=='Karyotype_0_Call' || opt$classVar=='Karyotype_1_Call') {
+      opt$runName <- 'BETA-DELTA-8x1-EPIC-Core'
+      opt$runName <- 'BETA-8x1-EPIC-Ref'
+      opt$version <- 'B4'
+      
+      if (opt$runName=='BETA-DELTA-8x1-EPIC-Core') {
+        
+        opt$buildDir  <- paste(
+          file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker'),
+          sep=',')
+        
+      } else if (opt$runName=='BETA-8x1-EPIC-Ref') {
+        
+        opt$buildDir  <- paste(
+          file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker', opt$runName),
+          sep=',')
+        
+      } else {
+        opt$version   <- 'C0'
+        
+        opt$runNameA  <- "COVIC-Set1-15052020"
+        opt$runNameB  <- "COVIC-Set5-10062020"
+        
+        opt$runName  <- 'COVIC-Set1-5'
+        opt$runName  <- opt$runNameB
+        opt$runName  <- opt$runNameA
+        
+        opt$mergeDir <- paste(
+          file.path(par$topDir, 'merge_builds',opt$classVar,opt$runName,opt$platform,opt$version ),
+          sep=',')
+      }
+      # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
+      opt$trainClass <- paste('XaXi','XaY', sep=',')
+      
+    } else if (opt$classVar=='Sample_Name') {
+      opt$runNameA  <- 'DELTA-8x1-EPIC-Core'
+      opt$runNameB  <- 'BETA-8x1-EPIC-Core'
+      
+      opt$runName   <- 'EPIC-BETA-8x1-CoreCancer'
+      opt$version   <- 'B4'
       
       opt$buildDir  <- paste(
-        file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker', opt$runName),
+        file.path(par$topDir, 'builds/swifthoof_main', opt$runNameA),
+        file.path(par$topDir, 'builds/swifthoof_main', opt$runNameB),
         sep=',')
       
-    } else {
-      opt$version   <- 'C0'
+      # readr::write_csv( auto_ss_tib %>% dplyr::select(Sentrix_Name, Auto_Sample_Name) %>% dplyr::rename(Sample_Name=Auto_Sample_Name),
+      #                   "/Users/bbarnes/Documents/CustomerFacing/sampleSheets/BETA/BETA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz")
+      # opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/BETA', paste(opt$runName, 'Sample_Names.SampleSheet.csv.gz', sep='.'))
       
-      opt$runNameA  <- "COVIC-Set1-15052020"
-      opt$runNameB  <- "COVIC-Set5-10062020"
+      # readr::write_csv( auto_ss_tib %>% dplyr::select(Sentrix_Name, Auto_Sample_Name) %>% dplyr::rename(Sample_Name=Auto_Sample_Name),
+      #                   "/Users/bbarnes/Documents/CustomerFacing/sampleSheets/DELTA/DELTA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz")
+      # opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/DELTA', paste(opt$runName, 'Sample_Names.SampleSheet.csv.gz', sep='.'))
       
-      opt$runName  <- 'COVIC-Set1-5'
-      opt$runName  <- opt$runNameB
-      opt$runName  <- opt$runNameA
+      par$samDir <- '/Users/bbarnes/Documents/Projects/methylation'
+      opt$sampleCsv <- file.path(par$samDir, 'sampleSheets/BETA-DELTA-EPIC-Core/BETA-DELTA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz')
       
-      opt$mergeDir <- paste(
-        file.path(par$topDir, 'merge_builds',opt$classVar,opt$runName,opt$platform,opt$version ),
-        sep=',')
+      opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
+      
+      # 
+      # ref_delta_ss_tib  <- readr::read_csv('/Users/bbarnes/Documents/Projects/methylation/scratch/docker/merge_builds/ReferenceBETA/EPIC/B4/Karyotype_1_Call/r1/r1_EPIC_B4_AutoSampleSheet.csv.gz')
+      # ref_delta_ss_tib  <- readr::read_csv('/Users/bbarnes/Documents/Projects/methylation/scratch/docker/merge_builds/ReferenceDELTA/EPIC/B4/Karyotype_1_Call/r1/r1_EPIC_B4_AutoSampleSheet.csv.gz')
+      # ref_delta_dml_tib <- readr::read_csv('/Users/bbarnes/Documents/Projects/methylation/scratch/docker/build_models/DML/ReferenceDELTA/Karyotype_1_Call/r1/ind-beta_i-poob-1/Karyotype_1_Call_r1_ind-beta_i-poob-1.full-dml.csv.gz')
     }
-    # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
-    opt$trainClass <- paste('XaXi','XaY', sep=',')
-    
-  } else if (opt$classVar=='Sample_Name') {
-    opt$runNameA  <- 'DELTA-8x1-EPIC-Core'
-    opt$runNameB  <- 'BETA-8x1-EPIC-Core'
-    
-    opt$runName   <- 'EPIC-BETA-8x1-CoreCancer'
-    opt$version   <- 'B4'
-    
-    opt$buildDir  <- paste(
-      file.path(par$topDir, 'builds/swifthoof_main', opt$runNameA),
-      file.path(par$topDir, 'builds/swifthoof_main', opt$runNameB),
-      sep=',')
-    
-    # readr::write_csv( auto_ss_tib %>% dplyr::select(Sentrix_Name, Auto_Sample_Name) %>% dplyr::rename(Sample_Name=Auto_Sample_Name),
-    #                   "/Users/bbarnes/Documents/CustomerFacing/sampleSheets/BETA/BETA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz")
-    # opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/BETA', paste(opt$runName, 'Sample_Names.SampleSheet.csv.gz', sep='.'))
-    
-    # readr::write_csv( auto_ss_tib %>% dplyr::select(Sentrix_Name, Auto_Sample_Name) %>% dplyr::rename(Sample_Name=Auto_Sample_Name),
-    #                   "/Users/bbarnes/Documents/CustomerFacing/sampleSheets/DELTA/DELTA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz")
-    # opt$sampleCsv <- file.path(par$topDir, 'sampleSheets/DELTA', paste(opt$runName, 'Sample_Names.SampleSheet.csv.gz', sep='.'))
-    
-    par$samDir <- '/Users/bbarnes/Documents/Projects/methylation'
-    opt$sampleCsv <- file.path(par$samDir, 'sampleSheets/BETA-DELTA-EPIC-Core/BETA-DELTA-8x1-EPIC-Core.Sample_Names.SampleSheet.csv.gz')
-    
-    opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
+    opt$outDir <- file.path(par$topDir, par$prgmTag)
   }
-  opt$outDir <- file.path(par$topDir, par$prgmTag)
 
 } else {
   par$runMode    <- 'CommandLine'
@@ -320,18 +334,22 @@ if (is.null(par$runMode) || is.null(par$prgmDir) || is.null(par$prgmTag) ||
   base::stop("Null Parameters!\n\n")
 }
 
+if (!is.null(opt$inputsCsv) ) {
+  
+}
+    
 if (is.null(opt$outDir) || is.null(opt$buildDir) || 
-    is.null(opt$runName) || 
-    # is.null(opt$sampleCsv) || 
-    is.null(opt$classVar) ||
-    is.null(opt$addSampleName) || is.null(opt$addPathsCall) || is.null(opt$addPathsSigs) ||
-    is.null(opt$flagDetectPval) || is.null(opt$flagSampleDetect) || is.null(opt$flagRefMatch) ||
-    # is.null(opt$pvalDetectMinKey) || is.nulll(opt$pvalDetectMinVal) ||
-    is.null(opt$platform) || is.null(opt$version) ||
-    is.null(opt$percisionBeta) || is.null(opt$percisionPval) ||
-    is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
-
-    is.null(opt$clean) || is.null(opt$Rscript) || is.null(opt$verbose)) {
+     is.null(opt$runName) || 
+     # is.null(opt$sampleCsv) || 
+     is.null(opt$classVar) ||
+     is.null(opt$addSampleName) || is.null(opt$addPathsCall) || is.null(opt$addPathsSigs) ||
+     is.null(opt$flagDetectPval) || is.null(opt$flagSampleDetect) || is.null(opt$flagRefMatch) ||
+     # is.null(opt$pvalDetectMinKey) || is.nulll(opt$pvalDetectMinVal) ||
+     is.null(opt$platform) || is.null(opt$version) ||
+     is.null(opt$percisionBeta) || is.null(opt$percisionPval) ||
+     is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
+     
+     is.null(opt$clean) || is.null(opt$Rscript) || is.null(opt$verbose)) {
   if (par$runMode=='CommandLine') print_help(opt_parser)
   
   opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")

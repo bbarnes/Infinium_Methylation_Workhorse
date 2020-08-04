@@ -19,7 +19,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 # Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
-#  suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -166,8 +166,8 @@ if (args.dat[1]=='RStudio') {
   par$retData <- TRUE
   
   isCORE  <- TRUE
-  isCOVIC <- FALSE
   isCOVIC <- TRUE
+  isCOVIC <- FALSE
   if (isCOVIC) {
     opt$platform   <- 'EPIC'
     opt$manifest   <- 'C0'
@@ -183,9 +183,6 @@ if (args.dat[1]=='RStudio') {
     opt$platform   <- 'EPIC'
     opt$manifest   <- 'B4'
     
-    # opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
-    # opt$expChipNum <- '201502830033'
-    
     opt$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
     opt$expChipNum <- '202761400007'
 
@@ -194,6 +191,9 @@ if (args.dat[1]=='RStudio') {
     
     opt$expRunStr  <- 'idats_GSE122126_EPIC'
     opt$expChipNum <- '202410280180'
+
+    opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
+    opt$expChipNum <- '201502830033'
     
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Unsupported pre-defined method! Exiting...{RET}{RET}"))
@@ -228,7 +228,7 @@ if (args.dat[1]=='RStudio') {
                 help="Output directory [default= %default]", metavar="character"),
     make_option(c("-i", "--idatsDir"), type="character", default=opt$idatsDir, 
                 help="idats directory [default= %default]", metavar="character"),
-    
+
     # Optional Files::
     make_option(c("--manifestPath"), type="character", default=opt$manifestPath,
                 help="Path to manfifest (CSV) otherwise use dat [default= %default]", metavar="character"),
@@ -523,15 +523,16 @@ if (opt$cluster) {
     funcTag <- 'sesamizeSingleSample-Parallel'
     par$retData <- FALSE
     
-    cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: Starting...{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
 
-    chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
+    # chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
+    chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
       rdat <- NULL
       try_str <- ''
       rdat = tryCatch({
         try_str <- 'Pass'
-        rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                                     retData=par$retData, workflows=workflows_vec, tc=3)
+        sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+                             retData=par$retData, workflows=workflows_vec, tc=3)
       }, warning = function(w) {
         try_str <- paste('warning',funcTag, sep='-')
         rdat <- NA
@@ -557,8 +558,8 @@ if (opt$cluster) {
       try_str <- ''
       rdat = tryCatch({
         try_str <- 'Pass'
-        rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                                     retData=par$retData, workflows=workflows_vec, tc=3)
+        sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+                             retData=par$retData, workflows=workflows_vec, tc=3)
       }, warning = function(w) {
         try_str <- paste('warning',funcTag, sep='-')
         rdat <- NA
@@ -581,8 +582,8 @@ if (opt$cluster) {
   opt$par_csv  <- file.path(opt$outDir, paste(par$prgmTag,'program-parameters.csv', sep='.') )
   opt$time_csv <- file.path(opt$outDir, paste(par$prgmTag,'time-tracker.csv.gz', sep='.') )
   
-  opt_tib  <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
-  par_tib  <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
+  opt_tib  <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value") %>% dplyr::arrange(Option)
+  par_tib  <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value") %>% dplyr::arrange(Params)
   time_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
   
   readr::write_csv(opt_tib, opt$opt_csv)

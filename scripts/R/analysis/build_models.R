@@ -135,11 +135,12 @@ if (args.dat[1]=='RStudio') {
   opt$Rscript  <- 'Rscript'
   
   opt$classVar <- 'Sample_Name'
-  opt$classVar <- 'Sample_Class'
   
   opt$classVar <- 'Karyotype_0_Call'
   opt$classVar <- 'Karyotype_1_Call'
 
+  opt$classVar <- 'Sample_Class'
+  
   opt$buildDml    <- TRUE
   opt$buildModels <- TRUE
   
@@ -152,19 +153,20 @@ if (args.dat[1]=='RStudio') {
   opt$parallel <- FALSE
 
   par$platform <- 'EPIC'
-  par$version  <- 'B4'
+  par$version  <- 'C0'
   
   opt$runName  <- 'BETA-8x1-EPIC-Ref'
   opt$runName  <- 'COVIC-Set5-10062020'
   
   opt$mergeDir  <- paste(
-    file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
+    # file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
+    file.path(par$topDir, 'merge_builds',par$platform,par$version,opt$classVar,opt$runName),
     sep=',')
-
-  opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+  
   opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
   # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
   opt$trainClass <- paste('XaXi','XaY', sep=',')
+  opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
   
   # Sample Level Filtering Parameters::
   opt$samplePvalName <- "Poob_Pass_0_Perc"
