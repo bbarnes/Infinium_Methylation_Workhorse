@@ -41,6 +41,9 @@ par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'analysis'
 par$prgmTag <- 'merge_builds'
 
+# Predefined human sample sheet name::
+par$humanSampleSheetName <- 'humanSampleSheet.csv'
+
 # Illumina based directories::
 par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
 par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
@@ -55,6 +58,7 @@ opt$buildDir  <- NULL
 # Run Parameters::
 opt$runName   <- NULL
 opt$sampleCsv <- NULL
+opt$findSampleSheet <- FALSE
 
 # Class Parameters::
 # Really simple test to make sure we can seperate the sexes...
@@ -142,7 +146,9 @@ if (args.dat[1]=='RStudio') {
     opt$clean  <- FALSE
     opt$single <- TRUE
     
-    if (opt$classVar=='Sample_Class') {
+    if (opt$findSampleSheet) {
+      
+    } else if (opt$classVar=='Sample_Class') {
       opt$runName1  <- 'COVIC-Set1-15052020'
       opt$runName5  <- 'COVIC-Set5-10062020'
       opt$runName   <- opt$runName5
@@ -334,10 +340,6 @@ if (is.null(par$runMode) || is.null(par$prgmDir) || is.null(par$prgmTag) ||
   base::stop("Null Parameters!\n\n")
 }
 
-if (!is.null(opt$inputsCsv) ) {
-  
-}
-    
 if (is.null(opt$outDir) || is.null(opt$buildDir) || 
      is.null(opt$runName) || 
      # is.null(opt$sampleCsv) || 
@@ -432,8 +434,22 @@ cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 #                       Load Auto Detect Sample Sheets::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+hum_ss_tib  <- NULL
 auto_ss_tib <- NULL
 for (curDir in blds_dir_vec) {
+  if (opt$findSampleSheet) {
+    
+    cur_hm_csv <- file.path(curDir, par$humanSampleSheetName)
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Loading Human Classification; cur_hm_csv={cur_hm_csv}!{RET}") )
+    
+    cur_hm_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_hm_csv) ))
+    cur_hm_len <- cur_hm_tib %>% base::nrow()
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Done. Loading Human Classification; cur_hm_len={cur_hm_len}!{RET}{RET}") )
+    # print(cur_hm_tib)
+    
+    hum_ss_tib <- dplyr::bind_rows(hum_ss_tib,cur_hm_tib)
+  }
+  
   cur_ss_tib <- loadAutoSampleSheets(dir=curDir, platform=opt$platform, manifest=opt$version,
                                      addSampleName=opt$addSampleName,  addPathsCall=opt$addPathsCall, addPathsSigs=opt$addPathsSigs,
                                      flagDetectPval=opt$flagDetectPval, flagSampleDetect=opt$flagSampleDetect, flagRefMatch=opt$flagRefMatch,
@@ -463,22 +479,20 @@ cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len
 #  - Assume any unidentified sample is COVID-
 #  - Add Nasal Swabs to master sample sheet
 #
-hum_ss_tib  <- NULL
 labs_ss_tib <- NULL
 if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
   
-  cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
+  cat(glue::glue("[{par$prgmTag}]: Loading predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}") )
   
   hum_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(opt$sampleCsv) ))
   hum_ss_len <- hum_ss_tib %>% base::nrow()
+  cat(glue::glue("[{par$prgmTag}]: Done. Loading Human Classification; hum_ss_len={hum_ss_len}!{RET}{RET}") )
+  # print(hum_ss_tib)
   
   # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
   # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
   #
   labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
-  
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Human Classification; hum_ss_len={hum_ss_len}!{RET}{RET}") )
-  # print(hum_ss_tib)
   
 } else {
   # stop(glue::glue("[{par$prgmTag}]: Failed to find humman annotation sample sheet={opt$sampleCsv}!!!{RET}{RET}"))
