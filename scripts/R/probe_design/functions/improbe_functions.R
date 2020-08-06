@@ -29,7 +29,7 @@ bowtieProbeAlign = function(exe, fas, gen, dir,
     gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
     
     aln_sh  <- file.path(dir, paste0('run_bow-',fas_name,'-',gen_name,'.sh') )
-    aln_sam <- file.path(dir, paste0(fas_name,'-',gen_name,'bowtie.sam.gz', sep='.') )
+    aln_sam <- file.path(dir, paste0(fas_name,'-',gen_name,'bowtie.sam.gz') )
     aln_cmd <- paste(exe, '-f -x',gen, '-U',fas, '| gzip -c ->',aln_sam, sep=' ')
 
     cat(glue::glue("[{funcTag}]:{TAB} Launching bowtie alignments: {fas_name} vs. {gen_name}...{RET}"))
@@ -60,7 +60,7 @@ bsmapProbeAlign = function(exe, fas, gen, dir,
     gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
     
     aln_sh  <- file.path(dir, paste0('run_bsp-',fas_name,'-',gen_name,'.sh') )
-    aln_sam <- file.path(dir, paste0(fas_name,'-',gen_name,'bsmap.bsp.gz', sep='.') )
+    aln_sam <- file.path(dir, paste0(fas_name,'-',gen_name,'bsmap.bsp.gz') )
     aln_cmd <- paste(exe, '-a',fas, '-d',gen, '-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R','-o',aln_sam, sep=' ')
     aln_cmd <- glue::glue("{aln_cmd}{RET}gzip {aln_sam}{RET}")
     
