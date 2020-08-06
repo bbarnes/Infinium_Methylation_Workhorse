@@ -627,7 +627,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
       gen_cnts <- 0
       for (gpath in gen_paths) {
         if (file.exists(gpath)) {
-          cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Ready to launch alignments; genomes count={gen_cnt}/{gen_cnts}; gen_path={gen_path}...{RET}"))
+          cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Ready to launch alignments; genomes count={gen_cnts}/{gen_cnt}; gen_path={gen_path}...{RET}"))
           
           bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gpath, dir=shell_dir,
                                       verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
