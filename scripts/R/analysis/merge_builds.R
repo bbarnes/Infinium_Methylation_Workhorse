@@ -141,13 +141,30 @@ if (args.dat[1]=='RStudio') {
     opt$classVar <- 'Karyotype_1_Call'
     
     opt$classVar <- 'Sample_Class'
-    
+    opt$findSampleSheet <- TRUE
+
     opt$clean  <- TRUE
     opt$clean  <- FALSE
     opt$single <- TRUE
     
     if (opt$findSampleSheet) {
+      #
+      # How to build the human sample sheet::
+      #   gzip -dc /Users/bbarnes/Documents/Projects/methylation/scratch/swifthoof/ReferenceBETA/*AutoSampleSheet.csv.gz | cut -d, -f 5,64 | sort -ur | perl -pe 's/AutoSample_dB_Key/Sample_Class/' | gzip -c - > Infinium_Methylation_Workhorse/dat/sampleSheets/ReferenceBETA.HumanSampleSheet.csv.gz
+      #
       
+      opt$platform  <- 'EPIC'
+      opt$version   <- 'B4'
+
+      opt$runName <- 'ReferenceDELTA'
+      opt$runName <- 'ReferenceBETA'
+      
+      opt$buildDir  <- paste(
+        file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/docker/swifthoof', opt$runName, 'v1.3.3'),
+        sep=',')
+
+      opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
+
     } else if (opt$classVar=='Sample_Class') {
       opt$runName1  <- 'COVIC-Set1-15052020'
       opt$runName5  <- 'COVIC-Set5-10062020'
@@ -234,7 +251,8 @@ if (args.dat[1]=='RStudio') {
     }
     opt$outDir <- file.path(par$topDir, par$prgmTag)
   }
-
+  opt$outDir <- file.path(par$topDir, par$prgmTag)
+  
 } else {
   par$runMode    <- 'CommandLine'
   par$exePath <- base::substring(args.dat[grep("--file=", args.dat)], 8)
@@ -260,6 +278,9 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--sampleCsv"), type="character", default=opt$sampleCsv, 
                 help="Human provide sample sheet labeling [default= %default]", metavar="character"),
     
+    make_option(c("--findSampleSheet"), action="store_true", default=opt$findSampleSheet,
+                help="Boolean variable to search or human provided sample sheet in build directories [default= %default]", metavar="boolean"),
+
     # Chip Platform and Version Parameters::
     make_option(c("--platform"), type="character", default=opt$platform, 
                 help="Platform name (HM50, EPIC) [default= %default]", metavar="character"),
@@ -305,7 +326,7 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to run parallel on multi-core [default= %default]", metavar="boolean"),
     make_option(c("--cluster"), action="store_true", default=opt$cluster,
                 help="Boolean variable to run jobs on cluster by chip [default= %default]", metavar="boolean"),
-    
+
     # Make clean output
     make_option(c("--clean"), action="store_true", default=opt$clean, 
                 help="Boolean variable to clean output directory (mostly testing stuff) [default= %default]", metavar="boolean"),
@@ -430,12 +451,15 @@ cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
 
 cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 
+print(blds_dir_vec)
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Load Auto Detect Sample Sheets::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 hum_ss_tib  <- NULL
 auto_ss_tib <- NULL
+
 for (curDir in blds_dir_vec) {
   if (opt$findSampleSheet) {
     
@@ -480,7 +504,11 @@ cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len
 #  - Add Nasal Swabs to master sample sheet
 #
 labs_ss_tib <- NULL
-if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
+if (! is.null(hum_ss_tib)) {
+
+  labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+  
+} else if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
   
   cat(glue::glue("[{par$prgmTag}]: Loading predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}") )
   

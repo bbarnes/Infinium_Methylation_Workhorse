@@ -155,6 +155,8 @@ if (args.dat[1]=='RStudio') {
   opt$single   <- TRUE
   opt$cluster  <- FALSE
   opt$parallel <- FALSE
+  opt$single   <- FALSE
+  opt$parallel <- TRUE
   
   opt$workflows <- 'ind'
   
@@ -165,41 +167,45 @@ if (args.dat[1]=='RStudio') {
   
   par$retData <- TRUE
   
-  isCORE  <- TRUE
-  isCOVIC <- TRUE
-  isCOVIC <- FALSE
-  if (isCOVIC) {
-    opt$platform   <- 'EPIC'
-    opt$manifest   <- 'C0'
-    
-    opt$platform   <- NULL
-    opt$manifest   <- NULL
-    
-    # Set-1
-    opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
-    opt$expChipNum <- '204500250013'
-    
-  } else if (isCORE) {
-    opt$platform   <- 'EPIC'
-    opt$manifest   <- 'B4'
-    
-    opt$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
-    opt$expChipNum <- '202761400007'
+  # isCORE  <- TRUE
+  # isCOVIC <- TRUE
+  # isCOVIC <- FALSE
+  # if (isCOVIC) {
+  #   opt$platform   <- 'EPIC'
+  #   opt$manifest   <- 'C0'
+  #   
+  #   opt$platform   <- NULL
+  #   opt$manifest   <- NULL
+  #   
+  #   # Set-1
+  #   opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
+  #   opt$expChipNum <- '204500250013'
+  #   
+  # } else if (isCORE) {
+  #   opt$platform   <- 'EPIC'
+  #   opt$manifest   <- 'B4'
+  #   
+  #   opt$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
+  #   opt$expChipNum <- '202761400007'
+  # 
+  #   opt$expRunStr  <- 'idats_ADRN-blood-nonAtopic_EPIC'
+  #   opt$expChipNum <- '201125090068'
+  #   
+  #   opt$expRunStr  <- 'idats_GSE122126_EPIC'
+  #   opt$expChipNum <- '202410280180'
+  # 
+  #   opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
+  #   opt$expChipNum <- '201502830033'
+  #   
+  # } else {
+  #   stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Unsupported pre-defined method! Exiting...{RET}{RET}"))
+  # }
+  # opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/data/idats', opt$expRunStr, opt$expChipNum)
 
-    opt$expRunStr  <- 'idats_ADRN-blood-nonAtopic_EPIC'
-    opt$expChipNum <- '201125090068'
-    
-    opt$expRunStr  <- 'idats_GSE122126_EPIC'
-    opt$expChipNum <- '202410280180'
-
-    opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
-    opt$expChipNum <- '201502830033'
-    
-  } else {
-    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Unsupported pre-defined method! Exiting...{RET}{RET}"))
-  }
+  opt$expRunStr  <- 'ReferenceBETA'
+  opt$idatsDir <- file.path('/Users/bbarnes/Documents/CustomerFacing/idats', opt$expRunStr, opt$expChipNum)
+  opt$idatsDir <- file.path('/Users/bbarnes/Documents/CustomerFacing/idats', opt$expRunStr)
   
-  opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/data/idats', opt$expRunStr, opt$expChipNum)
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
   opt$verbose <- 3
@@ -421,9 +427,12 @@ if (!is.null(opt$workflows)) workflows_vec <- opt$workflows %>% str_split(patter
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 chipPrefixes <- NULL
 chipPrefixes <- sesame::searchIDATprefixes(opt$idatsDir)
+sampleCounts <- chipPrefixes %>% names() %>% length()
 
 if (is.null(chipPrefixes) || length(chipPrefixes)==0)
   stop(glue::glue("{RET}[{par$prgmTag}]: chipPrefixes is null or length=0!!!{RET}{RET}"))
+
+cat(glue::glue("[{par$prgmTag}]: Found sample counts={sampleCounts}!{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                  Main::
@@ -438,14 +447,19 @@ if (opt$cluster) {
     par$lan_exe <- 'qsub -cwd -pe threaded 16 -l excl=true -N'
     if (dir.exists(par$macDir)) stop(glue::glue("[{par$prgmTag}]: Linux/Mac directories exist???{RET}{RET}"))
   }
-  prefixTib <- prefixesToChipTib(chipPrefixes) %>% split(.$barcode)
+  chip_list <- prefixesToChipTib(chipPrefixes) %>% split(.$barcode)
+  chip_cnts <- chip_list %>% names() %>% length()
+  
+  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Chip counts={chip_cnts}!{RET}"))
   
   par$shellDir <- file.path(opt$outDir, 'shells')
   if (!dir.exists(par$shellDir)) dir.create(par$shellDir, recursive=TRUE)
+  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; shellDir={par$shellDir}.{RET}"))
   
-  for (chipName in names(prefixTib)) { # break }
+  for (chipName in names(chip_list)) { # break }
     runShell <- file.path(par$shellDir, paste0('run_',par$prgmTag,'_',chipName,'.sh'))
     lanShell <- file.path(par$shellDir, paste0('lan_',par$prgmTag,'_',chipName,'.sh'))
+    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; runShell={runShell}.{RET}"))
     
     # Remove Cluster Option
     cmd_bool <- opt %>% bind_rows() %>% gather("Options", "Value") %>% 
@@ -476,11 +490,12 @@ if (opt$cluster) {
     Sys.chmod(lanShell, mode="0777")
     
     # Launch Script
-    cat(glue::glue("[{par$prgmTag}]: Launching chip={chipName}, shell={lanShell}!"),"\n", sep='')
+    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; Launching chip={chipName}, shell={lanShell}.{RET}"))
     system(lanShell)
     
     if (opt$single) break
   }
+  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Done.{RET}"))
   
 } else {
   
@@ -525,8 +540,8 @@ if (opt$cluster) {
     
     cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
 
-    # chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
-    chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
+    # chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
+    chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
       rdat <- NULL
       try_str <- ''
       rdat = tryCatch({
@@ -570,7 +585,7 @@ if (opt$cluster) {
         try_str <- paste('cleanup',funcTag, sep='-')
         rdat <- NA
       })
-      cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+      cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       
       if (opt$single) break
     }
