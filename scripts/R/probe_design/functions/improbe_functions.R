@@ -27,10 +27,11 @@ bowtieProbeAlign = function(exe, fas, gen, dir,
   stime <- system.time({
     fas_name <- fas %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
     gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
+    gen_file <- gen %>% stringr::str_remove('.gz$')
     
     aln_sh  <- file.path(dir, paste0('run_bow-',fas_name,'-',gen_name,'.sh') )
     aln_sam <- file.path(dir, paste0(fas_name,'-',gen_name,'bowtie.sam.gz') )
-    aln_cmd <- paste(exe, '-f -x',gen, '-U',fas, '| gzip -c ->',aln_sam, sep=' ')
+    aln_cmd <- paste(exe, '-f -x',gen_file, '-U',fas, '| gzip -c ->',aln_sam, sep=' ')
 
     cat(glue::glue("[{funcTag}]:{TAB} Launching bowtie alignments: {fas_name} vs. {gen_name}...{RET}"))
     readr::write_lines(x=aln_cmd, path=aln_sh, append=FALSE)
