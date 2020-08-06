@@ -29,8 +29,15 @@ bowtieProbeAlign = function(exe, fas, gen, dir,
     gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
     gen_file <- gen %>% stringr::str_remove('.gz$')
     
-    aln_sh  <- file.path(dir, paste0('run_bow-',fas_name,'-',gen_name,'.sh') )
-    aln_sam <- file.path(dir, paste0(fas_name,'-',gen_name,'bowtie.sam.gz') )
+    # Create Shell and Alignment directories::
+    sh_dir <- file.path(dir, 'shells')
+    al_dir <- file.path(dir, 'align')
+    
+    if (!dir.exists(sh_dir)) dir.create(sh_dir, recursive=TRUE)
+    if (!dir.exists(al_dir)) dir.create(al_dir, recursive=TRUE)
+    
+    aln_sh  <- file.path(sh_dir, paste0('run_bow-',fas_name,'-',gen_name,'.sh') )
+    aln_sam <- file.path(al_dir, paste0(fas_name,'-',gen_name,'bowtie.sam.gz') )
     aln_cmd <- paste(exe, '-f -x',gen_file, '-U',fas, '| gzip -c ->',aln_sam, sep=' ')
 
     cat(glue::glue("[{funcTag}]:{TAB} Launching bowtie alignments: {fas_name} vs. {gen_name}...{RET}"))
@@ -60,8 +67,15 @@ bsmapProbeAlign = function(exe, fas, gen, dir,
     fas_name <- fas %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
     gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
     
-    aln_sh  <- file.path(dir, paste0('run_bsp-',fas_name,'-',gen_name,'.sh') )
-    aln_sam <- file.path(dir, paste0(fas_name,'-',gen_name,'bsmap.bsp.gz') )
+    # Create Shell and Alignment directories::
+    sh_dir <- file.path(dir, 'shells')
+    al_dir <- file.path(dir, 'align')
+    
+    if (!dir.exists(sh_dir)) dir.create(sh_dir, recursive=TRUE)
+    if (!dir.exists(al_dir)) dir.create(al_dir, recursive=TRUE)
+
+    aln_sh  <- file.path(sh_dir, paste0('run_bsp-',fas_name,'-',gen_name,'.sh') )
+    aln_sam <- file.path(al_dir, paste0(fas_name,'-',gen_name,'bsmap.bsp.gz') )
     aln_cmd <- paste(exe, '-a',fas, '-d',gen, '-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R','-o',aln_sam, sep=' ')
     aln_cmd <- glue::glue("{aln_cmd}{RET}gzip {aln_sam}{RET}")
     
