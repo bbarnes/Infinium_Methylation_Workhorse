@@ -240,7 +240,7 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
 
 if (is.null(opt$outDir) || 
     is.null(opt$ords) || is.null(opt$mats) || 
-    (is.null(opt$aqps) && is.null(opt$pqcs)) ||
+    # (is.null(opt$aqps) && is.null(opt$pqcs)) ||
     # is.null(ctlCSV) ||
     is.null(opt$genomeBuild) || is.null(opt$platform) || is.null(opt$version) ||
     is.null(opt$Rscript) ||
