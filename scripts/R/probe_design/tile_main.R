@@ -632,7 +632,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
           bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gpath, dir=shell_dir,
                                       verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
           
-          bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gen_path, dir=shell_dir,
+          bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gpath, dir=shell_dir,
                                      verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
         }
         
