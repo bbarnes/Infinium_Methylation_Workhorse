@@ -635,7 +635,7 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
         }
         
         gen_cnts <- gen_cnts + 1
-        if (gen_cnts > 10) break
+        # if (gen_cnts > 10) break
       }
     } else if (file.exists(gen_path)) {
       cat(glue::glue("[{par$prgmTag}]:{TAB} Using Genome Path={gen_path}...{RET}"))

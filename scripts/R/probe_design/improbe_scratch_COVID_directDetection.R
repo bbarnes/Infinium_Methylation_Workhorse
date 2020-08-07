@@ -53,6 +53,8 @@ opt$datDir <- file.path(opt$topDir, 'scratch/tile_main/EPIC/SARS-CoV-2/MN908947/
 opt$snp_covid_sam <- file.path(opt$datDir, 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.snp.nCoV_Wuhan_Sequence_MN908947.3.tsv.gz')
 opt$snp_ncbi_sam  <- file.path(opt$datDir, 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.snp.ncbi.tsv.gz')
 
+opt$snp_sam <- file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.snp-LC528232.1_11042bowtie.sam.gz')
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                            Load Alignments::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -60,8 +62,10 @@ opt$snp_ncbi_sam  <- file.path(opt$datDir, 'tile_main_EPIC_SARS-CoV-2_MN908947_C
 sam_col_vec <- c('QNAME','FLAG','RNAME','POS','MAPQ','CIGAR','RNEXT','PNEXT','TLEN','SEQ','QUAL',
                  'AS', 'XN', 'XM', 'XO', 'XG', 'NM', 'MD', 'YT')
 
-snp_covid_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_covid_sam, col_names=sam_col_vec, comment='@') ))
-snp_ncbi_tib  <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_ncbi_sam, col_names=sam_col_vec, comment='@') ))
+# snp_covid_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_covid_sam, col_names=sam_col_vec, comment='@') ))
+# snp_ncbi_tib  <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_ncbi_sam, col_names=sam_col_vec, comment='@') ))
+
+snp_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_sam, col_names=sam_col_vec, comment='@') ))
 
 snp_covid_tib %>% dplyr::group_by(CIGAR) %>% dplyr::summarise(Count=n())
 snp_ncbi_tib %>% dplyr::group_by(CIGAR) %>% dplyr::summarise(Count=n())
