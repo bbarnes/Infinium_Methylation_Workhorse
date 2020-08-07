@@ -617,8 +617,6 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
     gen_path <- genAlign_vec[gen_idx]
     cat(glue::glue("[{par$prgmTag}]: Ready to launch alignments; genomes count={gen_cnt}; gen_path={gen_path}...{RET}"))
     
-    shell_dir <- file.path(opt$outDir, 'shells')
-
     if (dir.exists(gen_path)) {
       cat(glue::glue("[{par$prgmTag}]:{TAB} Searching directory for genomes: gen_path={gen_path}...{RET}"))
       # gen_paths <- list.files(gen_path, pattern='.fa[.gz]$', full.names=TRUE)
@@ -629,10 +627,10 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
         if (file.exists(gpath)) {
           cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Ready to launch alignments; genomes count={gen_cnts}/{gen_cnt}; gen_path={gen_path}...{RET}"))
           
-          bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gpath, dir=shell_dir,
+          bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gpath, dir=opt$outDir,
                                       verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
           
-          bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gpath, dir=shell_dir,
+          bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gpath, dir=opt$outDir,
                                      verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
         }
         
@@ -641,64 +639,15 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
       }
     } else if (file.exists(gen_path)) {
       cat(glue::glue("[{par$prgmTag}]:{TAB} Using Genome Path={gen_path}...{RET}"))
-      bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gen_path, dir=shell_dir,
+      bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gen_path, dir=opt$outDir,
                                   verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
       
-      bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gen_path, dir=shell_dir,
+      bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gen_path, dir=opt$outDir,
                                  verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
 
     }
     
-    # gen_name <- gen_path %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
-    # 
-    # shell_dir <- file.path(opt$outDir, 'shells')
-    # if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
-    # 
-    # # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    # #                       Run Bowtie Alignments:: SNP
-    # # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    # 
-    # if (!is.null(prb_snp_fas) && file.exists(prb_snp_fas)) {
-    #   bow_shell <- file.path(shell_dir, paste0('run_bow-',gen_name,'.sh') )
-    #   
-    #   bow_tsv <- paste(bow_name,gen_name,'tsv.gz', sep='.')
-    #   
-    #   # /illumina/thirdparty/bowtie2/bowtie2-2.2.2/bowtie2 -f -x /illumina/scratch/darkmatter/Projects/COVIC/fas/nCoV_Wuhan_Sequence_MN908947.3.fa -U /illumina/scratch/darkmatter/Projects/COVIC/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.fa.gz
-    #   bow_cmd <- paste(par$bow_exe,
-    #                    '-f -x',gen_path,
-    #                    '-U',prb_snp_fas,
-    #                    '| gzip -c ->',bow_tsv,
-    #                    sep=' ')
-    #   
-    #   # bsp_cmd <- glue::glue("{bow_cmd}{RET}gzip {bow_tsv}{RET}")
-    #   
-    #   cat(glue::glue("[{par$prgmTag}]:{TAB} Launching bowtie alignments({gen_idx}); {gen_name}...{RET}"))
-    #   readr::write_lines(x=bow_cmd, path=bow_shell, append=FALSE)
-    #   Sys.chmod(paths=bow_shell, mode="0777")
-    #   base::system(bow_shell)
-    # }
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                        Run BSP Alignments:: CGN
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-    # bsp_shell <- file.path(shell_dir, paste0('run_bsp-',gen_name,'.sh') )
-    # 
-    # bsp_tsv <- paste(bsp_name,gen_name,'tsv', sep='.')
-    # bsp_cmd <- paste(par$bsp_exe,
-    #                  '-a',prb_cgn_fas,
-    #                  '-d',gen_path,
-    #                  '-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R',
-    #                  # '-u -R',
-    #                  '-o',bsp_tsv,
-    #                  sep=' ')
-    # 
-    # bsp_cmd <- glue::glue("{bsp_cmd}{RET}gzip {bsp_tsv}{RET}")
-    # 
-    # cat(glue::glue("[{par$prgmTag}]:{TAB} Launching bsmap alignments({gen_idx}); {gen_name}...{RET}"))
-    # readr::write_lines(x=bsp_cmd, path=bsp_shell, append=FALSE)
-    # Sys.chmod(paths=bsp_shell, mode="0777")
-    # base::system(bsp_shell)
   }
   cat(glue::glue("[{par$prgmTag}]: Done launching alignments.{RET}{RET}"))
 }

@@ -75,7 +75,7 @@ bsmapProbeAlign = function(exe, fas, gen, dir,
     if (!dir.exists(al_dir)) dir.create(al_dir, recursive=TRUE)
 
     aln_sh  <- file.path(sh_dir, paste0('run_bsp-',fas_name,'-',gen_name,'.sh') )
-    aln_sam <- file.path(al_dir, paste0(fas_name,'-',gen_name,'bsmap.bsp.gz') )
+    aln_sam <- file.path(al_dir, paste0(fas_name,'-',gen_name,'bsmap.bsp') )
     aln_cmd <- paste(exe, '-a',fas, '-d',gen, '-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R','-o',aln_sam, sep=' ')
     aln_cmd <- glue::glue("{aln_cmd}{RET}gzip {aln_sam}{RET}")
     
