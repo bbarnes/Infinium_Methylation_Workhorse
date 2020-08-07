@@ -1,12 +1,51 @@
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Source Packages::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+rm(list=ls(all=TRUE))
+
+suppressWarnings(suppressPackageStartupMessages(require("optparse",quietly=TRUE)))
+
+suppressWarnings(suppressPackageStartupMessages(require("plyr")) )
+suppressWarnings(suppressPackageStartupMessages(require("tidyverse")) )
+suppressWarnings(suppressPackageStartupMessages(require("stringr")) )
+suppressWarnings(suppressPackageStartupMessages(require("glue")) )
+suppressWarnings(suppressPackageStartupMessages(require("scales")) )
+suppressWarnings(suppressPackageStartupMessages(require("matrixStats")) )
+suppressWarnings(suppressPackageStartupMessages(require("grid")) )
+
+# Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages(require("doParallel")) )
+
+# Manifest RDS Required Packages
+# suppressWarnings(suppressPackageStartupMessages(require("GenomicRanges")) )
+# suppressWarnings(suppressPackageStartupMessages(require("GenomeInfoDb")) )
+
+# Fasta file reading Packages::
+suppressWarnings(suppressPackageStartupMessages(require("Biostrings")) )
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Global Params::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+doParallel::registerDoParallel()
+num_cores   <- detectCores()
+num_workers <- getDoParWorkers()
+
+COM <- ","
+TAB <- "\t"
+RET <- "\n"
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Define Default Params and Options::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+opt <- NULL
+par <- NULL
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'probe_design'
-par$prgmTag <- 'analyze_alignments'
+par$prgmTag <- 'analyze_tile_alignments'
 
 # Illumina based directories::
 par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
@@ -24,6 +63,7 @@ opt$outDir    <- NULL
 # Run Parameters::
 opt$runName <- NULL
 opt$fasta   <- NULL
+opt$aln_dir <- NULL
 
 opt$genome  <- NULL
 
@@ -33,6 +73,8 @@ opt$minCpgRank  <- "3,2,1,0"
 opt$minScrRank  <- "0.6,0.5,0.4,0.3"
 opt$strandCO    <- 'C,O'
 opt$pickBest    <- FALSE
+
+opt$max <- NULL
 
 # Parallel/Cluster Options::
 opt$execute  <- TRUE
@@ -84,6 +126,8 @@ if (args.dat[1]=='RStudio') {
   opt$runName <- base::basename(opt$fasta) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.fa')
   opt$runName <- 'COVIC'
   
+  aln_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/small.index/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/align'
+
   opt$outDir <- file.path(par$topDir)
   
 } else {
@@ -110,6 +154,12 @@ if (args.dat[1]=='RStudio') {
                 help="Whole Genome Fasta [default= %default]", metavar="character"),
     make_option(c("--genome"), type="character", default=opt$genome, 
                 help="Genome Fasta to align probes against [default= %default]", metavar="character"),
+    make_option(c("--aln_dir"), type="character", default=opt$aln_dir, 
+                help="Alignment Directory [default= %default]", metavar="character"),
+    
+    
+    make_option(c("--max"), type="integer", default=opt$max, 
+                help="Max files to process [default= %default]", metavar="integer"),
     
     # Chip Platform and Version Parameters::
     make_option(c("--platform"), type="character", default=opt$platform, 
@@ -241,6 +291,16 @@ for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, r
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                               Defined Outputs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
+if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
+cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
+
+if (opt$clean) list.files(opt$outDir, full.names=TRUE) %>% unlink()
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                            Load Probe Designs:: cDNA
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -270,14 +330,11 @@ if (FALSE) {
 snp_pattern <- 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.snp'
 cgn_pattern <- 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.cgn'
 
-aln_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/small.index/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/align'
-
 snp_aln_files <- list.files(aln_dir, pattern=snp_pattern, full.names=TRUE)
 cgn_aln_files <- list.files(aln_dir, pattern=cgn_pattern, full.names=TRUE)
 
 snp_aln_cnts <- snp_aln_files %>% length()
 cgn_aln_cnts <- cgn_aln_files %>% length()
-
 cat(glue::glue("[{par$prgmTag}]: Found snp={snp_aln_cnts}, cgn={cgn_aln_cnts}{RET}"))
 
 sam_col_vec <- c('QNAME','FLAG','RNAME','POS','MAPQ','CIGAR','RNEXT','PNEXT','TLEN','SEQ','QUAL',
@@ -293,6 +350,15 @@ sam_col_vec <- c('QNAME','FLAG','RNAME','POS','MAPQ','CIGAR','RNEXT','PNEXT','TL
 # gzip -dc /Users/bbarnes/Documents/Projects/manifests/methylation/HumanMethylation450_15017482_v.1.2.rs-only.csv.gz | grep G
 #
 # snp_ncbi_tib %>% dplyr::mutate(G_Count=50 - stringr::str_length(stringr::str_remove_all(SEQ, 'G')) ) %>% dplyr::arrange(G_Count) %>% dplyr::select(QNAME,SEQ,G_Count)
+
+if (!is.null(opt$max)) {
+  snp_aln_files <- snp_aln_files %>% head(opt$max)
+  cgn_aln_files <- cgn_aln_files %>% head(opt$max)
+  
+  snp_aln_cnts <- snp_aln_files %>% length()
+  cgn_aln_cnts <- cgn_aln_files %>% length()
+  cat(glue::glue("[{par$prgmTag}]: Found snp={snp_aln_cnts}, cgn={cgn_aln_cnts}{RET}"))
+}
 
 #
 # Found forced SNPs::
@@ -339,7 +405,6 @@ readr::write_csv(mds_sum_tib, sum_mds_csv)
 
 cat(glue::glue("[{par$prgmTag}]: Writing {sum_aln_csv}..."))
 readr::write_csv(sum_aln_tib, sum_aln_csv)
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
