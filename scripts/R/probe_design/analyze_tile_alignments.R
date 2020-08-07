@@ -226,7 +226,7 @@ if (is.null(par$runMode) || is.null(par$prgmDir) || is.null(par$prgmTag) ||
 }
 
 if (is.null(opt$outDir) || 
-    is.null(opt$runName) || is.null(opt$fasta) ||
+    is.null(opt$runName) || is.null(opt$aln_dir) ||
     is.null(opt$platform) || is.null(opt$version) || is.null(opt$build) ||
     
     is.null(opt$minPrbScore) || is.null(opt$minCpgRank) || is.null(opt$minScrRank) ||
@@ -244,7 +244,8 @@ if (is.null(opt$outDir) ||
   if (is.null(opt$outDir))    cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
   if (is.null(opt$buildDir))  cat(glue::glue("[Usage]: buildDirs is NULL!!!{RET}"))
   if (is.null(opt$runName))   cat(glue::glue("[Usage]: runName is NULL!!!{RET}"))
-  if (is.null(opt$fasta))     cat(glue::glue("[Usage]: fasta is NULL!!!{RET}"))
+  # if (is.null(opt$fasta))     cat(glue::glue("[Usage]: fasta is NULL!!!{RET}"))
+  if (is.null(opt$aln_dir))   cat(glue::glue("[Usage]: aln_dir is NULL!!!{RET}"))
   
   if (is.null(opt$platform)) cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
   if (is.null(opt$version))  cat(glue::glue("[Usage]: version is NULL!!!{RET}"))
@@ -330,8 +331,8 @@ if (FALSE) {
 snp_pattern <- 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.snp'
 cgn_pattern <- 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.cgn'
 
-snp_aln_files <- list.files(aln_dir, pattern=snp_pattern, full.names=TRUE)
-cgn_aln_files <- list.files(aln_dir, pattern=cgn_pattern, full.names=TRUE)
+snp_aln_files <- list.files(opt$aln_dir, pattern=snp_pattern, full.names=TRUE)
+cgn_aln_files <- list.files(opt$aln_dir, pattern=cgn_pattern, full.names=TRUE)
 
 snp_aln_cnts <- snp_aln_files %>% length()
 cgn_aln_cnts <- cgn_aln_files %>% length()
