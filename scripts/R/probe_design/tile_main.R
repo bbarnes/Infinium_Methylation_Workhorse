@@ -681,8 +681,8 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
     lan_bsp_str <- NULL
     
     if (opt$cluster && opt$isLinux) {
-      lan_bow_str <- paste0(opts$lanExe,' bow-',tot_gen_idx)
-      lan_bsp_str <- paste0(opts$lanExe,' bsp-',tot_gen_idx)
+      lan_bow_str <- paste0(opt$lanExe,' bow-',tot_gen_idx)
+      lan_bsp_str <- paste0(opt$lanExe,' bsp-',tot_gen_idx)
     }
     
     if (file.exists(gen_path)) {
