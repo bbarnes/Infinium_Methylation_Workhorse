@@ -19,6 +19,12 @@ max=${10}
 
 verbose=3
 
+# Parallel/Cluster Options::
+# single=true
+single=false
+parallel=true
+cluster=true
+
 # Program Variables::
 #
 prgmTop="Infinium_Methylation_Workhorse"
@@ -61,6 +67,16 @@ CMD+=" --des1_csv"=${des1_csv}
 CMD+=" --des2_csv"=${des2_csv}
 
 CMD+=" --max"=${max}
+
+if [ "${single}" = true ]; then
+    CMD+=" --single"
+fi
+if [ "${parallel}" = true ]; then
+    CMD+=" --parallel"
+fi
+if [ "${cluster}" = true ]; then
+    CMD+=" --cluster"
+fi
 
 # Verbosity Options::
 CMD+=" --"verbose=${verbose}
