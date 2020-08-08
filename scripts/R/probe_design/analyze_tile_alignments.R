@@ -295,6 +295,8 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source
 #                               Defined Outputs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+pTracker <- timeTracker$new(verbose=opt$verbose)
+
 opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
 if (!is.null(opt$max)) opt$outDir <- file.path(opt$outDir, paste0('n',opt$max) )
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
@@ -339,9 +341,6 @@ snp_aln_cnts <- snp_aln_files %>% length()
 cgn_aln_cnts <- cgn_aln_files %>% length()
 cat(glue::glue("[{par$prgmTag}]: Found snp={snp_aln_cnts}, cgn={cgn_aln_cnts}{RET}"))
 
-sam_col_vec <- c('QNAME','FLAG','RNAME','POS','MAPQ','CIGAR','RNEXT','PNEXT','TLEN','SEQ','QUAL',
-                 'AS', 'XN', 'XM', 'XO', 'XG', 'NM', 'MD', 'YT')
-
 # snp_covid_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_covid_sam, col_names=sam_col_vec, comment='@') ))
 # snp_ncbi_tib  <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_ncbi_sam, col_names=sam_col_vec, comment='@') ))
 #
@@ -368,38 +367,41 @@ if (!is.null(opt$max)) {
 art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
                     "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
 
-sum_aln_tib <- NULL
-for (snp_aln_file in snp_aln_files) {
-  snp_raw_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file=snp_aln_file, col_names=sam_col_vec, comment='@') )) %>% 
-    dplyr::select(QNAME:POS,SEQ,MD) %>%
-    dplyr::filter(FLAG==0 | FLAG==16) %>%
-    dplyr::mutate(SEQ=case_when(
-      FLAG==16 ~ revCmp(SEQ),
-      TRUE ~ SEQ
-    ))
+all_aln_tib <- NULL
+if (opt$parallel) {
+  cat(glue::glue("[{par$prgmTag}]: Loading Alignments in parallel mode; num_cores={num_cores}, num_workers={num_workers}{RET}"))
   
-  # Split by Infinium I Probe Design::
-  snp_sam_1A_tib <- snp_raw_tib %>% dplyr::filter(stringr::str_ends(QNAME,'_IA')) %>% dplyr::mutate(QNAME=stringr::str_remove(QNAME, '_IA$'))
-  snp_sam_1B_tib <- snp_raw_tib %>% dplyr::filter(stringr::str_ends(QNAME,'_IB')) %>% dplyr::mutate(QNAME=stringr::str_remove(QNAME, '_IB$'))
-  
-  # Skipping Probe Design Join Step for Now::
-  snp_sam_tib <- dplyr::inner_join(snp_sam_1A_tib,snp_sam_1B_tib, by=c("QNAME","FLAG","RNAME","POS"), suffix=c("_IA", "_IB")) # %>%
-  #  dplyr::inner_join(snp_des_tib, by=c("SEQ_IA"="Prb_Seq_IA", "SEQ_IB"="Prb_Seq_IB") )
-  
-  MD_IA_cnt <- snp_sam_tib %>% dplyr::filter(MD_IA %in% art_snp_md_vec) %>% base::nrow()
-  MD_IB_cnt <- snp_sam_tib %>% dplyr::filter(MD_IB %in% art_snp_md_vec) %>% base::nrow()
-  cat(glue::glue("[{par$prgmTag}]: IA/IB = {MD_IA_cnt}, {MD_IB_cnt}{RET}"))
-  
-  # View SNP probes::
-  # snp_sam_tib %>% dplyr::filter(MD_IA %in% art_snp_md_vec) %>% dplyr::select(QNAME,FLAG,RNAME,POS, MD_IA,MD_IB) %>% print()
-  
-  # Bind all alignments::
-  sum_aln_tib <- sum_aln_tib %>% dplyr::bind_rows(snp_sam_tib)
-}
+  all_aln_tib = foreach (snp_aln_file=snp_aln_files, .combine = rbind) %dopar% {
+    loadProbeAlignBowtieInfI(sam=snp_aln_file, reduced=TRUE, filtered=TRUE, flipSeq=TRUE,
+                             verbose=opt$verbose,tt=pTracker)
+  }
 
-mds_sum_tib <- sum_aln_tib %>% dplyr::group_by(QNAME,MD_IA,MD_IB) %>% dplyr::summarise(Count=n()) %>% 
+} else {
+  cat(glue::glue("[{par$prgmTag}]: Loading Alignments in linear mode...{RET}"))
+  
+  for (snp_aln_file in snp_aln_files) {
+    snp_sam_tib <- loadProbeAlignBowtieInfI(sam=snp_aln_file, reduced=TRUE, filtered=TRUE, flipSeq=TRUE,
+                                            verbose=opt$verbose,tt=pTracker)
+    # View SNP probes::
+    #   snp_sam_tib %>% dplyr::filter(MD_IA %in% art_snp_md_vec) %>% dplyr::select(QNAME,FLAG,RNAME,POS, MD_IA,MD_IB) %>% print()
+    
+    all_aln_tib <- all_aln_tib %>% dplyr::bind_rows(snp_sam_tib)
+  }
+}
+sum_aln_len <- all_aln_tib %>% base::nrow()
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Alignments; sum_aln_len={sum_aln_len}.{RET}"))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Build Match Descriptor Summary::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+mds_sum_tib <- all_aln_tib %>% dplyr::group_by(QNAME,MD_IA,MD_IB) %>% dplyr::summarise(Count=n()) %>% 
   # dplyr::filter(Count!=11) %>% 
   dplyr::arrange(QNAME)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Output Merged Alignments/Summary::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 sum_mds_csv <- file.path(opt$outDir, 'snp-matchDesc-merge.csv.gz')
 sum_aln_csv <- file.path(opt$outDir, 'snp-alignment-merge.csv.gz')
@@ -408,7 +410,7 @@ cat(glue::glue("[{par$prgmTag}]: Writing {sum_mds_csv}..."))
 readr::write_csv(mds_sum_tib, sum_mds_csv)
 
 cat(glue::glue("[{par$prgmTag}]: Writing {sum_aln_csv}..."))
-readr::write_csv(sum_aln_tib, sum_aln_csv)
+readr::write_csv(all_aln_tib, sum_aln_csv)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Make Selectionn::
@@ -418,13 +420,40 @@ if (FALSE) {
   
   # Max Count = 2888
   
+  # Cluster Data::
+  #
+  datDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/analyze_tile_alignments/EPIC/SARS-CoV-2/MN908947/COVIC/n20'
+  datDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/analyze_tile_alignments/EPIC/SARS-CoV-2/MN908947/COVIC/n300'
+  snp_aln_csv <- file.path(datDir, 'snp-alignment-merge.csv.gz')
+  snp_sum_csv <- file.path(datDir, 'snp-matchDesc-merge.csv.gz')
+  
+  all_aln_tib <- readr::read_csv(snp_aln_csv)
+  mds_sum_tib <- readr::read_csv(snp_sum_csv)
+  
+  # Probe-Design/Probe-Alignment Matching::
+  #
+  seq_aln_tib <- all_aln_tib %>% dplyr::distinct(QNAME,SEQ_IA,SEQ_IB)
+  des_aln_mat_tib <- dplyr::inner_join(seq_aln_tib, snp_des_tib, by=c("SEQ_IA"="Prb_Seq_IA", "SEQ_IB"="Prb_Seq_IB") )
+  des_aln_mis_tib <- dplyr::anti_join(seq_aln_tib, snp_des_tib, by=c("SEQ_IA"="Prb_Seq_IA", "SEQ_IB"="Prb_Seq_IB") )
+  
+  # Alignment Analysis::
+  #
   art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
                       "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
   
   per_snp_md_str <- c('MD:Z:50')
   
-  all_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::distinct(QNAME)
+  # Get Full Genome Counts
+  #
+  # all_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::arrange(QNAME) %>% dplyr::group_by(QNAME) %>% dplyr::summarise(Total_Count=n())
+  all_cnt_tib <- all_aln_tib %>% dplyr::ungroup() %>% dplyr::select(QNAME) %>%
+    dplyr::arrange(QNAME) %>% dplyr::group_by(QNAME) %>% dplyr::summarise(Total_Count=n())
   
+  # Alignment Distribution
+  #  all_cnt_tib %>% dplyr::group_by(Total_Count) %>% dplyr::summarise(cnt=n())
+  
+  # Get Sub Category Counts::
+  #  TBD:: Add/Check MD's that are underlying SNPs
   per_IA_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
     dplyr::filter(MD_IA %in% per_snp_md_str) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IA_50=Count)
   
@@ -443,8 +472,9 @@ if (FALSE) {
     dplyr::left_join(per_IB_cnt_tib, by="QNAME") %>%
     dplyr::left_join(art_IB_cnt_tib, by="QNAME") %>% replace(is.na(.), 0)
     
-  
   join_cnt_tib %>% dplyr::arrange(-Count_IA_SNP)
+  
+  join_cnt_tib %>% dplyr::select(-QNAME) %>% dplyr::group_by_all() %>% dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count) %>% as.data.frame()
   
   
 }

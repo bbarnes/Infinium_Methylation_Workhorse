@@ -17,6 +17,40 @@ BNG <- "|"
 #                        Bowtie Alignment Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+loadProbeAlignBowtieInfI = function(sam, reduced=FALSE, filtered=FALSE, flipSeq=FALSE,
+                                    verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'loadProbeAlignBowtieInfI'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} sam={sam}.{RET}"))
+  
+  col_vec <- c('QNAME','FLAG','RNAME','POS','MAPQ','CIGAR','RNEXT','PNEXT','TLEN','SEQ','QUAL',
+               'AS', 'XN', 'XM', 'XO', 'XG', 'NM', 'MD', 'YT')
+  
+  stime <- system.time({
+    
+    snp_raw_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file=sam, col_names=col_vec, comment='@') ))
+    
+    if (reduced)  snp_raw_tib <- snp_raw_tib %>% dplyr::select(QNAME:POS,SEQ,MD)
+    if (filtered) snp_raw_tib <- snp_raw_tib %>% dplyr::filter(FLAG==0 | FLAG==16)
+    if (flipSeq)  snp_raw_tib <- snp_raw_tib %>% dplyr::mutate(SEQ=case_when( FLAG==16 ~ revCmp(SEQ),TRUE ~ SEQ ))
+    
+    # Split by Infinium I Probe Design::
+    sam_1A_tib <- snp_raw_tib %>% dplyr::filter(stringr::str_ends(QNAME,'_IA')) %>% dplyr::mutate(QNAME=stringr::str_remove(QNAME, '_IA$'))
+    sam_1B_tib <- snp_raw_tib %>% dplyr::filter(stringr::str_ends(QNAME,'_IB')) %>% dplyr::mutate(QNAME=stringr::str_remove(QNAME, '_IB$'))
+    sam_tib <- dplyr::inner_join(sam_1A_tib,sam_1B_tib, by=c("QNAME","FLAG","RNAME","POS"), suffix=c("_IA", "_IB")) # %>%
+
+    MD_IA_cnt <- sam_tib %>% dplyr::filter(MD_IA %in% art_snp_md_vec) %>% base::nrow()
+    MD_IB_cnt <- sam_tib %>% dplyr::filter(MD_IB %in% art_snp_md_vec) %>% base::nrow()
+    if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: IA/IB = {MD_IA_cnt}, {MD_IB_cnt}{RET}"))
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  
+  sam_tib
+}
+
 bowtieProbeAlign = function(exe, fas, gen, dir,
                             verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'bowtieProbeAlign'

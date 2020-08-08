@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "$#" -lt 8 ]; then
+if [ "$#" -lt 7 ]; then
     echo "Usage: $0 aln_dir outDir runName platform version build genome MAX"
     exit 1
 fi
@@ -15,6 +15,12 @@ genome=$7
 max=$8
 
 verbose=3
+
+# Parallel/Cluster Options::
+# single=true
+single=false
+parallel=true
+cluster=true
 
 # Program Variables::
 #
@@ -55,6 +61,17 @@ CMD+=" --build"=${build}
 CMD+=" --genome"=${genome}
 
 CMD+=" --max"=${max}
+
+if [ "${single}" = true ]; then
+    CMD+=" --single"
+fi
+if [ "${parallel}" = true ]; then
+    CMD+=" --parallel"
+fi
+if [ "${cluster}" = true ]; then
+    CMD+=" --cluster"
+fi
+
 
 # Verbosity Options::
 CMD+=" --"verbose=${verbose}
