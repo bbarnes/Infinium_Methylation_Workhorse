@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ "$#" -lt 6 ]; then
-    echo "Usage: $0 fasta outDir runName platform version build genome"
+if [ "$#" -lt 9 ]; then
+    echo "Usage: $0 fasta outDir runName platform version build genome des1_csv des2_csv MAX"
     exit 1
 fi
 fasta=$1
@@ -12,6 +12,10 @@ platform=$4
 version=$5
 build=$6
 genome=$7
+
+des1_csv=$8
+des2_csv=$9
+max=${10}
 
 verbose=3
 
@@ -52,6 +56,11 @@ CMD+=" --platform"=${platform}
 CMD+=" --version"=${version}
 CMD+=" --build"=${build}
 CMD+=" --genome"=${genome}
+
+CMD+=" --des1_csv"=${des1_csv}
+CMD+=" --des2_csv"=${des2_csv}
+
+CMD+=" --max"=${max}
 
 # Verbosity Options::
 CMD+=" --"verbose=${verbose}

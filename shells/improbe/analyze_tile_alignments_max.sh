@@ -1,84 +1,38 @@
-#!/bin/bash
 
-if [ "$#" -lt 7 ]; then
-    echo "Usage: $0 aln_dir outDir runName platform version build genome MAX"
-    exit 1
-fi
-aln_dir=$1
-outDir=$2
-runName=$3
+MAX=20
+MAX=3620
+MAX=100
 
-platform=$4
-version=$5
-build=$6
-genome=$7
-max=$8
+TOP=/illumina/scratch/darkmatter/Projects/COVIC
+ALN=/illumina/scratch/darkmatter/Projects/COVIC/scratch/index/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/align
 
-verbose=3
+# TOP=/Users/bbarnes/Documents/Projects/methylation
+# ALN=/Users/bbarnes/Documents/Projects/methylation/scratch/small.index/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/align
 
-# Parallel/Cluster Options::
-# single=true
-single=false
-parallel=true
-cluster=true
+EXE=${TOP}/tools/Infinium_Methylation_Workhorse/shells/improbe/analyze_tile_alignments_max.sh
+FAS=${TOP}/fas/nCoV_Wuhan_Sequence_MN908947.3.fa.gz
+FAS=${TOP}/fas/nCoV_Wuhan_Sequence_MN908947.3.fa
+OUT=${TOP}/scratch
 
-# Program Variables::
+# GEN=/illumina/scratch/darkmatter/bscGenomes/iGenomes/hg38/hg38.genome.fa,/illumina/scratch/darkmatter/bscGenomes/iGenomes/hg37/hg37.genome.fa,/illumina/scratch/darkmatter/Projects/COVIC/fas/nCoV_Wuhan_Sequence_MN908947.3.fa,/illumina/scratch/darkmatter/Projects/COVIC/fas/ncbi-sequences.fas
+
+# HUM_GEN=/illumina/scratch/darkmatter/bscGenomes/iGenomes/hg38/hg38.genome.fa,/illumina/scratch/darkmatter/bscGenomes/iGenomes/hg37/hg37.genome.fa
+# GEN=/illumina/scratch/darkmatter/Projects/COVIC/fas/nCoV_Wuhan_Sequence_MN908947.3.fa,/illumina/scratch/darkmatter/Projects/COVIC/fas/ncbi-sequences.fas
+
+# Index Test::
 #
-prgmTop="Infinium_Methylation_Workhorse"
-prgmDir="probe_design"
-prgmTag="analyze_tile_alignments"
+GEN=/illumina/scratch/darkmatter/Projects/COVIC/fas/ncbi_index
 
-TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
-TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC/tools
+OUT=${TOP}/scratch
 
-if [ -e ${TOP_MAC} ]; then
-    TOP=${TOP_MAC}
-    CONDA=mac
-    RSCRIPT=/usr/local/bin/Rscript
-elif [ -e ${TOP_LIX} ]; then
-    TOP=${TOP_LIX}
-    CONDA=conda_4.6.8
-    # CONDA=Anaconda2-2019.10-Linux-x86_64
-    # CONDA=Anaconda3-2019.10-Linux-x86_64
-    RSCRIPT=/illumina/scratch/darkmatter/thirdparty/${CONDA}/bin/Rscript
-else
-    echo "Unrecognized top directory!"
-    exit
-fi
+RNAME="COVIC"
+PLAT="EPIC"
+VER="SARS-CoV-2"
+BUILD="MN908947"
 
-SRC=${TOP}/${prgmTop}
-EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
+echo ${EXE} ${ALN} ${OUT} ${RNAME} ${PLAT} ${VER} ${BUILD} ${GEN} ${MAX}
 
-CMD=${RSCRIPT}" "${EXE}
-CMD+=" --"Rscript=${RSCRIPT}
+# 0       1      2      3        4       5       6       7     8
+${EXE} ${ALN} ${OUT} ${RNAME} ${PLAT} ${VER} ${BUILD} ${GEN} ${MAX}
 
-CMD+=" --outDir"=${outDir}
-CMD+=" --runName"=${runName}
-CMD+=" --aln_dir"=${aln_dir}
-CMD+=" --platform"=${platform}
-CMD+=" --version"=${version}
-CMD+=" --build"=${build}
-CMD+=" --genome"=${genome}
-
-CMD+=" --max"=${max}
-
-if [ "${single}" = true ]; then
-    CMD+=" --single"
-fi
-if [ "${parallel}" = true ]; then
-    CMD+=" --parallel"
-fi
-if [ "${cluster}" = true ]; then
-    CMD+=" --cluster"
-fi
-
-
-# Verbosity Options::
-CMD+=" --"verbose=${verbose}
-
-# mkdir -p ${outDir}
-echo ${CMD}
-
-${CMD}
-
-## End of file
+# End of file

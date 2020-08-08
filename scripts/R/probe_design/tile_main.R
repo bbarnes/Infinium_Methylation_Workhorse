@@ -64,8 +64,10 @@ opt$outDir    <- NULL
 # Run Parameters::
 opt$runName <- NULL
 opt$fasta   <- NULL
-
 opt$genome  <- NULL
+
+opt$des1_csv <- NULL
+opt$des2_csv <- NULL
 
 # Probe Filter Parameters::
 opt$minPrbScore <- 0.3
@@ -73,6 +75,8 @@ opt$minCpgRank  <- "3,2,1,0"
 opt$minScrRank  <- "0.6,0.5,0.4,0.3"
 opt$strandCO    <- 'C,O'
 opt$pickBest    <- FALSE
+
+opt$max <- NULL
 
 # Parallel/Cluster Options::
 opt$execute  <- TRUE
@@ -123,6 +127,14 @@ if (args.dat[1]=='RStudio') {
   opt$fasta   <- '/Users/bbarnes/Documents/Projects/iGenomes/COVID-19/nCoV_Wuhan_Sequence_MN908947.3.fa.gz'
   opt$runName <- base::basename(opt$fasta) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.fa')
   opt$runName <- 'COVIC'
+  
+  pre_des_dir  <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/snps'
+  opt$des1_csv <- paste(file.path(pre_des_dir, '370992_SARS-CoV-2_probes_F2BT_BEST.score.csv.gz'),
+                        file.path(pre_des_dir, '371240_SARS-CoV-2_probes_F2BT_OTHER.score.csv.gz'),
+                        sep=',')
+  opt$des2_csv <- paste(file.path(pre_des_dir,'370986_SARS-CoV-2_probes_BEST.score.csv.gz'),
+                        file.path(pre_des_dir,'371241_SARS-CoV-2_probes_OTHER.score.csv.gz'),
+                        sep=',')
 
   opt$outDir <- file.path(par$topDir)
   
@@ -150,6 +162,14 @@ if (args.dat[1]=='RStudio') {
                 help="Whole Genome Fasta [default= %default]", metavar="character"),
     make_option(c("--genome"), type="character", default=opt$genome, 
                 help="Genome Fasta to align probes against [default= %default]", metavar="character"),
+    
+    make_option(c("--des1_csv"), type="character", default=opt$des1_csv, 
+                help="SNP Designs Ininium I (comma seperate list) [default= %default]", metavar="character"),
+    make_option(c("--des2_csv"), type="character", default=opt$des2_csv, 
+                help="SNP Designs Ininium II (comma seperate list) [default= %default]", metavar="character"),
+    
+    make_option(c("--max"), type="integer", default=opt$max, 
+                help="Max files to process [default= %default]", metavar="integer"),
     
     # Chip Platform and Version Parameters::
     make_option(c("--platform"), type="character", default=opt$platform, 
@@ -236,6 +256,9 @@ if (is.null(opt$outDir) ||
   if (is.null(opt$runName))   cat(glue::glue("[Usage]: runName is NULL!!!{RET}"))
   if (is.null(opt$fasta))     cat(glue::glue("[Usage]: fasta is NULL!!!{RET}"))
 
+  if (is.null(opt$des1_csv)) cat(glue::glue("[Usage]: des1_csv is NULL (not required)!!!{RET}"))
+  if (is.null(opt$des2_csv)) cat(glue::glue("[Usage]: des2_csv is NULL (not required)!!!{RET}"))
+  
   if (is.null(opt$platform)) cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
   if (is.null(opt$version))  cat(glue::glue("[Usage]: version is NULL!!!{RET}"))
   if (is.null(opt$build))    cat(glue::glue("[Usage]: build is NULL!!!{RET}"))
@@ -285,12 +308,11 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
+genAlign_vec <- NULL
 strandCO_vec <- opt$strandCO %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 cpgRank_vec  <- opt$minCpgRank %>% str_split(pattern=',', simplify=TRUE) %>% as.integer() %>% as.vector()
 scrRank_vec  <- opt$minScrRank %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
-genAlign_vec <- opt$genome %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-
-print(genAlign_vec)
+if (!is.null(opt$genome)) genAlign_vec <- opt$genome %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 
@@ -302,14 +324,29 @@ fas_tib <- tibble::tibble(Chrom=names(fas_dat), Sequence=paste(fas_dat),
                           platform=opt$platform, version=opt$version, build=opt$build)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                               Defined Outputs::
+#                             Defined Outputs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
+if (!is.null(opt$max)) opt$outDir <- file.path(opt$outDir, paste0('n',opt$max) )
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
 
+opt$fasDir <- file.path(opt$outDir, 'fas')
+if (!dir.exists(opt$fasDir)) dir.create(opt$fasDir, recursive=TRUE)
+
+opt$desDir <- file.path(opt$outDir, 'des')
+if (!dir.exists(opt$desDir)) dir.create(opt$desDir, recursive=TRUE)
+
+opt$ordDir <- file.path(opt$outDir, 'ord')
+if (!dir.exists(opt$ordDir)) dir.create(opt$ordDir, recursive=TRUE)
+
+opt$alnDir <- file.path(opt$outDir, 'aln')
+if (!dir.exists(opt$ordDir)) dir.create(opt$alnDir, recursive=TRUE)
+
 if (opt$clean) list.files(opt$outDir, full.names=TRUE) %>% unlink()
+if (opt$clean) list.files(opt$fasDir, full.names=TRUE) %>% unlink()
+if (opt$clean) list.files(opt$desDir, full.names=TRUE) %>% unlink()
 
 out_des_str <- paste(par$prgmTag, opt$platform, opt$version, opt$build, opt$runName, sep='_')
 
@@ -369,44 +406,48 @@ all_des_tib <- tibble::tibble(
 ) %>% dplyr::filter(Forward_Sequence_Len==opt$des_seq_len+1) %>% 
   dplyr::select(Seq_ID,Genome_Build,Chromosome,Coordinate, everything())
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Build cDNA Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Read cDNA Designs::
 prb_snp_fas <- NULL
-prb_dna_best_csv <- NULL
-prb_dna_other_csv <- NULL
-# prb_dna_best_csv  <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/370845_SARS-CoV-2_probes_BEST.score.csv'
-# prb_dna_other_csv <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/370846_SARS-CoV-2_probes_OTHER.score.csv'
-
-if (opt$isLinux) {
-  prb_dna_best_csv  <- 'designs/370845_SARS-CoV-2_probes_BEST.score.csv'
-  prb_dna_other_csv <- 'designs/370846_SARS-CoV-2_probes_OTHER.score.csv'
-}
-
-if (file.exists(prb_dna_best_csv) && file.exists(prb_dna_other_csv)) {
-  prb_dna_best_tib  <- suppressMessages(suppressWarnings( readr::read_csv(file=prb_dna_best_csv, skip=15) ))
-  prb_dna_other_tib <- suppressMessages(suppressWarnings( readr::read_csv(file=prb_dna_other_csv, skip=15) ))
+if (!is.null(opt$des1_csv) && !is.null(opt$des2_csv) ) {
   
-  # Join Score Files::
-  prb_dna_tib <- dplyr::bind_rows(prb_dna_best_tib,prb_dna_other_tib) %>% 
-    dplyr::select(Ilmn_Id,Locus_Name,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,Assay_Type,Final_Score,Sequence) %>% dplyr::distinct()
+  des1_csv_vec <- opt$des1_csv %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+  des2_csv_vec <- opt$des2_csv %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+  
+  snp_des1_tib <- suppressMessages(suppressWarnings( lapply(des1_csv_vec, readr::read_csv, skip=15) )) %>% dplyr::bind_rows()
+  snp_des2_tib <- suppressMessages(suppressWarnings( lapply(des2_csv_vec, readr::read_csv, skip=15) )) %>% dplyr::bind_rows()
+  
+  # New Merging::
+  snp_des_tib <- dplyr::inner_join(
+    snp_des1_tib %>% dplyr::select(Ilmn_Id,Locus_Name,Sequence,Coordinate,Final_Score,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
+      tidyr::separate(Ilmn_Id, into=c("IDA","IDB"), sep='-', remove=FALSE) %>%
+      tidyr::separate(IDB, into=c("IDN","TB","FR","Assay_Index"), sep='_', remove=TRUE) %>%
+      dplyr::rename(Prb_Seq_IA=AlleleA_Probe_Sequence,Prb_Seq_IB=AlleleB_Probe_Sequence) %>%
+      dplyr::select(-IDA, -IDN),
+    snp_des2_tib %>% dplyr::select(Ilmn_Id,Locus_Name,Sequence,Coordinate,Final_Score,AlleleA_Probe_Sequence) %>%
+      tidyr::separate(Ilmn_Id, into=c("IDA","IDB"), sep='-', remove=FALSE) %>%
+      tidyr::separate(IDB, into=c("IDN","TB","FR","Assay_Index"), sep='_', remove=TRUE) %>%
+      dplyr::rename(Prb_Seq_II=AlleleA_Probe_Sequence) %>%
+      dplyr::select(-IDA, -IDN),
+    by=c("Sequence","Coordinate","TB","FR"), suffix=c("_I","_II")
+  ) %>% dplyr::arrange(Coordinate,TB,FR)
 
-  # Merge Score Data with Full Design Data::
+  # Remove Trailing Sequences that are cut short::
+  #  TBD:: We could pad them, but Design Studio doesn't seem to handel them...
+  seq_des_len <- snp_des_tib %>% dplyr::mutate(Sequence_Length=stringr::str_length(Sequence)) %>% 
+    dplyr::group_by(Sequence_Length) %>% dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count) %>% head(n=1) %>% dplyr::pull(Sequence_Length)
+  snp_des_tib <- snp_des_tib %>% dplyr::filter(stringr::str_length(Sequence)==seq_des_len)  
+    
+  # Merge All Combinations to match Order in LIMS::
   #
-  prb_dna_tib %>% dplyr::inner_join(all_des_tib, by=c("Sequence"="Forward_Sequence_SNP_Des")) %>%
-    dplyr::filter(AlleleA_Probe_Sequence==Prb_SNP_F_IA & AlleleB_Probe_Sequence==Prb_SNP_F_IB) 
-  
-  prb_dna_tib %>% dplyr::inner_join(all_des_tib, by=c("Sequence"="Forward_Sequence_SNP_Des")) %>%
-    dplyr::filter(AlleleA_Probe_Sequence==Prb_SNP_R_IA & AlleleB_Probe_Sequence==Prb_SNP_R_IB) 
-  
-  snp_des_tib <- prb_dna_tib %>% dplyr::inner_join(all_des_tib, by=c("Sequence"="Forward_Sequence_SNP_Des")) %>%
-    dplyr::filter(
-      (AlleleA_Probe_Sequence==Prb_SNP_F_IA & AlleleB_Probe_Sequence==Prb_SNP_F_IB) |
-        (AlleleA_Probe_Sequence==Prb_SNP_R_IA & AlleleB_Probe_Sequence==Prb_SNP_R_IB) ) %>%
-    dplyr::mutate(Ilmn_Id=stringr::str_replace(Ilmn_Id,'_','.'))
+  full_des_tib <- dplyr::bind_rows(
+    dplyr::inner_join(snp_des_tib, all_des_tib, by=c("Prb_Seq_IA"="Prb_SNP_F_IA", "Prb_Seq_IB"="Prb_SNP_F_IB") ),
+    dplyr::inner_join(snp_des_tib, all_des_tib, by=c("Prb_Seq_IA"="Prb_SNP_R_IA", "Prb_Seq_IB"="Prb_SNP_R_IB") ),
+    dplyr::inner_join(snp_des_tib, all_des_tib, by=c("Prb_Seq_IA"="Prb_SNP_F_IB", "Prb_Seq_IB"="Prb_SNP_F_IA") ),
+    dplyr::inner_join(snp_des_tib, all_des_tib, by=c("Prb_Seq_IA"="Prb_SNP_R_IB", "Prb_Seq_IB"="Prb_SNP_R_IA") )
+  )
   
   # Now we have scores and Sequences::
   #  - [DONE] Validate uniqueness
@@ -423,28 +464,15 @@ if (file.exists(prb_dna_best_csv) && file.exists(prb_dna_other_csv)) {
   #                            Write Fasta File::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  prb_snp_tib <- dplyr::bind_rows(
-    snp_des_tib %>% dplyr::select(Ilmn_Id,AlleleA_Probe_Sequence) %>% dplyr::mutate(Fas_Id=paste(Ilmn_Id,'IA', sep='_'), line=paste0('>',Fas_Id,'\n',AlleleA_Probe_Sequence) ),
-    snp_des_tib %>% dplyr::select(Ilmn_Id,AlleleB_Probe_Sequence) %>% dplyr::mutate(Fas_Id=paste(Ilmn_Id,'IB', sep='_'), line=paste0('>',Fas_Id,'\n',AlleleB_Probe_Sequence) )
-  ) %>% dplyr::select(Ilmn_Id, line) %>% dplyr::arrange(Ilmn_Id)
-  
-  prb_snp_str <- prb_snp_tib %>% dplyr::pull(line)
-  
-  # This needs to be split, but we can ignore it for now because alignment 
-  #  can be captured with Infinium I probes, which are the only ones we have
-  #  scores for at the moment anyways...
-  # snp_des_tib %>% dplyr::select(Ilmn_Id,Prb_SNP_F_II,Prb_SNP_R_II) %>% 
-  #   dplyr::mutate(Ilmn_Id=paste(Ilmn_Id,'II', sep='_'), 
-  #                 lineF=paste0('>',Ilmn_Id,'\n',Prb_SNP_F_II),
-  #                 lineR=paste0('>',Ilmn_Id,'\n',Prb_SNP_R_II) ) %>% 
-  #   dplyr::pull(lineF,lineR)
+  prb_snp_str <- dplyr::bind_rows(
+    snp_des_tib %>% dplyr::mutate(Fas_Id=paste(Ilmn_Id_I,'IA',  sep='_'), line=paste0('>',Fas_Id,'\n',Prb_Seq_IA) ),
+    snp_des_tib %>% dplyr::mutate(Fas_Id=paste(Ilmn_Id_I,'IB',  sep='_'), line=paste0('>',Fas_Id,'\n',Prb_Seq_IB) ),
+    snp_des_tib %>% dplyr::mutate(Fas_Id=paste(Ilmn_Id_II,'II', sep='_'), line=paste0('>',Fas_Id,'\n',Prb_Seq_II) )
+  ) %>% dplyr::arrange(Coordinate,TB,FR) %>% dplyr::pull(line)
 
-  prb_snp_fas  <- file.path(opt$outDir, paste0(out_des_str,'.snp.fa.gz'))
+  prb_snp_fas  <- file.path(opt$fasDir, paste0(out_des_str,'.snp.fa.gz'))
   readr::write_lines(x=prb_snp_str, path=prb_snp_fas)
-  bow_name <- prb_snp_fas %>% stringr::str_remove('.fa.gz$')
-  
 }
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Build CGN Tibbles::
@@ -473,9 +501,9 @@ if (opt$verbose>4) {
 #                               Write Outputs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-all_des_csv <- file.path(opt$outDir, paste(out_des_str, 'tiled-all-dat.csv.gz', sep='_') )
-cgn_des_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-des.tsv.gz', sep='_') )
-cgn_org_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-org.tsv.gz', sep='_') )
+all_des_csv <- file.path(opt$desDir, paste(out_des_str, 'tiled-all-dat.csv.gz', sep='_') )
+cgn_des_tsv <- file.path(opt$desDir, paste(out_des_str, 'tiled-cgn-des.tsv.gz', sep='_') )
+cgn_org_tsv <- file.path(opt$desDir, paste(out_des_str, 'tiled-cgn-org.tsv.gz', sep='_') )
 
 readr::write_csv(all_des_tib,all_des_csv)
 readr::write_tsv(cgn_des_tib,cgn_des_tsv)
@@ -485,8 +513,8 @@ readr::write_tsv(cgn_org_tib,cgn_org_tsv)
 #                             Run improbe design::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-imp_out_tsv <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-improbe-designs.tsv.gz', sep='_') )
-imp_out_log <- file.path(opt$outDir, paste(out_des_str, 'tiled-cgn-improbe-designs.log', sep='_') )
+imp_out_tsv <- file.path(opt$desDir, paste(out_des_str, 'tiled-cgn-improbe-designs.tsv.gz', sep='_') )
+imp_out_log <- file.path(opt$desDir, paste(out_des_str, 'tiled-cgn-improbe-designs.log', sep='_') )
 
 if (opt$isLinux) {
   if (! file.exists(par$tan_file))
@@ -494,7 +522,7 @@ if (opt$isLinux) {
   if (! file.exists(par$mer_file))
     stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: On linux and can't find 13-mer={par$mer_file}!{RET}{RET}"))
 
-  shell_dir <- file.path(opt$outDir, 'shells')
+  shell_dir <- file.path(opt$desDir, 'shells')
   if (!dir.exists(shell_dir)) dir.create(shell_dir, recursive=TRUE)
   shell_file <- file.path(shell_dir, 'run_improbe.sh')
   
@@ -598,56 +626,67 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   #                         Write Final Order File::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  new_ord_csv <- file.path(opt$outDir, paste(opt$runName,'order.csv.gz', sep='.'))
+  new_ord_csv <- file.path(opt$ordDir, paste(opt$runName,'cgn.order.csv.gz', sep='.'))
   readr::write_csv(new_ord_tib, new_ord_csv)
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                            Write Fasta File::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-  prb_cgn_fas  <- ordToFas(tib=new_ord_tib, dir=opt$outDir, name=out_des_str, verbose=opt$verbose)
+  prb_cgn_fas  <- ordToFas(tib=new_ord_tib, dir=opt$fasDir, name=out_des_str, verbose=opt$verbose)
   bsp_name <- prb_cgn_fas %>% stringr::str_remove('.fa.gz$')
 
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                            Build Alignments::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  gen_cnt <- length(genAlign_vec)
-  for (gen_idx in c(1:gen_cnt)) {
-    gen_path <- genAlign_vec[gen_idx]
-    cat(glue::glue("[{par$prgmTag}]: Ready to launch alignments; genomes count={gen_cnt}; gen_path={gen_path}...{RET}"))
+  # First build full list of genome fastas::
+  #
+  all_gen_paths <- NULL
+  all_gen_cnts  <- length(genAlign_vec)
+  for (all_gen_idx in c(1:all_gen_cnts)) {
+    gen_path <- genAlign_vec[all_gen_idx]
+    cat(glue::glue("[{par$prgmTag}]: Processing Alignment; all_gen_idx={all_gen_idx}; gen_path={gen_path}...{RET}"))
     
     if (dir.exists(gen_path)) {
       cat(glue::glue("[{par$prgmTag}]:{TAB} Searching directory for genomes: gen_path={gen_path}...{RET}"))
-      # gen_paths <- list.files(gen_path, pattern='.fa[.gz]$', full.names=TRUE)
       gen_paths <- list.files(gen_path, pattern='.fa.gz$', full.names=TRUE)
       
-      gen_cnts <- 0
-      for (gpath in gen_paths) {
-        if (file.exists(gpath)) {
-          cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Ready to launch alignments; genomes count={gen_cnts}/{gen_cnt}; gen_path={gen_path}...{RET}"))
-          
-          bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gpath, dir=opt$outDir,
-                                      verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
-          
-          bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gpath, dir=opt$outDir,
-                                     verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
-        }
-        
-        gen_cnts <- gen_cnts + 1
-        # if (gen_cnts > 10) break
-      }
-    } else if (file.exists(gen_path)) {
-      cat(glue::glue("[{par$prgmTag}]:{TAB} Using Genome Path={gen_path}...{RET}"))
-      bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gen_path, dir=opt$outDir,
-                                  verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
+      genome_cnts <- gen_paths %>% length()
+      cat(glue::glue("[{par$prgmTag}]: Found genome_cnts={genome_cnts}.{RET}"))
       
-      bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gen_path, dir=opt$outDir,
-                                 verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
-
+      all_gen_paths <- c(all_gen_paths, gen_paths)
+    } else if (file.exists(gen_path)) {
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Adding Genome Path={gen_path}...{RET}"))
+      
+      all_gen_paths <- c(all_gen_paths, gen_path)
+    } else {
+      cat(glue::glue("[{par$prgmTag}]: Niether a directory or file all_gen_idx={all_gen_idx}, gen_path={gen_path}, skipping...{RET}"))
     }
     
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Alignment Progress={all_gen_idx}/{all_gen_cnts}...{RET}"))
+  }
+  
+  if (!is.null(opt$max)) {
+    all_gen_paths <- all_gen_paths %>% head(opt$max)
+    genome_cnts   <- all_gen_paths %>% length()
+    cat(glue::glue("[{par$prgmTag}]: Adding genome_cnts={genome_cnts}.{RET}"))
+  }
 
+  tot_gen_paths <- NULL
+  tot_gen_cnts  <- length(all_gen_paths)
+  for (tot_gen_idx in c(1:tot_gen_cnts)) {
+    gen_path <- all_gen_paths[tot_gen_idx]
+    
+    if (file.exists(gpath)) {
+      cat(glue::glue("[{par$prgmTag}]:{TAB}Ready to launch alignment; tot_gen_idx={tot_gen_idx}/{tot_gen_cnts}; gen_path={gen_path}...{RET}"))
+
+      if (file.exists(par$bow_exe)) 
+        bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gpath, dir=opt$alnDir, verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
+
+      if (file.exists(par$bsp_exe))
+        bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gpath, dir=opt$alnDir, verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
+    }
   }
   cat(glue::glue("[{par$prgmTag}]: Done launching alignments.{RET}{RET}"))
 }

@@ -64,8 +64,10 @@ opt$outDir    <- NULL
 opt$runName <- NULL
 opt$fasta   <- NULL
 opt$aln_dir <- NULL
-
 opt$genome  <- NULL
+
+opt$des1_csv <- NULL
+opt$des2_csv <- NULL
 
 # Probe Filter Parameters::
 opt$minPrbScore <- 0.3
@@ -128,6 +130,14 @@ if (args.dat[1]=='RStudio') {
   
   opt$aln_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/small.index/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/align'
 
+  des_dir  <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/snps'
+  opt$des1_csv <- paste(file.path(des_dir, '370992_SARS-CoV-2_probes_F2BT_BEST.score.csv.gz'),
+                        file.path(des_dir, '371240_SARS-CoV-2_probes_F2BT_OTHER.score.csv.gz'),
+                        sep=',')
+  opt$des2_csv <- paste(file.path(des_dir,'370986_SARS-CoV-2_probes_BEST.score.csv.gz'),
+                        file.path(des_dir,'371241_SARS-CoV-2_probes_OTHER.score.csv.gz'),
+                        sep=',')
+  
   opt$outDir <- file.path(par$topDir)
   
 } else {
@@ -156,7 +166,11 @@ if (args.dat[1]=='RStudio') {
                 help="Genome Fasta to align probes against [default= %default]", metavar="character"),
     make_option(c("--aln_dir"), type="character", default=opt$aln_dir, 
                 help="Alignment Directory [default= %default]", metavar="character"),
-    
+
+    make_option(c("--des1_csv"), type="character", default=opt$des1_csv, 
+                help="SNP Designs Ininium I (comma seperate list) [default= %default]", metavar="character"),
+    make_option(c("--des2_csv"), type="character", default=opt$des2_csv, 
+                help="SNP Designs Ininium II (comma seperate list) [default= %default]", metavar="character"),
     
     make_option(c("--max"), type="integer", default=opt$max, 
                 help="Max files to process [default= %default]", metavar="integer"),
@@ -247,6 +261,9 @@ if (is.null(opt$outDir) ||
   # if (is.null(opt$fasta))     cat(glue::glue("[Usage]: fasta is NULL!!!{RET}"))
   if (is.null(opt$aln_dir))   cat(glue::glue("[Usage]: aln_dir is NULL!!!{RET}"))
   
+  if (is.null(opt$des1_csv)) cat(glue::glue("[Usage]: des1_csv is NULL (not required)!!!{RET}"))
+  if (is.null(opt$des2_csv)) cat(glue::glue("[Usage]: des2_csv is NULL (not required)!!!{RET}"))
+  
   if (is.null(opt$platform)) cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
   if (is.null(opt$version))  cat(glue::glue("[Usage]: version is NULL!!!{RET}"))
   if (is.null(opt$build))    cat(glue::glue("[Usage]: build is NULL!!!{RET}"))
@@ -292,10 +309,17 @@ for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, r
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                               Defined Outputs::
+#                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
+
+des1_csv_vec <- NULL
+des2_csv_vec <- NULL
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Defined Outputs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
 if (!is.null(opt$max)) opt$outDir <- file.path(opt$outDir, paste0('n',opt$max) )
@@ -308,23 +332,54 @@ if (opt$clean) list.files(opt$outDir, full.names=TRUE) %>% unlink()
 #                            Load Probe Designs:: cDNA
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (FALSE) {
-  snp_des1_csv <- '~/Downloads/370992_SARS-CoV-2_probes_F2BT_BEST.score.csv.gz'
-  snp_des2_csv <- '~/Downloads/370986_SARS-CoV-2_probes_BEST.score.csv.gz'
+if (!is.null(opt$des1_csv) && !is.null(opt$des2_csv) ) {
   
-  snp_des1_tib <- readr::read_csv(snp_des1_csv, skip=15)
-  snp_des2_tib <- readr::read_csv(snp_des2_csv, skip=15)
+  des1_csv_vec <- opt$des1_csv %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+  des2_csv_vec <- opt$des2_csv %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+
+  snp_des1_tib <- suppressMessages(suppressWarnings( lapply(des1_csv_vec, readr::read_csv, skip=15) )) %>%
+    dplyr::bind_rows()
+  snp_des2_tib <- suppressMessages(suppressWarnings( lapply(des2_csv_vec, readr::read_csv, skip=15) )) %>%
+    dplyr::bind_rows()
   
+  # Look at Allele Cases::
+  #  Design Studio Always forces AT -> CG SNPs
+  # snp_des1_tib %>% dplyr::mutate(AlleleA=stringr::str_sub(AlleleA_Probe_Sequence, stringr::str_length(AlleleA_Probe_Sequence)),
+  #                                AlleleB=stringr::str_sub(AlleleB_Probe_Sequence, stringr::str_length(AlleleB_Probe_Sequence)) ) %>% 
+  #   dplyr::select(Sequence, AlleleA_Probe_Sequence,AlleleA, AlleleB_Probe_Sequence,AlleleB) %>% dplyr::group_by(AlleleA,AlleleB) %>% dplyr::summarise(Count=n())
+  #
+  # Missing Alignment:: Always CG/AT...
+  #   snp_des1_tib %>% dplyr::filter(AlleleA_Probe_Sequence=='CTCTGCAAAACAGCTGAGGTGATAGAGGTTTGTGGTGGTTGGTAAAGAAT') %>% as.data.frame()
+  
+  # Need to preprocess and format before joining...
+  #  - [Done]: Strands need to match!
   snp_des_tib <- dplyr::inner_join(
-    snp_des1_tib %>% dplyr::select(Locus_Name,Coordinate,Sequence_Orientation,Final_Score,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
-      dplyr::rename(Prb_Seq_IA=AlleleA_Probe_Sequence,Prb_Seq_IB=AlleleB_Probe_Sequence),
-    snp_des2_tib %>% dplyr::select(Locus_Name,Coordinate,Sequence_Orientation,Final_Score,AlleleA_Probe_Sequence) %>%
-      dplyr::rename(Prb_Seq_II=AlleleA_Probe_Sequence),
-    by=c("Coordinate","Sequence_Orientation"), suffix=c("_I","_II")
-  ) %>% 
-    dplyr::rename(Strand_FR=Sequence_Orientation,Score_I=Final_Score_I,Score_II=Final_Score_II) %>%
-    dplyr::mutate(Strand_FR=case_when(Strand_FR=="FORWARD" ~ 'F', Strand_FR=="REVERSE" ~ 'R', TRUE ~ NA_character_)) %>%
-    dplyr::select(Locus_Name_I,Locus_Name_II,Coordinate,Strand_FR,Prb_Seq_IA,Prb_Seq_IB,Prb_Seq_II,Score_I,Score_II, everything())
+    snp_des1_tib %>% dplyr::select(Ilmn_Id,Locus_Name,Sequence,Coordinate,Final_Score,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
+      tidyr::separate(Ilmn_Id, into=c("IDA","IDB"), sep='-', remove=FALSE) %>%
+      tidyr::separate(IDB, into=c("IDN","TB","FR","Assay_Index"), sep='_', remove=TRUE) %>%
+      dplyr::rename(Prb_Seq_IA=AlleleA_Probe_Sequence,Prb_Seq_IB=AlleleB_Probe_Sequence) %>%
+      dplyr::select(-IDA, -IDN),
+    snp_des2_tib %>% dplyr::select(Ilmn_Id,Locus_Name,Sequence,Coordinate,Final_Score,AlleleA_Probe_Sequence) %>%
+      tidyr::separate(Ilmn_Id, into=c("IDA","IDB"), sep='-', remove=FALSE) %>%
+      tidyr::separate(IDB, into=c("IDN","TB","FR","Assay_Index"), sep='_', remove=TRUE) %>%
+      dplyr::rename(Prb_Seq_II=AlleleA_Probe_Sequence) %>%
+      dplyr::select(-IDA, -IDN),
+    by=c("Sequence","Coordinate","TB","FR"), suffix=c("_I","_II")
+  ) %>% dplyr::arrange(Coordinate,TB,FR)
+
+  # Add Score Probes by # of G's
+  #  
+  # Its lack of G::
+  # gzip -dc /Users/bbarnes/Documents/Projects/manifests/methylation/HumanMethylation450_15017482_v.1.2.rs-only.csv.gz | grep G
+  #
+  snp_des_tib <- snp_des_tib %>% 
+    dplyr::mutate(G_Count_IA=stringr::str_length(Prb_Seq_IA) - stringr::str_length(stringr::str_remove_all(Prb_Seq_IA, 'G')) ) %>% 
+    dplyr::mutate(G_Count_IB=stringr::str_length(Prb_Seq_IB) - stringr::str_length(stringr::str_remove_all(Prb_Seq_IB, 'G')) ) %>% 
+    dplyr::mutate(G_Count_II=stringr::str_length(Prb_Seq_II) - stringr::str_length(stringr::str_remove_all(Prb_Seq_II, 'G')) )
+  
+  # Score Summary::
+  #  snp_des_tib %>% dplyr::arrange(G_Count_II) %>% dplyr::select(Ilmn_Id_II,Prb_Seq_II,G_Count_IA,G_Count_IB,G_Count_II) %>% print()
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -340,17 +395,6 @@ cgn_aln_files <- list.files(opt$aln_dir, pattern=cgn_pattern, full.names=TRUE)
 snp_aln_cnts <- snp_aln_files %>% length()
 cgn_aln_cnts <- cgn_aln_files %>% length()
 cat(glue::glue("[{par$prgmTag}]: Found snp={snp_aln_cnts}, cgn={cgn_aln_cnts}{RET}"))
-
-# snp_covid_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_covid_sam, col_names=sam_col_vec, comment='@') ))
-# snp_ncbi_tib  <- suppressMessages(suppressWarnings( readr::read_tsv(file = opt$snp_ncbi_sam, col_names=sam_col_vec, comment='@') ))
-#
-# snp_covid_tib %>% dplyr::group_by(CIGAR) %>% dplyr::summarise(Count=n())
-# snp_ncbi_tib %>% dplyr::group_by(CIGAR) %>% dplyr::summarise(Count=n())
-
-# Its lack of G::
-# gzip -dc /Users/bbarnes/Documents/Projects/manifests/methylation/HumanMethylation450_15017482_v.1.2.rs-only.csv.gz | grep G
-#
-# snp_ncbi_tib %>% dplyr::mutate(G_Count=50 - stringr::str_length(stringr::str_remove_all(SEQ, 'G')) ) %>% dplyr::arrange(G_Count) %>% dplyr::select(QNAME,SEQ,G_Count)
 
 if (!is.null(opt$max)) {
   snp_aln_files <- snp_aln_files %>% head(opt$max)
@@ -382,14 +426,94 @@ if (opt$parallel) {
   for (snp_aln_file in snp_aln_files) {
     snp_sam_tib <- loadProbeAlignBowtieInfI(sam=snp_aln_file, reduced=TRUE, filtered=TRUE, flipSeq=TRUE,
                                             verbose=opt$verbose,tt=pTracker)
-    # View SNP probes::
-    #   snp_sam_tib %>% dplyr::filter(MD_IA %in% art_snp_md_vec) %>% dplyr::select(QNAME,FLAG,RNAME,POS, MD_IA,MD_IB) %>% print()
-    
     all_aln_tib <- all_aln_tib %>% dplyr::bind_rows(snp_sam_tib)
   }
 }
-sum_aln_len <- all_aln_tib %>% base::nrow()
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Alignments; sum_aln_len={sum_aln_len}.{RET}"))
+all_aln_len <- all_aln_tib %>% base::nrow()
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Alignments; all_aln_len={all_aln_len}.{RET}"))
+
+# Add MD Class for Infinium I Probe Pairs::
+#  TBD:: Add SNP Classes (A,C,T,G) from art_snp_md_vec + Original SNP; i.e. A/C, A/G, etc. 
+#
+art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
+                    "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
+
+ann_aln_tib <- all_aln_tib %>% dplyr::mutate(
+  MD_Class_A=dplyr::case_when(
+    MD_IA=="MD:Z:50" ~ 'P',
+    FLAG==16 & MD_IA=='MD:Z:0A49' ~ 'A',
+    FLAG==0  & MD_IA=='MD:Z:49A0' ~ 'A',
+    FLAG==16 & MD_IA=='MD:Z:0C49' ~ 'C',
+    FLAG==0  & MD_IA=='MD:Z:49C0' ~ 'C',
+    FLAG==16 & MD_IA=='MD:Z:0G49' ~ 'G',
+    FLAG==0  & MD_IA=='MD:Z:49G0' ~ 'G',
+    FLAG==16 & MD_IA=='MD:Z:0T49' ~ 'T',
+    FLAG==0  & MD_IA=='MD:Z:49T0' ~ 'T',
+    TRUE ~ 'U'),
+  MD_Class_B=dplyr::case_when(
+    MD_IB=="MD:Z:50" ~ 'P',
+    FLAG==16 & MD_IB=='MD:Z:0A49' ~ 'A',
+    FLAG==0  & MD_IB=='MD:Z:49A0' ~ 'A',
+    FLAG==16 & MD_IB=='MD:Z:0C49' ~ 'C',
+    FLAG==0  & MD_IB=='MD:Z:49C0' ~ 'C',
+    FLAG==16 & MD_IB=='MD:Z:0G49' ~ 'G',
+    FLAG==0  & MD_IB=='MD:Z:49G0' ~ 'G',
+    FLAG==16 & MD_IB=='MD:Z:0T49' ~ 'T',
+    FLAG==0  & MD_IB=='MD:Z:49T0' ~ 'T',
+    TRUE ~ 'U')
+)
+
+# Old Method:: Not-Specific::
+# ann_aln_tib <- all_aln_tib %>% dplyr::mutate(
+#   MD_Class_A=dplyr::case_when(
+#     MD_IA=="MD:Z:50" ~ 'PER',
+#     MD_IA %in% art_snp_md_vec ~ 'SNP',
+#     TRUE ~ 'UND'),
+#   MD_Class_B=dplyr::case_when(
+#     MD_IB=="MD:Z:50" ~ 'PER',
+#     MD_IB %in% art_snp_md_vec ~ 'SNP',
+#     TRUE ~ 'UND')
+# )
+
+
+# Summary by class
+#  ann_aln_tib %>% dplyr::select(starts_with('MD_Class')) %>% dplyr::group_by_all() %>% dplyr::summarise(CNT=n()) %>% dplyr::arrange(-CNT) %>% as.data.frame()  
+#  ann_aln_tib %>% dplyr::filter(MD_Class_A=='SNP' & MD_Class_B=='SNP') %>% dplyr::select(FLAG, MD_IA, MD_IB, SEQ_IA, SEQ_IB)
+#  ann_aln_tib %>% dplyr::filter(MD_Class_A=='SNP' & MD_Class_B=='PER') %>% dplyr::select(FLAG, MD_IA, MD_IB, SEQ_IA, SEQ_IB)
+
+# Gather Stats::
+#
+ann_sum_tib <- dplyr::full_join(
+  ann_aln_tib %>% dplyr::group_by(QNAME, MD_Class_A) %>% dplyr::summarise(MD_A_Count=n()) %>% 
+    tidyr::spread(MD_Class_A, MD_A_Count, fill=0) %>% dplyr::ungroup() %>% 
+    dplyr::mutate(TOT=PER+SNP+UND, PER_perc=round(100*PER/TOT,1), SNP_perc=round(100*SNP/TOT,1), UND_perc=round(100*UND/TOT,1)),
+  
+  ann_aln_tib %>% dplyr::group_by(QNAME, MD_Class_B) %>% dplyr::summarise(MD_B_Count=n()) %>% 
+    tidyr::spread(MD_Class_B, MD_B_Count, fill=0) %>% dplyr::ungroup() %>% 
+    dplyr::mutate(TOT=PER+SNP+UND, PER_perc=round(100*PER/TOT,1), SNP_perc=round(100*SNP/TOT,1), UND_perc=round(100*UND/TOT,1)),
+  by="QNAME", suffix=c("_A", "_B")
+)
+
+# Filter Design Pairs Groups::
+#  - Remove Underlying SNPs
+#  - Select Low G Probes
+#  - Select SNP Probes (SNP/PER or SNP/SNP)
+#
+ann_sum_tib %>% dplyr::filter(UND_A<=0 & UND_B <=0) %>% dplyr::select(-QNAME,-PER_A,-PER_B) %>% 
+  dplyr::group_by_all() %>% dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count) %>% as.data.frame()
+  
+ann_sum_tib %>% dplyr::filter(UND_A<=2 & UND_B <=2) %>% dplyr::arrange(-SNP_A)
+
+# Add sequences back::
+#  - seq_aln_tib <- all_aln_tib %>% dplyr::distinct(QNAME,SEQ_IA,SEQ_IB)
+#  - seq_aln_tib+ann_sum_tib
+# Join Design Data::
+#  - des_aln_mat_tib <- dplyr::inner_join(seq_aln_tib, snp_des_tib, by=c("SEQ_IA"="Prb_Seq_IA", "SEQ_IB"="Prb_Seq_IB") )
+#
+
+
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Build Match Descriptor Summary::
@@ -418,7 +542,7 @@ readr::write_csv(all_aln_tib, sum_aln_csv)
 
 if (FALSE) {
   
-  # Max Count = 2888
+  # Max Count = 3200
   
   # Cluster Data::
   #
@@ -438,10 +562,10 @@ if (FALSE) {
   
   # Alignment Analysis::
   #
+  per_snp_md_vec <- c('MD:Z:50')
   art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
                       "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
-  
-  per_snp_md_str <- c('MD:Z:50')
+  und_snp_md_vec <- c(per_snp_md_vec, art_snp_md_vec)
   
   # Get Full Genome Counts
   #
@@ -453,28 +577,52 @@ if (FALSE) {
   #  all_cnt_tib %>% dplyr::group_by(Total_Count) %>% dplyr::summarise(cnt=n())
   
   # Get Sub Category Counts::
-  #  TBD:: Add/Check MD's that are underlying SNPs
-  per_IA_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
-    dplyr::filter(MD_IA %in% per_snp_md_str) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IA_50=Count)
+  #
+  # TBD:: Add a new Class Definition
+  #
+  #  mds_sum_tib %>% dplyr::mutate(Count_IA_PER=dplyr::case_when( MD_IA %in% per_snp_md_vec ~ Count,TRUE ~ 0.0 ) )
+  #
+  # Reference Infinium IA:
+  #
+  per_IA_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::filter(  MD_IA %in% per_snp_md_vec) %>% 
+    dplyr::select(QNAME,Count) %>% dplyr::distinct() %>% dplyr::rename(Count_IA_PER=Count)
   
-  art_IA_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
-    dplyr::filter(MD_IA %in% art_snp_md_vec) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IA_SNP=Count)
+  art_IA_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::filter(  MD_IA %in% art_snp_md_vec) %>% 
+    dplyr::select(QNAME,Count) %>% dplyr::distinct() %>% dplyr::rename(Count_IA_SNP=Count)
+  
+  und_IA_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::filter(! MD_IA %in% und_snp_md_vec) %>% 
+    dplyr::select(QNAME,Count) %>% dplyr::distinct() %>% dplyr::rename(Count_IA_UND=Count)
+  
+  # Alternate Infinium IB:
+  #
+  per_IB_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::filter(  MD_IB %in% per_snp_md_vec) %>% 
+    dplyr::select(QNAME,Count) %>% dplyr::distinct() %>% dplyr::rename(Count_IB_PER=Count)
+  
+  art_IB_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::filter(  MD_IB %in% art_snp_md_vec) %>% 
+    dplyr::select(QNAME,Count) %>% dplyr::distinct() %>% dplyr::rename(Count_IB_SNP=Count)
+  
+  und_IB_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::filter(! MD_IB %in% und_snp_md_vec) %>% 
+    dplyr::select(QNAME,Count) %>% dplyr::distinct() %>% dplyr::rename(Count_IB_UND=Count)
 
-  per_IB_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
-    dplyr::filter(MD_IB %in% per_snp_md_str) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IB_50=Count)
-  
-  art_IB_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
-    dplyr::filter(MD_IB %in% art_snp_md_vec) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IB_SNP=Count)
-  
+  # Join the class counts and makes sure they add up::
+  #
   join_cnt_tib <- all_cnt_tib %>% 
     dplyr::left_join(per_IA_cnt_tib, by="QNAME") %>%
     dplyr::left_join(art_IA_cnt_tib, by="QNAME") %>%
+    dplyr::left_join(und_IA_cnt_tib, by="QNAME") %>%
     dplyr::left_join(per_IB_cnt_tib, by="QNAME") %>%
-    dplyr::left_join(art_IB_cnt_tib, by="QNAME") %>% replace(is.na(.), 0)
+    dplyr::left_join(art_IB_cnt_tib, by="QNAME") %>% 
+    dplyr::left_join(und_IB_cnt_tib, by="QNAME") %>% 
+    base::replace(is.na(.), 0) %>%
+    dplyr::mutate(Sum_IA=Count_IA_PER+Count_IA_SNP+Count_IA_UND, Sum_IB=Count_IB_PER+Count_IB_SNP+Count_IB_UND)
     
+  
+  # Generate summarys::
+  #
   join_cnt_tib %>% dplyr::arrange(-Count_IA_SNP)
   
-  join_cnt_tib %>% dplyr::select(-QNAME) %>% dplyr::group_by_all() %>% dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count) %>% as.data.frame()
+  join_cnt_tib %>% dplyr::select(-QNAME, -Total_Count) %>% dplyr::group_by_all() %>% 
+    dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count) %>% as.data.frame()
   
   
 }
