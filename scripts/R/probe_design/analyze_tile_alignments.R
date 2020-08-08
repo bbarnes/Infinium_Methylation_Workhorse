@@ -126,7 +126,7 @@ if (args.dat[1]=='RStudio') {
   opt$runName <- base::basename(opt$fasta) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.fa')
   opt$runName <- 'COVIC'
   
-  aln_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/small.index/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/align'
+  opt$aln_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/small.index/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/align'
 
   opt$outDir <- file.path(par$topDir)
   
@@ -296,6 +296,7 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
+if (!is.null(opt$max)) opt$outDir <- file.path(opt$outDir, paste0('n',opt$max) )
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
 
@@ -396,7 +397,9 @@ for (snp_aln_file in snp_aln_files) {
   sum_aln_tib <- sum_aln_tib %>% dplyr::bind_rows(snp_sam_tib)
 }
 
-mds_sum_tib <- sum_aln_tib %>% dplyr::group_by(QNAME,MD_IA,MD_IB) %>% dplyr::summarise(Count=n()) %>% dplyr::filter(Count!=11) %>% dplyr::arrange(QNAME)
+mds_sum_tib <- sum_aln_tib %>% dplyr::group_by(QNAME,MD_IA,MD_IB) %>% dplyr::summarise(Count=n()) %>% 
+  # dplyr::filter(Count!=11) %>% 
+  dplyr::arrange(QNAME)
 
 sum_mds_csv <- file.path(opt$outDir, 'snp-matchDesc-merge.csv.gz')
 sum_aln_csv <- file.path(opt$outDir, 'snp-alignment-merge.csv.gz')
@@ -406,6 +409,45 @@ readr::write_csv(mds_sum_tib, sum_mds_csv)
 
 cat(glue::glue("[{par$prgmTag}]: Writing {sum_aln_csv}..."))
 readr::write_csv(sum_aln_tib, sum_aln_csv)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                                Make Selectionn::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  # Max Count = 2888
+  
+  art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
+                      "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
+  
+  per_snp_md_str <- c('MD:Z:50')
+  
+  all_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>% dplyr::distinct(QNAME)
+  
+  per_IA_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
+    dplyr::filter(MD_IA %in% per_snp_md_str) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IA_50=Count)
+  
+  art_IA_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
+    dplyr::filter(MD_IA %in% art_snp_md_vec) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IA_SNP=Count)
+
+  per_IB_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
+    dplyr::filter(MD_IB %in% per_snp_md_str) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IB_50=Count)
+  
+  art_IB_cnt_tib <- mds_sum_tib %>% dplyr::ungroup() %>%
+    dplyr::filter(MD_IB %in% art_snp_md_vec) %>% dplyr::select(QNAME,Count) %>% dplyr::rename(Count_IB_SNP=Count)
+  
+  join_cnt_tib <- all_cnt_tib %>% 
+    dplyr::left_join(per_IA_cnt_tib, by="QNAME") %>%
+    dplyr::left_join(art_IA_cnt_tib, by="QNAME") %>%
+    dplyr::left_join(per_IB_cnt_tib, by="QNAME") %>%
+    dplyr::left_join(art_IB_cnt_tib, by="QNAME") %>% replace(is.na(.), 0)
+    
+  
+  join_cnt_tib %>% dplyr::arrange(-Count_IA_SNP)
+  
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::

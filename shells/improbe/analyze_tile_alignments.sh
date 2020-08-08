@@ -53,7 +53,7 @@ CMD+=" --version"=${version}
 CMD+=" --build"=${build}
 CMD+=" --genome"=${genome}
 
-CMD+=" --max=3"
+CMD+=" --max=300"
 
 # Verbosity Options::
 CMD+=" --"verbose=${verbose}
