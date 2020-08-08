@@ -677,15 +677,21 @@ if (!is.null(imp_out_tsv) & file.exists(imp_out_tsv)) {
   tot_gen_cnts  <- length(all_gen_paths)
   for (tot_gen_idx in c(1:tot_gen_cnts)) {
     gen_path <- all_gen_paths[tot_gen_idx]
+    lan_bow_str <- NULL
+    lan_bsp_str <- NULL
+    
+    if (opt$cluster && opt$isLinux) {
+      lan_bow_str <- paste0(opts$lanExe,' bow-',tot_gen_idx)
+      lan_bsp_str <- paste0(opts$lanExe,' bsp-',tot_gen_idx)
+    }
     
     if (file.exists(gen_path)) {
       cat(glue::glue("[{par$prgmTag}]:{TAB}Ready to launch alignment; tot_gen_idx={tot_gen_idx}/{tot_gen_cnts}; gen_path={gen_path}...{RET}"))
-
-      if (file.exists(par$bow_exe)) 
-        bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gen_path, dir=opt$alnDir, verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
-
+      
+      if (file.exists(par$bow_exe))
+        bow_tsv <- bowtieProbeAlign(exe=par$bow_exe, fas=prb_snp_fas, gen=gen_path, dir=opt$alnDir, lan=lan_bow_str, verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
       if (file.exists(par$bsp_exe))
-        bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gen_path, dir=opt$alnDir, verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
+        bsp_tsv <- bsmapProbeAlign(exe=par$bsp_exe, fas=prb_cgn_fas, gen=gen_path, dir=opt$alnDir, lan=lan_bsp_str, verbose=opt$verbose,vt=5,tc=1,tt=pTracker)
     }
   }
   cat(glue::glue("[{par$prgmTag}]: Done launching alignments.{RET}{RET}"))

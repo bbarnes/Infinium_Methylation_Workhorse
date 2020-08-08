@@ -51,7 +51,7 @@ loadProbeAlignBowtieInfI = function(sam, reduced=FALSE, filtered=FALSE, flipSeq=
   sam_tib
 }
 
-bowtieProbeAlign = function(exe, fas, gen, dir,
+bowtieProbeAlign = function(exe, fas, gen, dir, lan=NULL,
                             verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'bowtieProbeAlign'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -77,6 +77,7 @@ bowtieProbeAlign = function(exe, fas, gen, dir,
     cat(glue::glue("[{funcTag}]:{TAB} Launching bowtie alignments: {fas_name} vs. {gen_name}...{RET}"))
     readr::write_lines(x=aln_cmd, path=aln_sh, append=FALSE)
     Sys.chmod(paths=aln_sh, mode="0777")
+    if (!is.null(lan)) aln_sh <- paste(lan,aln_sh, sep=' ')
     base::system(aln_sh)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -90,7 +91,7 @@ bowtieProbeAlign = function(exe, fas, gen, dir,
 #                        Bowtie Alignment Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-bsmapProbeAlign = function(exe, fas, gen, dir,
+bsmapProbeAlign = function(exe, fas, gen, dir, lan=NULL,
                            verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'bsmapProbeAlign'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -116,6 +117,7 @@ bsmapProbeAlign = function(exe, fas, gen, dir,
     cat(glue::glue("[{funcTag}]:{TAB} Launching bsmap alignments: {fas_name} vs. {gen_name}...{RET}"))
     readr::write_lines(x=aln_cmd, path=aln_sh, append=FALSE)
     Sys.chmod(paths=aln_sh, mode="0777")
+    if (!is.null(lan)) aln_sh <- paste(lan,aln_sh, sep=' ')
     base::system(aln_sh)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
