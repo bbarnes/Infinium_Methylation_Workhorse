@@ -129,7 +129,12 @@ if (args.dat[1]=='RStudio') {
   opt$runName <- 'COVIC'
   
   opt$aln_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/small.index/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/align'
-
+  opt$aln_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/n5/aln/align'
+  opt$aln_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/n20000/aln/align/bowtie'
+  
+  opt$max <- 500
+  opt$parallel <- TRUE
+  
   des_dir  <- '/Users/bbarnes/Documents/Projects/COVID-19_HLA/data/directDetection/snps'
   opt$des1_csv <- paste(file.path(des_dir, '370992_SARS-CoV-2_probes_F2BT_BEST.score.csv.gz'),
                         file.path(des_dir, '371240_SARS-CoV-2_probes_F2BT_OTHER.score.csv.gz'),
@@ -317,6 +322,8 @@ pTracker <- timeTracker$new(verbose=opt$verbose)
 des1_csv_vec <- NULL
 des2_csv_vec <- NULL
 
+run_tib <- NULL
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Defined Outputs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -368,14 +375,27 @@ if (!is.null(opt$des1_csv) && !is.null(opt$des2_csv) ) {
   ) %>% dplyr::arrange(Coordinate,TB,FR)
 
   # Add Score Probes by # of G's
-  #  
+  #
   # Its lack of G::
   # gzip -dc /Users/bbarnes/Documents/Projects/manifests/methylation/HumanMethylation450_15017482_v.1.2.rs-only.csv.gz | grep G
   #
   snp_des_tib <- snp_des_tib %>% 
     dplyr::mutate(G_Count_IA=stringr::str_length(Prb_Seq_IA) - stringr::str_length(stringr::str_remove_all(Prb_Seq_IA, 'G')) ) %>% 
     dplyr::mutate(G_Count_IB=stringr::str_length(Prb_Seq_IB) - stringr::str_length(stringr::str_remove_all(Prb_Seq_IB, 'G')) ) %>% 
-    dplyr::mutate(G_Count_II=stringr::str_length(Prb_Seq_II) - stringr::str_length(stringr::str_remove_all(Prb_Seq_II, 'G')) )
+    dplyr::mutate(G_Count_II=stringr::str_length(Prb_Seq_II) - stringr::str_length(stringr::str_remove_all(Prb_Seq_II, 'G')) ) %>%
+    dplyr::mutate(G_Count_Max=pmax(G_Count_IA,G_Count_IB,G_Count_II))
+
+  org_des_cnt <- snp_des_tib %>% base::nrow()
+  cat(glue::glue("[{par$prgmTag}]: Design Studio: org_des_cnt={org_des_cnt}{RET}"))
+  # Filter on Probe (Pair) Score::
+  #
+  snp_des_tib <- snp_des_tib %>% dplyr::filter(
+    (Final_Score_I >= 0.3 & Final_Score_II >= 0.3 & G_Count_Max==1) |
+    (Final_Score_I >= 0.4 & Final_Score_II >= 0.4 & G_Count_Max>1)
+  )
+    
+  scr_des_cnt <- snp_des_tib %>% base::nrow()
+  cat(glue::glue("[{par$prgmTag}]: Design Studio: scr_des_cnt={scr_des_cnt}{RET}"))
   
   # Score Summary::
   #  snp_des_tib %>% dplyr::arrange(G_Count_II) %>% dplyr::select(Ilmn_Id_II,Prb_Seq_II,G_Count_IA,G_Count_IB,G_Count_II) %>% print()
@@ -383,158 +403,667 @@ if (!is.null(opt$des1_csv) && !is.null(opt$des2_csv) ) {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                            Load Alignments::
+#                      Format and Summarize Alignments::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-snp_pattern <- 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.snp'
-cgn_pattern <- 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.cgn'
+# reduced_col <- c('Ref_Genome','Ref_Pos','Des_Type','TB','FR','Des_Order','Probe_Type','ILMN_Id','FLAG','Aln_Type')
+# reduced_tsv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/n20000/aln/reduced-bowtie.50000000.tsv.gz'
 
-snp_aln_files <- list.files(opt$aln_dir, pattern=snp_pattern, full.names=TRUE)
-cgn_aln_files <- list.files(opt$aln_dir, pattern=cgn_pattern, full.names=TRUE)
+reduced_col <- c('ILMN_Id', 'Ref_Genome','Ref_Pos','Des_Type','TB','FR','Des_Order','Probe_Type','FLAG','Aln_Type','Uniq_Count')
+# reduced_tsv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/n20000/aln/align-summay.bowtie.40000.tsv.gz'
+reduced_tsv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/n20000/cluster/align-summay.bowtie.50000000.tsv.gz'
+# reduced_tsv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/n20000/cluster/align-summay.bowtie.100000000.tsv.gz'
+# reduced_tsv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/n20000/cluster/align-summay.bowtie.1000000000.tsv.gz'
+# reduced_tsv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tile_main/EPIC/SARS-CoV-2/MN908947/COVIC/n20000/cluster/align-summay.bowtie.10000000000.tsv.gz'
 
-snp_aln_cnts <- snp_aln_files %>% length()
-cgn_aln_cnts <- cgn_aln_files %>% length()
-cat(glue::glue("[{par$prgmTag}]: Found snp={snp_aln_cnts}, cgn={cgn_aln_cnts}{RET}"))
+reduced_tib <- suppressMessages(suppressWarnings( readr::read_tsv(reduced_tsv, col_names=reduced_col) ))
 
-if (!is.null(opt$max)) {
-  snp_aln_files <- snp_aln_files %>% head(opt$max)
-  cgn_aln_files <- cgn_aln_files %>% head(opt$max)
+# Only look at Infinium I A/B for now...
+# Also skip; 
+#   IA_0_NM:i:0,
+#   IA_0_NM:i:1
+#  red_sum_tib <- reduced_tib %>% dplyr::mutate(Aln_Type=dplyr::case_when(stringr::str_starts(Aln_Type, 'NM:i:') ~ 'X', TRUE ~ Aln_Type )) %>%
+red_sum_tib <- reduced_tib %>% 
+  dplyr::filter(!(!is.na(Aln_Type) & stringr::str_starts(Aln_Type, 'NM:')) ) %>%
+  dplyr::filter(Probe_Type!='II') %>%
+  dplyr::mutate(Aln_Type=dplyr::case_when(stringr::str_starts(Aln_Type, 'NM:i:') ~ 'X', TRUE ~ Aln_Type )) %>%
+  dplyr::mutate(Prb_Key=stringr::str_remove(ILMN_Id, '_I[IAB]$')) %>%
+  dplyr::mutate(Aln_Type=dplyr::case_when(
+    FLAG!=0 & FLAG!=16 ~ 'N',
+    is.na(Aln_Type) ~ 'N',
+    Aln_Type != 'A' & Aln_Type != 'C' & Aln_Type != 'G' & Aln_Type != 'T' & Aln_Type != 'P' & Aln_Type != 'U' & Aln_Type != 'X' ~ 'Z',
+    TRUE ~ Aln_Type)
+  ) %>% # dplyr::group_by(Aln_Type) %>% dplyr::summarise(Count=n()) %>%
+  tidyr::unite(Aln_Key, Probe_Type,Aln_Type, sep='_') %>% 
+  dplyr::select(Prb_Key, Aln_Key, Uniq_Count) %>% # dplyr::group_by(Aln_Key) %>% dplyr::summarise(Count=n())
+  tidyr::spread(Aln_Key, Uniq_Count) %>%
+  base::replace(is.na(.), 0)
+run_tib$red_sum <- red_sum_tib %>% base::nrow()
+
+red_tot_vec <- red_sum_tib %>% tibble::column_to_rownames('Prb_Key') %>% as.matrix() %>% matrixStats::rowSums2()  
+
+#
+# Add Stat for summed mutation needed for filtering::
+#  IA_0_S = IA_0_A+IA_0_C+IA_0_G+IA_0_T
+#  TA_Max = max(IA_0_A, IA_0_C, IA_0_G, IA_0_T)
+#  TA_Max_Per = TA_Max/Aln_Tot_Cnt
+#  TA_Alt_Per = 1 - TA_Max_Per
+#
+
+# TBD:: Need to builld a fake tibble to join with at the end that includes all columns...
+
+
+red_ann_tib <- red_sum_tib %>%
+  dplyr::mutate(
+    Tot_Cnt=red_tot_vec,
+    
+    # Non Calls::
+    NON_SumA=IA_N,
+    NON_SumB=IB_N,
+    
+    NON_Max=pmax(NON_SumA,NON_SumB),
+    NON_Min=pmin(NON_SumA,NON_SumB),
+    NON_Sum=NON_SumA+NON_SumB,
+
+    NON_PercA=round(100*NON_SumA/(Tot_Cnt/2), 1),
+    NON_PercB=round(100*NON_SumB/(Tot_Cnt/2), 1),
+    NON_PercM=round(100*NON_Max/(Tot_Cnt/2), 1),
+    NON_PercS=round((100*NON_Max+NON_Min)/(Tot_Cnt/2), 1),
+    
+    NON_Max_med=median(NON_Max), NON_Max_avg=mean(NON_Max), NON_Max_sd=sd(NON_Max),
+    NON_Min_med=median(NON_Min), NON_Min_avg=mean(NON_Min), NON_Min_sd=sd(NON_Min),
+    NON_Sum_med=median(NON_Sum), NON_Sum_avg=mean(NON_Sum), NON_Sum_sd=sd(NON_Sum),
+    
+    # Und Calls::
+    #
+    UND_SumA=IA_U,
+    UND_SumB=IB_U,
+    
+    UND_Max=pmax(UND_SumA,UND_SumB),
+    UND_Min=pmin(UND_SumA,UND_SumB),
+    UND_Sum=UND_SumA+UND_SumB,
+    
+    UND_PercA=round(100*UND_SumA/(Tot_Cnt/2), 1),
+    UND_PercB=round(100*UND_SumB/(Tot_Cnt/2), 1),
+    UND_PercM=round(100*UND_Max/(Tot_Cnt/2), 1),
+    UND_PercS=round((100*UND_Max+UND_Min)/(Tot_Cnt/2), 1),
+    
+    UND_Max_med=median(UND_Max), UND_Max_avg=mean(UND_Max), UND_Max_sd=sd(UND_Max),
+    UND_Min_med=median(UND_Min), UND_Min_avg=mean(UND_Min), UND_Min_sd=sd(UND_Min),
+    UND_Sum_med=median(UND_Sum), UND_Sum_avg=mean(UND_Sum), UND_Sum_sd=sd(UND_Sum),
+    
+    # ALt Calls::
+    #
+    SNP_SumA=IA_A+IA_C+IA_G+IA_T,
+    SNP_SumB=IB_A+IB_C+IB_G+IB_T,
+    
+    SNP_Max=pmax(SNP_SumA,SNP_SumB),
+    SNP_Min=pmin(SNP_SumA,SNP_SumB),
+    SNP_Sum=SNP_SumA+SNP_SumB,
+    
+    SNP_PercA=round(100*SNP_SumA/(Tot_Cnt/2), 1),
+    SNP_PercB=round(100*SNP_SumB/(Tot_Cnt/2), 1),
+    SNP_PercM=round(100*SNP_Max/(Tot_Cnt/2), 1),
+    SNP_PercS=round((100*SNP_Max+SNP_Min)/(Tot_Cnt/2), 1),
+    
+    SNP_Max_med=median(SNP_Max), SNP_Max_avg=mean(SNP_Max), SNP_Max_sd=sd(SNP_Max),
+    SNP_Min_med=median(SNP_Min), SNP_Min_avg=mean(SNP_Min), SNP_Min_sd=sd(SNP_Min),
+    SNP_Sum_med=median(SNP_Sum), SNP_Sum_avg=mean(SNP_Sum), SNP_Sum_sd=sd(SNP_Sum),
+    
+    # Ref Calls::
+    #
+    REF_SumA=IA_P,
+    REF_SumB=IB_P,
+    
+    REF_Max=pmax(REF_SumA,REF_SumB),
+    REF_Min=pmin(REF_SumA,REF_SumB),
+    REF_Sum=REF_SumA+REF_SumB,
+    
+    REF_PercA=round(100*REF_SumA/(Tot_Cnt/2), 1),
+    REF_PercB=round(100*REF_SumB/(Tot_Cnt/2), 1),
+    REF_PercM=round(100*REF_Max/(Tot_Cnt/2), 1),
+    REF_PercS=round((100*REF_Max+REF_Min)/(Tot_Cnt/2), 1),
+
+    REF_Max_med=median(REF_Max), REF_Max_avg=mean(REF_Max), REF_Max_sd=sd(REF_Max),
+    REF_Min_med=median(REF_Min), REF_Min_avg=mean(REF_Min), REF_Min_sd=sd(REF_Min),
+    REF_Sum_med=median(REF_Sum), REF_Sum_avg=mean(REF_Sum), REF_Sum_sd=sd(REF_Sum),
+
+    Tot_Cnt=red_tot_vec
+  )
+
+#
+# Real filtering methods::
+#
+
+#  NON_Max > NON_Max_avg+NON_Max_sd
+opt$NON_val <- 0.1
+opt$NON_val <- 1.0
+rem_non_tib <- red_ann_tib %>% dplyr::filter(NON_Max >= NON_Max_avg+(opt$NON_val*NON_Max_sd) ) %>% 
+  dplyr::select(Prb_Key,Tot_Cnt,NON_Max,NON_Max_med,NON_Max_avg,NON_Max_sd )
+# red_ann_tib %>% dplyr::filter(NON_Min <= pmax(0,NON_Min_avg-(opt$NON_val*NON_Min_sd) ) ) %>% dplyr::select(Prb_Key,NON_Min,NON_Min_med,NON_Min_avg,NON_Min_sd )
+run_tib$rem_non <- rem_non_tib %>% base::nrow()
+
+#  UND_Max[A|B] > UND_Max_avg+UND_Max_sd
+opt$UND_val <- 0.1
+opt$UND_val <- 1.0
+rem_und_tib <- red_ann_tib %>% dplyr::filter(UND_Max >= UND_Max_avg+(opt$UND_val*UND_Max_sd) ) %>% 
+  dplyr::select(Prb_Key,Tot_Cnt,UND_Max,UND_Max_med,UND_Max_avg,UND_Max_sd )
+# red_ann_tib %>% dplyr::filter(UND_Min <= pmax(0,UND_Min_avg-(opt$UND_val*UND_Min_sd) ) ) %>% dplyr::select(Prb_Key,UND_Min,UND_Min_med,UND_Min_avg,UND_Min_sd )
+run_tib$rem_und <- rem_und_tib %>% base::nrow()
+
+rem_all_tib <- dplyr::bind_rows(
+  dplyr::distinct(rem_non_tib,Prb_Key),
+  dplyr::distinct(rem_und_tib,Prb_Key) ) %>% 
+  dplyr::group_by(Prb_Key) %>% dplyr::summarise(Count=n())
+run_tib$rem_all <- rem_all_tib %>% base::nrow()
+
+
+#
+# Selection::
+#
+
+#  Ref_Max > Ref_Max_avg+Aln_Ref_sd
+#  Ref_Min < Ref_Min_avg-Aln_Ref_sd
+
+opt$ref_val <- 0.1
+opt$ref_val <- 0.3
+opt$ref_val <- 0.4
+
+sel_ref_tib <- red_ann_tib %>% dplyr::filter(REF_Max >= REF_Max_avg+(opt$ref_val*REF_Max_sd) ) %>% 
+  dplyr::filter(REF_SumA==0 | REF_SumB==0) %>%
+  dplyr::select(Prb_Key,Tot_Cnt,REF_SumA,REF_SumB,REF_Max,REF_Max_med,REF_Max_avg,REF_Max_sd ) %>% dplyr::arrange(-REF_Max)
+run_tib$sel_ref <- sel_ref_tib %>% base::nrow()
+
+#
+# TBD:: Add REF_Ratio::
+#
+
+
+#
+#  Aln_SNP_Perc[A|B] > Aln_SNP_avg+Aln_SNP_sd
+#
+
+# You really want the SNP_Sum vs. REF_Sum::
+#
+opt$SNP_val <- 0.4
+sel_SNP_Max_tib <- red_ann_tib %>% dplyr::filter(SNP_Max >= SNP_Max_avg+(opt$SNP_val*SNP_Max_sd) ) %>% 
+  dplyr::select(Prb_Key,Tot_Cnt,SNP_SumA,SNP_SumB,SNP_Max,SNP_Max_med,SNP_Max_avg,SNP_Max_sd ) %>% dplyr::arrange(-SNP_Max)
+run_tib$sel_SNP_Max <- sel_SNP_Max_tib %>% base::nrow()
+
+opt$SNP_val <- 0.4
+sel_SNP_Sum_tib <- red_ann_tib %>% dplyr::filter(SNP_Sum >= SNP_Sum_avg+(opt$SNP_val*SNP_Sum_sd) ) %>% 
+  dplyr::select(Prb_Key,Tot_Cnt,SNP_SumA,SNP_SumB,
+                SNP_Sum,SNP_Sum_med,SNP_Sum_avg,SNP_Sum_sd,
+                SNP_Max,SNP_Max_med,SNP_Max_avg,SNP_Max_sd,REF_Sum ) %>% 
+  dplyr::mutate(SNP_Ratio=SNP_Sum/REF_Sum) %>% 
+  dplyr::arrange(-SNP_Ratio) %>% 
+  dplyr::select(SNP_Ratio, everything())
+
+sel_SNP_Sum_tib <- sel_SNP_Sum_tib %>% dplyr::filter(SNP_Ratio>1)
+run_tib$sel_SNP_Sum <- sel_SNP_Sum_tib %>% base::nrow()
+
+run_tib %>% dplyr::bind_rows()
+
+# align-summay.bowtie.50000000.tsv.gz
+#
+# red_sum rem_non rem_und rem_all sel_ref sel_SNP_Max sel_SNP_Sum
+# <int>   <int>   <int>   <int>   <int>       <int>       <int>
+# 59564    4368     657    4999    9250        9328         237
+#
+
+#
+# Run all data::
+#
+# Screen by N/U Probes
+#
+# Check G-1/2 vs. probe scores
+#
+# Select top_g-probes
+# Select sel_SNP_sum_tib
+# Select sel_REF_sum_tib
+#
+
+
+
+#
+# align-summay.bowtie.50000000.tsv.gz
+# red_sum rem_non rem_und rem_all sel_ref sel_SNP_1 sel_SNP_tib_2
+# <int>   <int>   <int>   <int>   <int>     <int>         <int>
+# 59564    4368     657    4999     9250     9328           237
+#
+# align-summay.bowtie.100000000.tsv.gz
+# red_sum rem_non rem_und rem_all sel_ref sel_SNP_1 sel_SNP_tib_2
+# <int>   <int>   <int>   <int>   <int>     <int>         <int>
+# 59564    3751     814    4488     8708     8832           332
+#
+# align-summay.bowtie.1000000000.tsv.gz
+# red_sum rem_non rem_und rem_all sel_ref sel_SNP_1 sel_SNP_tib_2
+# <int>   <int>   <int>   <int>   <int>     <int>         <int>
+# 59564    3320    1373    4612    581       618            96
+# 
+# align-summay.bowtie.10000000000.tsv.gz
+# red_sum rem_non rem_und rem_all sel_ref sel_SNP_1 sel_SNP_tib_2
+# <int>   <int>   <int>   <int>   <int>     <int>         <int>
+# 59564    3200    1230    4382     0         0            19
+#
+
+# red_ann_tib %>% dplyr::mutate(SNP_Ratio=SNP_Sum/REF_Sum) %>% dplyr::select(SNP_Ratio, SNP_Sum,REF_Sum)
+
+# red_ann_tib %>% dplyr::filter(SNP_Min <= pmax(0,SNP_Min_avg-(opt$SNP_val*SNP_Min_sd) ) ) %>% dplyr::select(Prb_Key,Tot_Cnt,SNP_Min,SNP_Min_med,SNP_Min_avg,SNP_Min_sd )
+
+
+
+
+
+
+
+
+
+
+
+
+#
+# Below is general filtering methods::
+#
+
+# Filtering::
+#  Aln_NON_Perc[A|B] > Aln_NON_avg-Aln_NON_sd
+#  Aln_UND_Perc[A|B] > Aln_UND_avg-Aln_UND_sd
+#
+opt$NON_val <- 0.1
+opt$NON_val <- 1
+red_ann_tib %>% dplyr::filter(NON_Max >= NON_Max_avg+(opt$NON_val*NON_Max_sd) ) %>% dplyr::select(NON_Max,NON_Max_med,NON_Max_avg,NON_Max_sd )
+red_ann_tib %>% dplyr::filter(NON_Min <= pmax(0,NON_Min_avg-(opt$NON_val*NON_Min_sd) ) ) %>% dplyr::select(NON_Min,NON_Min_med,NON_Min_avg,NON_Min_sd )
+
+opt$UND_val <- 0.1
+red_ann_tib %>% dplyr::filter(UND_Max >= UND_Max_avg+(opt$UND_val*UND_Max_sd) ) %>% dplyr::select(UND_Max,UND_Max_med,UND_Max_avg,UND_Max_sd )
+red_ann_tib %>% dplyr::filter(UND_Min <= pmax(0,UND_Min_avg-(opt$UND_val*UND_Min_sd) ) ) %>% dplyr::select(UND_Min,UND_Min_med,UND_Min_avg,UND_Min_sd )
+
+# Selection::
+#  Aln_REF_Perc[A|B] > Aln_REF_avg+Aln_REF_sd
+#  Aln_SNP_Perc[A|B] > Aln_SNP_avg+Aln_SNP_sd
+#
+opt$REF_val <- 0.1
+red_ann_tib %>% dplyr::filter(REF_Max >= REF_Max_avg+(opt$ref_val*REF_Max_sd) ) %>% dplyr::select(REF_Max,REF_Max_med,REF_Max_avg,REF_Max_sd )
+red_ann_tib %>% dplyr::filter(REF_Min <= pmax(0,REF_Min_avg-(opt$ref_val*REF_Min_sd) ) ) %>% dplyr::select(REF_Min,REF_Min_med,REF_Min_avg,REF_Min_sd )
+
+opt$SNP_val <- 0.1
+red_ann_tib %>% dplyr::filter(SNP_Max >= SNP_Max_avg+(opt$snp_val*SNP_Max_sd) ) %>% dplyr::select(SNP_Max,SNP_Max_med,SNP_Max_avg,SNP_Max_sd )
+red_ann_tib %>% dplyr::filter(SNP_Min <= pmax(0,SNP_Min_avg-(opt$SNP_val*SNP_Min_sd) ) ) %>% dplyr::select(SNP_Min,SNP_Min_med,SNP_Min_avg,SNP_Min_sd )
+
+
+
+
+
+
+
+
+
+
+
+
+# red_ann_tib <- red_sum_tib %>%
+#   dplyr::mutate(
+#     Aln_Tot_Cnt=red_tot_vec,
+#     
+#     # Ref Calls::
+#     #
+#     Aln_Ref_SumA=IA_P,
+#     Aln_Ref_SumB=IB_P,
+#     
+#     Aln_Ref_Max=pmax(Aln_Ref_SumA,Aln_Ref_SumB),
+#     Aln_Ref_Min=pmin(Aln_Ref_SumA,Aln_Ref_SumB),
+#     
+#     Aln_Ref_PercA=round(100*Aln_Ref_SumA/(Aln_Tot_Cnt/2), 1),
+#     Aln_Ref_PercB=round(100*Aln_Ref_SumB/(Aln_Tot_Cnt/2), 1),
+#     Aln_Ref_PercM=round(100*Aln_Ref_Max/(Aln_Tot_Cnt/2), 1),
+#     
+#     Aln_Ref_Max_med=median(Aln_Ref_Max), Aln_Ref_Max_avg=mean(Aln_Ref_Max), Aln_Ref_Max_sd=sd(Aln_Ref_Max),
+#     Aln_Ref_Min_med=median(Aln_Ref_Min), Aln_Ref_Min_avg=mean(Aln_Ref_Min), Aln_Ref_Min_sd=sd(Aln_Ref_Min),
+#     
+#     # ALt Calls::
+#     #
+#     Aln_SNP_SumA=IA_A+IA_C+IA_G+IA_T,
+#     Aln_SNP_SumB=IB_A+IB_C+IB_G+IB_T,
+#     
+#     Aln_SNP_Max=pmax(Aln_SNP_SumA,Aln_SNP_SumB),
+#     Aln_SNP_Min=pmin(Aln_SNP_SumA,Aln_SNP_SumB),
+#     
+#     Aln_SNP_PercA=round(100*Aln_SNP_SumA/(Aln_Tot_Cnt/2), 1),
+#     Aln_SNP_PercB=round(100*Aln_SNP_SumB/(Aln_Tot_Cnt/2), 1),
+#     Aln_SNP_PercM=round(100*Aln_SNP_Max/(Aln_Tot_Cnt/2), 1),
+#     
+#     # Und Calls::
+#     #
+#     Aln_UND_SumA=IA_U,
+#     Aln_UND_SumB=IB_U,
+#     
+#     Aln_UND_Max=pmax(Aln_UND_SumA,Aln_UND_SumB),
+#     Aln_UND_Min=pmin(Aln_UND_SumA,Aln_UND_SumB),
+#     
+#     Aln_UND_PercA=round(100*Aln_UND_SumA/(Aln_Tot_Cnt/2), 1),
+#     Aln_UND_PercB=round(100*Aln_UND_SumB/(Aln_Tot_Cnt/2), 1),
+#     Aln_UND_PercM=round(100*Aln_UND_Max/(Aln_Tot_Cnt/2), 1),
+#     
+#     # Non Calls::
+#     Aln_NON_SumA=IA_N,
+#     Aln_NON_SumB=IB_N,
+#     
+#     Aln_NON_Max=pmax(Aln_NON_SumA,Aln_NON_SumB),
+#     Aln_NON_Min=pmin(Aln_NON_SumA,Aln_NON_SumB),
+#     
+#     Aln_NON_PercA=round(100*Aln_NON_SumA/(Aln_Tot_Cnt/2), 1),
+#     Aln_NON_PercB=round(100*Aln_NON_SumB/(Aln_Tot_Cnt/2), 1),
+#     Aln_NON_PercM=round(100*Aln_NON_Max/(Aln_Tot_Cnt/2), 1),
+#     
+#     
+#     # Over all stats for comparison later...
+#     #
+#     Aln_Ref_med=median(Aln_Ref_PercM), Aln_Ref_avg=mean(Aln_Ref_PercM), Aln_Ref_sd=sd(Aln_Ref_PercM),
+#     Aln_Per_med=median(Aln_Ref_Max),  Aln_Per_avg=mean(Aln_Ref_Max),  Aln_Per_sd=sd(Aln_Ref_Max),
+#     
+#     IA_N_med=median(IA_N), IA_N_avg=mean(IA_N), IA_N_sd=sd(IA_N),
+#     IB_N_med=median(IB_N), IB_N_avg=mean(IB_N), IB_N_sd=sd(IB_N),
+#     IA_U_med=median(IA_U), IA_U_avg=mean(IA_U), IA_U_sd=sd(IA_U),
+#     IB_U_med=median(IB_U), IB_U_avg=mean(IB_U), IB_U_sd=sd(IB_U)
+#   )
+
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                  Join/Filter Probes by Design Score::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Join Probe Alignment Stats with Probe Design Information::
+#  NOT BY II:
+sel_des_tib <- red_ann_tib %>% dplyr::inner_join(snp_des_tib, by=c("Prb_Key"="Ilmn_Id_I") ) 
+sel_des_tib %>% base::nrow() %>% print()
+run_tib$sel_des_prbFilt <- sel_des_tib %>% base::nrow()
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#              Filter Probes with Low Global Genomes Alignment::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Filtering::
+#  - Remove Probes with > average NA % + sd [Poor Global Virus Alignment]
+sel_des_tib <- sel_des_tib %>% dplyr::filter(IA_N<IA_N_med+IA_N_sd & IB_N<IB_N_med+IB_N_sd)
+sel_des_tib %>% base::nrow() %>% print()
+run_tib$sel_des_lowAln <- sel_des_tib %>% base::nrow()
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Filter Probes with Underlying SNPs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Filtering::
+#  - Remove Probes with > average U  % - sd [Too Many Underlying Virus SNPs]
+sel_des_tib <- sel_des_tib %>% dplyr::filter(IA_U <IA_U_med+IA_U_sd & IB_U <IB_U_med+IB_U_sd)
+sel_des_tib %>% base::nrow() %>% print()
+run_tib$sel_des_uSNPs <- sel_des_tib %>% base::nrow()
+
+#
+# Now calculate Selection Stats::
+#
+
+#
+# Original Selection Parameters::
+#
+# opt$g_max <- 3
+# opt$a_val <- 2.4
+# opt$p_val <- 4
+
+# New Parameters after earlier filtering::
+
+opt$g_max <- 3
+opt$a_per <- 0.78
+opt$a_val <- 2.4
+opt$a_val <- 0.25
+opt$p_val <- 0.25
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                 Select Bisulfite Conversion:: low G content
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# TBD:: Look at score of probes with 1 G::
+#
+#    sel_des_tib %>% dplyr::group_by(G_Count_Max) %>% dplyr::summarise(Count=n())
+sel_des_gmax_tib <- sel_des_tib %>% dplyr::filter(G_Count_Max<=opt$g_max) %>% dplyr::arrange(G_Count_Max)
+sel_des_gmax_tib %>% base::nrow() %>% print()
+sel_des_gmax_tib %>% dplyr::select(Prb_Key,G_Count_Max) %>% head(n=3) %>% print()
+sel_des_gmax_tib %>% dplyr::select(Prb_Key,G_Count_Max) %>% tail(n=3) %>% print()
+sel_des_gmax_tib %>% dplyr::group_by(G_Count_Max) %>% dplyr::summarise(Count=n()) %>% print()
+run_tib$sel_des_gmax <- sel_des_gmax_tib %>% base::nrow()
+
+#
+#
+# The Two Below Need to be Switched in Logic; calling opposite things...
+#
+#
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Select High Viral SNP Detection
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Sum of IA(ACTG)
+
+sel_des_sper_tib <- sel_des_tib %>% dplyr::filter(Aln_Ref_PercM<opt$a_per) %>% dplyr::arrange(Aln_Ref_PercM)
+sel_des_sper_tib %>% base::nrow() %>% print()
+sel_des_sper_tib %>% dplyr::select(Prb_Key,Aln_Ref_PercM,Aln_Ref_med,Aln_Ref_avg,Aln_Ref_sd) %>% head(n=3) %>% print()
+sel_des_sper_tib %>% dplyr::select(Prb_Key,Aln_Ref_PercM,Aln_Ref_med,Aln_Ref_avg,Aln_Ref_sd) %>% tail(n=3) %>% print()
+run_tib$sel_des_sper <- sel_des_sper_tib %>% base::nrow()
+
+sel_des_smax_tib <- sel_des_tib %>% dplyr::filter(Aln_Ref_PercM <Aln_Ref_avg-(opt$a_val*Aln_Ref_sd) ) %>% dplyr::arrange(Aln_Ref_PercM)
+sel_des_smax_tib %>% base::nrow() %>% print()
+sel_des_smax_tib %>% dplyr::select(Prb_Key,Aln_Ref_PercM,Aln_Ref_med,Aln_Ref_avg,Aln_Ref_sd) %>% head(n=3) %>% print()
+sel_des_smax_tib %>% dplyr::select(Prb_Key,Aln_Ref_PercM,Aln_Ref_med,Aln_Ref_avg,Aln_Ref_sd) %>% tail(n=3) %>% print()
+run_tib$sel_des_smax <- sel_des_smax_tib %>% base::nrow()
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   Select Highly Conserved Viral Probes
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+sel_des_pmax_tib <- sel_des_tib %>% dplyr::filter(IA_P==0 | IB_P==0) %>%
+  dplyr::filter(Aln_Ref_Max <Aln_Per_avg-(opt$p_val*Aln_Per_sd) ) %>% dplyr::arrange(Aln_Ref_Max)
+sel_des_pmax_tib %>% base::nrow() %>% print()
+sel_des_pmax_tib %>% dplyr::select(Prb_Key,Aln_Ref_Max,Aln_Per_med,Aln_Per_avg,Aln_Per_sd) %>% head(n=3) %>% print()
+sel_des_pmax_tib %>% dplyr::select(Prb_Key,Aln_Ref_Max,Aln_Per_med,Aln_Per_avg,Aln_Per_sd) %>% tail(n=3) %>% print()
+run_tib$sel_des_pmax <- sel_des_pmax_tib %>% base::nrow()
+
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Join Selected Probes::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Join alll selections::
+sel_bind_tib <- dplyr::bind_rows(sel_des_gmax_tib,sel_des_smax_tib,sel_des_pmax_tib)
+sel_bind_tib %>% dplyr::distinct(Prb_Key) %>% base::nrow() %>% print()
+run_tib$sel_bind <- sel_bind_tib %>% base::nrow()
+
+# 2336 = align-summay.bowtie.50000000.tsv.gz
+# 2172 = align-summay.bowtie.100000000.tsv.gz
+# 1586 = align-summay.bowtie.1000000000.tsv.gz
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#               Plot Probe Density by Genome Coordinates::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+ggplot2::ggplot(data=sel_des_gmax_tib, aes(x=Coordinate)) + ggplot2::geom_density()
+ggplot2::ggplot(data=sel_des_smax_tib, aes(x=Coordinate)) + ggplot2::geom_density()
+ggplot2::ggplot(data=sel_des_pmax_tib, aes(x=Coordinate)) + ggplot2::geom_density()
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                                 OLD CODE::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                          Search for Alignments::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  snp_pattern <- 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.snp'
+  cgn_pattern <- 'tile_main_EPIC_SARS-CoV-2_MN908947_COVIC.cgn'
+  
+  snp_aln_files <- list.files(opt$aln_dir, pattern=snp_pattern, full.names=TRUE)
+  cgn_aln_files <- list.files(opt$aln_dir, pattern=cgn_pattern, full.names=TRUE)
   
   snp_aln_cnts <- snp_aln_files %>% length()
   cgn_aln_cnts <- cgn_aln_files %>% length()
   cat(glue::glue("[{par$prgmTag}]: Found snp={snp_aln_cnts}, cgn={cgn_aln_cnts}{RET}"))
-}
-
-#
-# Found forced SNPs::
-#
-art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
-                    "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
-
-all_aln_tib <- NULL
-if (opt$parallel) {
-  cat(glue::glue("[{par$prgmTag}]: Loading Alignments in parallel mode; num_cores={num_cores}, num_workers={num_workers}{RET}"))
   
-  all_aln_tib = foreach (snp_aln_file=snp_aln_files, .combine = rbind) %dopar% {
-    loadProbeAlignBowtieInfI(sam=snp_aln_file, reduced=TRUE, filtered=TRUE, flipSeq=TRUE,
-                             verbose=opt$verbose,tt=pTracker)
+  if (!is.null(opt$max)) {
+    snp_aln_files <- snp_aln_files %>% head(opt$max)
+    cgn_aln_files <- cgn_aln_files %>% head(opt$max)
+    
+    snp_aln_cnts <- snp_aln_files %>% length()
+    cgn_aln_cnts <- cgn_aln_files %>% length()
+    cat(glue::glue("[{par$prgmTag}]: Found snp={snp_aln_cnts}, cgn={cgn_aln_cnts}{RET}"))
   }
-
-} else {
-  cat(glue::glue("[{par$prgmTag}]: Loading Alignments in linear mode...{RET}"))
   
-  for (snp_aln_file in snp_aln_files) {
-    snp_sam_tib <- loadProbeAlignBowtieInfI(sam=snp_aln_file, reduced=TRUE, filtered=TRUE, flipSeq=TRUE,
-                                            verbose=opt$verbose,tt=pTracker)
-    all_aln_tib <- all_aln_tib %>% dplyr::bind_rows(snp_sam_tib)
+  #
+  # Found forced SNPs::
+  #
+  art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
+                      "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                            Load Alignments::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  all_aln_tib <- NULL
+  if (opt$parallel) {
+    cat(glue::glue("[{par$prgmTag}]: Loading Alignments in parallel mode; num_cores={num_cores}, num_workers={num_workers}{RET}"))
+    
+    all_aln_tib = foreach (snp_aln_file=snp_aln_files, .combine = rbind) %dopar% {
+      loadProbeAlignBowtieInfI(sam=snp_aln_file, reduced=TRUE, filtered=TRUE, flipSeq=TRUE,
+                               verbose=opt$verbose,tt=pTracker)
+    }
+    
+  } else {
+    cat(glue::glue("[{par$prgmTag}]: Loading Alignments in linear mode...{RET}"))
+    
+    for (snp_aln_file in snp_aln_files) {
+      snp_sam_tib <- loadProbeAlignBowtieInfI(sam=snp_aln_file, reduced=TRUE, filtered=TRUE, flipSeq=TRUE,
+                                              verbose=opt$verbose,tt=pTracker)
+      all_aln_tib <- all_aln_tib %>% dplyr::bind_rows(snp_sam_tib)
+    }
   }
+  all_aln_len <- all_aln_tib %>% base::nrow()
+  cat(glue::glue("[{par$prgmTag}]: Done. Loading Alignments; all_aln_len={all_aln_len}.{RET}"))
+  
+  
+  
+  
+  
+  
+  # Add MD Class for Infinium I Probe Pairs::
+  #  TBD:: Add SNP Classes (A,C,T,G) from art_snp_md_vec + Original SNP; i.e. A/C, A/G, etc. 
+  #
+  art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
+                      "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
+  
+  ann_aln_tib <- all_aln_tib %>% dplyr::mutate(
+    MD_Class_A=dplyr::case_when(
+      MD_IA=="MD:Z:50" ~ 'P',
+      FLAG==16 & MD_IA=='MD:Z:0A49' ~ 'A',
+      FLAG==0  & MD_IA=='MD:Z:49A0' ~ 'A',
+      FLAG==16 & MD_IA=='MD:Z:0C49' ~ 'C',
+      FLAG==0  & MD_IA=='MD:Z:49C0' ~ 'C',
+      FLAG==16 & MD_IA=='MD:Z:0G49' ~ 'G',
+      FLAG==0  & MD_IA=='MD:Z:49G0' ~ 'G',
+      FLAG==16 & MD_IA=='MD:Z:0T49' ~ 'T',
+      FLAG==0  & MD_IA=='MD:Z:49T0' ~ 'T',
+      TRUE ~ 'U'),
+    MD_Class_B=dplyr::case_when(
+      MD_IB=="MD:Z:50" ~ 'P',
+      FLAG==16 & MD_IB=='MD:Z:0A49' ~ 'A',
+      FLAG==0  & MD_IB=='MD:Z:49A0' ~ 'A',
+      FLAG==16 & MD_IB=='MD:Z:0C49' ~ 'C',
+      FLAG==0  & MD_IB=='MD:Z:49C0' ~ 'C',
+      FLAG==16 & MD_IB=='MD:Z:0G49' ~ 'G',
+      FLAG==0  & MD_IB=='MD:Z:49G0' ~ 'G',
+      FLAG==16 & MD_IB=='MD:Z:0T49' ~ 'T',
+      FLAG==0  & MD_IB=='MD:Z:49T0' ~ 'T',
+      TRUE ~ 'U')
+  )
+  
+  # Old Method:: Not-Specific::
+  # ann_aln_tib <- all_aln_tib %>% dplyr::mutate(
+  #   MD_Class_A=dplyr::case_when(
+  #     MD_IA=="MD:Z:50" ~ 'PER',
+  #     MD_IA %in% art_snp_md_vec ~ 'SNP',
+  #     TRUE ~ 'UND'),
+  #   MD_Class_B=dplyr::case_when(
+  #     MD_IB=="MD:Z:50" ~ 'PER',
+  #     MD_IB %in% art_snp_md_vec ~ 'SNP',
+  #     TRUE ~ 'UND')
+  # )
+  
+  
+  # Summary by class
+  #  ann_aln_tib %>% dplyr::select(starts_with('MD_Class')) %>% dplyr::group_by_all() %>% dplyr::summarise(CNT=n()) %>% dplyr::arrange(-CNT) %>% as.data.frame()  
+  #  ann_aln_tib %>% dplyr::filter(MD_Class_A=='SNP' & MD_Class_B=='SNP') %>% dplyr::select(FLAG, MD_IA, MD_IB, SEQ_IA, SEQ_IB)
+  #  ann_aln_tib %>% dplyr::filter(MD_Class_A=='SNP' & MD_Class_B=='PER') %>% dplyr::select(FLAG, MD_IA, MD_IB, SEQ_IA, SEQ_IB)
+  
+  # Gather Stats::
+  #
+  ann_sum_tib <- dplyr::full_join(
+    ann_aln_tib %>% dplyr::group_by(QNAME, MD_Class_A) %>% dplyr::summarise(MD_A_Count=n()) %>% 
+      tidyr::spread(MD_Class_A, MD_A_Count, fill=0) %>% dplyr::ungroup() %>% 
+      dplyr::mutate(TOT=PER+SNP+UND, PER_perc=round(100*PER/TOT,1), SNP_perc=round(100*SNP/TOT,1), UND_perc=round(100*UND/TOT,1)),
+    
+    ann_aln_tib %>% dplyr::group_by(QNAME, MD_Class_B) %>% dplyr::summarise(MD_B_Count=n()) %>% 
+      tidyr::spread(MD_Class_B, MD_B_Count, fill=0) %>% dplyr::ungroup() %>% 
+      dplyr::mutate(TOT=PER+SNP+UND, PER_perc=round(100*PER/TOT,1), SNP_perc=round(100*SNP/TOT,1), UND_perc=round(100*UND/TOT,1)),
+    by="QNAME", suffix=c("_A", "_B")
+  )
+  
+  # Filter Design Pairs Groups::
+  #  - Remove Underlying SNPs
+  #  - Select Low G Probes
+  #  - Select SNP Probes (SNP/PER or SNP/SNP)
+  #
+  ann_sum_tib %>% dplyr::filter(UND_A<=0 & UND_B <=0) %>% dplyr::select(-QNAME,-PER_A,-PER_B) %>% 
+    dplyr::group_by_all() %>% dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count) %>% as.data.frame()
+  
+  ann_sum_tib %>% dplyr::filter(UND_A<=2 & UND_B <=2) %>% dplyr::arrange(-SNP_A)
+  
+  # Add sequences back::
+  #  - seq_aln_tib <- all_aln_tib %>% dplyr::distinct(QNAME,SEQ_IA,SEQ_IB)
+  #  - seq_aln_tib+ann_sum_tib
+  # Join Design Data::
+  #  - des_aln_mat_tib <- dplyr::inner_join(seq_aln_tib, snp_des_tib, by=c("SEQ_IA"="Prb_Seq_IA", "SEQ_IB"="Prb_Seq_IB") )
+  #
+  
+  
+  
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Build Match Descriptor Summary::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  mds_sum_tib <- all_aln_tib %>% dplyr::group_by(QNAME,MD_IA,MD_IB) %>% dplyr::summarise(Count=n()) %>% 
+    # dplyr::filter(Count!=11) %>% 
+    dplyr::arrange(QNAME)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                    Output Merged Alignments/Summary::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  sum_mds_csv <- file.path(opt$outDir, 'snp-matchDesc-merge.csv.gz')
+  sum_aln_csv <- file.path(opt$outDir, 'snp-alignment-merge.csv.gz')
+  
+  cat(glue::glue("[{par$prgmTag}]: Writing {sum_mds_csv}..."))
+  readr::write_csv(mds_sum_tib, sum_mds_csv)
+  
+  cat(glue::glue("[{par$prgmTag}]: Writing {sum_aln_csv}..."))
+  readr::write_csv(all_aln_tib, sum_aln_csv)
 }
-all_aln_len <- all_aln_tib %>% base::nrow()
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Alignments; all_aln_len={all_aln_len}.{RET}"))
-
-# Add MD Class for Infinium I Probe Pairs::
-#  TBD:: Add SNP Classes (A,C,T,G) from art_snp_md_vec + Original SNP; i.e. A/C, A/G, etc. 
-#
-art_snp_md_vec <- c("MD:Z:49T0", "MD:Z:0T49", "MD:Z:0A49", "MD:Z:49A0",
-                    "MD:Z:49C0", "MD:Z:0C49", "MD:Z:0G49", "MD:Z:49G0")
-
-ann_aln_tib <- all_aln_tib %>% dplyr::mutate(
-  MD_Class_A=dplyr::case_when(
-    MD_IA=="MD:Z:50" ~ 'P',
-    FLAG==16 & MD_IA=='MD:Z:0A49' ~ 'A',
-    FLAG==0  & MD_IA=='MD:Z:49A0' ~ 'A',
-    FLAG==16 & MD_IA=='MD:Z:0C49' ~ 'C',
-    FLAG==0  & MD_IA=='MD:Z:49C0' ~ 'C',
-    FLAG==16 & MD_IA=='MD:Z:0G49' ~ 'G',
-    FLAG==0  & MD_IA=='MD:Z:49G0' ~ 'G',
-    FLAG==16 & MD_IA=='MD:Z:0T49' ~ 'T',
-    FLAG==0  & MD_IA=='MD:Z:49T0' ~ 'T',
-    TRUE ~ 'U'),
-  MD_Class_B=dplyr::case_when(
-    MD_IB=="MD:Z:50" ~ 'P',
-    FLAG==16 & MD_IB=='MD:Z:0A49' ~ 'A',
-    FLAG==0  & MD_IB=='MD:Z:49A0' ~ 'A',
-    FLAG==16 & MD_IB=='MD:Z:0C49' ~ 'C',
-    FLAG==0  & MD_IB=='MD:Z:49C0' ~ 'C',
-    FLAG==16 & MD_IB=='MD:Z:0G49' ~ 'G',
-    FLAG==0  & MD_IB=='MD:Z:49G0' ~ 'G',
-    FLAG==16 & MD_IB=='MD:Z:0T49' ~ 'T',
-    FLAG==0  & MD_IB=='MD:Z:49T0' ~ 'T',
-    TRUE ~ 'U')
-)
-
-# Old Method:: Not-Specific::
-# ann_aln_tib <- all_aln_tib %>% dplyr::mutate(
-#   MD_Class_A=dplyr::case_when(
-#     MD_IA=="MD:Z:50" ~ 'PER',
-#     MD_IA %in% art_snp_md_vec ~ 'SNP',
-#     TRUE ~ 'UND'),
-#   MD_Class_B=dplyr::case_when(
-#     MD_IB=="MD:Z:50" ~ 'PER',
-#     MD_IB %in% art_snp_md_vec ~ 'SNP',
-#     TRUE ~ 'UND')
-# )
-
-
-# Summary by class
-#  ann_aln_tib %>% dplyr::select(starts_with('MD_Class')) %>% dplyr::group_by_all() %>% dplyr::summarise(CNT=n()) %>% dplyr::arrange(-CNT) %>% as.data.frame()  
-#  ann_aln_tib %>% dplyr::filter(MD_Class_A=='SNP' & MD_Class_B=='SNP') %>% dplyr::select(FLAG, MD_IA, MD_IB, SEQ_IA, SEQ_IB)
-#  ann_aln_tib %>% dplyr::filter(MD_Class_A=='SNP' & MD_Class_B=='PER') %>% dplyr::select(FLAG, MD_IA, MD_IB, SEQ_IA, SEQ_IB)
-
-# Gather Stats::
-#
-ann_sum_tib <- dplyr::full_join(
-  ann_aln_tib %>% dplyr::group_by(QNAME, MD_Class_A) %>% dplyr::summarise(MD_A_Count=n()) %>% 
-    tidyr::spread(MD_Class_A, MD_A_Count, fill=0) %>% dplyr::ungroup() %>% 
-    dplyr::mutate(TOT=PER+SNP+UND, PER_perc=round(100*PER/TOT,1), SNP_perc=round(100*SNP/TOT,1), UND_perc=round(100*UND/TOT,1)),
-  
-  ann_aln_tib %>% dplyr::group_by(QNAME, MD_Class_B) %>% dplyr::summarise(MD_B_Count=n()) %>% 
-    tidyr::spread(MD_Class_B, MD_B_Count, fill=0) %>% dplyr::ungroup() %>% 
-    dplyr::mutate(TOT=PER+SNP+UND, PER_perc=round(100*PER/TOT,1), SNP_perc=round(100*SNP/TOT,1), UND_perc=round(100*UND/TOT,1)),
-  by="QNAME", suffix=c("_A", "_B")
-)
-
-# Filter Design Pairs Groups::
-#  - Remove Underlying SNPs
-#  - Select Low G Probes
-#  - Select SNP Probes (SNP/PER or SNP/SNP)
-#
-ann_sum_tib %>% dplyr::filter(UND_A<=0 & UND_B <=0) %>% dplyr::select(-QNAME,-PER_A,-PER_B) %>% 
-  dplyr::group_by_all() %>% dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count) %>% as.data.frame()
-  
-ann_sum_tib %>% dplyr::filter(UND_A<=2 & UND_B <=2) %>% dplyr::arrange(-SNP_A)
-
-# Add sequences back::
-#  - seq_aln_tib <- all_aln_tib %>% dplyr::distinct(QNAME,SEQ_IA,SEQ_IB)
-#  - seq_aln_tib+ann_sum_tib
-# Join Design Data::
-#  - des_aln_mat_tib <- dplyr::inner_join(seq_aln_tib, snp_des_tib, by=c("SEQ_IA"="Prb_Seq_IA", "SEQ_IB"="Prb_Seq_IB") )
-#
-
-
-
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     Build Match Descriptor Summary::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-mds_sum_tib <- all_aln_tib %>% dplyr::group_by(QNAME,MD_IA,MD_IB) %>% dplyr::summarise(Count=n()) %>% 
-  # dplyr::filter(Count!=11) %>% 
-  dplyr::arrange(QNAME)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                    Output Merged Alignments/Summary::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-sum_mds_csv <- file.path(opt$outDir, 'snp-matchDesc-merge.csv.gz')
-sum_aln_csv <- file.path(opt$outDir, 'snp-alignment-merge.csv.gz')
-
-cat(glue::glue("[{par$prgmTag}]: Writing {sum_mds_csv}..."))
-readr::write_csv(mds_sum_tib, sum_mds_csv)
-
-cat(glue::glue("[{par$prgmTag}]: Writing {sum_aln_csv}..."))
-readr::write_csv(all_aln_tib, sum_aln_csv)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Make Selectionn::
@@ -616,15 +1145,13 @@ if (FALSE) {
     base::replace(is.na(.), 0) %>%
     dplyr::mutate(Sum_IA=Count_IA_PER+Count_IA_SNP+Count_IA_UND, Sum_IB=Count_IB_PER+Count_IB_SNP+Count_IB_UND)
     
-  
   # Generate summarys::
   #
   join_cnt_tib %>% dplyr::arrange(-Count_IA_SNP)
   
   join_cnt_tib %>% dplyr::select(-QNAME, -Total_Count) %>% dplyr::group_by_all() %>% 
     dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count) %>% as.data.frame()
-  
-  
+
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

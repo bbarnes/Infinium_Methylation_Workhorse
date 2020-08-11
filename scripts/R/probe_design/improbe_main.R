@@ -224,15 +224,16 @@ if (is.null(opt$outDir) ||
     is.null(opt$percisionBeta) || is.null(opt$percisionPval) ||
     is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
     
-    is.null(opt$clean) || is.null(opt$Rscript) || is.null(opt$verbose)) {
+    #is.null(opt$clean) || is.null(opt$Rscript) || 
+    is.null(opt$verbose)) {
   if (par$runMode=='CommandLine') print_help(opt_parser)
-  
+      
   opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
   opt_tib %>% base::print(n=base::nrow(opt_tib) )
   
   cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
   if (is.null(opt$outDir))     cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
-  if (is.null(opt$buildDir))   cat(glue::glue("[Usage]: buildDirs is NULL!!!{RET}"))
+  # if (is.null(opt$buildDir))   cat(glue::glue("[Usage]: buildDirs is NULL!!!{RET}"))
   if (is.null(opt$runName))    cat(glue::glue("[Usage]: runName is NULL!!!{RET}"))
   if (is.null(opt$improbeTSV)) cat(glue::glue("[Usage]: improbeTSV is NULL!!!{RET}"))
   
