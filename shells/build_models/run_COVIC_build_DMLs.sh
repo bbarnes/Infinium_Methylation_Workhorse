@@ -115,8 +115,6 @@ CMD+=" --featuresDml"=${featuresDml}
 CMD+=" --featuresDbl"=${featuresDbl}
 CMD+=" --seeds"=${seeds}
 
-CMD+=" --buildModels"
-
 if [ "${single}" = true ]; then
     CMD+=" --single"
 fi
