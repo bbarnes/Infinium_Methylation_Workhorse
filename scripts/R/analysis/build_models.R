@@ -156,8 +156,8 @@ if (args.dat[1]=='RStudio') {
   par$version  <- 'C0'
   
   opt$runName  <- 'BETA-8x1-EPIC-Ref'
-  opt$runName  <- 'COVIC-Set5-10062020'
   opt$runName  <- 'COVIC-Set7-06082020'
+  opt$runName  <- 'COVIC-Set5-10062020'
   
   opt$mergeDir  <- paste(
     # file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
@@ -174,8 +174,13 @@ if (args.dat[1]=='RStudio') {
   opt$samplePvalName <- "Poob_Pass_0_Perc"
   opt$samplePvalPerc <- 96
   
+  opt$buildDml    <- TRUE
+  opt$buildDbl    <- FALSE
+  opt$buildModels <- TRUE
+  
   # Loci Level Filtering Parameters::
   opt$lociBetaKey <- "i_beta"
+  opt$lociBetaKey <- "ind_beta"
   opt$lociPvalKey <- "i_poob"
   opt$lociPvalMin <- 0.2
   opt$lociPvalMin <- 0.9
@@ -193,14 +198,6 @@ if (args.dat[1]=='RStudio') {
   #                           sep=',')
   opt$featuresDml <- "100"
   opt$featuresDml <- "100"
-  
-  # K-means Clustering Local params::
-  #
-  opt$lociBetaKey <- "ind_beta"
-  opt$lociPvalKey <- "ind_poob"
-  opt$lociPvalKey <- "i_poob"
-  opt$lociPvalMin <- 0.1
-  opt$featuresDml <- "1000"
   
   opt$outDir <- file.path(par$topDir, par$prgmTag, par$platform, par$version)
   
@@ -585,7 +582,8 @@ for (betaKey in lociBetaKey_vec) {
             
             # Name by Real Classes::
             #
-            sample_cnt_tib <- beta_labs_df %>% dplyr::group_by(!!class_var) %>% 
+            sample_cnt_tib <- sampleSheet_tib %>% 
+              dplyr::group_by(!!class_var) %>% 
               dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(!!class_var) )
             sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
             sample_cnt_vec <- sample_cnt_tib %>% dplyr::pull(Count)
