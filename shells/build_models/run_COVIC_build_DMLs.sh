@@ -58,7 +58,7 @@ prgmDir="analysis"
 prgmTag="build_models"
 
 TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
-TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC/tools
+TOP_LIX=/illumina/scratch/darkmatter/tools
 
 if [ -e ${TOP_MAC} ]; then
     TOP=${TOP_MAC}
@@ -79,7 +79,6 @@ fi
 
 SRC=${TOP}/${prgmTop}
 DAT=${SRC}/dat
-
 EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
 
 featuresCsv=${DAT}/sampleSheets/dmls/Ivana-145.csv.gz
@@ -114,6 +113,8 @@ CMD+=" --featuresCsv"=${featuresCsv}
 CMD+=" --featuresDml"=${featuresDml}
 CMD+=" --featuresDbl"=${featuresDbl}
 CMD+=" --seeds"=${seeds}
+
+# CMD+=" --buildModels"
 
 if [ "${single}" = true ]; then
     CMD+=" --single"

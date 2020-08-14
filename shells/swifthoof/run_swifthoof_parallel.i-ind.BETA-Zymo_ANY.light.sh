@@ -82,28 +82,28 @@ prgmTop="Infinium_Methylation_Workhorse"
 prgmDir="swifthoof"
 prgmTag="swifthoof_main"
 
-TOP_MAC=/Users/bbarnes/Documents/Projects/methylation
-TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC
+TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
+TOP_LIX=/illumina/scratch/darkmatter/tools
 
 if [ -e ${TOP_MAC} ]; then
     TOP=${TOP_MAC}
-    SRC=${TOP_MAC}/tools/${prgmTop}
-    DAT=${SRC}/dat
-    CONDA=mac
     RSCRIPT=/usr/local/bin/Rscript
+
 elif [ -e ${TOP_LIX} ]; then
     TOP=${TOP_LIX}
-    SRC=${TOP_LIX}/tools/${prgmTop}
-    DAT=${SRC}/dat
+
     CONDA=conda_4.6.8
     # CONDA=Anaconda2-2019.10-Linux-x86_64
     # CONDA=Anaconda3-2019.10-Linux-x86_64
     RSCRIPT=/illumina/scratch/darkmatter/thirdparty/${CONDA}/bin/Rscript
+
 else
     echo "Unrecognized top directory!"
     exit
 fi
 
+SRC=${TOP}/${prgmTop}
+DAT=${SRC}/dat
 EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
 
 CMD=${RSCRIPT}" "${EXE}

@@ -29,7 +29,7 @@ prgmDir="analysis"
 prgmTag="merge_builds"
 
 TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
-TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC/tools
+TOP_LIX=/illumina/scratch/darkmatter/tools
 
 if [ -e ${TOP_MAC} ]; then
     TOP=${TOP_MAC}
@@ -92,6 +92,6 @@ CMD+=" --"verbose=${verbose}
 echo ${CMD}
 echo
 
-# ${CMD}
+${CMD}
 
 ## End of file

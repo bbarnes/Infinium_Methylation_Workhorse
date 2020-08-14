@@ -29,7 +29,7 @@ prgmDir="analysis"
 prgmTag="merge_builds"
 
 TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
-TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC/tools
+TOP_LIX=/illumina/scratch/darkmatter/tools
 
 if [ -e ${TOP_MAC} ]; then
     TOP=${TOP_MAC}
@@ -50,11 +50,10 @@ fi
 
 SRC=${TOP}/${prgmTop}
 DAT=${SRC}/dat
+EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
 
 # sampleCsv=${TOP}/sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv
 sampleCsv=${DAT}/sampleSheets/COVIC/Human-Classification_COVID_Count-921_AnnotatedOnlySampleSheet.csv.gz
-
-EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
 
 CMD=${RSCRIPT}" "${EXE}
 CMD+=" --"Rscript=${RSCRIPT}
