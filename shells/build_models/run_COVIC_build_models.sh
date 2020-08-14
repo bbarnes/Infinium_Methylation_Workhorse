@@ -1,11 +1,12 @@
 #!/bin/bash
 
 if [ "$#" -lt 8 ]; then
-    echo "Usage: $0 mergeDir(s) runName version[C0,B4] classVar[Sample_Class,Sample_Name] trainClass[nSARSCov2,pSARSCov2] lociBetaKey[i_beta,ind_beta] localPvalKey[i_poob,i_negs] lociPvalMin[1.0, 0.2, 0.1, 0.01] featureDMLs[100,1000] seeds[13,42]"
+    echo "Usage: $0 mergeDir(s) sampleSheet runName version[C0,B4] classVar[Sample_Class,Sample_Name] trainClass[nSARSCov2,pSARSCov2] lociBetaKey[i_beta,ind_beta] localPvalKey[i_poob,i_negs] lociPvalMin[1.0, 0.2, 0.1, 0.01] featureDMLs[100,1000] seeds[13,42]"
     exit 1
 fi
 
 mergeDir=$1
+
 runName=$2
 version=$3
 classVar=$4
@@ -56,34 +57,28 @@ prgmTop="Infinium_Methylation_Workhorse"
 prgmDir="analysis"
 prgmTag="build_models"
 
-TOP_MAC=/Users/bbarnes/Documents/CustomerFacing
-TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC
+TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
+TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC/tools
 
 if [ -e ${TOP_MAC} ]; then
     TOP=${TOP_MAC}
-    SRC=${TOP_MAC}/${prgmTop}
-    DAT=${SRC}/dat
-    CONDA=mac
     RSCRIPT=/usr/local/bin/Rscript
-
-    sampleCsv=${TOP}/sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv
 
 elif [ -e ${TOP_LIX} ]; then
     TOP=${TOP_LIX}
-    SRC=${TOP_LIX}/tools/${prgmTop}
-    DAT=${SRC}/dat
 
     CONDA=conda_4.6.8
     # CONDA=Anaconda2-2019.10-Linux-x86_64
     # CONDA=Anaconda3-2019.10-Linux-x86_64
     RSCRIPT=/illumina/scratch/darkmatter/thirdparty/${CONDA}/bin/Rscript
 
-    sampleCsv=${TOP}/sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv
-
 else
     echo "Unrecognized top directory!"
     exit
 fi
+
+SRC=${TOP}/${prgmTop}
+DAT=${SRC}/dat
 
 EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
 

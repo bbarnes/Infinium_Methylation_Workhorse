@@ -157,10 +157,12 @@ if (args.dat[1]=='RStudio') {
   
   opt$runName  <- 'BETA-8x1-EPIC-Ref'
   opt$runName  <- 'COVIC-Set5-10062020'
+  opt$runName  <- 'COVIC-Set7-06082020'
   
   opt$mergeDir  <- paste(
     # file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
-    file.path(par$topDir, 'merge_builds',par$platform,par$version,opt$classVar,opt$runName),
+    # file.path(par$topDir, 'merge_builds',par$platform,par$version,opt$classVar,opt$runName),
+    file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/merge_builds/EPIC/C0/Sample_Class',opt$runName),
     sep=',')
   
   opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
@@ -499,7 +501,7 @@ for (betaKey in lociBetaKey_vec) {
         betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=mergeDirs_vec, classes=opt$trainClass,
         class_var=class_var, class_idx=class_idx, pval_name=opt$samplePvalName, pval_perc=opt$samplePvalPerc,
         clean=opt$clean, beta_rds=beta_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
-        sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz",sentrix_name="Sentrix_Name",
+        sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",
         verbose=opt$verbose, vt=3,tc=1,tt=cTracker)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

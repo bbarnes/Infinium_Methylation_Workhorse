@@ -46,7 +46,7 @@ par$prgmDir <- 'probe_design'
 par$prgmTag <- 'binning_main'
 
 # Illumina based directories::
-par$macDir  <- '/Users/bbarnes/Documents/CustomerFacing'
+par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
 par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
 
 # Directory Parameters::
