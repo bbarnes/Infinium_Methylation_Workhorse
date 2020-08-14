@@ -92,6 +92,6 @@ CMD+=" --"verbose=${verbose}
 echo ${CMD}
 echo
 
-# ${CMD}
+${CMD}
 
 ## End of file
