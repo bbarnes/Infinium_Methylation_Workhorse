@@ -28,34 +28,31 @@ prgmTop="Infinium_Methylation_Workhorse"
 prgmDir="analysis"
 prgmTag="merge_builds"
 
-TOP_MAC=/Users/bbarnes/Documents/CustomerFacing
-TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC
+TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
+TOP_LIX=/illumina/scratch/darkmatter/Projects/COVIC/tools
 
 if [ -e ${TOP_MAC} ]; then
     TOP=${TOP_MAC}
-    SRC=${TOP_MAC}/${prgmTop}
-    DAT=${SRC}/dat
-    CONDA=mac
     RSCRIPT=/usr/local/bin/Rscript
-
-    sampleCsv=${TOP}/sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv
 
 elif [ -e ${TOP_LIX} ]; then
     TOP=${TOP_LIX}
-    SRC=${TOP_LIX}/tools/${prgmTop}
-    DAT=${SRC}/dat
 
     CONDA=conda_4.6.8
     # CONDA=Anaconda2-2019.10-Linux-x86_64
     # CONDA=Anaconda3-2019.10-Linux-x86_64
     RSCRIPT=/illumina/scratch/darkmatter/thirdparty/${CONDA}/bin/Rscript
 
-    sampleCsv=${TOP}/sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv
-
 else
     echo "Unrecognized top directory!"
     exit
 fi
+
+SRC=${TOP}/${prgmTop}
+DAT=${SRC}/dat
+
+# sampleCsv=${TOP}/sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv
+sampleCsv=${DAT}/sampleSheets/COVIC/Human-Classification_COVID_Count-921_AnnotatedOnlySampleSheet.csv.gz
 
 EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
 
