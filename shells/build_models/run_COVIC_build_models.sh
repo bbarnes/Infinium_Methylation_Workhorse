@@ -1,22 +1,23 @@
 #!/bin/bash
 
-if [ "$#" -lt 8 ]; then
-    echo "Usage: $0 mergeDir(s) sampleSheet runName version[C0,B4] classVar[Sample_Class,Sample_Name] trainClass[nSARSCov2,pSARSCov2] lociBetaKey[i_beta,ind_beta] localPvalKey[i_poob,i_negs] lociPvalMin[1.0, 0.2, 0.1, 0.01] featureDMLs[100,1000] seeds[13,42]"
+if [ "$#" -lt 9 ]; then
+    echo "Usage: $0 outTopDir mergeDir(s) sampleSheet runName version[C0,B4] classVar[Sample_Class,Sample_Name] trainClass[nSARSCov2,pSARSCov2] lociBetaKey[i_beta,ind_beta] localPvalKey[i_poob,i_negs] lociPvalMin[1.0, 0.2, 0.1, 0.01] featureDMLs[100,1000] seeds[13,42]"
     exit 1
 fi
 
-mergeDir=$1
+outTop=$1
+mergeDir=$2
 
-runName=$2
-version=$3
-classVar=$4
-trainClass=$5
+runName=$3
+version=$4
+classVar=$5
+trainClass=$6
 
-lociBetaKey=$6
-lociPvalKey=$7
-lociPvalMin=$8
-featuresDml=$9
-seeds=${10}
+lociBetaKey=$7
+lociPvalKey=$8
+lociPvalMin=$9
+featuresDml=${10}
+seeds=${11}
 
 platform="EPIC"
 
@@ -87,7 +88,8 @@ CMD=${RSCRIPT}" "${EXE}
 CMD+=" --"Rscript=${RSCRIPT}
 
 # Directories::
-outDir=${TOP}/${prgmTag}/${platform}/${version}
+#  outDir=${TOP}/${prgmTag}/${platform}/${version}
+outDir=${outTop}/${prgmTag}/${platform}/${version}
 
 # idatsDir=NULL
 CMD+=" --mergeDir"=${mergeDir}
