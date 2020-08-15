@@ -31,12 +31,13 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, file=NULL, key=
   bool <- opts %>% dplyr::filter(Value=="TRUE")
   opts <- opts %>% dplyr::filter(Value!="TRUE")
   opts <- opts %>% dplyr::filter(Value!="FALSE")
-  bool_str <- bool %>% dplyr::mutate(!!key := stringr::str_c('--',!!key)) %>%
+  bool_str <- bool %>% 
+    dplyr::mutate(!!key := stringr::str_c('--',!!key)) %>%
     dplyr::pull(!!key) %>% stringr::str_c(collapse=" ")
   
   # Options:: Exclude
   if (!is.null(rm)) opts <- opts %>% dplyr::filter(! (!!key %in% rm) )
-  # print(opts)
+  print(opts)
 
   # Merge Options::
   opt_str <- opts %>% dplyr::arrange(!!key) %>%
@@ -45,6 +46,11 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, file=NULL, key=
     dplyr::pull(Param) %>%
     stringr::str_c(collapse=" ")
 
+  # Second Removal Attempt of rm fields::
+  print(opt_str)
+  opt_str <- opt_str %>% stringr::str_remove('--cluster')
+  print(opt_str)
+  
   # Options:: Add
   add_str <- add %>% tidyr::unite(Param, !!key, !!val, sep='=') %>%
     dplyr::mutate(Param=stringr::str_c('--',Param)) %>% 
