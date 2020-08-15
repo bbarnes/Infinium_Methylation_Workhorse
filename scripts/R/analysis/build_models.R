@@ -725,47 +725,27 @@ for (betaKey in lociBetaKey_vec) {
             
             if (opt$cluster) {
               
-              run_sh <- file.path(seed_dir, paste(seed_name,'sh', sep='.'))
+              run_sh  <- file.path(seed_dir, paste(seed_name,'sh', sep='.'))
+              add_tib <- tibble::tibble(Option=c("lociBetaKey","lociPvalKey","lociPvalMin","featuresDml"),
+                                        Value=c(betaKey,pvalKey,pvalMin,dmlSize))
               
-              if (FALSE) {
-                exe_path <- paste(file.path(par$scrDir,par$prgmDir,par$prgmTag),'R', sep='.')
-                opt_str  <- paste(exe_path,'--lociBetaKey',betaKey,'--lociPvalKey',pvalKey,
-                                  '--lociPvalMin',pvalMin,'--featuresDml',dmlSize,' ', sep=' ')
-                opt_cnt <- opt_tib %>% base::nrow()
-                for (idx in c(1:opt_cnt)) {
-                  key <- opt_tib$Option[idx]
-                  val <- opt_tib$Value[idx]
-                  if (key=="cluster" || key=="lociBetaKey" || key=="lociPvalKey" || key=="lociPvalMin" || key=='featuresDml') {
-                  } else if (val=="FALSE") {
-                  } else if (val=="TRUE") {
-                    opt_str <- paste0(opt_str,'--',key,' ')
-                  } else {
-                    opt_str <- paste0(opt_str,'--',key,' ',val,' ')
-                  }
-                }
-                opt_str <- paste(opt$Rscript,opt_str, sep=' ')
-                readr::write_lines(opt_str, path=run_sh)
-                Sys.chmod(run_sh, mode="0777")
-                
-              } else {
-                add_tib <- tibble::tibble(Option=c("lociBetaKey","lociPvalKey","lociPvalMin","featuresDml"),
-                                          Value=c(betaKey,pvalKey,pvalMin,dmlSize))
-                rm_vec <- c("cluster","lociBetaKey","lociPvalKey","lociPvalMin","featuresDml")
-                
-                cmd <- optsToCommand(opts=opt_tib, pre=opt$Rscript, exe=par$exePath, rm=rm_vec, add=add_tib, 
-                                     file=run_sh, verbose=opt$verbose,vt=1,tc=1,tt=NULL)
-              }
+              rm_vec <- c("cluster","lociBetaKey","lociPvalKey","lociPvalMin","featuresDml")
+              
+              ret_str <- optsToCommand(opts=opt_tib, pre=opt$Rscript, exe=par$exePath, rm=rm_vec, add=add_tib, 
+                                       file=run_sh, verbose=opt$verbose,vt=1,tc=1,tt=NULL)
               cat(glue::glue("[{par$prgmTag}]:{TAB}. Wrote shell={run_sh}.{RET}{RET}") )
               
-              run_id <- paste0('bm-',seed_val)
+              run_id <- paste0('bm-',seed_val,'-cl')
               cmd <- paste(opt$lanExe,run_id,run_sh, sep=' ')
               if (is.null(opt$lanExe) || stringr::str_length(opt$lanExe)==0) cmd <- run_sh
               cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching: cmd={cmd}...{RET}{RET}") )
               sys_ret_val <- base::system(cmd)
               
               if (!sys_ret_val)
-                stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed System Command({sys_ret_val}); cmd='{cmd}'{RET}{RET}"))
-
+                cat(glue::glue("[{par$prgmTag}]: Warning: Bad System Return={sys_ret_val}; cmd='{cmd}'{RET}{RET}"))
+              # if (!sys_ret_val)
+              #   stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed System Command({sys_ret_val}); cmd='{cmd}'{RET}{RET}"))
+              
               if (opt$single) break
               
             } else {
@@ -789,7 +769,6 @@ for (betaKey in lociBetaKey_vec) {
               
               fTracker_tib <- fTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
               readr::write_csv(fTracker_tib, cur_time_csv)
-              
               
             } # if opt$cluster==TRUE
             
