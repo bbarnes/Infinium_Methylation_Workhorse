@@ -26,42 +26,45 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, file=NULL, key=
 
   key <- key %>% as.character() %>% rlang::sym()
   val <- val %>% as.character() %>% rlang::sym()
+  
+  # Options:: Exclude
+  if (!is.null(rm)) opts <- opts %>% dplyr::filter(! (!!key %in% rm) )
 
   # Handel Boolean Variables::
   bool <- opts %>% dplyr::filter(Value=="TRUE")
   opts <- opts %>% dplyr::filter(Value!="TRUE")
   opts <- opts %>% dplyr::filter(Value!="FALSE")
+  
   bool_str <- bool %>% 
     dplyr::mutate(!!key := stringr::str_c('--',!!key)) %>%
     dplyr::pull(!!key) %>% stringr::str_c(collapse=" ")
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} bool_str='{bool_str}'.{RET}{RET}"))
   
-  # Options:: Exclude
-  if (!is.null(rm)) opts <- opts %>% dplyr::filter(! (!!key %in% rm) )
-  print(opts)
-
   # Merge Options::
   opt_str <- opts %>% dplyr::arrange(!!key) %>%
     tidyr::unite(Param, !!key, !!val, sep='=') %>%
     dplyr::mutate(Param=stringr::str_c('--',Param)) %>% 
     dplyr::pull(Param) %>%
     stringr::str_c(collapse=" ")
-
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} opt_str='{opt_str}'.{RET}{RET}"))
+  
   # Second Removal Attempt of rm fields::
-  print(opt_str)
   opt_str <- opt_str %>% stringr::str_remove('--cluster')
-  print(opt_str)
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} opt_str(-cluster)='{opt_str}'.{RET}{RET}"))
   
   # Options:: Add
   add_str <- add %>% tidyr::unite(Param, !!key, !!val, sep='=') %>%
     dplyr::mutate(Param=stringr::str_c('--',Param)) %>% 
     dplyr::pull(Param) %>%
     stringr::str_c(collapse=" ")
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} add_str='{add_str}'.{RET}{RET}"))
   
   # Add Executable and Join Options::
   cmd <- ''
   if (!is.null(pre) && length(pre)!=0) cmd <- pre
   cmd <- stringr::str_c(cmd,exe,opt_str,add_str,bool_str, sep=' ')
-  
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} cmd='{cmd}'.{RET}{RET}"))
+
   if (!is.null(file)) {
     dir <- base::dirname(file)
     if (!dir.exists(dir)) dir.create(dir, recursive=TRUE)
@@ -72,7 +75,7 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, file=NULL, key=
   }
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
-  cmd
+  file
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

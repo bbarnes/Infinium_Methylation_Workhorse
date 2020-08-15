@@ -148,8 +148,8 @@ if (args.dat[1]=='RStudio') {
   opt$clean    <- FALSE
   
   opt$single   <- TRUE
-  opt$cluster  <- TRUE
   opt$cluster  <- FALSE
+  opt$cluster  <- TRUE
   opt$parallel <- FALSE
 
   par$platform <- 'EPIC'
@@ -738,6 +738,7 @@ for (betaKey in lociBetaKey_vec) {
               run_id <- paste0('bm-',seed_val,'-cl')
               cmd <- paste(opt$lanExe,run_id,run_sh, sep=' ')
               if (is.null(opt$lanExe) || stringr::str_length(opt$lanExe)==0) cmd <- run_sh
+              
               cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching: cmd={cmd}...{RET}{RET}") )
               sys_ret_val <- base::system(cmd)
               
