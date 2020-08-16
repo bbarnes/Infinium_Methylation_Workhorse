@@ -418,7 +418,7 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval, mat=NULL, cgn=NULL, ss=NUL
   mat
 }
 
-getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, classes=NULL,
+getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=NULL,
                                class_var, class_idx, pval_name, pval_perc,
                                clean=FALSE, beta_rds, ss_csv, mask_csv,
                                sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz",sentrix_name="Sentrix_Name",
@@ -472,19 +472,30 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, classes=NULL,
         }
       }
       
-      if (file.exists(beg_txt))  unlink(beg_txt)
-      if (file.exists(nan_csv))  unlink(nan_csv)
-      if (file.exists(mask_csv)) unlink(mask_csv)
-      if (file.exists(ss_csv))   unlink(ss_csv)
-      if (file.exists(beta_rds)) unlink(beta_rds)
-      if (file.exists(end_txt))  unlink(end_txt)
-      
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned  beg_txt={beg_txt}.{RET}"))
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned  nan_csv={nan_csv}.{RET}"))
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned mask_csv={mask_csv}.{RET}"))
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned   ss_csv={ss_csv}.{RET}"))
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned beta_rds={beta_rds}.{RET}"))
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned  end_txt={end_txt}.{RET}"))
+      if (file.exists(beg_txt)) {
+        unlink(beg_txt)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned  beg_txt={beg_txt}.{RET}"))
+      }
+      if (file.exists(nan_csv)) {
+        unlink(nan_csv)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned  nan_csv={nan_csv}.{RET}"))
+      }
+      if (file.exists(mask_csv)) {
+        unlink(mask_csv)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned mask_csv={mask_csv}.{RET}"))
+      }
+      if (file.exists(ss_csv)) {
+        unlink(ss_csv)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned   ss_csv={ss_csv}.{RET}"))
+      }
+      if (file.exists(beta_rds)) {
+        unlink(beta_rds)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned beta_rds={beta_rds}.{RET}"))
+      }
+      if (file.exists(end_txt)) {
+        unlink(end_txt)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaned  end_txt={end_txt}.{RET}"))
+      }
       if (verbose>=vt+4) cat(glue::glue("{RET}{RET}{RET}"))
       
       if (base::typeof(class_var)=="character") class_var <- rlang::sym(class_var)
@@ -517,8 +528,8 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, classes=NULL,
         
         # Load and filter::
         if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Loading Sample CSV; cur_ss_csv={cur_ss_csv}...{RET}") )
-        cur_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_ss_csv) )) %>% 
-          dplyr::filter(!!pval_name > !!pval_perc)
+        cur_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_ss_csv) ))
+        if (!is.null(pval_name) && !is.null(pval_perc)) cur_ss_tib <- cur_ss_tib %>% dplyr::filter(!!pval_name > !!pval_perc)
         if (verbose>=vt+4) print(cur_ss_tib)
 
         if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Filtering Sample CSV; class_var={class_var}...{RET}") )
@@ -547,7 +558,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, classes=NULL,
         beta_csv <- file.path(base_dir, base::basename(betas_path_tib$Full_Path[1]) )
         pval_csv <- file.path(base_dir, base::basename(pvals_path_tib$Full_Path[1]) )
         beta_mat <- loadCallsMatrix(betaCSV=beta_csv, pvalCSV=pval_csv, minPval=pvalMin, mat=beta_mat, 
-                                    cgn=NULL, ss=cur_ss_tib,
+                                    cgn=cgn, ss=cur_ss_tib,
                                     verbose=verbose, vt=vt+90,tc=1, tt=tt)
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{TAB} beta_mat=...{RET}") )
         if (verbose>=vt+4) beta_mat %>% head(n=3) %>% print()
@@ -624,15 +635,25 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, classes=NULL,
           # beta_impute_mat %>% dim() %>% print()
         }
         # return(beta_impute_mat)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Finished imputation across all classes.{RET}{RET}") )
         
         # Need to remove any probes that could not be imputed!!
         #  NOTE:: Found these in cancer samples training where the probe is likely deleted and never found!
         #
-        rm_cgn_tib <- getMaskedTib(beta_impute_mat)
-        rm_tot_cnt <- rm_cgn_tib %>% base::nrow()
-        rm_row_cnt <- rm_cgn_tib %>% dplyr::distinct(row) %>% base::nrow()
-        rm_cgn_cnt <- rm_cgn_tib %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+        rm_row_cnt <- 0
+        rm_cgn_cnt <- 0
         rm_impute_tib <- NULL
+        
+        rm_cgn_tib <- getMaskedTib(beta_impute_mat,verbose=verbose,vt=vt,tc=tc,tt=tt)
+        if (verbose>=vt+4) rm_cgn_tib %>% head(n=3) %>% print()
+        rm_tot_cnt <- rm_cgn_tib %>% base::nrow()
+        if (rm_tot_cnt>0) {
+          rm_row_cnt <- rm_cgn_tib %>% dplyr::distinct(row) %>% base::nrow()
+          rm_cgn_cnt <- rm_cgn_tib %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+        }
+        if (verbose>=vt+4) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Recalculated Masked(NA) Probes; rm_row_cnt={rm_row_cnt}, rm_cgn_cnt={rm_cgn_cnt}.{RET}") )
+        
         
         # ret <- NULL
         # ret$imp_mat <- beta_impute_mat

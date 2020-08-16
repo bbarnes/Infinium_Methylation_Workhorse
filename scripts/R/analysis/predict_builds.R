@@ -139,24 +139,25 @@ if (args.dat[1]=='RStudio') {
   opt$clean  <- TRUE
   opt$clean  <- FALSE
   opt$single <- TRUE
+  opt$single <- FALSE
   
   if (opt$classVar=='Sample_Class') {
-    opt$version   <- "C0"
-    opt$platform  <- "EPIC"
+    version   <- "C0"
+    platform  <- "EPIC"
     
     runNameA  <- "COVIC-Set1-15052020"
     runNameB  <- "COVIC-Set5-10062020"
-    
-    opt$runName   <-  runNameA
+
     opt$runName   <-  runNameB
+    opt$runName   <-  runNameA
     
     opt$modelDir <- paste(
-      file.path(par$topDir, 'build_models',opt$platform,opt$version,opt$classVar,opt$runName,
+      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,
                 'ind-beta_i-poob-1','dml-100-Ivana-145'),
       sep=',')
     
-    opt$mergeDir  <- paste( 
-      file.path(par$topDir, 'merge_builds', opt$platform, opt$version, opt$classVar, opt$runName),
+    opt$mergeDir  <- paste(
+      file.path(par$topDir, 'merge_builds', platform, version, opt$classVar, runNameB),
       sep=',')
     
     opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
@@ -171,10 +172,10 @@ if (args.dat[1]=='RStudio') {
       file.path(par$topDir, 'build_models/Sample_Class/COVIC-Set5-10062020/i-beta_i-poob-1/dml-100-Ivana-145',opt$seed_dir),
       sep=',')
     
-    opt$version   <- "C0"
-    opt$platform  <- "EPIC"
-    opt$mergeDir  <- paste( file.path(par$topDir, 'merge_builds', opt$classVar, opt$runNameA, opt$platform, opt$version),
-                            file.path(par$topDir, 'merge_builds', opt$classVar, opt$runNameB, opt$platform, opt$version),
+    version   <- "C0"
+    platform  <- "EPIC"
+    opt$mergeDir  <- paste( file.path(par$topDir, 'merge_builds', opt$classVar, opt$runNameA, platform, version),
+                            file.path(par$topDir, 'merge_builds', opt$classVar, opt$runNameB, platform, version),
                             sep=',')
 
     # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
@@ -185,14 +186,14 @@ if (args.dat[1]=='RStudio') {
       file.path(par$topDir, 'build_models/Sample_Name',opt$runName,'i-beta_i-poob-0.9/dml-100-Ivana-145',opt$seed_dir ),
       sep=',')
     
-    opt$version   <- "B4"
-    opt$platform  <- "EPIC"
+    version   <- "B4"
+    platform  <- "EPIC"
     
     opt$runNameA  <- 'BETA-8x1-EPIC-Core'
     opt$runNameB  <- 'DELTA-8x1-EPIC-Core'
     opt$runNameC  <- 'BETA-DELTA-Core'
     opt$mergeDir <- paste(
-      file.path(par$topDir, 'merge_builds',opt$classVar,opt$runNameC,opt$platform,opt$version ),
+      file.path(par$topDir, 'merge_builds',opt$classVar,opt$runNameC,platform,version ),
       sep=',')
 
     opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
@@ -313,10 +314,9 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
 }
 
 if (is.null(opt$outDir) || is.null(opt$mergeDir) || 
-    (is.null(opt$modelDir) ||
-     (is.null(opt$model) && is.null(opt$params) && is.null(opt$features) && is.null(opt$sampleSheet) ) ) ||
+    # (is.null(opt$modelDir) ||
+    #  (is.null(opt$model) && is.null(opt$params) && is.null(opt$features) && is.null(opt$sampleSheet) ) ) ||
     is.null(opt$runName) || 
-    # is.null(opt$seed_dir) || 
     is.null(opt$classVar) || is.null(opt$trainClass) ||
     # is.null(opt$samplePvalName) || is.null(opt$samplePvalPerc) ||
     is.null(opt$lociBetaKey) || is.null(opt$lociPvalKey) || is.null(opt$lociPvalMin) || 
@@ -324,7 +324,7 @@ if (is.null(opt$outDir) || is.null(opt$mergeDir) ||
     is.null(opt$percisionBeta) || is.null(opt$percisionPval) || 
     is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
     
-    is.null(opt$clean) || is.null(opt$Rscript) || is.null(opt$verbose)) {
+    is.null(opt$clean) || is.null(opt$Rscript) || is.null(opt$verbose) ) {
   if (par$runMode=='CommandLine') print_help(opt_parser)
   
   opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
@@ -335,11 +335,16 @@ if (is.null(opt$outDir) || is.null(opt$mergeDir) ||
   cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
   if (is.null(opt$outDir))     cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
   if (is.null(opt$mergeDir))   cat(glue::glue("[Usage]: mergeDir is NULL!!!{RET}"))
-  # if (is.null(opt$modelDir))   cat(glue::glue("[Usage]: modelDir is NULL!!!{RET}"))
-  
-  (is.null(opt$modelDir) ||
+
+  if (is.null(opt$modelDir) ||
       (is.null(opt$model) && is.null(opt$params) && is.null(opt$features) && is.null(opt$sampleSheet) ) ) {
     cat(glue::glue("[Usage]: modelDir is NULL OR model,params,features and sampleSheet are NULL!!!{RET}"))
+    
+    if (is.null(opt$modelDir))    cat(glue::glue("[Usage]: modelDir is NULL!!!{RET}"))
+    if (is.null(opt$model))       cat(glue::glue("[Usage]: model is NULL!!!{RET}"))
+    if (is.null(opt$params))      cat(glue::glue("[Usage]: params is NULL!!!{RET}"))
+    if (is.null(opt$features))    cat(glue::glue("[Usage]: features is NULL!!!{RET}"))
+    if (is.null(opt$sampleSheet)) cat(glue::glue("[Usage]: sampleSheet is NULL!!!{RET}"))
   }
   if (is.null(opt$runName))    cat(glue::glue("[Usage]: runName is NULL!!!{RET}"))
 
@@ -424,7 +429,18 @@ cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 #  if modelDir is present then search for files and launch each one
 #  else launch current model with each test set
 #
+
+opt$outDir <- file.path(opt$outDir, opt$classVar, opt$runName)
+if (!dir.exists(opt$outDir)) dir.create(opt$outDir, opt$classVar, recursive=TRUE)
+
+# opt$shellDir <- file.path(opt$outDir, 'shells')
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                                  Main::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 if (!is.null(opt$modelDir)) {
+  cat(glue::glue("[{par$prgmTag}]: Launching in cluster mode...{RET}"))
   
   search_fn_key <- '.model-files.csv.gz$'
   full_ss_csvs <- list.files(opt$modelDir, pattern=search_fn_key, full.names=TRUE, recursive=TRUE)
@@ -432,18 +448,19 @@ if (!is.null(opt$modelDir)) {
   cat(glue::glue("[{par$prgmTag}]: full_ss_cnts={full_ss_cnts}.{RET}") )
   
   stopifnot(full_ss_cnts>0)
-
-  opt$outDir <- file.path(opt$outDir, opt$classVar, opt$runName)
-  if (!dir.exists(opt$outDir)) dir.create(opt$outDir, opt$classVar, recursive=TRUE)
   
-  # opt$shellDir <- file.path(opt$outDir, 'shells')
-    
+  prd_cnt <- 0
   for (mIdx in c(1:full_ss_cnts)) {
     
     # Gather all files::
     fns_csv <- full_ss_csvs[mIdx]
     stopifnot(file.exists(fns_csv))
     dir_path <- base::dirname(fns_csv)
+    
+    sam_csv <- NULL
+    par_csv <- NULL
+    fet_csv <- NULL
+    mod_rds <- NULL
     
     fns_tib <- suppressMessages(suppressWarnings( readr::read_csv(fns_csv) ))
     sam_csv <- file.path(dir_path, fns_tib %>% dplyr::filter(Type=="SampleSheet") %>% head(n=1) %>% dplyr::pull(File_Name))
@@ -453,21 +470,24 @@ if (!is.null(opt$modelDir)) {
     
     # Ensure all data exists...
     #
-    #  TBD: Skip if files don't exist...
+    if (is.null(fns_tib) || is.null(sam_csv) || is.null(par_csv) || is.null(fet_csv) || is.null(mod_rds) ) {
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Unable to find mod_rds file; dir_path={dir_path}; fns_tib={fns_csv}. Skipping...{RET}") )
+      next
+    }
     if (is.null(mod_rds) || length(mod_rds)==0 || !file.exists(mod_rds)) {
       cat(glue::glue("[{par$prgmTag}]:{TAB} Unable to find mod_rds file; dir_path={dir_path}; fns_tib={fns_csv}. Skipping...{RET}") )
       next
     }
-    
     stopifnot(file.exists(sam_csv))
     stopifnot(file.exists(par_csv))
     stopifnot(file.exists(par_csv))
-
+    
+    
     par_tib <- suppressMessages(suppressWarnings( readr::read_csv(par_csv) )) %>% 
       dplyr::mutate(Value_Str=stringr::str_replace_all(Value,',','-'))
     
     cat(glue::glue("[{par$prgmTag}]:{TAB} Found all paths for dir_path={dir_path}.{RET}{RET}") )
-
+    
     user_dir  <- par_tib %>% dplyr::filter(Type=='User') %>% dplyr::pull(Value_Str) %>% as.vector() %>% stringr::str_c(collapse="_")
     fets_dir  <- par_tib %>% dplyr::filter(Type=='Feature') %>% dplyr::pull(Value_Str) %>% as.vector() %>% stringr::str_c(collapse="_")
     seed_dir  <- stringr::str_c(
@@ -488,134 +508,102 @@ if (!is.null(opt$modelDir)) {
       cur_dir <- file.path(opt$outDir,user_dir,fets_dir,seed_dir,orig_dir,train_dir,merge_name)
       if (!dir.exists(cur_dir)) dir.create(cur_dir, recursive=TRUE)
       
-      shell_dir <- file.path(cur_dir, "test.model.sh")
-      
+      sh_path <- file.path(cur_dir, "test.model.sh")
+      rm_vec  <- c("modelDir")
       add_tib <- tibble::tibble(Option=c("outDir","sampleSheet","params","features","model"),
                                 Value=c(cur_dir,sam_csv,par_csv,fet_csv,mod_rds))
       
-      rm_vec <- c("modelDir")
+      run_sh <- optsToCommand(opts=opt_tib, pre=opt$Rscript, exe=par$exePath, rm=rm_vec, add=add_tib, file=sh_path,
+                              verbose=opt$verbose,vt=1,tc=1,tt=NULL)
       
-      cmd <- optsToCommand(opts=opt_tib, exe=par$exePath, rm=rm_vec, add=add_tib, 
-                           verbose=opt$verbose,vt=1,tc=1,tt=NULL)
+      run_id <- paste0('prd-',prd_cnt,'-cl')
+      cmd <- paste(opt$lanExe,run_id,run_sh, sep=' ')
+      if (is.null(opt$lanExe) || stringr::str_length(opt$lanExe)==0) cmd <- run_sh
       
+      cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching[{prd_cnt}]: cmd={cmd}...{RET}{RET}") )
+      sys_ret_val <- base::system(cmd)
       
-
-      break
+      if (!sys_ret_val)
+        cat(glue::glue("[{par$prgmTag}]: Warning: Bad System Return[{prd_cnt}]={sys_ret_val}; cmd='{cmd}'{RET}{RET}"))
+      
+      prd_cnt <- prd_cnt + 1
+      
+      if (opt$single) break
     }
-    break
+    if (opt$single) break
   }
-
+  cat(glue::glue("[{par$prgmTag}]: Done. Launching in cluster mode.{RET}{RET}"))
+  
 } else {
+  cat(glue::glue("[{par$prgmTag}]: Launching in single-job mode...{RET}"))
   
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#
-# OLD CODE::
-#
-if (FALSE) {
-  full_ss_csvs <- list.files(opt$modelDir, pattern='.model-SampleSheet.csv.gz$', full.names=TRUE, recursive=TRUE)
-  full_ss_cnts <- length(full_ss_csvs)
-  cat(glue::glue("[{par$prgmTag}]: full_ss_cnts={full_ss_cnts}.{RET}") )
+  # Temp Fix...
+  tmp_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tmp'
+  tmp_csv <- file.path(tmp_dir, 'tmp_opt_tib.csv')
+  readr::write_csv(opt_tib, tmp_csv)
   
-  stopifnot(full_ss_cnts>0)
+  tmp_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tmp'
+  tmp_csv <- file.path(tmp_dir, 'tmp_opt_tib.csv')
   
-  seed_dirs <- full_ss_csvs %>% base::dirname() %>% base::dirname() %>% unique()
-  seed_cnts <- seed_dirs %>% length()
-  cat(glue::glue("[{par$prgmTag}]: seed_dirs={seed_cnts}.{RET}") )
+  # Swap for local testing...
+  opt_tib1 <- opt_tib
+  opt_tib  <- readr::read_csv(tmp_csv)
+  opt_tib %>% print(n=22)
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #          Preprocess each Seed Build Directory Individually::
+  #               Preprocessing:: Loading Models/Target CGNs
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  for (seed_dir in seed_dirs) {
-    cur_ss_csvs <- list.files(opt$modelDir, pattern='.model-SampleSheet.csv.gz$', full.names=TRUE, recursive=TRUE)
-    train_ss_cnts <- length(cur_ss_csvs)
-    cat(glue::glue("[{par$prgmTag}]: train_ss_cnts={train_ss_cnts}.{RET}") )
-    stopifnot(train_ss_cnts>0)
-    
-    break
-  }
+  sam_csv <- opt_tib %>% dplyr::filter(Option=='sampleSheet') %>% head(n=1) %>% dplyr::pull(Value)
+  par_csv <- opt_tib %>% dplyr::filter(Option=='params') %>% head(n=1) %>% dplyr::pull(Value)
+  fet_csv <- opt_tib %>% dplyr::filter(Option=='features') %>% head(n=1) %>% dplyr::pull(Value)
+  mod_rds <- opt_tib %>% dplyr::filter(Option=='model') %>% head(n=1) %>% dplyr::pull(Value)
   
-  opt$outDir <- file.path(opt$outDir, opt$classVar, opt$runName, opt$seed_dir)
-  if (!dir.exists(opt$outDir)) dir.create(opt$outDir, opt$classVar, recursive=TRUE)
+  stopifnot(file.exists(sam_csv))
+  stopifnot(file.exists(par_csv))
+  stopifnot(file.exists(fet_csv))
+  stopifnot(file.exists(mod_rds))
   
-  mods <- base::list()
-  cgns <- base::list()
-  sams <- base::list()
-  pars <- base::list()
-  for (mIdx in c(1:train_ss_cnts)) {
-    train_ss_csv <- cur_ss_csvs[mIdx]
-    train_md_rds <- stringr::str_replace(train_ss_csv, '.model-SampleSheet.csv.gz$', '.model.rds')
-    train_pr_csv <- stringr::str_replace(train_ss_csv, '.model-SampleSheet.csv.gz$', '.model-params.csv.gz')
-    train_cg_csv <- stringr::str_replace(train_ss_csv, '.model-SampleSheet.csv.gz$', '.model-features.csv.gz')
-    # train_md_key <- train_md_rds %>% base::basename() %>% stringr::str_remove('.model.rds$') %>% 
-    #   stringr::str_replace('^.*_([^_]+)$', "\\$1") %>% stringr::str_remove('\\\\+')
-    
-    train_md_key <- train_md_rds %>% stringr::str_remove('.rds$')
-    if (length(grep(opt$seed_dir, train_md_key))!=1 ) next
-    
-    stopifnot(file.exists(train_ss_csv))
-    stopifnot(file.exists(train_cg_csv))
-    stopifnot(file.exists(train_md_rds))
-    stopifnot(!is.null(train_md_key))
-    stopifnot(length(train_md_key)>0)
-    
-    mods[[train_md_key]] = readr::read_rds(train_md_rds)
-    cgns[[train_md_key]] = suppressMessages(suppressWarnings( readr::read_csv(train_cg_csv) ))
-    sams[[train_md_key]] = suppressMessages(suppressWarnings( readr::read_csv(train_ss_csv) ))
-    pars[[train_md_key]] = suppressMessages(suppressWarnings( readr::read_csv(train_pr_csv) ))
-    
-    break
-  }
-  cgns_max_tib <- cgns %>% dplyr::bind_rows() %>% dplyr::distinct(Probe_ID) %>% dplyr::arrange(Probe_ID)
+  sam_tib <- suppressMessages(suppressWarnings( readr::read_csv(sam_csv) ))
+  par_tib <- suppressMessages(suppressWarnings( readr::read_csv(par_csv) ))
+  fet_tib <- suppressMessages(suppressWarnings( readr::read_csv(fet_csv) ))
+  cur_mod <- readr::read_rds(mod_rds)
   
-  mods_cnt <- mods %>% names() %>% length()
-  sams_cnt <- sams %>% names() %>% length()
-  cgns_cnt <- cgns %>% names() %>% length()
-  pars_cnt <- pars %>% names() %>% length()
-  cgns_max <- cgns_max_tib %>% base::nrow()
+  modName <- par_tib %>% dplyr::filter(Option=='model') %>% head(n=1) %>% dplyr::pull(Value)
+  modLamb <- par_tib %>% dplyr::filter(Option=='lambda') %>% head(n=1) %>% dplyr::pull(Value)
   
-  cat(glue::glue("[{par$prgmTag}]: Done. models={mods_cnt}, SampleSheets={sams_cnt}, Features={cgns_cnt}, ",
-                 "Params={pars_cnt}, cgns_max={cgns_max}; outDir={opt$outDir}.{RET}{RET}") )
+  modText <- modName
+  if (!is.null(modLamb) && length(modLamb)!=0) modText <- paste(modText,modLamb, sep='-')
+  
+  if (modName!='rforest' && modName!='glmnet')
+    stop(glue::glue("[{par$prgmTag}]: ERROR; unsupported model type={modName}; Terminating...{RET}"))
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                Load/Filter all Testing Data into Matricies
+  #                     Preprocessing:: Filtering Test Data
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # opt$single <- FALSE
+  
+  all_sam_csv <- file.path(opt$outDir, 'combined_performance_sample.csv.gz')
+  all_sum_csv <- file.path(opt$outDir, 'combined_performance_summary.csv.gz')
+  
+  all_sam_tib <- NULL
+  all_sum_tib <- NULL
   
   for (betaKey in lociBetaKey_vec) {
     for (pvalKey in lociPvalKey_vec) {
-      all_str <- paste(stringr::str_replace_all(betaKey,'_', '-'),
-                       stringr::str_replace_all(pvalKey,'_', '-'), sep='_')
-      
-      all_line_tib <- NULL
-      all_line_csv <- file.path(opt$outDir, paste(opt$runName,paste(all_str, 'SamplePrediction.sheet.csv.gz', sep='.'), sep='_' ) )
       for (pvalMin in lociPvalMin_vec) {
+        
         betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
         pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
-        dirName <- paste(betaStr,pvalStr, sep='_')
-        outName <- paste(opt$runName, dirName, sep='_')
+        dirName <- paste(betaStr,pvalStr,modText, sep='_')
+        outName <- paste(opt$classVar, opt$runName, modText, dirName, sep='_')
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                     Build Current Output Directory::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        cur_opt_dir <- file.path(opt$outDir, dirName)
+        cur_opt_dir <- file.path(opt$outDir, dirName, modText)
         if (!dir.exists(cur_opt_dir)) dir.create(cur_opt_dir, recursive=TRUE)
         cat(glue::glue("[{par$prgmTag}]: Built; cur_opt_dir={cur_opt_dir}!{RET}") )
         
@@ -623,279 +611,102 @@ if (FALSE) {
         
         cTracker <- timeTracker$new(verbose=opt$verbose)
         
-        labs_ss_tib <- NULL
-        beta_mat <- NULL
-        for (curDir in mergeDirs_vec) {
-          
-          # Find Sample Sheet
-          #
-          curr_ss_csv <- findFileByPattern(dir=curDir, patter='_AutoSampleSheet.csv.gz$', max=1, recursive=FALSE, verbose=opt$verbose)
-          curr_fn_csv <- curr_ss_csv %>% stringr::str_replace('_AutoSampleSheet.csv.gz$','_MergedDataFiles.tib.csv.gz')
-          base_dir <- base::dirname(curr_ss_csv)
-          stopifnot(file.exists(curr_ss_csv), file.exists(curr_fn_csv))
-          
-          cat(glue::glue("[{par$prgmTag}]:{TAB} {outName} Found sample_csv={curr_ss_csv}.{RET}") )
-          cat(glue::glue("[{par$prgmTag}]:{TAB} {outName} Found call_table={curr_fn_csv}.{RET}") )
-          
-          # Load and filter::
-          curr_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(curr_ss_csv) )) # %>% 
-          # dplyr::filter(!!opt$samplePvalName > !!opt$samplePvalPerc) %>% 
-          # dplyr::filter(!!class_var %in% trainClass_vec) %>%
-          # dplyr::mutate(Source_Sample_ID=as.integer(Source_Sample_ID))
-          
-          calls_path_tib <- suppressMessages(suppressWarnings( readr::read_csv(curr_fn_csv) ))
-          
-          betas_path_tib <- calls_path_tib %>% dplyr::filter(Method %in% c(betaKey))
-          pvals_path_tib <- calls_path_tib %>% dplyr::filter(Method %in% c(pvalKey))
-          
-          stopifnot(base::nrow(betas_path_tib)==1)
-          stopifnot(base::nrow(pvals_path_tib)==1)
-          
-          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-          #            Load Beta/Pval And Merge into Previous Matrix::
-          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-          
-          beta_csv <- file.path(base_dir, base::basename(betas_path_tib$Full_Path[1]) )
-          pval_csv <- file.path(base_dir, base::basename(pvals_path_tib$Full_Path[1]) )
-          
-          beta_mat <- loadCallsMatrix(betaCSV=beta_csv, pvalCSV=pval_csv, minPval=pvalMin, mat=beta_mat, 
-                                      cgn=cgns_max_tib, ss=curr_ss_tib,
-                                      verbose=opt$verbose, tc=1, tt=pTracker)
-          
-          labs_ss_tib <- labs_ss_tib %>% dplyr::bind_rows(curr_ss_tib)
-          
-          # beta_mat %>% dim() %>% print()
-          cat(glue::glue("[{par$prgmTag}]:{TAB}Done. {outName}.{RET}{RET}") )
-          
-          # break
-        }
-        if (length(grep("Phase_Num", names(labs_ss_tib)))==0) {
-          labs_ss_tib <- labs_ss_tib %>% dplyr::mutate(Phase_Num=1)
-        }
+        # Defined Output files::
+        beta_masked_rds <- file.path(cur_opt_dir, paste(outName,'beta_masked_mat.rds', sep='.') )
+        index_masks_csv <- file.path(cur_opt_dir, paste(outName,'beta_masked_idx.csv.gz', sep='.') )
+        class_ss_csv <- file.path(cur_opt_dir, paste(outName,'ClasSampleSheet.sorted.csv.gz', sep='.') )
         
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        #                 Seed-based 3-fold Sample Sheet Partioning::
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        
-        # TBD:: 
-        #  - Loop over set seeds
-        #  - Add partion index to each sample
-        #  - Loop over each partition for training (i.e. exclude the thrid to be tested)
-        #  - Train on all partitions (i.e. exclude partion 0)
-        #  - Possibly test on missing third as validation for later full testing
-        #
-        
-        sort_s1_tib <- labs_ss_tib %>% dplyr::filter(  (!!class_var %in% class_tib$Sample_Class) ) %>%
-          dplyr::mutate(!!class_org := !!class_var)
-        sort_s2_tib <- labs_ss_tib %>% dplyr::filter(! (!!class_var %in% class_tib$Sample_Class) ) %>%
-          dplyr::mutate(!!class_org := !!class_var, 
-                        !!class_var := dplyr::case_when(
-                          !!class_org=="Xa" ~ "XaXi",
-                          TRUE ~ !!class_nil) )
-        
-        # Try sorting Labeled/Merged Sample Sheet by Sample_Class and then re-order matrix by new order::
-        sort_ss_tib <- dplyr::bind_rows(sort_s1_tib,sort_s2_tib) %>% 
-          dplyr::mutate(
-            # !!class_org := !!class_var,
-            !!class_mat := dplyr::case_when(
-              !!class_org == !!class_var ~ 'Known',
-              !!class_org != !!class_var ~ 'Novel',
-              TRUE ~ NA_character_
-            )
-          ) %>%
-          dplyr::arrange(!!class_var) %>% 
-          dplyr::mutate(!!class_var := as.factor(!!class_var),
-                        !!class_idx := as.integer(!!class_var)-1) %>% 
-          dplyr::mutate(!!class_idx := as.integer(!!class_idx) ) %>%
-          dplyr::select(Sentrix_Name, !!class_var, !!class_idx, !!class_org, !!class_mat) # %>% as.data.frame()
-        
-        # QC Sanity Check:: Make sure the new ordering works::
-        if (FALSE) {
-          cbind(
-            beta_mat %>% colnames(),
-            sort_ss_tib %>% dplyr::pull(Sentrix_Name),
-            beta_mat[ , dplyr::pull(sort_ss_tib, Sentrix_Name)] %>% colnames()
-          ) %>% tibble::as_tibble() %>% dplyr::filter(V2==V3)
-        }
+        opt$clean <- FALSE
+        opt$clean <- TRUE
+        beta_file_tib <- getCallsMatrixFiles(
+          betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=mergeDirs_vec, cgn=fet_tib, classes=opt$trainClass,
+          class_var=class_var, class_idx=class_idx, pval_name=NULL, pval_perc=NULL,
+          clean=opt$clean, beta_rds=beta_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
+          sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",
+          verbose=opt$verbose, vt=3,tc=1,tt=cTracker)
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                   Build Raw and Imputed Sorted Matricies::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        beta_raw_matT <- beta_mat[ , dplyr::pull(sort_ss_tib, Sentrix_Name) ]
-        beta_imp_mat  <- beta_raw_matT %>% as.data.frame() %>% 
-          purrr::set_names(paste('X',names(.), sep='_') ) %>% 
-          makeX_glmnet_imputeNA(na.impute = TRUE) %>% 
-          as.data.frame() %>% purrr::set_names(stringr::str_remove_all(names(.), '^X_')) %>%
-          as.matrix() %>% t()
+        # Now load previous results from file::
+        sampleSheet_tib <- loadFromFileTib(tib=beta_file_tib, type="SampleSheet")
+        index_masks_tib <- loadFromFileTib(tib=beta_file_tib, type="Mask")
+        beta_impute_mat <- loadFromFileTib(tib=beta_file_tib, type="Beta")
         
-        raw_nan_cnt <- which(is.na(beta_raw_matT)) %>% length()
-        imp_nan_cnt <- which(is.na(beta_imp_mat)) %>% length()
-        if (imp_nan_cnt!=0) stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed Imputation: imp_nan_cnt={imp_nan_cnt}, raw_nan_cnt={raw_nan_cnt}{RET}{RET}"))
-        cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] Imputation Results: imp_nan_cnt={imp_nan_cnt}, raw_nan_cnt={raw_nan_cnt}{RET}") )
+        # Rebuild NA beta matrix for DML/dBL calculations::
+        pval_na_idx_vec <- index_masks_tib %>% dplyr::arrange(idx) %>% dplyr::distinct(idx) %>% dplyr::pull(idx) %>% as.vector()
+        beta_masked_mat <- beta_impute_mat
+        if (!is.null(pval_na_idx_vec) && length(pval_na_idx_vec)!=0)
+          beta_masked_mat[ pval_na_idx_vec ] <- NA
         
-        # Build Label Data Structures::
-        labs_key_vec <- sort_ss_tib %>% dplyr::pull(!!class_var) %>% as.vector()
-        labs_idx_vec <- sort_ss_tib %>% dplyr::pull(!!class_idx) %>% as.integer() %>% as.vector()
-        beta_labs_df <- sort_ss_tib %>% column_to_rownames(var="Sentrix_Name") %>% as.data.frame()
+        labs_idx_vec <- sampleSheet_tib %>% dplyr::pull(!!class_idx) %>% as.vector()
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        #                          Predict Data with Models::
+        #                            Make Predictions::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        modelNames <- mods %>% names()
+        if (modName=='glmnet') {
+          
+          cur_pred = predGlmnet(mod=cur_mod, data=t(beta_masked_mat), labs=labs_idx_vec, 
+                                name=modName, lambda="lambda.1se", type=type.measure,
+                                verbose=opt$verbose,vt=1,tt=pTracker) %>% dplyr::mutate(Group=modText)
+          
+          cur_call_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
+                                      verbose=opt$verbose,vt=1,tt=pTracker)
+          
+        } else if (modName=='rforest') {
+          
+          cur_pred = predRandomForest(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
+                                      name=modName, # lambda="lambda.1se", type=type.measure,
+                                      verbose=opt$verbose,vt=1,tt=pTracker) %>% dplyr::mutate(Group=modText)
+          
+          cur_call_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
+                                      verbose=opt$verbose,vt=1,tt=pTracker)
+          
+        } else {
+          stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported modName={modName}!!!{RET}{RET}"))
+        }
         
-        # break
-        for (curModName in modelNames) {
-          # curModName <- "rf-1se-0.1"
-          
-          curModKey <- curModName %>% base::basename() %>% stringr::str_remove('.model$') %>% 
-            stringr::str_replace('^.*_([^_]+)$', "\\$1") %>% stringr::str_remove('\\\\+')
-          
-          # if (stringr::str_starts(curModName, 'glmnet-') ) {
-          if (stringr::str_detect(curModName, 'glmnet-') ) {
-            raw_pred_tib <- predGlmnet(mod=mods[[curModName]], data=beta_imp_mat[, cgns[[curModName]]$Probe_ID ], 
-                                       labs=labs_idx_vec, name=curModKey, lambda="lambda.1se", verbose=opt$verbose)
-            
-            # predict(object=mods[[curModName]], newx=beta_imp_mat[, cgns[[curModName]]$Probe_ID ], s="lambda.1se", type="class")
-            # predict(object=mods[[curModName]], newx=beta_imp_mat[, cgns[["glmnet-0"]]$Probe_ID ], s=mods[[curModName]]$lambda.1se, type="class")
-            # predict(object=mods[[curModName]], newx=beta_imp_mat[, cgns[[curModName]]$Probe_ID ] %>% t(), s=mods[[curModName]]$lambda, type="class")
-            
-            # } else if (stringr::str_starts(curModName, 'rf-') ) {
-          } else if (stringr::str_detect(curModName, 'rforest') ) {
-            raw_pred_tib <- predRandomForest(mod=mods[[curModName]], data=beta_imp_mat[, cgns[[curModName]]$Probe_ID ], 
-                                             labs=labs_idx_vec, name=curModKey, verbose=opt$verbose)
-            
-          } else {
-            stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Unsupported Model prefix type={curModKey}!!!{RET}{RET}"))
-          }
-          
-          # Accurcy by Sample
-          samp_pred_tib  <- raw_pred_tib %>% 
-            dplyr::mutate(True_Class=labs_idx_vec) %>%
-            
-            # dplyr::rename(Sentrix_Name=Full_Sample) %>%
-            # dplyr::mutate(Pred_Class=as.integer(Pred_Class), # Pred_Class_Raw=as.integer(Pred_Class_Raw), 
-            #               True_Class=labs_idx_vec, Sentrix_Name=as.character(Sentrix_Name)) %>%
-            dplyr::left_join(sams[[curModName]], by="Sentrix_Name") %>%
-            dplyr::mutate(isTrainSample=dplyr::case_when(
-              is.na(!!class_var) ~ 'tests',
-              TRUE ~ 'train'),
-              Call=dplyr::case_when(
-                Pred_Class==True_Class ~ 'TP',
-                Pred_Class!=True_Class ~ 'FP',
-                TRUE ~ NA_character_
-              )
-            ) %>% 
-            dplyr::select(-!!class_var, -Class_Idx) %>%
-            dplyr::left_join(sort_ss_tib, by='Sentrix_Name') %>% 
-            dplyr::left_join(dplyr::select(labs_ss_tib, -!!class_var),  by="Sentrix_Name")
-          
-          # Generate Accuracy Summary::
-          #   Phase_Num
-          group_vec <- c("class_mat", "isTrainSample", "True_Class", "Call")
-          samp_sum_tmp_tib <- samp_pred_tib %>% 
-            dplyr::distinct(Sentrix_Name, .keep_all=TRUE) %>% 
-            dplyr::group_by(!!class_mat, Phase_Num, isTrainSample, True_Class, Call) %>% 
-            dplyr::summarise(Pred_Mode_Count=n()) %>% 
-            dplyr::ungroup()
-          
-          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] samp_sum_tmp_tib=...{RET}") )
-          print(samp_sum_tmp_tib)
-          
-          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] samp_sum_tmp_tib=...{RET}") )
-          samp_cnt_tib <- samp_sum_tmp_tib %>% 
-            dplyr::group_by(!!class_mat, Phase_Num, isTrainSample, True_Class) %>%
-            dplyr::summarise(Total_Count=n(),
-                             Pred_Accuracy=round(100*Pred_Mode_Count/Total_Count, 3) )
-          print(samp_cnt_tib)
-          
-          samp_sum_tib <- samp_sum_tmp_tib %>%
-            dplyr::group_by(!!class_mat, Phase_Num, isTrainSample, True_Class) %>%
-            dplyr::add_tally(wt=Pred_Mode_Count, name="Total_Count") %>% 
-            dplyr::mutate(Pred_Accuracy=round(100*Pred_Mode_Count/Total_Count, 3) )
-          
-          cat(glue::glue("[{par$prgmTag}]:{TAB} [{outName}] samp_sum_tib=...{RET}") )
-          print(samp_sum_tib)
-          
-          # Single line summary::
-          # TBD::
-          #  - Add additional parameters to output {seed, method, basically-everything-from-params-file... }
-          #
-          pre_line_tib <- pars[[curModName]] %>% tidyr::unite(Option, Type,Option, sep='_') %>% 
-            dplyr::mutate(Option=stringr::str_replace_all(Option, ',',';'),
-                          Value=stringr::str_replace_all(Value, ',',';')) %>% 
-            tidyr::spread(Option, Value)
-          sum_line_tib <- samp_sum_tib %>% dplyr::ungroup() %>% 
-            tidyr::gather(Metric, value, -c(!!class_mat, Phase_Num, isTrainSample, True_Class, Call) ) %>% 
-            tidyr::unite(key, !!class_mat, Phase_Num, isTrainSample,True_Class,Call,Metric, sep='_') %>% 
-            tidyr::spread(key, value)
-          
-          out_line_tib <- dplyr::bind_cols(pre_line_tib,sum_line_tib)
-          
-          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-          #                        Output Prediction Results::
-          # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-          
-          # Need to add to cur_mod_dir::
-          if (!is.null(out_line_tib$Feature_featureSizeDml) &&
-              !is.null(out_line_tib$Feature_featureNamePre)) {
-            dml_cur_str <- paste('dml',out_line_tib$Feature_featureSizeDml, out_line_tib$Feature_featureNamePre, sep='-')
-          } else if (!is.null(out_line_tib$Feature_featureSizeDml)) {
-            dml_cur_str <- paste('dml',out_line_tib$Feature_featureSizeDml, sep='-')
-          } else if (!is.null(out_line_tib$Feature_featureNamePre)) {
-            dml_cur_str <- paste(out_line_tib$Feature_featureNamePre, sep='-')
-          } else {
-            stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Both Feature_featureSizeDml AND Feature_featureNamePre are NULL!!!{RET}{RET}"))
-          }
-          seed_str <- paste('seed',out_line_tib$seed_sedd, sep='-')
-          model_name <- paste(outName,dml_cur_str,seed_str,curModKey, sep='_')
-          
-          cur_mod_dir <- file.path(cur_opt_dir, dml_cur_str, seed_str, curModKey)
-          if (!dir.exists(cur_mod_dir)) dir.create(cur_mod_dir, recursive=TRUE)
-          
-          samp_pred_csv <- file.path(cur_mod_dir, paste(model_name,'SamplePrediction.csv.gz', sep='.') )
-          samp_sum_csv  <- file.path(cur_mod_dir, paste(model_name,'SamplePrediction.tib.csv.gz', sep='.') )
-          out_line_csv  <- file.path(cur_mod_dir, paste(model_name,'SamplePrediction.sheet.csv.gz', sep='.') )
-          
-          out_line_tib <- out_line_tib %>% dplyr::mutate(Path=out_line_csv)
-          
-          readr::write_csv(samp_pred_tib, samp_pred_csv)
-          readr::write_csv(samp_sum_tib,  samp_sum_csv)
-          readr::write_csv(out_line_tib,  out_line_csv)
-          
-          # Bind all data::
-          all_line_tib <- dplyr::bind_rows(all_line_tib, out_line_tib)
-          
-          if (opt$single) break
-        } # curModName
+        cur_sum_tib <- callToSumTib(call=cur_call_tib, name_lab=modText, true_lab="True_Class",call_lab="Call",
+                                    verbose=opt$verbose,vt=1,tt=pTracker)
+        
+        # Add additional variables::
+        cur_call_tib <- cur_call_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
+        cur_sum_tib  <- cur_sum_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
+        
+        all_sam_tib <- all_sam_tib %>% dplyr::bind_rows(cur_call_tib)
+        all_sum_tib <- all_sum_tib %>% dplyr::bind_rows(cur_sum_tib)
+        
+        cat(glue::glue("[{par$prgmTag}]: Done. triplet=({betaKey},{pvalKey},{pvalMin}).{RET}{RET}"))
         
         if (opt$single) break
-      } # pvalMin
-      
-      readr::write_csv(all_line_tib,  all_line_csv)
-      
+      }
       if (opt$single) break
-    } # pvalKey
-    
+    }
     if (opt$single) break
-  } # betaKey
+  }
   
+  readr::write_csv(all_sam_tib, all_sam_csv)
+  readr::write_csv(all_sum_tib, all_sum_csv)
   
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                                Finished::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  pTracker_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
-  
-  opt_csv  <- file.path(opt$outDir, 'program-options.csv')
-  par_csv  <- file.path(opt$outDir, 'program-parameters.csv')
-  time_csv <- file.path(opt$outDir, 'time-tracker.csv.gz')
-  
-  readr::write_csv(opt_tib, opt_csv)
-  readr::write_csv(par_tib, par_csv)
-  readr::write_csv(pTracker_tib, time_csv)
+  cat(glue::glue("[{par$prgmTag}]: Done. Launching in single-job mode.{RET}{RET}"))
 }
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                                Finished::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+pTracker_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+
+opt_csv  <- file.path(opt$outDir, 'program-options.csv')
+par_csv  <- file.path(opt$outDir, 'program-parameters.csv')
+time_csv <- file.path(opt$outDir, 'time-tracker.csv.gz')
+
+readr::write_csv(opt_tib, opt_csv)
+readr::write_csv(par_tib, par_csv)
+readr::write_csv(pTracker_tib, time_csv)
 
 sysTime <- Sys.time()
 cat(glue::glue("{RET}[{par$prgmTag}]: Finished(time={sysTime}){RET}{RET}"))

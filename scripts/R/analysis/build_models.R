@@ -158,6 +158,7 @@ if (args.dat[1]=='RStudio') {
   opt$runName  <- 'BETA-8x1-EPIC-Ref'
   opt$runName  <- 'COVIC-Set7-06082020'
   opt$runName  <- 'COVIC-Set5-10062020'
+  opt$runName  <- 'COVIC-Set1-15052020'
   
   opt$mergeDir  <- paste(
     # file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
@@ -165,9 +166,9 @@ if (args.dat[1]=='RStudio') {
     file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/merge_builds/EPIC/C0/Sample_Class',opt$runName),
     sep=',')
   
-  opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
+  # opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
   # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
-  opt$trainClass <- paste('XaXi','XaY', sep=',')
+  # opt$trainClass <- paste('XaXi','XaY', sep=',')
   opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
   
   # Sample Level Filtering Parameters::
@@ -495,7 +496,7 @@ for (betaKey in lociBetaKey_vec) {
       dml_time_csv <- file.path(cur_opt_dir, paste(outName,'time-tracker.csv.gz', sep='.') )
       
       beta_file_tib <- getCallsMatrixFiles(
-        betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=mergeDirs_vec, classes=opt$trainClass,
+        betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=mergeDirs_vec, cgn=NULL, classes=opt$trainClass,
         class_var=class_var, class_idx=class_idx, pval_name=opt$samplePvalName, pval_perc=opt$samplePvalPerc,
         clean=opt$clean, beta_rds=beta_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
         sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",

@@ -182,7 +182,7 @@ saveModel = function(name, dir, type='model',
     if (!is.null(lambda)) file_tib <- file_tib %>% tibble::add_column(lambda=lambda)
     
     # Write Files tib::
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Saving Model Files Table={fns_csv}...{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Saving Model Files Table={fns_csv}; dir={dir}...{RET}") )
     readr::write_csv(file_tib, file.path(dir,fns_csv) )
   })
   etime <- stime[3] %>% as.double() %>% round(2)
