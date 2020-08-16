@@ -586,6 +586,7 @@ if (!is.null(opt$modelDir)) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   # opt$single <- FALSE
+  opt$single <- TRUE
   
   all_sam_csv <- file.path(opt$outDir, 'combined_performance_samples.csv.gz')
   all_sum_csv <- file.path(opt$outDir, 'combined_performance_summary.csv.gz')
@@ -615,13 +616,12 @@ if (!is.null(opt$modelDir)) {
         cTracker <- timeTracker$new(verbose=opt$verbose)
         
         # Defined Output files::
+        cur_sam_csv     <- file.path(cur_opt_dir, paste(outName,'method_performance_samples.csv.gz', sep='.') )
+        cur_sum_csv     <- file.path(cur_opt_dir, paste(outName,'method_performance_summary.csv.gz', sep='.') )
+        class_ss_csv    <- file.path(cur_opt_dir, paste(outName,'ClasSampleSheet.sorted.csv.gz', sep='.') )
         beta_masked_rds <- file.path(cur_opt_dir, paste(outName,'beta_masked_mat.rds', sep='.') )
         index_masks_csv <- file.path(cur_opt_dir, paste(outName,'beta_masked_idx.csv.gz', sep='.') )
-        class_ss_csv <- file.path(cur_opt_dir, paste(outName,'ClasSampleSheet.sorted.csv.gz', sep='.') )
-        
-        cur_sam_csv <- file.path(opt$outDir, 'method_performance_samples.csv.gz')
-        cur_sum_csv <- file.path(opt$outDir, 'method_performance_summary.csv.gz')
-        
+
         opt$clean <- FALSE
         opt$clean <- TRUE
         beta_file_tib <- getCallsMatrixFiles(
@@ -658,21 +658,17 @@ if (!is.null(opt$modelDir)) {
                                 name=modName, lambda="lambda.1se", type=type.measure,
                                 verbose=opt$verbose,vt=1,tt=pTracker) %>% dplyr::mutate(Group=modText)
           
-          cur_sam_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
-                                      verbose=opt$verbose,vt=1,tt=pTracker)
-          
         } else if (modName=='rforest') {
           
           cur_pred = predRandomForest(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
                                       name=modName, # lambda="lambda.1se", type=type.measure,
                                       verbose=opt$verbose,vt=1,tt=pTracker) %>% dplyr::mutate(Group=modText)
-          
-          cur_sam_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
-                                      verbose=opt$verbose,vt=1,tt=pTracker)
-          
+
         } else {
           stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported modName={modName}!!!{RET}{RET}"))
         }
+        cur_sam_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
+                                   verbose=opt$verbose,vt=1,tt=pTracker)
         
         cur_sum_tib <- callToSumTib(call=cur_sam_tib, name_lab=modText, true_lab="True_Class",call_lab="Call",
                                     verbose=opt$verbose,vt=1,tt=pTracker)
@@ -686,7 +682,7 @@ if (!is.null(opt$modelDir)) {
         readr::write_csv(cur_sum_tib, cur_sum_csv)
         
         # Add results to previous summaries::
-        all_sam_tib <- all_sam_tib %>% dplyr::bind_rows(cur_call_tib)
+        all_sam_tib <- all_sam_tib %>% dplyr::bind_rows(cur_sam_tib)
         all_sum_tib <- all_sum_tib %>% dplyr::bind_rows(cur_sum_tib)
         
         cat(glue::glue("[{par$prgmTag}]: Done. triplet=({betaKey},{pvalKey},{pvalMin}).{RET}{RET}"))

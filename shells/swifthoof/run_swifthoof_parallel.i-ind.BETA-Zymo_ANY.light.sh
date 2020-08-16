@@ -1,11 +1,12 @@
 #!/bin/bash
 
-if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 idatsDir"
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 outTopDir idatsDir"
     exit 1
 fi
-idatsDir=$1
-outSuffix=$2
+outTop=$1
+idatsDir=$2
+outSuffix=$3
 EXP_NAME=`basename $idatsDir`
 EXP_NAME=$(sed 's/^idats_//' <<< "$EXP_NAME")
 
@@ -110,12 +111,12 @@ CMD=${RSCRIPT}" "${EXE}
 CMD+=" --"Rscript=${RSCRIPT}
 
 # Directories::
-outDir=${TOP}/builds/${prgmTag}${outSuffix}/${EXP_NAME}
-datDir=${DAT}
+#  outDir=${TOP}/builds/${prgmTag}${outSuffix}/${EXP_NAME}
+outDir=${outTop}/${prgmTag}${outSuffix}/${EXP_NAME}
 
-auto_sam_csv=${datDir}/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo.csv.gz
-auto_sam_csv=${datDir}/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-90-NP-ind_negs-0.02.csv.gz
-auto_sam_csv=${datDir}/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz
+auto_sam_csv=${DAT}/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo.csv.gz
+auto_sam_csv=${DAT}/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-90-NP-ind_negs-0.02.csv.gz
+auto_sam_csv=${DAT}/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz
 
 # idatsDir=NULL
 CMD+=" --auto_sam_csv"=${auto_sam_csv}
