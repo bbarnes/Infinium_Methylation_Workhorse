@@ -147,13 +147,12 @@ if (args.dat[1]=='RStudio') {
     
     runNameA  <- "COVIC-Set1-15052020"
     runNameB  <- "COVIC-Set5-10062020"
+    runNameB  <- "COVIC-Set7-06082020"
 
-    opt$runName   <-  runNameB
     opt$runName   <-  runNameA
     
     opt$modelDir <- paste(
-      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,
-                'ind-beta_i-poob-1','dml-100-Ivana-145'),
+      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,'ind-beta_i-poob-1','dml-1000-Ivana-145'),
       sep=',')
     
     opt$mergeDir  <- paste(
@@ -537,18 +536,20 @@ if (!is.null(opt$modelDir)) {
 } else {
   cat(glue::glue("[{par$prgmTag}]: Launching in single-job mode...{RET}"))
   
-  # Temp Fix...
-  tmp_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tmp'
-  tmp_csv <- file.path(tmp_dir, 'tmp_opt_tib.csv')
-  readr::write_csv(opt_tib, tmp_csv)
-  
-  tmp_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tmp'
-  tmp_csv <- file.path(tmp_dir, 'tmp_opt_tib.csv')
-  
-  # Swap for local testing...
-  opt_tib1 <- opt_tib
-  opt_tib  <- readr::read_csv(tmp_csv)
-  opt_tib %>% print(n=22)
+  if (FALSE) {
+    # Temp Fix...
+    tmp_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tmp'
+    tmp_csv <- file.path(tmp_dir, 'tmp_opt_tib.csv')
+    readr::write_csv(opt_tib, tmp_csv)
+    
+    tmp_dir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/tmp'
+    tmp_csv <- file.path(tmp_dir, 'tmp_opt_tib.csv')
+    
+    # Swap for local testing...
+    opt_tib1 <- opt_tib
+    opt_tib  <- readr::read_csv(tmp_csv)
+    opt_tib %>% print(n=22)
+  }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #               Preprocessing:: Loading Models/Target CGNs
