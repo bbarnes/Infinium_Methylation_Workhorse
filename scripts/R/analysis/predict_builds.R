@@ -146,9 +146,9 @@ if (args.dat[1]=='RStudio') {
     platform  <- "EPIC"
     
     runNameA  <- "COVIC-Set1-15052020"
-    runNameB  <- "COVIC-Set5-10062020"
     runNameB  <- "COVIC-Set7-06082020"
-
+    runNameB  <- "COVIC-Set5-10062020"
+    
     opt$runName   <-  runNameA
     
     opt$modelDir <- paste(
@@ -429,9 +429,6 @@ cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 #  else launch current model with each test set
 #
 
-opt$outDir <- file.path(opt$outDir, opt$classVar, opt$runName)
-if (!dir.exists(opt$outDir)) dir.create(opt$outDir, opt$classVar, recursive=TRUE)
-
 # opt$shellDir <- file.path(opt$outDir, 'shells')
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -440,6 +437,10 @@ if (!dir.exists(opt$outDir)) dir.create(opt$outDir, opt$classVar, recursive=TRUE
 
 if (!is.null(opt$modelDir)) {
   cat(glue::glue("[{par$prgmTag}]: Launching in cluster mode...{RET}"))
+  
+  opt$outDir <- file.path(opt$outDir, opt$classVar, opt$runName)
+  if (!dir.exists(opt$outDir)) dir.create(opt$outDir, opt$classVar, recursive=TRUE)
+  cat(glue::glue("[{par$prgmTag}]: outDir={opt$outDir}.{RET}") )
   
   search_fn_key <- '.model-files.csv.gz$'
   full_ss_csvs <- list.files(opt$modelDir, pattern=search_fn_key, full.names=TRUE, recursive=TRUE)
@@ -498,43 +499,44 @@ if (!is.null(opt$modelDir)) {
     train_dir <- par_tib %>% dplyr::filter(Type=='train') %>% dplyr::pull(Value_Str) %>% as.vector() %>% stringr::str_c(collapse="_")
     
     for (mergeDir in mergeDirs_vec) {
-      if (!dir.exists(mergeDir)) {
-        cat(glue::glue("{RET}[{par$prgmTag}]: Warning: mergeDir={mergeDir} does not exist! Skipping...{RET}{RET}"))
-        next
-      }
-      merge_name <- base::basename(mergeDir)
-      
-      cur_dir <- file.path(opt$outDir,user_dir,fets_dir,seed_dir,orig_dir,train_dir,merge_name)
-      if (!dir.exists(cur_dir)) dir.create(cur_dir, recursive=TRUE)
-      
-      sh_path <- file.path(cur_dir, "test.model.sh")
-      rm_vec  <- c("modelDir")
-      add_tib <- tibble::tibble(Option=c("outDir","sampleSheet","params","features","model"),
-                                Value=c(cur_dir,sam_csv,par_csv,fet_csv,mod_rds))
-      
-      run_sh <- optsToCommand(opts=opt_tib, pre=opt$Rscript, exe=par$exePath, rm=rm_vec, add=add_tib, file=sh_path,
-                              verbose=opt$verbose,vt=1,tc=1,tt=NULL)
-      
-      run_id <- paste0('prd-',prd_cnt,'-cl')
-      cmd <- paste(opt$lanExe,run_id,run_sh, sep=' ')
-      if (is.null(opt$lanExe) || stringr::str_length(opt$lanExe)==0) cmd <- run_sh
-      
-      cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching[{prd_cnt}]: cmd={cmd}...{RET}{RET}") )
-      sys_ret_val <- base::system(cmd)
-      
-      if (!sys_ret_val)
-        cat(glue::glue("[{par$prgmTag}]: Warning: Bad System Return[{prd_cnt}]={sys_ret_val}; cmd='{cmd}'{RET}{RET}"))
-      
-      prd_cnt <- prd_cnt + 1
-      
-      if (opt$single) break
+      if (!dir.exists(mergeDir))
+        stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: mergeDir={mergeDir} does not exist! Skipping...{RET}{RET}"))
+      # merge_name <- base::basename(mergeDir)
     }
-    if (opt$single) break
+    # cur_dir <- file.path(opt$outDir,user_dir,fets_dir,seed_dir,orig_dir,train_dir,merge_name)
+    
+    cur_dir <- file.path(opt$outDir,user_dir,fets_dir,seed_dir,orig_dir,train_dir)
+    if (!dir.exists(cur_dir)) dir.create(cur_dir, recursive=TRUE)
+    
+    sh_path <- file.path(cur_dir, "test.model.sh")
+    rm_vec  <- c("modelDir")
+    add_tib <- tibble::tibble(Option=c("outDir","sampleSheet","params","features","model"),
+                              Value=c(cur_dir,sam_csv,par_csv,fet_csv,mod_rds))
+    
+    run_sh <- optsToCommand(opts=opt_tib, pre=opt$Rscript, exe=par$exePath, rm=rm_vec, add=add_tib, file=sh_path,
+                            verbose=opt$verbose,vt=1,tc=1,tt=NULL)
+    
+    run_id <- paste0('prd-',prd_cnt,'-cl')
+    cmd <- paste(opt$lanExe,run_id,run_sh, sep=' ')
+    if (is.null(opt$lanExe) || stringr::str_length(opt$lanExe)==0) cmd <- run_sh
+    
+    cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching[{prd_cnt}]: cmd={cmd}...{RET}{RET}") )
+    sys_ret_val <- base::system(cmd)
+    
+    if (!sys_ret_val)
+      cat(glue::glue("[{par$prgmTag}]: Warning: Bad System Return[{prd_cnt}]={sys_ret_val}; cmd='{cmd}'{RET}{RET}"))
+    
+    prd_cnt <- prd_cnt + 1
+    
+    # if (opt$single) break
   }
   cat(glue::glue("[{par$prgmTag}]: Done. Launching in cluster mode.{RET}{RET}"))
   
 } else {
   cat(glue::glue("[{par$prgmTag}]: Launching in single-job mode...{RET}"))
+  
+  if (!dir.exists(opt$outDir)) dir.create(opt$outDir, opt$classVar, recursive=TRUE)
+  cat(glue::glue("[{par$prgmTag}]: outDir={opt$outDir}.{RET}") )
   
   if (FALSE) {
     # Temp Fix...
@@ -585,7 +587,7 @@ if (!is.null(opt$modelDir)) {
   
   # opt$single <- FALSE
   
-  all_sam_csv <- file.path(opt$outDir, 'combined_performance_sample.csv.gz')
+  all_sam_csv <- file.path(opt$outDir, 'combined_performance_samples.csv.gz')
   all_sum_csv <- file.path(opt$outDir, 'combined_performance_summary.csv.gz')
   
   all_sam_tib <- NULL
@@ -616,6 +618,9 @@ if (!is.null(opt$modelDir)) {
         beta_masked_rds <- file.path(cur_opt_dir, paste(outName,'beta_masked_mat.rds', sep='.') )
         index_masks_csv <- file.path(cur_opt_dir, paste(outName,'beta_masked_idx.csv.gz', sep='.') )
         class_ss_csv <- file.path(cur_opt_dir, paste(outName,'ClasSampleSheet.sorted.csv.gz', sep='.') )
+        
+        cur_sam_csv <- file.path(opt$outDir, 'method_performance_samples.csv.gz')
+        cur_sum_csv <- file.path(opt$outDir, 'method_performance_summary.csv.gz')
         
         opt$clean <- FALSE
         opt$clean <- TRUE
@@ -653,7 +658,7 @@ if (!is.null(opt$modelDir)) {
                                 name=modName, lambda="lambda.1se", type=type.measure,
                                 verbose=opt$verbose,vt=1,tt=pTracker) %>% dplyr::mutate(Group=modText)
           
-          cur_call_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
+          cur_sam_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
                                       verbose=opt$verbose,vt=1,tt=pTracker)
           
         } else if (modName=='rforest') {
@@ -662,20 +667,25 @@ if (!is.null(opt$modelDir)) {
                                       name=modName, # lambda="lambda.1se", type=type.measure,
                                       verbose=opt$verbose,vt=1,tt=pTracker) %>% dplyr::mutate(Group=modText)
           
-          cur_call_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
+          cur_sam_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
                                       verbose=opt$verbose,vt=1,tt=pTracker)
           
         } else {
           stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported modName={modName}!!!{RET}{RET}"))
         }
         
-        cur_sum_tib <- callToSumTib(call=cur_call_tib, name_lab=modText, true_lab="True_Class",call_lab="Call",
+        cur_sum_tib <- callToSumTib(call=cur_sam_tib, name_lab=modText, true_lab="True_Class",call_lab="Call",
                                     verbose=opt$verbose,vt=1,tt=pTracker)
         
         # Add additional variables::
-        cur_call_tib <- cur_call_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
-        cur_sum_tib  <- cur_sum_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
+        cur_sam_tib <- cur_sam_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
+        cur_sum_tib <- cur_sum_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
         
+        # Write current results to local directory::
+        readr::write_csv(cur_sam_tib, cur_sam_csv)
+        readr::write_csv(cur_sum_tib, cur_sum_csv)
+        
+        # Add results to previous summaries::
         all_sam_tib <- all_sam_tib %>% dplyr::bind_rows(cur_call_tib)
         all_sum_tib <- all_sum_tib %>% dplyr::bind_rows(cur_sum_tib)
         
