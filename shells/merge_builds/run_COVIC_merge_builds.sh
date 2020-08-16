@@ -1,13 +1,14 @@
 #!/bin/bash
 
-if [ "$#" -lt 4 ]; then
-    echo "Usage: $0 buildDir runName manVersion[B4,C0] classVar[Sample_Class,Sample_Name]"
+if [ "$#" -lt 5 ]; then
+    echo "Usage: $0 outTopDir buildDir runName manVersion[B4,C0] classVar[Sample_Class,Sample_Name]"
     exit 1
 fi
-buildDir=$1
-runName=$2
-version=$3
-classVar=$4
+outTop=$1
+buildDir=$2
+runName=$3
+version=$4
+classVar=$5
 
 # version='B4'
 # version='C0'
@@ -59,7 +60,7 @@ CMD=${RSCRIPT}" "${EXE}
 CMD+=" --"Rscript=${RSCRIPT}
 
 # Directories::
-outDir=${TOP}/${prgmTag}
+outDir=${outTop}/${prgmTag}
 
 CMD+=" --buildDir"=${buildDir}
 CMD+=" --runName"=${runName}
