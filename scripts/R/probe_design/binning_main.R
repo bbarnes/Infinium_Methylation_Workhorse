@@ -42,12 +42,14 @@ opt <- NULL
 par <- NULL
 
 # Program Parameters::
+par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'probe_design'
 par$prgmTag <- 'binning_main'
+cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Illumina based directories::
 par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
-par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
+par$lixDir <- '/illumina/scratch/darkmatter'
 
 # Directory Parameters::
 opt$outDir    <- NULL
@@ -89,12 +91,13 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir)) par$topDir <- par$macDir
-  if (dir.exists(par$lixDir)) par$topDir <- par$lixDir
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$topDir, 'workhorse')
+  par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -102,7 +105,7 @@ if (args.dat[1]=='RStudio') {
   par$locPath <- base::dirname(par$exePath)
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
-  par$datDir  <- file.path(par$srcDir, 'dat')
+  par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
@@ -113,20 +116,22 @@ if (args.dat[1]=='RStudio') {
   
   opt$runName <- Sys.Date() %>% as.character()
   
-  par$manDir <- '/Users/bbarnes/Documents/Projects/manifests/methylation/Sesame'
-  opt$manifest  <- paste(
-    file.path(par$manDir, opt$build, 'HM27.hg38.manifest.gencode.v22.rds'),
-    file.path(par$manDir, opt$build, 'HM450.hg38.manifest.gencode.v22.rds'),
-    file.path(par$manDir, opt$build, 'EPIC.hg38.manifest.gencode.v22.rds'),
-    sep=','
-  )
-  opt$manifest  <- paste(
-    file.path(par$manDir, opt$build, 'HM27.hg38.manifest.gencode.v22.tsv.gz'),
-    file.path(par$manDir, opt$build, 'HM450.hg38.manifest.gencode.v22.tsv.gz'),
-    file.path(par$manDir, opt$build, 'EPIC.hg38.manifest.gencode.v22.tsv.gz'),
+  par$manDir <- '/Users/bbarnes/Documents/Projects/manifests/methylation'
+  opt$manifest <- paste(
+    '/Users/bbarnes/Documents/Projects/manifests/methylation/MethylationEPIC_v-1-0_B2.csv.gz',
+    '/Users/bbarnes/Documents/Projects/manifests/methylation/HumanMethylation450_15017482_v.1.2.csv.gz',
+    '/Users/bbarnes/Documents/Projects/manifests/methylation/HumanMethylation27_270596_v.1.2.csv.gz',
     sep=','
   )
   
+  par$annDir <- file.path(par$manDir, 'Sesame')
+  opt$annotation  <- paste(
+    file.path(par$manDir, opt$build, 'EPIC.hg38.manifest.gencode.v22.tsv.gz'),
+    file.path(par$manDir, opt$build, 'HM450.hg38.manifest.gencode.v22.tsv.gz'),
+    file.path(par$manDir, opt$build, 'HM27.hg38.manifest.gencode.v22.tsv.gz'),
+    sep=','
+  )
+
   opt$outDir <- file.path(par$topDir)
   
 } else {
@@ -279,23 +284,216 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
-man_files_vec  <- opt$manifest %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-
-man_raw_tib <- lapply(man_files_vec, loadManifestSource, addSource=TRUE, verbose=opt$verbose, vt=1,tc=1,tt=pTracker) %>%
-  dplyr::bind_rows()
-
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 
-opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$platform, opt$version, opt$build, opt$runName)
+opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$runName, opt$build)
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
 
 cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                            Load Manifests::
+#               Preprocessing:: Genome Studio Manifests
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+des_cols <- c('Seq_ID', 'Sequence', 'Genome_Build', 'Chromosome', 'Coordinate', 'CpG_Island')
+
+man_gs_vec <- opt$manifest %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+man_gs_tib <- lapply(man_gs_vec, loadManifestGenomeStudio, 
+                     normalize=TRUE, addSource=TRUE, retType='man', 
+                     verbose=opt$verbose, vt=1,tc=1,tt=pTracker) %>% dplyr::bind_rows()
+
+# Split by design types::
+man_cg_tib <- man_gs_tib %>% dplyr::filter(Probe_Type=='cg') %>%
+  dplyr::distinct(IlmnID, .keep_all=TRUE) %>% 
+  dplyr::mutate(Forward_Sequence=dplyr::case_when(
+    is.na(Forward_Sequence) ~ Top_Sequence,
+    TRUE ~ Forward_Sequence
+  ))
+
+man_ch_tib <- man_gs_tib %>% dplyr::filter(Probe_Type=='ch') %>%
+  dplyr::distinct(IlmnID, .keep_all=TRUE) %>% 
+  dplyr::filter(!is.na(Forward_Sequence))
+
+
+
+#
+# Probe Designs::
+#
+des_cg_prb_tib <- tib2prbs(tib=head(man_cg_tib, n=40), idsKey="IlmnID", prbKey="Probe_Type", seqKey="Forward_Sequence", 
+                           verbose=opt$verbose+10, tt=pTracker)
+des_ch_prb_tib <- tib2prbs(tib=head(man_ch_tib, n=40), idsKey="IlmnID", prbKey="Probe_Type", seqKey="Forward_Sequence", 
+                           verbose=opt$verbose+10, tt=pTracker)
+
+des_cg_prb_tib <- tib2prbs(tib=man_cg_tib, idsKey="IlmnID", prbKey="Probe_Type", seqKey="Forward_Sequence", 
+                           verbose=opt$verbose, tt=pTracker)
+des_ch_prb_tib <- tib2prbs(tib=man_ch_tib, idsKey="IlmnID", prbKey="Probe_Type", seqKey="Forward_Sequence", 
+                           verbose=opt$verbose, tt=pTracker)
+
+
+
+#
+# Improbe design input formats::
+#
+des_cg_tib <- man_cg_tib %>% 
+  dplyr::select(IlmnID,Forward_Sequence,Genome_Build,Chromosome,Coordinate,Probe_Type) # %>% dplyr::mutate(CpG_Island="FALSE") %>% purrr::set_names(des_cols)
+des_ch_tib <- man_ch_tib %>%
+  dplyr::select(IlmnID,Forward_Sequence,Genome_Build,Chromosome,Coordinate,Probe_Type) # %>% dplyr::mutate(CpG_Island="FALSE") %>% purrr::set_names(des_cols)
+
+
+if (FALSE) {
+  #
+  # Known Foward Sequence/CG# Mappings...
+  #
+  
+  unq_seq_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/improbeOutput.37.cgn-topSeq.uniq.tsv.gz'
+  des_unq_tib <- readr::read_tsv(unq_seq_tsv)
+  
+  man_gs_tib %>% dplyr::anti_join(des_unq_tib, by=c("IlmnID"="Seq_ID") ) %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
+  
+  man_des_lf_tib <- man_gs_tib %>% dplyr::left_join(des_unq_tib,  by=c("IlmnID"="Seq_ID"), suffix=c("_MAN", "_DES") )
+  man_des_in_tib <- man_gs_tib %>% dplyr::inner_join(des_unq_tib, by=c("IlmnID"="Seq_ID"), suffix=c("_MAN", "_DES") )
+}
+
+if (FALSE) {
+  cgn_gs_cnt <- man_gs_tib %>% dplyr::group_by(IlmnID) %>% dplyr::summarise(Count=n()) %>% dplyr::arrange(-Count)
+  cgn_gs_cnt %>% dplyr::group_by(Count) %>% dplyr::summarise(Group_Count=n())
+  
+  #  man_gs_tib %>% dplyr::group_by(Man_Source) %>% dplyr::summarise(Count=n())
+  m27_gs_cnt_tib <- man_gs_tib %>% dplyr::filter(Man_Source=='HumanMethylation27_270596_v.1.2') %>%
+    dplyr::left_join(cgn_gs_cnt, by="IlmnID") %>% dplyr::select(IlmnID, Count) %>% dplyr::arrange(Count)
+  m27_gs_cnt_tib %>% dplyr::group_by(Count) %>% dplyr::summarise(Group_Count=n())
+  #
+  # 1156 unique Methyl 27k probes...
+  #
+  
+  #
+  # Template to add Top_Sequence to 450k/EPIC
+  #
+  man_23_gs_tib <- man_gs_tib %>% dplyr::filter(Man_Source!='HumanMethylation27_270596_v.1.2') %>%
+    setTopBot_tib(seqKey="Forward_Sequence", srdKey="Fwd_Strand_TB",
+                  verbose=opt$verbose+20, tt=pTracker)
+  
+  man_23_gs_tib %>% dplyr::group_by(Fwd_Strand_TB) %>% dplyr::summarise(Count=n())
+  
+  man_23_gs_tib2 <- man_23_gs_tib %>% dplyr::filter(Fwd_Strand_TB==-1) %>% 
+    setTopBot_tib(seqKey="Forward_Sequence", srdKey="Fwd_Strand_TB2", verbose=opt$verbose+20, tt=pTracker)
+  
+  man_23_gs_tib2 %>% dplyr::group_by(Fwd_Strand_TB,Fwd_Strand_TB2) %>% dplyr::summarise(Count=n())
+  
+  man_23_gs_tib3 <- man_gs_tib %>% dplyr::filter(Man_Source!='HumanMethylation27_270596_v.1.2') %>%
+    dplyr::filter(IlmnID %in% man_23_gs_tib2$IlmnID) %>%
+    setTopBot_tib(seqKey="Forward_Sequence", srdKey="Fwd_Strand_TB3", verbose=opt$verbose+20, tt=pTracker)
+  
+  des_uniq_tib <- des_seq_tib %>% dplyr::distinct()
+}
+
+#
+# TBD::
+#  - Understand why TB Calling is acting weird
+#  - Design all probes based from R code
+#  - Match manifest designs to Rcode designs (InfI short by a 5' base)
+#
+
+#
+# End goal is normalized manifest joined with designs
+#
+
+#
+# Example:: How to Add Forward TOP/BOT Strand...
+#
+# new2_tib <- setTopBot_tib(tib=man2_tib, seqKey="Forward_Sequence", srdKey="Fwd_Strand_TB",
+#                           verbose=opt$verbose, tt=pTracker)
+#
+
+cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing::Genome Studio Manifests!{RET}{RET}") )
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Preprocessing:: Improbe Files
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# TBD:: This should actually read the manifests directly and write the improbe input files
+#  - FOR NOW: We'll use the pre-computed versions...
+#
+opt$ordDir <- '/Users/bbarnes/Documents/Projects/manifests'
+opt$impDir <- file.path(opt$outDir, 'improbe')
+if (!dir.exists(opt$impDir)) dir.create(opt$impDir, recursive=TRUE)
+
+ord_cols <- c('Seq_ID', 'Sequence', 'Genome_Build', 'Chromosome', 'Coordinate', 'CpG_Island')
+imp_inpA_tsv <- file.path(opt$ordDir, 'methylation/designInput.27k.tsv.gz')
+imp_inpB_tsv <- file.path(opt$ordDir, 'methylation/designInput.450k-EPIC-B2.tsv.gz')
+imp_inpC_tsv <- file.path(opt$ordDir, 'methylation/designInput.EPIC-B2.tsv.gz')
+
+imp_inpA_tib <- suppressMessages(suppressWarnings( readr::read_tsv(imp_inpA_tsv, col_names=ord_cols) ))
+imp_inpB_tib <- suppressMessages(suppressWarnings( readr::read_tsv(imp_inpB_tsv, col_names=ord_cols) ))
+imp_inpC_tib <- suppressMessages(suppressWarnings( readr::read_tsv(imp_inpC_tsv, col_names=ord_cols) ))
+
+imp_inp_bind_tib <- dplyr::bind_rows(
+  imp_inpC_tib,
+  imp_inpB_tib,
+  imp_inpA_tib
+)
+imp_inp_uniq_tib <- dplyr::distinct(imp_inp_bind_tib, Seq_ID, .keep_all=TRUE)
+imp_inp_uniq_tsv <- file.path(opt$impDir, 'EPIC-reorder.improbe-input.tsv.gz')
+
+readr::write_tsv(imp_inp_uniq_tib, imp_inp_uniq_tsv)
+
+cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing::Order Files!{RET}{RET}") )
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Preprocessing:: Improbe Designs
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 
+
+cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing::Improbe Designs!{RET}{RET}") )
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Preprocessing:: Content Files
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+genk_tib <- readr::read_csv('/Users/bbarnes/Documents/Projects/methylation/CustomContent/Genknowme/orders/final.07072020/GenKnowme_CpG_SNP_order.07072020.csv')
+elly_tib <- readr::read_csv('/Users/bbarnes/Documents/Projects/methylation/ElysiumHealth/targets/EH-cg.txt.gz')
+legx_tib <- readr::read_csv('/Users/bbarnes/Documents/Projects/methylation/EWAS/data/LEGX/epicplus-important-probes.csv') %>% 
+  tidyr::separate(probe_name, into=c('Probe_ID', 'IF', 'FR', 'CO', 'RP', 'GN'), sep='_')
+
+dplyr::right_join(
+  elly_tib %>% dplyr::distinct(Probe_ID),
+  legx_tib %>% dplyr::distinct(Probe_ID),
+  by="Probe_ID"
+)
+
+cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing::Content Files!{RET}{RET}") )
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#               Preprocessing:: Sesame Manifests (Annotation)
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+man_ses_vec <- opt$annotation %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+man_ses_tib <- lapply(man_ses_vec, loadManifestSource, addSource=TRUE, verbose=opt$verbose, vt=1,tc=1,tt=pTracker) %>%
+  dplyr::bind_rows()
+
+cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing::Sesame Manifests (Annotation)!{RET}{RET}") )
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                                Finished::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+opt$opt_csv  <- file.path(opt$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )
+opt$par_csv  <- file.path(opt$outDir, paste(par$prgmTag,'program-parameters.csv', sep='.') )
+opt$time_csv <- file.path(opt$outDir, paste(par$prgmTag,'time-tracker.csv.gz', sep='.') )
+
+opt_tib  <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
+par_tib  <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
+time_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+
+readr::write_csv(opt_tib, opt$opt_csv)
+readr::write_csv(par_tib, opt$par_csv)
+readr::write_csv(time_tib, opt$time_csv)
+
+sysTime <- Sys.time()
+cat(glue::glue("{RET}[{par$prgmTag}]: Finished(time={sysTime}){RET}{RET}"))
 
 # End of file

@@ -71,9 +71,6 @@ opt$lociBetaKey <- NULL
 opt$lociPvalKey <- NULL
 opt$lociPvalMin <- NULL
 
-# Loci (Feature) Selection Parameters::
-#  opt$featureCsv <- NULL
-
 # Output Format Parameters::
 opt$percisionBeta <- 4
 opt$percisionPval <- 6
@@ -138,10 +135,32 @@ if (args.dat[1]=='RStudio') {
   
   opt$clean  <- TRUE
   opt$clean  <- FALSE
-  opt$single <- TRUE
   opt$single <- FALSE
+  opt$single <- TRUE
+  opt$execute <-  FALSE
   
-  if (opt$classVar=='Sample_Class') {
+  if (FALSE) {
+    # cat scratch/predict_builds/Sample_Class/COVIC-Set1-15052020/COVIC-Set1-15052020_nSARSCov2-pSARSCov2_Poob_Pass_0_Perc_96_ind_beta_i_poob_1/1000_Ivana-145/seed-13/oSize-30/rforest_0.5_lambda-1se/test.model.sh | perl -pe 's/ /\n/gi' | perl -pe 's/^--//; s/=(.*)$/="$1"/; print "opt\$"'
+
+    opt$classVar="Sample_Class"
+    opt$lociBetaKey="i_beta"
+    opt$lociPvalKey="i_poob"
+    opt$lociPvalMin="1.0,0.1"
+    opt$mergeDir="/Users/bbarnes/Documents/Projects/methylation/scratch/merge_builds/EPIC/C0/Sample_Class/COVIC-Set5-10062020"
+    opt$outDir="/Users/bbarnes/Documents/Projects/methylation/scratch/predict_builds"
+    opt$percisionBeta="4"
+    opt$percisionPval="6"
+    opt$Rscript="Rscript"
+    opt$runName="COVIC-Set1-15052020"
+    opt$trainClass="nSARSCov2,pSARSCov2"
+    opt$verbose="3"
+    opt$outDir="/Users/bbarnes/Documents/Projects/methylation/scratch/predict_builds/Sample_Class/COVIC-Set1-15052020/COVIC-Set1-15052020_nSARSCov2-pSARSCov2_Poob_Pass_0_Perc_96_ind_beta_i_poob_1/1000_Ivana-145/seed-13/oSize-30/rforest_0.5_lambda-1se"
+    opt$sampleSheet="/Users/bbarnes/Documents/Projects/methylation/scratch/build_models/EPIC/C0/Sample_Class/COVIC-Set1-15052020/ind-beta_i-poob-1/dml-1000-Ivana-145/seed-13/alpha-0.5/rforest-0.5-lambda-1se.model-SampleSheet.csv.gz"
+    opt$params="/Users/bbarnes/Documents/Projects/methylation/scratch/build_models/EPIC/C0/Sample_Class/COVIC-Set1-15052020/ind-beta_i-poob-1/dml-1000-Ivana-145/seed-13/alpha-0.5/rforest-0.5-lambda-1se.model-params.csv.gz"
+    opt$features="/Users/bbarnes/Documents/Projects/methylation/scratch/build_models/EPIC/C0/Sample_Class/COVIC-Set1-15052020/ind-beta_i-poob-1/dml-1000-Ivana-145/seed-13/alpha-0.5/rforest-0.5-lambda-1se.model-features.csv.gz"
+    opt$model="/Users/bbarnes/Documents/Projects/methylation/scratch/build_models/EPIC/C0/Sample_Class/COVIC-Set1-15052020/ind-beta_i-poob-1/dml-1000-Ivana-145/seed-13/alpha-0.5/rforest-0.5-lambda-1se.model.rds"
+    
+  } else if (opt$classVar=='Sample_Class') {
     version   <- "C0"
     platform  <- "EPIC"
     
@@ -245,12 +264,6 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--trainClass"), type="character", default=opt$trainClass, 
                 help="Training Class Variable Names, comma delimited [default= %default]", metavar="character"),
     
-    # Sample Level Filtering Parameters::
-    # make_option(c("--samplePvalName"), type="character", default=opt$samplePvalName, 
-    #             help="Pval Method Name to filter Samples for training [default= %default]", metavar="character"),
-    # make_option(c("--samplePvalPerc"), type="double", default=opt$samplePvalPerc,
-    #             help="Pval Min Percent Passing to filter Sample for training [default= %default]", metavar="double"),
-    
     # Loci Level Filtering Parameters::
     make_option(c("--lociBetaKey"), type="character", default=opt$lociBetaKey,
                 help="Loci Beta-Method Name (key) for training, comma delimited [default= %default]", metavar="character"),
@@ -258,10 +271,6 @@ if (args.dat[1]=='RStudio') {
                 help="Loci Pval-Method Name (key) for filtering for training, comma delimited [default= %default]", metavar="character"),
     make_option(c("--lociPvalMin"), type="character", default=opt$lociPvalMin,
                 help="Pval Min Passing for loci filtering for training, comma delimited [default= %default]", metavar="character"),
-    
-    # Loci (Feature) Selection Parameters::
-    # make_option(c("--featureCsv"), type="character", default=opt$featureCsv, 
-    #             help="Loci feature selection file for training [default= %default]", metavar="character"),
     
     # Output Format Parameters::
     make_option(c("--percisionBeta"), type="integer", default=opt$percisionBeta,
@@ -313,13 +322,9 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
 }
 
 if (is.null(opt$outDir) || is.null(opt$mergeDir) || 
-    # (is.null(opt$modelDir) ||
-    #  (is.null(opt$model) && is.null(opt$params) && is.null(opt$features) && is.null(opt$sampleSheet) ) ) ||
     is.null(opt$runName) || 
     is.null(opt$classVar) || is.null(opt$trainClass) ||
-    # is.null(opt$samplePvalName) || is.null(opt$samplePvalPerc) ||
     is.null(opt$lociBetaKey) || is.null(opt$lociPvalKey) || is.null(opt$lociPvalMin) || 
-    # is.null(opt$featureCsv) ||
     is.null(opt$percisionBeta) || is.null(opt$percisionPval) || 
     is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
     
@@ -328,9 +333,7 @@ if (is.null(opt$outDir) || is.null(opt$mergeDir) ||
   
   opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
   opt_tib %>% base::print(n=base::nrow(opt_tib) )
-  # OLD data.frame print method::
-  # dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value") %>% as.data.frame() %>% print()
-  
+
   cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
   if (is.null(opt$outDir))     cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
   if (is.null(opt$mergeDir))   cat(glue::glue("[Usage]: mergeDir is NULL!!!{RET}"))
@@ -350,16 +353,10 @@ if (is.null(opt$outDir) || is.null(opt$mergeDir) ||
   if (is.null(opt$classVar))   cat(glue::glue("[Usage]: classVar is NULL!!!{RET}"))
   if (is.null(opt$trainClass)) cat(glue::glue("[Usage]: trainClass is NULL!!!{RET}"))
   
-  # if (is.null(opt$samplePvalName)) cat(glue::glue("[Usage]: samplePvalName is NULL!!!{RET}"))
-  # if (is.null(opt$samplePvalPerc)) cat(glue::glue("[Usage]: samplePvalPerc is NULL!!!{RET}"))
-  
   if (is.null(opt$lociBetaKey)) cat(glue::glue("[Usage]: lociBetaKey is NULL!!!{RET}"))
   if (is.null(opt$lociPvalKey)) cat(glue::glue("[Usage]: lociPvalKey is NULL!!!{RET}"))
   if (is.null(opt$lociPvalMin)) cat(glue::glue("[Usage]: lociPvalMin is NULL!!!{RET}"))
-  # if (is.null(opt$seed_dir)) cat(glue::glue("[Usage]: seed_dir is NULL!!!{RET}"))
-  
-  # if (is.null(opt$featureCsv)) cat(glue::glue("[Usage]: featureCsv is NULL!!!{RET}"))
-  
+
   if (is.null(opt$percisionBeta)) cat(glue::glue("[Usage]: percisionBeta is NULL!!!{RET}"))
   if (is.null(opt$percisionPval)) cat(glue::glue("[Usage]: percisionPval is NULL!!!{RET}"))
   
@@ -405,12 +402,10 @@ lociBetaKey_vec <- opt$lociBetaKey %>% str_split(pattern=',', simplify=TRUE) %>%
 lociPvalKey_vec <- opt$lociPvalKey %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 lociPvalMin_vec <- opt$lociPvalMin %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
 
-# if (is.null(opt$classVar)) opt$classVar <- 'Source_Sample_Name'
 class_mat <- rlang::sym(paste(opt$classVar,'CompType', sep='_'))
 class_org <- rlang::sym(paste(opt$classVar,'Origin', sep='_'))
 class_var <- rlang::sym(opt$classVar)
 class_idx <- rlang::sym("Class_Idx")
-# opt$samplePvalName <- opt$samplePvalName %>% rlang::sym()
 
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 
@@ -428,8 +423,6 @@ cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 #  if modelDir is present then search for files and launch each one
 #  else launch current model with each test set
 #
-
-# opt$shellDir <- file.path(opt$outDir, 'shells')
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                  Main::
@@ -482,6 +475,22 @@ if (!is.null(opt$modelDir)) {
     stopifnot(file.exists(par_csv))
     stopifnot(file.exists(par_csv))
     
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Add Cross Validation Files::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    #
+    # TBD:: 
+    #  - Incoporate Cross Validation Files
+    #  - Split this script into::
+    #    - predict_models.R
+    #    - load_matrix
+    #    - predict_model()
+    #
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                         Build Shell Scripts::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     par_tib <- suppressMessages(suppressWarnings( readr::read_csv(par_csv) )) %>% 
       dplyr::mutate(Value_Str=stringr::str_replace_all(Value,',','-'))
@@ -521,7 +530,7 @@ if (!is.null(opt$modelDir)) {
     if (is.null(opt$lanExe) || stringr::str_length(opt$lanExe)==0) cmd <- run_sh
     
     cat(glue::glue("[{par$prgmTag}]:{TAB}. Launching[{prd_cnt}]: cmd={cmd}...{RET}{RET}") )
-    sys_ret_val <- base::system(cmd)
+    if (opt$execute) sys_ret_val <- base::system(cmd)
     
     if (!sys_ret_val)
       cat(glue::glue("[{par$prgmTag}]: Warning: Bad System Return[{prd_cnt}]={sys_ret_val}; cmd='{cmd}'{RET}{RET}"))
@@ -672,14 +681,14 @@ if (!is.null(opt$modelDir)) {
         
         cur_sum_tib <- callToSumTib(call=cur_sam_tib, name_lab=modText, true_lab="True_Class",call_lab="Call",
                                     verbose=opt$verbose,vt=1,tt=pTracker)
+
+        # Write current results to local directory::
+        readr::write_csv(cur_sam_tib, cur_sam_csv)
+        readr::write_csv(cur_sum_tib, cur_sum_csv)
         
         # Add additional variables::
         cur_sam_tib <- cur_sam_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
         cur_sum_tib <- cur_sum_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
-        
-        # Write current results to local directory::
-        readr::write_csv(cur_sam_tib, cur_sam_csv)
-        readr::write_csv(cur_sum_tib, cur_sum_csv)
         
         # Add results to previous summaries::
         all_sam_tib <- all_sam_tib %>% dplyr::bind_rows(cur_sam_tib)

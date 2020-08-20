@@ -1112,11 +1112,143 @@ loadImprobeDesign = function(file=NULL, src_des_tib=NULL,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     Basic Bisulfite Conversion Methods::
+#                              Format Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 shearBrac = function(x) {
   x %>% stringr::str_remove('\\[') %>% stringr::str_remove('\\]')
 }
+
+addBrac = function(seq) {
+  seq_len <- stringr::str_length(seq)
+  mid_len <- 2
+  snp_idx <- as.integer(seq_len / 2)
+  
+  pre_beg <- 1
+  pre_end <- snp_idx-1
+  
+  mid_beg <- snp_idx
+  mid_end <- mid_beg+mid_len-1
+  
+  pos_beg <- mid_end+1
+  pos_end <- seq_len
+  
+  pre_seq <- seq %>% stringr::str_sub(pre_beg,pre_end)
+  mid_seq <- seq %>% stringr::str_sub(mid_beg,mid_end)
+  pos_seq <- seq %>% stringr::str_sub(pos_beg,pos_end)
+  
+  new_seq <- paste0(pre_seq,'[',mid_seq,']',pos_seq)
+  
+  new_seq
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Illumina Strand Methods:: TOP/BOT
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+setTopBot_tib = function(tib, seqKey, srdKey, max=0,
+                         verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'setTopBot_tib'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; select field={seqKey}, new field={srdKey}...{RET}"))
+  
+  seqKey <- rlang::sym(seqKey)
+  srdKey <- rlang::sym(srdKey)
+  
+  ret_tib <- NULL
+  stime <- system.time({
+    if (max!=0) tib <- tib %>% head(n=max)
+    
+    bit_tib <- tib %>% 
+      dplyr::mutate(
+        pre_seq = !!seqKey %>% stringr::str_remove('\\[.*$') %>% 
+          Biostrings::reverse() %>%
+          stringr::str_to_upper() %>% 
+          stringr::str_replace_all('A', '1') %>% 
+          stringr::str_replace_all('T', '1') %>% 
+          stringr::str_replace_all('C', '2') %>% 
+          stringr::str_replace_all('G', '2'),
+        
+        pos_seq = !!seqKey %>% stringr::str_remove('^.*\\]') %>%
+          stringr::str_to_upper() %>% 
+          stringr::str_replace_all('A', '1') %>% 
+          stringr::str_replace_all('T', '1') %>% 
+          stringr::str_replace_all('C', '2') %>% 
+          stringr::str_replace_all('G', '2')
+      ) %>% dplyr::select(pre_seq, pos_seq)
+    
+    pre_bit <- bit_tib$pre_seq %>% stringr::str_split('', simplify = TRUE)
+    pos_bit <- bit_tib$pos_seq %>% stringr::str_split('', simplify = TRUE)
+    
+    pre_mat <- pre_bit %>% as.data.frame() %>% data.matrix()
+    pos_mat <- pos_bit %>% as.data.frame() %>% data.matrix()
+    dif_mat <- pre_mat-pos_mat
+    dif_mat <- dif_mat %>% cbind(rep(2, dim(dif_mat)[1]))
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} dif_mat={RET}"))
+    if (verbose>=vt+4) print(dif_mat)
+    
+    # This is just for a sanity check...
+    #  dif_mat[1,1:60] = 0
+    
+    bit_vec <- apply(dif_mat,1, function(x) head(x[x!=0],1)) + 1
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bit_vec={RET}"))
+    if (verbose>=vt+4) print(bit_vec)
+    
+    # Convert numeric values back to characters (T=TOP,B=BOT,U=Unknown)
+    tb_vec <- bit_vec %>% as.character() %>% 
+      stringr::str_replace('0', 'T') %>% 
+      stringr::str_replace('2', 'B') %>%
+      stringr::str_replace('3', 'U')
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tb_vec={RET}"))
+    if (verbose>=vt+4) print(tb_vec)
+    
+    ret_tib <- tib %>% dplyr::mutate(!!srdKey := tb_vec)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# Single variable method that is OUT-OF-DATE; Should use the method above...
+isTopBot_single = function(seq, verbose=0, vt=4) {
+  seq <- seq %>% stringr::str_to_upper() %>% 
+    stringr::str_replace_all('T', 'A') %>% 
+    stringr::str_replace_all('G', 'C')
+
+  seq_vec <- stringr::str_split(seq,'\\[', simplify=TRUE) %>% as.vector()
+  pre_seq <- seq_vec[1] %>% Biostrings::reverse()
+  seq_vec <- stringr::str_split(seq,'\\]', simplify=TRUE) %>% as.vector()
+  pos_seq <- seq_vec[2]
+  
+  pre_vec <- pre_seq %>% stringr::str_split('', simplify=TRUE) %>% as.vector()
+  pos_vec <- pos_seq %>% stringr::str_split('', simplify=TRUE) %>% as.vector()
+  
+  if (verbose>=vt) {
+    print(seq)
+    print(pre_seq)
+    print(pos_seq)
+  }
+  
+  min_len <- min(stringr::str_length(pre_seq),stringr::str_length(pos_seq))
+  for (ii in c(1:min_len)) {
+    if (pre_vec[ii]==pos_vec[ii]) next
+    if (pre_vec[ii]!=pos_vec[ii]) {
+      if (pre_vec[ii]=='A') return('T')
+      return('B')
+    }
+  }
+  return('U')
+}
+
+isTopBots = function(x, verbose=0, vt=4) {
+  x <- lapply(x,isTopBot_single)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Basic Bisulfite Conversion Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 MAPDi = function(x) {
   if (length(MAP_DI[[x]])==0) return(NA)
@@ -1318,7 +1450,6 @@ cmpInfII = function(tib, fieldA, fieldB, mu='D', del='_',
   
   tib
 }
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Basic Reverse/Complement Methods::

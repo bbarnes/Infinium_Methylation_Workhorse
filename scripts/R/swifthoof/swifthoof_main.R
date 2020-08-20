@@ -137,9 +137,6 @@ if (args.dat[1]=='RStudio') {
   if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
-  # Default Options for local Mac::
-  opt$Rscript  <- 'Rscript'
-  
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
   par$srcDir     <- file.path(par$macDir, par$codeDir)
@@ -151,6 +148,9 @@ if (args.dat[1]=='RStudio') {
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
+  
+  # Default Options for local Mac::
+  opt$Rscript  <- 'Rscript'
   
   opt$single   <- TRUE
   opt$cluster  <- FALSE

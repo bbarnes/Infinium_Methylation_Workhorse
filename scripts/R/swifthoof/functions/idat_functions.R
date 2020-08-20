@@ -88,8 +88,9 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
       }
     }
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
   
   dat
 }
@@ -117,8 +118,9 @@ loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
     
     idat <- illuminaio::readIDAT(idat_file)
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
   
   idat
 }
@@ -143,8 +145,9 @@ getIdatSignalTib = function(idat, channel, del='_', verbose=0,vt=3,tc=1,tt=NULL)
       purrr::set_names('Address',meanName,sdName,beadName)
     tib_nrow <- base::nrow(tib)
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Idat nrows={tib_nrow}.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
   
   tib
 }
@@ -185,8 +188,9 @@ getIdatFormatTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
     else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unrecognized ChipType={chipType}!{RET}{RET}"))
     tib <- tibble::tibble('Chip_Type'=chipType,'Chip_Format'=chipFormat)
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Chip_Type={chipType}, Chip_Format={chipFormat}.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Chip_Type={chipType}, Chip_Format={chipFormat}; elapsed={etime}.{RET}{RET}"))
   
   tib
 }
@@ -232,9 +236,10 @@ getIdatTimeStampTib = function(idat, method='Extract', sherlockID='sherlockID', 
       dplyr::select(!!mach_key, Date, Year, Mon, Day, Hour, Min, Sec) %>%
       purrr::set_names(paste(name_str, names(.), sep='_'))
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Date({method})={date_str}.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Date({method})={date_str}; elapsed={etime}.{RET}{RET}"))
+
   time_tib
 }
 

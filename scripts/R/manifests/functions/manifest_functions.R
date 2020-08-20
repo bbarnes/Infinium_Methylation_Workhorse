@@ -273,6 +273,111 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
   man_tibs
 }
 
+loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retType=NULL, max=0,
+                                    verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'loadManifestGenomeStudio'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading file={file}.{RET}"))
+  
+  ctl_cols <- c('Address', 'Control_Group', 'Control_Color', 'Control_Name')
+  
+  ret_dat <- NULL
+  stime <- system.time({
+    tib <- NULL
+    man_tib <- NULL
+    ctl_tib <- NULL
+
+    src <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.csv$')
+    cmd <- glue::glue("gzip -dc {file} | head -n 50 | grep -n '^IlmnID' ")
+    cnt <- suppressMessages(suppressWarnings( system(as.character(cmd), intern=TRUE, ignore.stderr=TRUE) )) %>% 
+      stringr::str_remove('\\r$') %>% stringr::str_remove(':.*$') %>% as.integer()
+    
+    cnt <- cnt - 1
+    if (max>0) {
+      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt, n_max=max)))
+    } else {
+      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt)))
+    }
+    
+    tib_len <- base::nrow(tib)
+    ctl_idx <- which(tib$IlmnID=='[Controls]') %>% head(n=1) %>% as.integer()
+    man_tib <- tib %>% head(n=ctl_idx-1)
+    if (ctl_idx>0)
+      ctl_tib <- tib %>% tail(tib_len-ctl_idx) %>% dplyr::select(1:4) %>% purrr::set_names(ctl_cols)
+
+    man_tib <- man_tib %>% dplyr::mutate(
+      Probe_Type=stringr::str_sub(IlmnID, 1,2),
+      Strand_CO=case_when(
+        Probe_Type=='cg' ~ 'C',
+        Probe_Type=='rs' ~ 'C',
+        Probe_Type=='ch' ~ 'O',
+        TRUE ~ NA_character_
+      )
+    )
+    man_tib <- man_tib %>% dplyr::mutate(AddressA_ID=stringr::str_remove(AddressA_ID, '^0+') %>% as.double(),
+                                         AddressB_ID=stringr::str_remove(AddressB_ID, '^0+') %>% as.double() )
+    
+    if (normalize) {
+      # Check for field that are unique to known manifests::
+      if (grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {
+        man_tib <- man_tib %>% 
+          dplyr::rename(Top_Sequence=TopGenomicSeq,
+                        Genome_Build=GenomeBuild,Chromosome=Chr, Coordinate=MapInfo) %>%
+          dplyr::mutate(IlmnStrand=stringr::str_sub(IlmnStrand, 1,1),
+                        SourceStrand=stringr::str_sub(SourceStrand, 1,1)) %>%
+          dplyr::mutate(Infinium_Design='I') %>% 
+          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
+                        'Top_Sequence', 'SourceSeq', 
+                        'Probe_Type','Infinium_Design','Next_Base', 'Color_Channel',
+                        'Genome_Build', 'Chromosome', 'Coordinate', 
+                        'Strand_CO', 'IlmnStrand', 'SourceStrand')
+        
+      } else if (grep("Forward_Sequence", names(man_tib)) %>% length() == 1) {
+        man_tib <- man_tib %>% 
+          dplyr::rename(Strand_FR=Strand,Infinium_Design=Infinium_Design_Type,
+                        Chromosome=CHR, Coordinate=MAPINFO, 
+                        Strand_FR=Strand) %>%
+          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
+                        'Forward_Sequence', 'SourceSeq', 
+                        'Probe_Type','Infinium_Design','Next_Base', 'Color_Channel',
+                        'Genome_Build', 'Chromosome', 'Coordinate', 
+                        'Strand_FR', 'Strand_CO')
+        
+      } else {
+        cat(glue::glue("[{funcTag}]:{tabsStr} ERROR; Unknown Genome Studio Manifest Type!!!{RET}{RET}"))
+        return(NULL)
+      }
+    }
+    
+    if (addSource) {
+      man_tib <- man_tib %>% dplyr::mutate(Man_Source=!!src)
+      ctl_tib <- ctl_tib %>% dplyr::mutate(Man_Source=!!src)
+    }
+    
+    if (is.null(retType)) {
+      ret_dat$man <- man_tib
+      ret_dat$ctl <- ctl_tib
+    } else if (!is.null(retType) && retType=='man') {
+      ret_dat <- man_tib
+    } else if (!is.null(retType) && retType=='ctl') {
+      ret_dat <- ctl_tib
+    } else {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Warning: Unsupported retType request={retType}. Defaulting to list.{RET}"))
+      ret_dat$man <- man_tib
+      ret_dat$ctl <- ctl_tib
+    }
+    })
+  if (verbose>vt+4) print(tib)
+
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  
+  ret_dat
+}
+
+# TBD:: Should be renamed loadManifestSource -> loadManifestSesame
 loadManifestSource = function(file,addSource=FALSE, verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'loadManifestSource'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -282,10 +387,10 @@ loadManifestSource = function(file,addSource=FALSE, verbose=0,vt=4,tc=1,tt=NULL)
     tib <- NULL
     if ( stringr::str_ends(file, '.tsv') || stringr::str_ends(file, '.tsv.gz') ) {
       tib <- suppressMessages(suppressWarnings(readr::read_tsv(file)))
-      source <- base::basename(file) %>% stringr::str_remove('\\.gs$') %>% stringr::str_remove('\\.tsv$')
+      source <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.tsv$')
     } else if ( stringr::str_ends(file, '.csv') || stringr::str_ends(file, '.csv.gz') ) {
       tib <- suppressMessages(suppressWarnings(readr::read_csv(file)))
-      source <- base::basename(file) %>% stringr::str_remove('\\.gs$') %>% stringr::str_remove('\\.csv$')
+      source <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.csv$')
     } else if ( stringr::str_ends(file, '.rds')) {
       tib <- suppressMessages(suppressWarnings(readr::read_rds(file)))
       source <- base::basename(file) %>% stringr::str_remove('\\.rds$')
@@ -300,8 +405,10 @@ loadManifestSource = function(file,addSource=FALSE, verbose=0,vt=4,tc=1,tt=NULL)
     }
   })
   if (verbose>vt+4) print(tib)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}"))
+
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
   
   tib
 }
@@ -361,8 +468,10 @@ loadAddressSource = function(file, man, fresh=FALSE, save=TRUE, split=FALSE,
     }
   })
   if (verbose>=vt+4) print(tibs)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}"))
+  
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
   
   tibs
 }

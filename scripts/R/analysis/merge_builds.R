@@ -41,12 +41,12 @@ par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'analysis'
 par$prgmTag <- 'merge_builds'
 
-# Predefined human sample sheet name::
-par$humanSampleSheetName <- 'humanSampleSheet.csv'
-
 # Illumina based directories::
 par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
 par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
+
+# Predefined human sample sheet name::
+par$humanSampleSheetName <- 'humanSampleSheet.csv'
 
 # File Based Parameters::
 opt$inputsCsv <- NULL
@@ -124,7 +124,6 @@ if (args.dat[1]=='RStudio') {
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
-  
   
   opt$inputsCsv <- file.path(par$datDir, 'params', paste0(par$prgmTag,'.default.csv') )
   

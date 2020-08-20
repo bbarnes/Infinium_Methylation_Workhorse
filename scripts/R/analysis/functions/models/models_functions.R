@@ -27,6 +27,168 @@ COM <- ","
 TAB <- "\t"
 RET <- "\n"
 
+# TBD:: Re-order modules
+#
+#  Train (Build) Models
+#  Predict Models
+#  IO
+#
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Prediction Workflows::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+predictModelWrapper = function(cur_mod,
+                               betaKey,pvalKey,pvalMin, ann=NULL,
+                               dir, runName, modKey, modLab=NULL,
+                               tests,cgn=NULL,classes,
+                               classVar, classIdx, pvalName=NULL, pvalPerc=NULL,
+                               clean=FALSE, 
+                               sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",
+                               type.measure="class",
+                               verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'predictModelWrapper'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; classes={classes}.{RET}"))
+  
+  file_tib <- NULL
+  cur_sam_tib <- NULL
+  cur_sum_tib <- NULL
+  stime <- system.time({
+
+    modStr <- modKey
+    if (!is.null(modLab) && length(modLab)!=0) modStr <- paste(modStr,modLab, sep='-')
+
+    betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
+    pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
+    dirName <- paste(betaStr,pvalStr,modStr, sep='_')
+    outName <- paste(classVar, runName, dirName, sep='_')
+    
+    # Defined Output files::
+    cur_sam_csv     <- file.path(dir, paste(outName,'method_performance_samples.csv.gz', sep='.') )
+    cur_sum_csv     <- file.path(dir, paste(outName,'method_performance_summary.csv.gz', sep='.') )
+    class_ss_csv    <- file.path(dir, paste(outName,'ClasSampleSheet.sorted.csv.gz', sep='.') )
+    beta_masked_rds <- file.path(dir, paste(outName,'beta_masked_mat.rds', sep='.') )
+    index_masks_csv <- file.path(dir, paste(outName,'beta_masked_idx.csv.gz', sep='.') )
+    
+    file_tib <- getCallsMatrixFiles(
+      betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=tests, classes=classes, cgn=cgn,
+      class_var=classVar, class_idx=classIdx, pval_name=pvalName, pval_perc=pvalPerc,
+      clean=clean, beta_rds=beta_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
+      sam_suffix=sam_suffix, dat_suffix=dat_suffix, sentrix_name=sentrix_name,
+      verbose=verbose, vt=vt,tc=tc,tt=tt)
+    # print(file_tib)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                   Build Raw and Imputed Sorted Matricies::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    # Load Saved Files::
+    sampleSheet_tib <- loadFromFileTib(tib=file_tib, type="SampleSheet")
+    index_masks_tib <- loadFromFileTib(tib=file_tib, type="Mask")
+    beta_impute_mat <- loadFromFileTib(tib=file_tib, type="Beta")
+    labs_idx_vec <- sampleSheet_tib %>% dplyr::pull(!!class_idx) %>% as.vector()
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]: sampleSheet_tib={RET}"))
+      sampleSheet_tib %>% print()
+      cat(glue::glue("[{funcTag}]: index_masks_tib={RET}"))
+      index_masks_tib %>% print()
+      cat(glue::glue("[{funcTag}]: labs_idx_vec={RET}"))
+      labs_idx_vec %>% print()
+      
+      cat(glue::glue("[{funcTag}]: beta_impute_mat(n=1)={RET}"))
+      beta_impute_mat %>% head(n=1) %>% print()
+      cat(glue::glue("[{funcTag}]: beta_impute_mat(dim)={RET}"))
+      beta_impute_mat %>% dim() %>% print()
+    }
+    
+    # Rebuild NA beta matrix::
+    pval_na_idx_vec <- index_masks_tib %>% dplyr::arrange(idx) %>% dplyr::distinct(idx) %>% dplyr::pull(idx) %>% as.vector()
+    beta_masked_mat <- beta_impute_mat
+    if (!is.null(pval_na_idx_vec) && length(pval_na_idx_vec)!=0)
+      beta_masked_mat[ pval_na_idx_vec ] <- NA
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]: beta_masked_mat(n=1)={RET}"))
+      beta_masked_mat %>% head(n=1) %>% print()
+      cat(glue::glue("[{funcTag}]: beta_masked_mat(dim)={RET}"))
+      beta_masked_mat %>% dim() %>% print()
+    }
+    # return(beta_impute_mat)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                            Make Predictions::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (modKey=='glmnet') {
+      cat(glue::glue("[{funcTag}]: Predicting={modKey}; name={modKey}, ...{RET}"))
+      print(cur_mod)
+      beta_impute_mat %>% head(n=1) %>% print()
+      print(labs_idx_vec)
+      
+      # cur_pred = predGlmnet(mod=cur_mod, data=t(beta_masked_mat), labs=labs_idx_vec, 
+      # cur_pred = predGlmnet(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
+      cur_pred = predGlmnet(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
+                            name=modKey, lambda="lambda.1se", # type=type.measure,
+                            verbose=verbose,vt=vt+1,tt=tt) %>% dplyr::mutate(Group=modStr)
+      
+    } else if (modKey=='rforest') {
+      
+      cur_pred = predRandomForest(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
+                                  name=modKey,
+                                  verbose=verbose,vt=vt+1,tt=tt) %>% dplyr::mutate(Group=modStr)
+      
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported modName={modName}!!!{RET}{RET}"))
+    }
+    cur_sam_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
+                               verbose=verbose,vt=vt+1,tt=tt)
+    cat(glue::glue("[{funcTag}]: cur_sam_tib={RET}"))
+    print(cur_sam_tib)
+    
+    cur_sum_tib <- callToSumTib(call=cur_sam_tib, name_lab=modStr, true_lab="True_Class",call_lab="Call",
+                                verbose=verbose,vt=vt+1,tt=tt)
+    cat(glue::glue("[{funcTag}]: cur_sum_tib={RET}"))
+    print(cur_sum_tib)
+    
+    # Add feature to output::
+    fet_cnt <- 0
+    if (!is.null(cgn)) fet_cnt <- base::nrow(cgn)
+    if (is.null(modLab) || length(modLab)==0) modLab <- NA
+
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]: ann_tib={RET}"))
+    ann_tib <- tibble::tibble( betaTest=betaKey, pvalTest=pvalKey, pvalMinTest=pvalMin, model=modKey, lambda=modLab, fCount=fet_cnt )
+    if (!is.null(ann)) ann_tib <- dplyr::bind_cols(ann, ann_tib)
+    if (verbose>=vt+4) print(ann_tib)
+    
+    cur_sam_tib <- cur_sam_tib %>% dplyr::bind_cols(ann_tib)
+    if (verbose>=vt+4) print(cur_sam_tib)
+    cur_sum_tib <- cur_sum_tib %>% dplyr::bind_cols(ann_tib)
+    if (verbose>=vt) print(cur_sum_tib)
+    
+    # Write current results to local directory::
+    readr::write_csv(cur_sam_tib, cur_sam_csv)
+    readr::write_csv(cur_sum_tib, cur_sum_csv)
+    
+    # Add additional variables::
+    # cur_sam_tib <- cur_sam_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
+    # cur_sum_tib <- cur_sum_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
+    
+    # Add results to previous summaries::
+    # all_sam_tib <- all_sam_tib %>% dplyr::bind_rows(cur_sam_tib)
+    # all_sum_tib <- all_sum_tib %>% dplyr::bind_rows(cur_sum_tib)
+    
+    cat(glue::glue("[{funcTag}]: Done. triplet=({betaKey},{pvalKey},{pvalMin}).{RET}{RET}"))
+    
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  
+  cur_sam_tib
+}
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Masking and Imputation Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -84,6 +246,116 @@ impute_matrix_mean <- function(mat, verbose=0,vt=3,tc=1,tt=NULL) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Machine Learning IO::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+checkModelFiles = function(mod_rds, pattern=".model.rds", fns_pattern='.model-files.csv.gz', cvs_pattern=".crossValidation-files.csv.gz",
+                      verbose=0,vt=2,tc=1,tt=NULL) {
+  funcTag <- 'checkModelFiles'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Checking mod_rds={mod_rds}...{RET}"))
+
+  file_tib <- NULL
+  
+  # Gather all files::
+  if (!file.exists(mod_rds)) {
+    cat(glue::glue("[{funcTag}]: ERROR: Failed to find mod_rds={mod_rds}!{RET}") )
+    return(file_tib)
+  }
+  
+  dir_path <- base::dirname(mod_rds)
+  fns_csv  <- paste0(stringr::str_remove(mod_rds,pattern), fns_pattern)
+  cvs_csv  <- paste0(stringr::str_remove(mod_rds,pattern), cvs_pattern)
+  
+  if (!file.exists(fns_csv)) {
+    cat(glue::glue("[{funcTag}]: ERROR: Failed to find fns_csv={fns_csv}!{RET}") )
+    return(file_tib)
+  }
+  if (!file.exists(cvs_csv)) {
+    cat(glue::glue("[{funcTag}]: ERROR: Failed to find cvs_csv={cvs_csv}!{RET}") )
+    return(file_tib)
+  }
+  
+  sam_csv <- NULL
+  par_csv <- NULL
+  fet_csv <- NULL
+  md2_rds <- NULL
+  
+  fns_tib <- suppressMessages(suppressWarnings( readr::read_csv(fns_csv) ))
+  sam_csv <- file.path(dir_path, fns_tib %>% dplyr::filter(Type=="SampleSheet") %>% head(n=1) %>% dplyr::pull(File_Name))
+  par_csv <- file.path(dir_path, fns_tib %>% dplyr::filter(Type=="Params") %>% head(n=1) %>% dplyr::pull(File_Name))
+  fet_csv <- file.path(dir_path, fns_tib %>% dplyr::filter(Type=="Features") %>% head(n=1) %>% dplyr::pull(File_Name))
+  md2_rds <- file.path(dir_path, fns_tib %>% dplyr::filter(Type=="Model") %>% head(n=1) %>% dplyr::pull(File_Name))
+  
+  # Ensure all data exists...
+  #
+  if (mod_rds != md2_rds) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Models don't match: {mod_rds != {md2_rds}}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(fns_tib) || is.null(sam_csv) || is.null(par_csv) || is.null(fet_csv) || is.null(mod_rds) ) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find mod_rds file; dir_path={dir_path}; fns_tib={fns_csv}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(sam_csv) || length(sam_csv)==0 || !file.exists(sam_csv)) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find sam_csv file; dir_path={dir_path}; mod_rds={sam_csv}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(par_csv) || length(par_csv)==0 || !file.exists(par_csv)) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find par_csv file; dir_path={dir_path}; par_csv={par_csv}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(fet_csv) || length(fet_csv)==0 || !file.exists(fet_csv)) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find fet_csv file; dir_path={dir_path}; fet_csv={fet_csv}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(mod_rds) || length(mod_rds)==0 || !file.exists(mod_rds)) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find mod_rds file; dir_path={dir_path}; mod_rds={mod_rds}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(md2_rds) || length(md2_rds)==0 || !file.exists(md2_rds)) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find md2_rds file; dir_path={dir_path}; mod_rds={md2_rds}.{RET}") )
+    return(file_tib)
+  }
+  
+  cvs_tib <- suppressMessages(suppressWarnings( readr::read_csv(cvs_csv) ))
+  cal_csv <- file.path(dir_path, cvs_tib %>% dplyr::filter(Type=="Calls") %>% head(n=1) %>% dplyr::pull(File_Name))
+  sum_csv <- file.path(dir_path, cvs_tib %>% dplyr::filter(Type=="Summary") %>% head(n=1) %>% dplyr::pull(File_Name))
+  mss_csv <- file.path(dir_path, cvs_tib %>% dplyr::filter(Type=="MethodSheet") %>% head(n=1) %>% dplyr::pull(File_Name))
+  
+  # Ensure all data exists...
+  #
+  if (is.null(cvs_tib) || is.null(cal_csv) || is.null(sum_csv) || is.null(mss_csv) ) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find mod_rds file; dir_path={dir_path}; fns_tib={fns_csv}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(cal_csv) || length(cal_csv)==0 || !file.exists(cal_csv)) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find cal_csv file; dir_path={dir_path}; cal_csv={cal_csv}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(sum_csv) || length(sum_csv)==0 || !file.exists(sum_csv)) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find sum_csv file; dir_path={dir_path}; sum_csv={sum_csv}.{RET}") )
+    return(file_tib)
+  }
+  if (is.null(mss_csv) || length(mss_csv)==0 || !file.exists(mss_csv)) {
+    cat(glue::glue("[{funcTag}]:{TAB} ERROR: Unable to find mss_csv file; dir_path={dir_path}; mss_csv={mss_csv}.{RET}") )
+    return(file_tib)
+  }
+  
+  file_tib <- tibble::tibble(Dir=dir_path, 
+                             Model_Files=fns_csv,
+                             Model_SampleSheet=sam_csv,
+                             Model_Params=par_csv,
+                             Model_Features=fet_csv,
+                             Model_RDS=mod_rds,
+                             
+                             Cross_Files=cvs_csv,
+                             Cross_Calls=cal_csv,
+                             Cross_Summary=sum_csv,
+                             Cross_MethodSheet=mss_csv )
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  
+  file_tib
+}
 
 loadFromFileTib = function(tib, type, dir=NULL,
                            verbose=0,vt=2,tc=1,tt=NULL) {
@@ -803,15 +1075,28 @@ predGlmnet = function(mod, data, labs, name, lambda="lambda.1se", type='class',
                       verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'predGlmnet'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; name={name}, lambda={lambda}, type={type}.{RET}"))
   
   tib <- NULL
   stime <- system.time({
     # Different return values for glmnet: “link”, “response”, “coefficients”, “class”, “nonzero”
     
+    labs_tot_cnt <- labs %>% length()
     labs_idx_cnt <- unique(labs) %>% length()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} labs_idx_cnt={labs_idx_cnt}.{RET}"))
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} labs_tot_cnt={labs_tot_cnt}; labs_idx_cnt={labs_idx_cnt}.{RET}"))
 
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} mod={RET}"))
+    if (verbose>=vt+4) print(mod)
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} dim(data)={RET}"))
+    if (verbose>=vt+4) data %>% dim() %>% print()
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} predict(mod,data)={RET}"))
+    if (verbose>=vt+4) predict(object=mod, newx=data) %>% print()
+
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} predict(mod,data, s={lambda}, type={type})={RET}"))
+    if (verbose>=vt+4) predict(object=mod, newx=data, s=lambda, type=type) %>% print()
+    
+    # plot(cur_mod, xvar = "dev", label = TRUE)
     if (labs_idx_cnt>2) {
       tib <- predict(object=mod, newx=data) %>%
         tibble::as_tibble(rownames='ample') %>%
