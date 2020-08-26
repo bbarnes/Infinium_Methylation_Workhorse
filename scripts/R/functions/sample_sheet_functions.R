@@ -555,26 +555,29 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
         #            Load Beta/Pval And Merge into Previous Matrix::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Load Beta/Pval And Merge into Previous Matrix...{RET}") )
-
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Load Beta/Pval And Merge into Previous Matrix...{RET}") )
+        
         beta_csv <- file.path(base_dir, base::basename(betas_path_tib$Full_Path[1]) )
         pval_csv <- file.path(base_dir, base::basename(pvals_path_tib$Full_Path[1]) )
+        
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} beta_csv={beta_csv}.{RET}") )
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval_csv={pval_csv}.{RET}") )
         beta_mat <- loadCallsMatrix(betaCSV=beta_csv, pvalCSV=pval_csv, minPval=pvalMin, mat=beta_mat, 
                                     cgn=cgn, ss=cur_ss_tib,
-                                    verbose=verbose, vt=vt+90,tc=1, tt=tt)
-        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{TAB} beta_mat=...{RET}") )
+                                    verbose=verbose, vt=vt,tc=1, tt=tt)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} beta_mat=...{RET}") )
         if (verbose>=vt+4) beta_mat %>% head(n=1) %>% print()
         
         labs_tib <- labs_tib %>% dplyr::bind_rows(cur_ss_tib)
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Finished loading; outName={outName}.{RET}") )
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Finished loading; outName={outName}.{RET}") )
         if (verbose>=vt+4) print(labs_tib)
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                      Sort Sample Sheet by class_var::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Sorting Sample Sheet by class_var={class_var}.{RET}") )
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Sorting Sample Sheet by class_var={class_var}.{RET}") )
         sort_ss_tib <- labs_tib %>% dplyr::arrange(!!class_var) %>% 
           dplyr::mutate(!!class_var := as.factor(!!class_var),
                         !!class_idx := as.integer(!!class_var)-1) %>% 
@@ -595,20 +598,20 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
         #                   Build Raw and Imputed Sorted Matricies::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Building Raw and Imputed Sorted Matricies; sentrix_name={sentrix_name}...{RET}") )
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building Raw and Imputed Sorted Matricies; sentrix_name={sentrix_name}...{RET}") )
         if (verbose>=vt+4) beta_mat %>% head(n=1) %>% print()
         
         beta_masked_mat <- beta_mat[ , dplyr::pull(sort_ss_tib, !!sentrix_name) ]
         # beta_impute_mat <- impute_matrix_mean(beta_masked_mat, verbose=verbose,vt=vt,tc=tc,tt=tt)
         # beta_impute_mat <- beta_masked_mat %>% as.data.frame() %>% makeX_glmnet_imputeNA(na.impute = TRUE)
-        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{TAB} Masked Matrix={RET}") )
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Masked Matrix={RET}") )
         if (verbose>=vt+4) beta_masked_mat %>% head(n=1) %>% print()
         
         #
         # Imputation needs to be done on a class basis::
         #
         sort_ss_names <- sort_ss_tib %>% dplyr::distinct(!!class_var) %>% dplyr::pull(!!class_var) %>% as.vector()
-        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{TAB} sort_ss_names={RET}") )
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sort_ss_names={RET}") )
         if (verbose>=vt+4) print(sort_ss_names)
         
         beta_impute_mat <- NULL
