@@ -272,7 +272,7 @@ if (is.null(opt$outDir) || is.null(opt$mergeDir) || is.null(opt$modelDir) ||
 
   cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
   if (is.null(opt$outDir))     cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
-  if (is.null(opt$mergeDir))   cat(glue::glue("[Usage]: buildDirs is NULL!!!{RET}"))
+  if (is.null(opt$mergeDir))   cat(glue::glue("[Usage]: mergeDir is NULL!!!{RET}"))
   if (is.null(opt$modelDir))   cat(glue::glue("[Usage]: modelDir is NULL!!!{RET}"))
   if (is.null(opt$runName))    cat(glue::glue("[Usage]: runName is NULL!!!{RET}"))
   
@@ -361,7 +361,7 @@ if (file_test("-d", opt$modelDir)) {
   full_list <- list.files(opt$modelDir, pattern=rds_pattern, full.names=TRUE, recursive=TRUE)
   full_cnts <- length(full_list)
   
-  if (full_cnts==0) stop(glue::glue("[{par$prgmTag}]: ERROR: Failed to find any models: full_cnts={full_cnts}.{RET}") )
+  if (full_cnts==0) stop(glue::glue("[{par$prgmTag}]: ERROR: Failed to find any models: full_cnts={full_cnts}; modelDir={opt$modelDir}.{RET}") )
   cat(glue::glue("[{par$prgmTag}]: full_cnts={full_cnts}.{RET}") )
   
   for (mIdx in c(1:full_cnts)) {
