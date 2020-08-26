@@ -37,6 +37,7 @@ opt <- NULL
 par <- NULL
 
 # Program Parameters::
+par$date    <- Sys.Date() %>% as.character()
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'analysis'
 par$prgmTag <- 'predict_models'
@@ -137,14 +138,23 @@ if (args.dat[1]=='RStudio') {
     runNameB  <- "COVIC-Set7-06082020"
     runNameB  <- "COVIC-Set5-10062020"
     
+    sesGroup  <- 'ind-beta_i-poob-1'
+    dmlGroup  <- 'dml-1000-Ivana-145'
+    seedGroup <- 'seed-13'
+    seedGroup <- 'seed-42'
+
     opt$runName   <-  runNameA
     
     opt$modelDir <- paste(
-      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,'ind-beta_i-poob-1'),
-      # file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,'ind-beta_i-poob-1','dml-1000-Ivana-145'),
-      # file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName),
+      # file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,'ind-beta_i-poob-1'),
+      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,sesGroup,dmlGroup,seedGroup),
       sep=',')
     # opt$modelDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/build_models/EPIC/C0/Sample_Class/COVIC-Set1-15052020/ind-beta_i-poob-1/dml-1000-Ivana-145/seed-42/alpha-1/rforest-1-lambda-min.model.rds'
+    
+    alphaGroup <- 'alpha-1'
+    modelGroup <- 'rforest-1-lambda-min'
+    modelFile <- paste(modelGroup,'model.rds', sep='.')
+    # opt$modelDir <- file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,sesGroup,dmlGroup,seedGroup,alphaGroup,modelFile)
     
     opt$mergeDir  <- paste(
       file.path(par$topDir, 'merge_builds', platform, version, opt$classVar, runNameB),
@@ -175,7 +185,7 @@ if (args.dat[1]=='RStudio') {
                 help="List of Merged Swifthoof Build Directory(s), commas seperated [default= %default]", metavar="character"),
     
     # Run Parameters::
-    make_option(c("--runName"), type="character", default=opt$runName, 
+    make_option(c("-r","--runName"), type="character", default=opt$runName, 
                 help="Run Name [default= %default]", metavar="character"),
     make_option(c("--build_dir_str"), type="character", default=opt$build_dir_str, 
                 help="Assumed build_model sub-directory name. Should not be changed. [default= %default]", metavar="character"),
@@ -305,6 +315,11 @@ if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Sou
 for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
 
+par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Preprocessing:: System Params
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -329,7 +344,7 @@ class_org <- rlang::sym(paste(opt$classVar,'Origin', sep='_'))
 class_var <- rlang::sym(opt$classVar)
 class_idx <- rlang::sym("Class_Idx")
 
-opt$outDir <- file.path(opt$outDir, par$prgmTag)
+opt$outDir <- file.path(opt$outDir, par$prgmTag, opt$runName, par$date)
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 
@@ -359,7 +374,7 @@ if (file_test("-d", opt$modelDir)) {
     }
     file_tibs <- file_tibs %>% dplyr::bind_rows(file_tib)
     
-    # if (opt$single) break
+    if (opt$single) break
   }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -449,6 +464,7 @@ if (file_test("-d", opt$modelDir)) {
 #                     Main:: Process Each Model & Params::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+rIdx <- 1
 mods_cnts <- base::nrow(file_tibs) %>% as.integer()
 for (rIdx in c(1:mods_cnts)) {
   file_tib <- file_tibs[rIdx,]
@@ -526,6 +542,7 @@ for (rIdx in c(1:mods_cnts)) {
   if (!dir.exists(cur_out_dir)) dir.create(cur_out_dir, recursive=TRUE)
   cat(glue::glue("[{par$prgmTag}]: cur_out_dir={cur_out_dir}.{RET}") )
 
+  full_sum_tib <- NULL
   for (betaKeyTests in lociBetaKey_vec) {
     for (pvalKeyTests in lociPvalKey_vec) {
       for (pvalMinTests in lociPvalMin_vec) {
@@ -534,14 +551,15 @@ for (rIdx in c(1:mods_cnts)) {
         rdat = tryCatch({
           try_str <- 'Pass'
           # opt$verbose <- 30
-          rdat <- predictModelWrapper(cur_mod=cur_mod,
-                                      betaKey=betaKeyTests, pvalKey=pvalKeyTests, pvalMin=pvalMinTests, ann=add_ano_tib,
-                                      dir=cur_out_dir, runName=opt$runName, modKey=modKey, modLab=modLab,
-                                      tests=mergeDirs_vec, cgn=fet_tib, classes=opt$trainClass,
-                                      classVar=opt$classVar, classIdx=class_idx, pvalName=NULL, pvalPerc=NULL,
-                                      clean=opt$clean,
-                                      sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",
-                                      verbose=opt$verbose, vt=3,tc=1,tt=pTracker)
+          # rdat <- predictModelWrapper(cur_mod=cur_mod,
+          predictModelWrapper(cur_mod=cur_mod,
+                              betaKey=betaKeyTests, pvalKey=pvalKeyTests, pvalMin=pvalMinTests, ann=add_ano_tib,
+                              dir=cur_out_dir, runName=opt$runName, modKey=modKey, modLab=modLab,
+                              tests=mergeDirs_vec, cgn=fet_tib, classes=opt$trainClass,
+                              classVar=opt$classVar, classIdx=class_idx, pvalName=NULL, pvalPerc=NULL,
+                              clean=opt$clean,
+                              sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",
+                              verbose=opt$verbose, vt=3,tc=1,tt=pTracker)
         }, warning = function(w) {
           try_str <- paste('warning',par$prgmTag, sep='-')
           rdat <- NA
@@ -552,8 +570,14 @@ for (rIdx in c(1:mods_cnts)) {
           try_str <- paste('cleanup',par$prgmTag, sep='-')
           rdat <- NA
         })
-        cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$prgmTag}: try_str={try_str}. Done.{RET}{RET}"))
-
+        
+        if (!is.null(rdat)) {
+          full_sum_tib <- dplyr::bind_rows(full_sum_tib, rdat)
+          cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$prgmTag}: Succesfully tested model: try_str={try_str}.{RET}"))
+        } else {
+          cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$prgmTag}: ERROR: Model Failed; try_str={try_str}.{RET}"))
+        }
+        
         if (opt$single) break
       }
       if (opt$single) break

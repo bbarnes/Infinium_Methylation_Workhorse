@@ -320,10 +320,35 @@ cat(glue::glue("[{par$prgmTag}]: Done Building Summary!{RET}{RET}"))
 if (FALSE) {
   cat("\n\n\n\n")
   
+  cross_cur_csv <- '/Users/bbarnes/Documents/Projects/methylation/fromCluster/COVIC_scratch/COVIC-Set5-10062020/2020-08-26/cross_validation.dat.csv.gz'
+  cross_cur_csv <- '/Users/bbarnes/Documents/Projects/methylation/fromCluster/COVIC_scratch/COVIC-Set-17/2020-08-26/cross_validation.dat.csv.gz'
+  cross_cur_csv <- '/Users/bbarnes/Documents/Projects/methylation/fromCluster/COVIC_scratch/COVIC-Set1-15052020/2020-08-26/cross_validation.dat.csv.gz'
+  cross_dat_tib <- readr::read_csv(cross_cur_csv)
+  
+  cross_sum_tib <- cross_dat_tib %>% 
+    group_by(Training_Group,Filter_Group,DML_Group, ML_Method,True_Class,Call) %>%
+    dplyr::summarise(Total_Group_Count=n(),
+                     Group_Count_Sum=sum(Group_Count), 
+                     Total_Count_Group=sum(Total_Count),
+                     Percent_SD=sd(Group_Perc),
+                     Percent_Avg=mean(Group_Perc),
+                     Percent_Med=median(Group_Perc),
+                     Percent_Min=min(Group_Perc),
+                     Percent_Max=max(Group_Perc)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(True_Class_Str=dplyr::case_when(
+      !is.na(True_Class) ~ trainClass_vec[True_Class+1],
+      TRUE ~ NA_character_)) %>%
+    tidyr::unite(True_Class_Str, True_Class_Str,Call, sep='_') %>%
+    dplyr::select(-True_Class)
+    
+  
+  print(cross_sum_tib)
+  
+  
   all_sum_tib <- cross_sum_tib %>% 
     dplyr::ungroup() %>% group_by(Training_Group,Filter_Group,DML_Group, ML_Method) %>%
-    tidyr::unite(True_Class_Str, True_Class_Str,Call, sep='_') %>%
-    dplyr::select(-True_Class, -Group_Count_Sum, -Total_Count_Group) %>%
+    dplyr::select(-Group_Count_Sum, -Total_Count_Group) %>%
     tidyr::spread(True_Class_Str,Percent_Avg) %>% 
     dplyr::arrange(-nSARSCov2_TP,-pSARSCov2_TP)
   print(all_sum_tib)

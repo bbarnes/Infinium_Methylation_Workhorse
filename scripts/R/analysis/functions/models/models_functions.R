@@ -121,6 +121,8 @@ predictModelWrapper = function(cur_mod,
     #                            Make Predictions::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
+    try_str <- ''
+    cur_pred <- NULL
     if (modKey=='glmnet') {
       cat(glue::glue("[{funcTag}]: Predicting={modKey}; name={modKey}, ...{RET}"))
       print(cur_mod)
@@ -129,47 +131,73 @@ predictModelWrapper = function(cur_mod,
       
       # cur_pred = predGlmnet(mod=cur_mod, data=t(beta_masked_mat), labs=labs_idx_vec, 
       # cur_pred = predGlmnet(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
-      cur_pred = predGlmnet(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
-                            name=modKey, lambda="lambda.1se", # type=type.measure,
-                            verbose=verbose,vt=vt+1,tt=tt) %>% dplyr::mutate(Group=modStr)
+      cur_pred = tryCatch({
+        predGlmnet(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
+                   name=modKey, lambda="lambda.1se", # type=type.measure,
+                   verbose=verbose,vt=vt+1,tt=tt) %>% dplyr::mutate(Group=modStr)
+      }, warning = function(w) {
+        try_str <- paste('warning',par$prgmTag, sep='-')
+        cur_pred <- NULL
+      }, error = function(e) {
+        try_str <- paste('error',par$prgmTag, sep='-')
+        cur_pred <- NULL
+      }, finally = {
+        try_str <- paste('cleanup',par$prgmTag, sep='-')
+        cur_pred <- NULL
+      })
       
     } else if (modKey=='rforest') {
-      
-      cur_pred = predRandomForest(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, 
-                                  name=modKey,
-                                  verbose=verbose,vt=vt+1,tt=tt) %>% dplyr::mutate(Group=modStr)
-      
+      cur_pred = tryCatch({
+        predRandomForest(mod=cur_mod, data=t(beta_impute_mat), labs=labs_idx_vec, name=modKey,
+                         verbose=verbose,vt=vt+1,tt=tt) %>% dplyr::mutate(Group=modStr)
+      }, warning = function(w) {
+        try_str <- paste('warning',par$prgmTag, sep='-')
+        cur_pred <- NULL
+      }, error = function(e) {
+        try_str <- paste('error',par$prgmTag, sep='-')
+        cur_pred <- NULL
+      }, finally = {
+        try_str <- paste('cleanup',par$prgmTag, sep='-')
+        cur_pred <- NULL
+      })
+
     } else {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported modName={modName}!!!{RET}{RET}"))
     }
-    cur_sam_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
-                               verbose=verbose,vt=vt+1,tt=tt)
-    cat(glue::glue("[{funcTag}]: cur_sam_tib={RET}"))
-    print(cur_sam_tib)
     
-    cur_sum_tib <- callToSumTib(call=cur_sam_tib, name_lab=modStr, true_lab="True_Class",call_lab="Call",
-                                verbose=verbose,vt=vt+1,tt=tt)
-    cat(glue::glue("[{funcTag}]: cur_sum_tib={RET}"))
-    print(cur_sum_tib)
-    
-    # Add feature to output::
-    fet_cnt <- 0
-    if (!is.null(cgn)) fet_cnt <- base::nrow(cgn)
-    if (is.null(modLab) || length(modLab)==0) modLab <- NA
-
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]: ann_tib={RET}"))
-    ann_tib <- tibble::tibble( betaTest=betaKey, pvalTest=pvalKey, pvalMinTest=pvalMin, model=modKey, lambda=modLab, fCount=fet_cnt )
-    if (!is.null(ann)) ann_tib <- dplyr::bind_cols(ann, ann_tib)
-    if (verbose>=vt+4) print(ann_tib)
-    
-    cur_sam_tib <- cur_sam_tib %>% dplyr::bind_cols(ann_tib)
-    if (verbose>=vt+4) print(cur_sam_tib)
-    cur_sum_tib <- cur_sum_tib %>% dplyr::bind_cols(ann_tib)
-    if (verbose>=vt) print(cur_sum_tib)
-    
-    # Write current results to local directory::
-    readr::write_csv(cur_sam_tib, cur_sam_csv)
-    readr::write_csv(cur_sum_tib, cur_sum_csv)
+    if (!is.null(cur_pred)) {
+      cur_sam_tib <- predToCalls(pred=cur_pred, labs=labs_idx_vec, pred_lab="Pred_Class",
+                                 verbose=verbose,vt=vt+1,tt=tt)
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]: cur_sam_tib={RET}"))
+      if (verbose>=vt+4) print(cur_sam_tib)
+      
+      cur_sum_tib <- callToSumTib(call=cur_sam_tib, name_lab=modStr, true_lab="True_Class",call_lab="Call",
+                                  verbose=verbose,vt=vt+1,tt=tt)
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]: cur_sum_tib={RET}"))
+      if (verbose>=vt+4) print(cur_sum_tib)
+      
+      # Add feature to output::
+      fet_cnt <- 0
+      if (!is.null(cgn)) fet_cnt <- base::nrow(cgn)
+      if (is.null(modLab) || length(modLab)==0) modLab <- NA
+      
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]: ann_tib={RET}"))
+      ann_tib <- tibble::tibble( betaTest=betaKey, pvalTest=pvalKey, pvalMinTest=pvalMin, model=modKey, lambda=modLab, fCount=fet_cnt )
+      if (!is.null(ann)) ann_tib <- dplyr::bind_cols(ann, ann_tib)
+      if (verbose>=vt+4) print(ann_tib)
+      
+      cur_sam_tib <- cur_sam_tib %>% dplyr::bind_cols(ann_tib)
+      if (verbose>=vt+4) print(cur_sam_tib)
+      cur_sum_tib <- cur_sum_tib %>% dplyr::bind_cols(ann_tib)
+      if (verbose>=vt+4) print(cur_sum_tib)
+      
+      # Write current results to local directory::
+      readr::write_csv(cur_sam_tib, cur_sam_csv)
+      readr::write_csv(cur_sum_tib, cur_sum_csv)
+    } else {
+      cat(glue::glue("{RET}[{funcTag}]: ERROR: Model Failed; try_str='{try_str}'.{RET}{RET}"))
+      return(NULL)
+    }
     
     # Add additional variables::
     # cur_sam_tib <- cur_sam_tib %>% dplyr::mutate(TestBeta=betaKey, TestPval=pvalKey, TestPvalMin=pvalMin)
@@ -186,7 +214,8 @@ predictModelWrapper = function(cur_mod,
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
   
-  cur_sam_tib
+  # cur_sam_tib
+  cur_sum_tib
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

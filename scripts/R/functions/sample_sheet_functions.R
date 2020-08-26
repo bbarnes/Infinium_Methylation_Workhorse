@@ -422,7 +422,8 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, s
 getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=NULL,
                                class_var, class_idx, pval_name, pval_perc,
                                clean=FALSE, beta_rds, ss_csv, mask_csv,
-                               sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz",sentrix_name="Sentrix_Name",
+                               sam_suffix="_AutoSampleSheet.csv.gz$", 
+                               dat_suffix="_MergedDataFiles.tib.csv.gz",sentrix_name="Sentrix_Name",
                                verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getCallsMatrixFiles'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
