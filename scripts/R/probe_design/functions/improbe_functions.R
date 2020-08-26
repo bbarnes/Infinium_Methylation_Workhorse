@@ -183,80 +183,6 @@ writeBedFas = function(tib, dir, name, verbose=0,vt=5,tc=1,tt=NULL) {
   bed_tib
 }
 
-prbs2order = function(tib, verbose=0,vt=5,tc=1,tt=NULL) {
-  funcTag <- 'prbs2order'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; pr={pr}, plotName={plotName}, outDir={outDir}.{RET}"))
-  
-  # Filter::
-  #  - Flag Infinium I where PRB1_U != PRB1_M
-  #  - Flag Infinium II probes with same color degenerate bases (e.g. w={a,t}, etc.)
-  #  - Flag user selected probes
-  #
-  
-  # Infinium I probes::
-  inf1_tib <- tib %>% dplyr::mutate(Assay_Design_Id=paste(Seq_ID_Uniq,'I', sep='_'),
-                        AlleleA_Probe_Id=paste(Assay_Design_Id,'A',sep='_'),
-                        AlleleA_Probe_Sequence=PRB1_U, 
-                        AlleleB_Probe_Id=paste(Assay_Design_Id,'B',sep='_'),
-                        AlleleB_Probe_Sequence=PRB1_M,
-                        Normalization_Bin=case_when(is.na(AlleleB_Probe_Sequence) | AlleleB_Probe_Sequence=='' ~ 'C',
-                                                    NXB_M=='A' | NXB_M=='T' ~ 'A',
-                                                    NXB_M=='a' | NXB_M=='t' ~ 'A',
-                                                    NXB_M=='C' | NXB_M=='G' ~ 'B',
-                                                    NXB_M=='c' | NXB_M=='g' ~ 'B',
-                                                    TRUE ~ NA_character_),
-                        Valid_Design=case_when(
-                          stringr::str_to_upper(PRB1_U)==stringr::str_to_upper(PRB1_M) ~ paste('Fail_MatchInfI',NXB_M, sep='_'),
-                          TRUE ~ 'Pass'),
-                        Valid_Design_Bool=case_when(
-                          stringr::str_to_upper(PRB1_U)==stringr::str_to_upper(PRB1_M) ~ FALSE,
-                          TRUE ~ TRUE)
-  ) %>%
-    dplyr::select(Assay_Design_Id,AlleleA_Probe_Id,AlleleA_Probe_Sequence,
-                  AlleleB_Probe_Id,AlleleB_Probe_Sequence,Normalization_Bin,
-                  Valid_Design, Valid_Design_Bool)
-  
-  # Infinium II probes::
-  inf2_tib <- tib %>% dplyr::mutate(Assay_Design_Id=paste(Seq_ID_Uniq,'II', sep='_'),
-                                    AlleleA_Probe_Id=paste(Assay_Design_Id,'A',sep='_'),
-                                    AlleleA_Probe_Sequence=PRB2_D, 
-                                    AlleleB_Probe_Id=NA,
-                                    AlleleB_Probe_Sequence=NA,
-                                    Normalization_Bin=case_when(is.na(AlleleB_Probe_Sequence) | AlleleB_Probe_Sequence=='' ~ 'C',
-                                                                NXB_M=='A' | NXB_M=='T' ~ 'A',
-                                                                NXB_M=='a' | NXB_M=='t' ~ 'A',
-                                                                NXB_M=='C' | NXB_M=='G' ~ 'B',
-                                                                NXB_M=='c' | NXB_M=='g' ~ 'B',
-                                                                TRUE ~ NA_character_),
-                                    Valid_Design=case_when(
-                                      stringr::str_to_upper(CPN_D)=='R' | stringr::str_to_upper(CPN_D)=='Y' |
-                                      stringr::str_to_upper(CPN_D)=='K' | stringr::str_to_upper(CPN_D)=='M' |
-                                      stringr::str_to_upper(CPN_D)=='B' | stringr::str_to_upper(CPN_D)=='D' |
-                                      stringr::str_to_upper(CPN_D)=='H' | stringr::str_to_upper(CPN_D)=='V' ~ paste('Pass_Channel',CPN_D, sep='_'),
-                                      
-                                      # stringr::str_to_upper(CPN_D)=='S' | stringr::str_to_upper(CPN_D)=='W' ~ 'Fail_Channel',
-                                      # stringr::str_to_upper(PRB1_U)==stringr::str_to_upper(PRB1_M) ~ 'Fail_MatchInfI',
-                                      TRUE ~ paste('Fail_Channel',CPN_D, sep='_')),
-                                    Valid_Design_Bool=case_when(
-                                      stringr::str_to_upper(CPN_D)=='R' | stringr::str_to_upper(CPN_D)=='Y' |
-                                        stringr::str_to_upper(CPN_D)=='K' | stringr::str_to_upper(CPN_D)=='M' |
-                                        stringr::str_to_upper(CPN_D)=='B' | stringr::str_to_upper(CPN_D)=='D' |
-                                        stringr::str_to_upper(CPN_D)=='H' | stringr::str_to_upper(CPN_D)=='V' ~ TRUE,
-                                      TRUE ~ FALSE)
-  ) %>%
-    dplyr::select(Assay_Design_Id,AlleleA_Probe_Id,AlleleA_Probe_Sequence,
-                  AlleleB_Probe_Id,AlleleB_Probe_Sequence,Normalization_Bin,
-                  Valid_Design, Valid_Design_Bool)
-  
-  ret <- NULL
-  ret$inf1 <- inf1_tib
-  ret$inf2 <- inf2_tib
-  
-  ret
-}
-
 printPrbs = function(tib, pr='cg', org=NULL, outDir, plotName, max=NULL,
                      verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'printPrbs'
@@ -574,101 +500,105 @@ tib2prbs = function(tib, idsKey,prbKey,seqKey,
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; idsKey={idsKey}, prbKey={prbKey}, seqKey={seqKey}.{RET}"))
 
-  idsKey <- rlang::sym(idsKey)
-  prbKey <- rlang::sym(prbKey)
-  seqKey <- rlang::sym(seqKey)
-  # src_man_tib <- tib %>% dplyr::select(!!idsKey, !!prbKey, !!seqKey) %>% 
-  src_man_tib <- tib %>% dplyr::select(!!idsKey, !!prbKey, !!seqKey) %>% 
-    dplyr::mutate(Seq_ID:=!!idsKey, PRB_DES:=!!prbKey)
-  # return(src_man_tib)
-  
-  # Ensure we have 122 mer format 60[NN]60
-  tib <- tib %>% 
-    dplyr::mutate(!!seqKey := stringr::str_replace(!!seqKey, '\\[','_') %>% stringr::str_replace('\\]','_')
-  ) %>%
-    tidyr::separate(!!seqKey, into=c("PreSeqN", "MidSeqN", "PosSeqN"), sep='_') %>%
-    dplyr::mutate(PreSeqN=stringr::str_sub(PreSeqN,   -60),
-                  PosSeqN=stringr::str_sub(PosSeqN, 1, 60),
-                  PreSeqN=stringr::str_pad(string=PreSeqN, width=60, side='left', pad='N'),
-                  PosSeqN=stringr::str_pad(string=PosSeqN, width=60, side='right', pad='N'),
-                  DesNucA=stringr::str_sub(MidSeqN, 1,1), DesNucB=stringr::str_sub(MidSeqN, 2,2),
-                  !!seqKey :=paste0(PreSeqN,'[',MidSeqN,']',PosSeqN) )
-
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                      Calcluate Probes on All Strands::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  des_seq_F_C <- src_man_tib %>% 
-    dplyr::mutate(FR=TRUE, CO=TRUE, DesSeqN=shearBrac(!!seqKey))
-  # return(des_seq_F_C)
-
-  des_seq_R_C <- des_seq_F_C %>% dplyr::mutate(
-    FR=!FR,CO=CO, DesSeqN=revCmp(DesSeqN) )
-  # return(des_seq_R_C)
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                        Build All Design Strands::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building bisulfite converted design strands...{RET}"))
-  
-  bsc_tibs <- NULL
-  
-  # BSC-Forward-Converted::
-  bsc_tibs$FC <- des_seq_F_C %>% dplyr::mutate(
-    DesBscU = bscUs(DesSeqN),
-    DesBscM = bscMs(DesSeqN),
-    DesBscD = bscDs(DesSeqN) )
-  
-  # BSC-Foward-Opposite::
-  bsc_tibs$FO <- bsc_tibs$FC %>% dplyr::mutate(
-    FR=FR,CO=!CO, 
-    # DesSeqN=revCmp(DesSeqN),
-    DesBscU=revCmp(DesBscU),
-    DesBscM=revCmp(DesBscM),
-    DesBscD=revCmp(DesBscD) )
-  
-  # BSC-Reverse-Converted::
-  bsc_tibs$RC <- des_seq_R_C %>% dplyr::mutate(
-    DesBscU = bscUs(DesSeqN),
-    DesBscM = bscMs(DesSeqN),
-    DesBscD = bscDs(DesSeqN) )
-  
-  # BSC-Reverse-Opposite::
-  bsc_tibs$RO <- bsc_tibs$RC %>% dplyr::mutate(
-    FR=FR,CO=!CO, 
-    # DesSeqN=revCmp(DesSeqN),
-    DesBscU=revCmp(DesBscU),
-    DesBscM=revCmp(DesBscM),
-    DesBscD=revCmp(DesBscD) )
-  
-  # return(bsc_tibs)
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                    Build all Probes on Each Strand::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building probes for each strand...{RET}"))
-  
-  prb_tibs <- NULL
-  if (FALSE && verbose>=vt+3) {
-    for (srd in names(bsc_tibs)) {
-      prb_tibs <- dplyr::bind_rows(
-        prb_tibs, lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
-                         verbose=verbose, vt=vt, tc=tc+1) %>% dplyr::bind_rows() )
+  stime <- system.time({
+    idsKey <- rlang::sym(idsKey)
+    prbKey <- rlang::sym(prbKey)
+    seqKey <- rlang::sym(seqKey)
+    # src_man_tib <- tib %>% dplyr::select(!!idsKey, !!prbKey, !!seqKey) %>% 
+    src_man_tib <- tib %>% dplyr::select(!!idsKey, !!prbKey, !!seqKey) %>% 
+      dplyr::mutate(Seq_ID:=!!idsKey, PRB_DES:=!!prbKey)
+    # return(src_man_tib)
+    
+    # Ensure we have 122 mer format 60[NN]60
+    tib <- tib %>% 
+      dplyr::mutate(!!seqKey := stringr::str_replace(!!seqKey, '\\[','_') %>% stringr::str_replace('\\]','_')
+      ) %>%
+      tidyr::separate(!!seqKey, into=c("PreSeqN", "MidSeqN", "PosSeqN"), sep='_') %>%
+      dplyr::mutate(PreSeqN=stringr::str_sub(PreSeqN,   -60),
+                    PosSeqN=stringr::str_sub(PosSeqN, 1, 60),
+                    PreSeqN=stringr::str_pad(string=PreSeqN, width=60, side='left', pad='N'),
+                    PosSeqN=stringr::str_pad(string=PosSeqN, width=60, side='right', pad='N'),
+                    DesNucA=stringr::str_sub(MidSeqN, 1,1), DesNucB=stringr::str_sub(MidSeqN, 2,2),
+                    !!seqKey :=paste0(PreSeqN,'[',MidSeqN,']',PosSeqN) )
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                      Calcluate Probes on All Strands::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    des_seq_F_C <- src_man_tib %>% 
+      dplyr::mutate(FR=TRUE, CO=TRUE, DesSeqN=shearBrac(!!seqKey))
+    # return(des_seq_F_C)
+    
+    des_seq_R_C <- des_seq_F_C %>% dplyr::mutate(
+      FR=!FR,CO=CO, DesSeqN=revCmp(DesSeqN) )
+    # return(des_seq_R_C)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Build All Design Strands::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building bisulfite converted design strands...{RET}"))
+    
+    bsc_tibs <- NULL
+    
+    # BSC-Forward-Converted::
+    bsc_tibs$FC <- des_seq_F_C %>% dplyr::mutate(
+      DesBscU = bscUs(DesSeqN),
+      DesBscM = bscMs(DesSeqN),
+      DesBscD = bscDs(DesSeqN) )
+    
+    # BSC-Foward-Opposite::
+    bsc_tibs$FO <- bsc_tibs$FC %>% dplyr::mutate(
+      FR=FR,CO=!CO, 
+      # DesSeqN=revCmp(DesSeqN),
+      DesBscU=revCmp(DesBscU),
+      DesBscM=revCmp(DesBscM),
+      DesBscD=revCmp(DesBscD) )
+    
+    # BSC-Reverse-Converted::
+    bsc_tibs$RC <- des_seq_R_C %>% dplyr::mutate(
+      DesBscU = bscUs(DesSeqN),
+      DesBscM = bscMs(DesSeqN),
+      DesBscD = bscDs(DesSeqN) )
+    
+    # BSC-Reverse-Opposite::
+    bsc_tibs$RO <- bsc_tibs$RC %>% dplyr::mutate(
+      FR=FR,CO=!CO, 
+      # DesSeqN=revCmp(DesSeqN),
+      DesBscU=revCmp(DesBscU),
+      DesBscM=revCmp(DesBscM),
+      DesBscD=revCmp(DesBscD) )
+    
+    # return(bsc_tibs)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                    Build all Probes on Each Strand::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building probes for each strand...{RET}"))
+    
+    prb_tibs <- NULL
+    if (FALSE && verbose>=vt+3) {
+      for (srd in names(bsc_tibs)) {
+        prb_tibs <- dplyr::bind_rows(
+          prb_tibs, lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
+                           verbose=verbose, vt=vt, tc=tc+1) %>% dplyr::bind_rows() )
+      }
+    } else {
+      prb_tibs <- foreach (srd=names(bsc_tibs), .combine=rbind) %dopar% {
+        lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
+               verbose=verbose, vt=vt, tc=tc+1) %>% dplyr::bind_rows()
+      }
     }
-  } else {
-    prb_tibs <- foreach (srd=names(bsc_tibs), .combine=rbind) %dopar% {
-      lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
-             verbose=verbose, vt=vt, tc=tc+1) %>% dplyr::bind_rows()
-    }
-  }
-  
-  # Update Key::
-  prb_tibs <- prb_tibs %>% dplyr::mutate(
-    FR_Str=case_when(FR ~ 'F', TRUE ~ 'R'),
-    CO_Str=case_when(CO ~ 'C', TRUE ~ 'O'),
-    Seq_ID_Uniq=paste(Seq_ID, FR_Str,CO_Str, sep='_')
-  )
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
-  
+    
+    # Update Key::
+    prb_tibs <- prb_tibs %>% dplyr::mutate(
+      FR_Str=case_when(FR ~ 'F', TRUE ~ 'R'),
+      CO_Str=case_when(CO ~ 'C', TRUE ~ 'O'),
+      Seq_ID_Uniq=paste(Seq_ID, FR_Str,CO_Str, sep='_')
+    )
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+
   prb_tibs
 }
 

@@ -36,8 +36,10 @@ RET <- "\n"
 par <- NULL
 opt <- NULL
 
+# Program Parameters::
+par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'manifests'
-par$prgmTag <- paste(par$prgmDir,'aqp_to_manifest_mm10', sep='_')
+par$prgmTag <- 'aqp_to_manifest_mm10'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Illumina based directories::
@@ -92,12 +94,9 @@ if (args.dat[1]=='RStudio') {
   if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
-  # Default Options for local Mac::
-  opt$Rscript  <- 'Rscript'
-  
   # Default Parameters for local Mac::
   par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$macDir, 'Infinium_Methylation_Workhorse')
+  par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -106,6 +105,9 @@ if (args.dat[1]=='RStudio') {
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
+  
+  # Default Options for local Mac::
+  opt$Rscript  <- 'Rscript'
   
   # Platform/Method Options::
   opt$genomeBuild <- 'mm10'
@@ -282,15 +284,15 @@ if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Sour
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
 
-par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
-
 par$prgm_src_dir <- file.path(par$scrDir,par$prgmDir, 'functions')
 if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Source={par$prgm_src_dir} does not exist!{RET}"))
 for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
+
+par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Preprocessing::
@@ -450,6 +452,17 @@ if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
     if (opt$addControls) out_man_tib <- dplyr::bind_rows(out_man_tib, org_ctl_tib) %>% dplyr::arrange(Probe_ID, DESIGN)
     if (opt$addManifest) out_man_tib <- dplyr::bind_rows(out_man_tib, org_man_tib) %>% dplyr::arrange(Probe_ID, DESIGN)
   }
+}
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Source and Design Search::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  improbe_v1_tsv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/data/dropbox/merged_with_raw_ordered_withHeader.tsv.gz'
+  imp_des_tib <- readr::read_tsv(improbe_v1_tsv)
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

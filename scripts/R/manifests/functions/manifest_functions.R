@@ -25,6 +25,37 @@ RET <- "\n"
 #
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Manifest Stats Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+manToBeadSummary = function(man, field="Infinium_Design",
+                            verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'manToBeadSummary'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} field={field}.{RET}"))
+  
+  field <- rlang::sym(field)
+  inf1_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
+    dplyr::filter(!!field=='I') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
+  inf2_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
+    dplyr::filter(!!field=='II') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
+  
+  bead1_cnt <- inf1_cnt * 2
+  bead2_cnt <- inf2_cnt
+  beads_cnt <- bead1_cnt + bead2_cnt
+  beads_per <- bead1_cnt / beads_cnt
+  
+  sum_tib <- tibble::tibble(Inf1=inf1_cnt, Inf2=inf2_cnt, 
+                            Bead1=bead1_cnt, Bead2=bead2_cnt, Beads=beads_cnt,
+                            BeadPerc=beads_per)
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done...{RET}"))
+  
+  sum_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        AQP Manifest Generation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -397,8 +428,11 @@ loadManifestSource = function(file,addSource=FALSE, verbose=0,vt=4,tc=1,tt=NULL)
     } else {
       stop("{RET}[{funcTag}]: ERROR: Unsupported manifest format suffix (only csv/csv.gz or rds): file={file}!!!{RET}{RET}")
     }
-    tib <- tib %>% dplyr::mutate(genesUniq=as.character(genesUniq),
-                                 distToTSS=as.integer(distToTSS) )
+    
+    # Fix Genecode Fields if its Genecode...
+    if ( length( grep('genesUniq', names(tib) ) ) > 0 && 
+         length( grep('distToTSS', names(tib) ) ) > 0)
+      tib <- tib %>% dplyr::mutate(genesUniq=as.character(genesUniq), distToTSS=as.integer(distToTSS) )
     
     if (addSource) {
       tib <- tib %>% dplyr::mutate(Man_Source=!!source)
