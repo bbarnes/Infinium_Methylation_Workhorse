@@ -533,7 +533,7 @@ write_delim(x=org_ctl_tib, path=gss_man_csv, delim=',', col_names=FALSE, quote_e
 #  gzip -dc /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-B4/mm10_LEGX_B4.manifest.GenomeStudio.cpg-sorted.csv.gz | perl -pe 's/\"//gi' | gzip -c - > /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-B4/mm10_LEGX_B4.manifest.GenomeStudio.cpg-sorted.clean.csv.gz
 
 # gss_man_zip <- paste(gss_man_csv,'gz', sep='.')
-# cmd <- glue::glue("cat {gss_man_csv} | perl -pe perl -pe 's/\"//gi' | gzip -c - > {gss_man_zip}")
+# cmd <- glue::glue("cat {gss_man_csv} | perl -pe 's/\"//gi' | gzip -c - > {gss_man_zip}")
 # system(cmd)
 
 # Follow up silly command to remove quotes::
@@ -589,8 +589,128 @@ if (FALSE) {
   #
   # mm_tib <- readr::read_tsv('/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/to-order/designW.Final_Dec-10-2019.cpg-only/Mus_musculus.annotation.genomic.sorted-cgn.chr-pos.tsv', col_names = c("Probe_ID",'Pos'))
   
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       Genome Studio Controls Swap::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+  color_tib <- suppressMessages(suppressWarnings( readr::read_csv(file.path(par$datDir, 'params/GenomeStudioColors.csv')) ))
+  color_vec <- color_tib %>% dplyr::pull(Color) %>% as.vector()
+  color_len <- length(color_vec)
   
+  man_gs_csv  <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/mm10-LEGX-B5/mm10_LEGX_B5.manifest.GenomeStudio.cpg-sorted.clean.csv.gz'
+  man_gs_list <- loadManifestGenomeStudio(file = man_gs_csv, addSource = TRUE, normalize = FALSE, verbose = 20)
+  man_head_df <- readr::read_lines(man_gs_csv, n_max = 6) %>% as.data.frame()
+  ctl_head_df <- tibble::tibble(Head="[Controls]") %>% as.data.frame()
   
+  man_gs_list$ctl %>% dplyr::group_by(Control_Group) %>% dplyr::summarise(Count=n())
+  man_gs_list$man %>% dplyr::group_by(Probe_Type, Infinium_Design_Type) %>% dplyr::summarise(Type_Count=n())
+  
+  man_ct_tib <- man_gs_list$man %>% dplyr::filter(Probe_Type=='BS' | Probe_Type=='NO')
+  man_gs_tib <- man_gs_list$man %>% dplyr::filter(Probe_Type!='BS') %>% dplyr::filter(Probe_Type!='NO')
+  ctl_gs_tib <- man_gs_list$ctl
+  
+  ctl_cols <- ctl_gs_tib %>% dplyr::select(1:4) %>% names()
+  
+  # Naming investigation::
+  ctl_gs_tib %>% dplyr::filter(Control_Group=="BISULFITE CONVERSION I") %>% dplyr::arrange(Control_Name) %>% dplyr::select(-Control_Color, -Man_Source) %>% as.data.frame()  
+  ctl_gs_tib %>% dplyr::filter(Control_Group=="BISULFITE CONVERSION II") %>% dplyr::arrange(Control_Name) %>% dplyr::select(-Control_Color, -Man_Source) %>% as.data.frame()
+  ctl_gs_tib %>% dplyr::filter(Control_Group=="NON-POLYMORPHIC") %>% dplyr::arrange(Control_Name) %>% dplyr::select(-Control_Color, -Man_Source) %>% as.data.frame()
+
+  # Make new controls::
+  new_ct_list <- man_ct_tib %>% dplyr::arrange(Probe_Type) %>%
+    dplyr::mutate(
+      Control_Group=dplyr::case_when(
+        Probe_Type=='BS' & Infinium_Design_Type=='I'  ~ "BISULFITE CONVERSION I",
+        Probe_Type=='BS' & Infinium_Design_Type=='II' ~ "BISULFITE CONVERSION II",
+        Probe_Type=='NO' ~ 'NON-POLYMORPHIC',
+        TRUE ~ NA_character_
+      ),
+      DiNuc=dplyr::case_when(
+        Probe_Type=='BS' ~ stringr::str_replace(IlmnID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% stringr::str_remove_all('\\\\'),
+        Probe_Type=='NO' ~ stringr::str_replace(IlmnID, '^.*_([ACTG][ACTG])_.*$', '\\$1') %>% stringr::str_remove_all('\\\\'),
+        TRUE ~ NA_character_
+      ),
+      N1=stringr::str_sub(DiNuc, 1,1),
+      N2=stringr::str_sub(DiNuc, 2,2),
+      
+      Control_ID=paste(IlmnID, stringr::str_sub(Color_Channel, 1,1), sep='_')
+    ) %>% split(.$Infinium_Design_Type)
+    # dplyr::select(IlmnID,DiNuc,N1,N2,Control_Group,Control_ID,Color_Channel,Probe_Type,Infinium_Design_Type)
+  
+  # Notes:: 
+  #  BISULFITE CONVERSION I; All M's get 'SkyBlue' the C's get a unique color
+  #     N2.B == A(G) => C
+  #     N2.B == T(R) -> U
+  #     N1.A == C    -> M
+  #
+  bs1_both_tib <- new_ct_list$I %>% dplyr::mutate(
+    Row_Idx=dplyr::row_number() + 100,
+    Row_Str=Row_Idx,
+    Col_Idx=Row_Idx %% (color_len-100),
+    
+    Control_Name_A=paste0('BS Conversion I M',Row_Str),
+    Control_Name_B=dplyr::case_when(
+      Color_Channel=='Grn' ~ paste0('BS Conversion I-C',Row_Str),
+      Color_Channel=='Red' ~ paste0('BS Conversion I-U',Row_Str),
+      TRUE ~ NA_character_
+    ),
+    Control_ColorA='Red',
+    Control_ColorB=color_vec[Col_Idx+1]
+  )
+  
+  # %>% dplyr::select(Control_Name_A,Control_Name_B,
+  #                     IlmnID,DiNuc,N1,N2,Control_Group,Row,Control_ID,
+  #                     Color_Channel,Probe_Type,Infinium_Design_Type) %>% dplyr::select(1,2) %>% as.data.frame()
+
+  fin_bs1_tib <- dplyr::bind_rows(
+    bs1_both_tib %>% dplyr::select(AddressA_ID,Control_Group,Control_ColorA,Control_Name_A) %>% purrr::set_names(ctl_cols),
+    bs1_both_tib %>% dplyr::select(AddressB_ID,Control_Group,Control_ColorB,Control_Name_B) %>% purrr::set_names(ctl_cols)
+  ) %>% dplyr::arrange(Control_Name)
+
+  fin_bs2_tib <- new_ct_list$II %>% 
+    dplyr::filter(Control_Group=='BISULFITE CONVERSION II') %>%
+    dplyr::mutate(Row_Idx=row_number()+100,
+                  Row_Str=Row_Idx,
+                  Control_Color='Blue',
+                  Control_Name=paste('BS Conversion II',Row_Str, sep='-')
+    ) %>% 
+    dplyr::select(AddressA_ID,Control_Group,Control_Color,Control_Name) %>% 
+    purrr::set_names(ctl_cols) %>%
+    dplyr::arrange(Control_Name)
+  
+  fin_non_tib <- new_ct_list$II %>% 
+    dplyr::filter(Control_Group=='NON-POLYMORPHIC') %>%
+    dplyr::mutate(Row_Idx=row_number()+100,
+                  Row_Str=Row_Idx,
+                  Control_Color='Blue',
+                  Control_Name=paste0('NP (',N1,') ',Row_Str)
+    ) %>% 
+    dplyr::select(AddressA_ID,Control_Group,Control_Color,Control_Name) %>% 
+    purrr::set_names(ctl_cols) %>%
+    dplyr::arrange(Control_Name)
+  
+  fin_hum_tib <- ctl_gs_tib %>% dplyr::select(1:4) %>% 
+    purrr::set_names(ctl_cols) %>% dplyr::arrange(Control_Name) %>%
+    dplyr::mutate(Address=as.double(Address))
+  
+  fin_ctl_tib <- dplyr::bind_rows(fin_bs1_tib,fin_bs2_tib,fin_non_tib,fin_hum_tib)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       Write Control Swapped Manifest::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+  gs_swap_dir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/mm10-LEGX-B6'
+  gs_swap_csv <- file.path(gs_swap_dir, 'mm10_LEGX_B6.manifest.GenomeStudio.cpg-sorted.clean.csv')
+  gz_swap_csv <- file.path(gs_swap_dir, 'mm10_LEGX_B6.manifest.GenomeStudio.cpg-sorted.clean.csv.gz')
+  
+  # Write Genome Studio CSV::
+  write_delim(x=man_head_df, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=FALSE)
+  write_delim(x=man_gs_tib,  path=gs_swap_csv, delim=',', col_names=TRUE,  quote_escape=FALSE, na='', append=TRUE)
+  write_delim(x=ctl_head_df, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
+  write_delim(x=fin_ctl_tib, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
+  
+  cmd <- glue::glue("cat {gs_swap_csv} | perl -pe 's/\"//gi' | gzip -c - > {gz_swap_csv}")
+  system(cmd)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

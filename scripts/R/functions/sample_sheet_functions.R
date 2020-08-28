@@ -376,6 +376,14 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, s
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
   
+  if (!file.exists(betaCSV)) {
+    cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: File does not exist; betaCSV={betaCSV}.{RET}"))
+    return(NULL)
+  }
+  if (!file.exists(pvalCSV)) {
+    cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: File does not exist; pvalCSV={pvalCSV}.{RET}"))
+    return(NULL)
+  }
   stopifnot(file.exists(betaCSV))
   stopifnot(file.exists(pvalCSV))
   
@@ -386,7 +394,7 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, s
     beta_tib <- suppressMessages(suppressWarnings( readr::read_csv(betaCSV) ))
     if (!is.null(cgn)) beta_tib <- beta_tib %>% dplyr::inner_join(cgn, by="Probe_ID")
     if (!is.null(ss)) beta_tib <- beta_tib %>% dplyr::select('Probe_ID', ss$Sentrix_Name)
-    # print(beta_tib)
+    if (verbose>=vt+4) print(beta_tib)
     
     pval_tib <- suppressMessages(suppressWarnings( readr::read_csv(pvalCSV) ))
     if (!is.null(cgn)) pval_tib <- pval_tib %>% dplyr::inner_join(cgn, by="Probe_ID")
