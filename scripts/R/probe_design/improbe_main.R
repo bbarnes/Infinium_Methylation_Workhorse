@@ -333,7 +333,7 @@ des_scr_tib <- des_ord_tib %>% dplyr::select(Seq_ID,Forward_Sequence,Genome_Buil
     CpgCnt==cpgRank_vec[3] & Prb_Scr_Min>=scrRank_vec[3] ~ 'II', # CpgCnt == 1 & Prb_Scr >= 0.4
     CpgCnt==cpgRank_vec[4] & Prb_Scr_Min>=scrRank_vec[4] ~ 'II', # CpgCnt == 0 & Prb_Scr >= 0.3
     TRUE ~ 'I'
-  )) %>% dplyr::arrange(-Prb_Scr_Min) %>% dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  )) %>% dplyr::arrange(-Prb_Scr_Min, CpgCnt) %>% dplyr::distinct(Seq_ID, .keep_all=TRUE)
 
 des_scr_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
 
