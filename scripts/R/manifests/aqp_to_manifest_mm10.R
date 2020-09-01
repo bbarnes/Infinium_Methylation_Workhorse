@@ -460,8 +460,14 @@ if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (FALSE) {
+  # Ensure we have the correct matching database between our designs, our design database (v1) and the full database (AL)
+  
   improbe_v1_tsv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/data/dropbox/merged_with_raw_ordered_withHeader.tsv.gz'
-  imp_des_tib <- readr::read_tsv(improbe_v1_tsv)
+  imp_des_v1_tib <- readr::read_tsv(improbe_v1_tsv)
+  
+  improbe_AL_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.core-v1.tsv.gz'
+  
+  imp_des_AL_tib <- readr::read_tsv(improbe_AL_tsv)
   
 }
 
@@ -600,7 +606,7 @@ if (FALSE) {
   man_gs_csv  <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/mm10-LEGX-B5/mm10_LEGX_B5.manifest.GenomeStudio.cpg-sorted.clean.csv.gz'
   man_gs_list <- loadManifestGenomeStudio(file = man_gs_csv, addSource = TRUE, normalize = FALSE, verbose = 20)
   man_head_df <- readr::read_lines(man_gs_csv, n_max = 6) %>% as.data.frame()
-  ctl_head_df <- tibble::tibble(Head="[Controls]") %>% as.data.frame()
+  ctl_head_df <- tibble::tibble(Head="[Controls]") %>% tibble::add_column(BL1='',BL2='',BL3='',BL4='') %>% as.data.frame()
   
   man_gs_list$ctl %>% dplyr::group_by(Control_Group) %>% dplyr::summarise(Count=n())
   man_gs_list$man %>% dplyr::group_by(Probe_Type, Infinium_Design_Type) %>% dplyr::summarise(Type_Count=n())
@@ -695,19 +701,46 @@ if (FALSE) {
   
   fin_ctl_tib <- dplyr::bind_rows(fin_bs1_tib,fin_bs2_tib,fin_non_tib,fin_hum_tib)
   
+  #
+  # Investigat Duplicates::
+  #
+  add_cnt_tib <- dplyr::bind_rows(
+    dplyr::select(man_gs_tib,AddressA_ID) %>% dplyr::rename(Address=AddressA_ID), 
+    dplyr::select(man_gs_tib,AddressB_ID) %>% dplyr::rename(Address=AddressB_ID),
+    dplyr::select(fin_ctl_tib,Address)
+  ) %>% dplyr::filter(!is.na(Address)) %>%
+    dplyr::group_by(Address) %>% dplyr::summarise(Add_Dup_Count=n()) %>% dplyr::arrange(-Add_Dup_Count)
+    
+  add_tib_tib <- add_cnt_tib %>% dplyr::filter(Add_Dup_Count>1)
+  
+  man_fin_tib <- man_gs_tib %>% dplyr::filter(!AddressA_ID %in% add_tib_tib$Address) %>% dplyr::filter(!AddressB_ID %in% add_tib_tib$Address)
+  ctl_fin_tib <- fin_ctl_tib %>% dplyr::filter(! Address %in% add_tib_tib$Address) %>% 
+    tibble::add_column(BL1='',BL2='',BL3='',BL4='',BL5='',BL6='')
+    # tibble::add_column(BL1='',BL2='',BL3='',BL4='',BL5='',BL6='',BL7='',BL8='')
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       Write Control Swapped Manifest::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-  gs_swap_dir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/mm10-LEGX-B6'
-  gs_swap_csv <- file.path(gs_swap_dir, 'mm10_LEGX_B6.manifest.GenomeStudio.cpg-sorted.clean.csv')
-  gz_swap_csv <- file.path(gs_swap_dir, 'mm10_LEGX_B6.manifest.GenomeStudio.cpg-sorted.clean.csv.gz')
+  gs_man_ver  <- 8
+  gs_man_ver  <- 9
+  gs_swap_dir <- file.path('/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests', paste0('mm10-LEGX-B',gs_man_ver))
+  gs_swap_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_B',gs_man_ver,'.manifest.GenomeStudio.cpg-sorted.clean.csv') )
+  gz_swap_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_B',gs_man_ver,'.manifest.GenomeStudio.cpg-sorted.clean.csv.gz') )
+  
+  if (!dir.exists(gs_swap_dir)) dir.create(gs_swap_dir, recursive=TRUE)
+
+  man_head_replace_str <- paste0('_B',gs_man_ver,'.csv.gz')
+  man_head_df <- man_head_df %>% as_tibble() %>% purrr::set_names(c("Head_Var")) %>% 
+    dplyr::mutate(Head_Var=as.character(Head_Var),
+                  Head_Var=stringr::str_replace(Head_Var, '_B[0-9]+.csv.gz$', man_head_replace_str) ) %>%
+    as.data.frame()
   
   # Write Genome Studio CSV::
   write_delim(x=man_head_df, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=FALSE)
-  write_delim(x=man_gs_tib,  path=gs_swap_csv, delim=',', col_names=TRUE,  quote_escape=FALSE, na='', append=TRUE)
+  write_delim(x=man_fin_tib, path=gs_swap_csv, delim=',', col_names=TRUE,  quote_escape=FALSE, na='', append=TRUE)
   write_delim(x=ctl_head_df, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
-  write_delim(x=fin_ctl_tib, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
+  write_delim(x=ctl_fin_tib, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
   
   cmd <- glue::glue("cat {gs_swap_csv} | perl -pe 's/\"//gi' | gzip -c - > {gz_swap_csv}")
   system(cmd)

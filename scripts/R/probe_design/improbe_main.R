@@ -328,10 +328,10 @@ des_scr_tib <- des_ord_tib %>% dplyr::select(Seq_ID,Forward_Sequence,Genome_Buil
   dplyr::filter(CO_Str %in% strandCO_vec) %>% 
   dplyr::filter(Prb_Scr_Min>=opt$minPrbScore) %>%
   dplyr::mutate(Design_Type=dplyr::case_when(
-    CpgCnt==cpgRank_vec[1] & Prb_Scr_Min>=scrRank_vec[1] ~ 'II',
-    CpgCnt==cpgRank_vec[2] & Prb_Scr_Min>=scrRank_vec[2] ~ 'II',
-    CpgCnt==cpgRank_vec[3] & Prb_Scr_Min>=scrRank_vec[3] ~ 'II',
-    CpgCnt==cpgRank_vec[1] & Prb_Scr_Min>=scrRank_vec[1] ~ 'II',
+    CpgCnt==cpgRank_vec[1] & Prb_Scr_Min>=scrRank_vec[1] ~ 'II', # CpgCnt == 3 & Prb_Scr >= 0.6
+    CpgCnt==cpgRank_vec[2] & Prb_Scr_Min>=scrRank_vec[2] ~ 'II', # CpgCnt == 2 & Prb_Scr >= 0.5
+    CpgCnt==cpgRank_vec[3] & Prb_Scr_Min>=scrRank_vec[3] ~ 'II', # CpgCnt == 1 & Prb_Scr >= 0.4
+    CpgCnt==cpgRank_vec[4] & Prb_Scr_Min>=scrRank_vec[4] ~ 'II', # CpgCnt == 0 & Prb_Scr >= 0.3
     TRUE ~ 'I'
   )) %>% dplyr::arrange(-Prb_Scr_Min) %>% dplyr::distinct(Seq_ID, .keep_all=TRUE)
 
