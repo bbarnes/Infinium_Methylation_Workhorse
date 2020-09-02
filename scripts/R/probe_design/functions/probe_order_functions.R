@@ -122,7 +122,8 @@ order2stats = function(tib, verbose=0,vt=2,tc=1,tt=NULL) {
   stats
 }
 
-prbs2order = function(tib, addCols=NULL, retGrp=0, blank=FALSE, verbose=0,vt=5,tc=1,tt=NULL) {
+prbs2order = function(tib, addCols=NULL, retGrp=0, blank=FALSE, 
+                      verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'prbs2order'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -211,7 +212,8 @@ prbs2order = function(tib, addCols=NULL, retGrp=0, blank=FALSE, verbose=0,vt=5,t
     ret$inf1 <- inf1_tib
     ret$inf2 <- inf2_tib
   }
-  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+
   ret
 }
 
