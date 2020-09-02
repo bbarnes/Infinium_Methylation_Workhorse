@@ -357,7 +357,11 @@ if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 #                  Match Probes by Strand to Top Picks::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c("Seq_ID","FR_Str","CO_Str") ) 
+sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c("Seq_ID","FR_Str","CO_Str") )
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: sel_prb_tib={RET}"))
+if (opt$verbose>=4) sel_prb_tib %>% print()
+if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+
 if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: summary(sel_prb_tib)={RET}"))
 if (opt$verbose>=4) sel_prb_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
 if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
