@@ -410,7 +410,7 @@ new_ord_tib <- dplyr::bind_rows(new_ord1_tib,new_ord2_tib) %>%
     )
   )
 if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord_tib={RET}"))
-if (opt$verbose>=4) printnew_ord_tib
+if (opt$verbose>=4) print(new_ord_tib)
 if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

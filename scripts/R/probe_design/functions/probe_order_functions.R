@@ -127,8 +127,7 @@ prbs2order = function(tib, addCols=NULL, retGrp=0, blank=FALSE,
   funcTag <- 'prbs2order'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  cat(glue::glue("[{funcTag}]:{tabsStr} Starting; pr={pr}, plotName={plotName}, outDir={outDir}.{RET}"))
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; pr={pr}, plotName={plotName}, outDir={outDir}.{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   # Filter::
   #  - Flag Infinium I where PRB1_U != PRB1_M
