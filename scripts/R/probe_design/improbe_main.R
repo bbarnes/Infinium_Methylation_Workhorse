@@ -358,15 +358,23 @@ if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c("Seq_ID","FR_Str","CO_Str") ) 
-sel_prb_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: summary(sel_prb_tib)={RET}"))
+if (opt$verbose>=4) sel_prb_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
+if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 
 sel_prb1_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='I')
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: summary(sel_prb_tib)={RET}"))
+
 sel_prb2_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='II')
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Format Order File::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: Formating orders...{RET}{RET}"))
+
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: sel_prb1_tib={RET}"))
+if (opt$verbose>=4) print(sel_prb1_tib)
+if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 
 new_ord1_tib <- prbs2order(sel_prb1_tib, verbose=opt$verbose) %>% 
   dplyr::bind_rows() %>% 
