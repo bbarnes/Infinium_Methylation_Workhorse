@@ -366,17 +366,27 @@ sel_prb2_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='II')
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Format Order File::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: Formating orders...{RET}{RET}"))
 
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord1_tib={RET}"))
+if (opt$verbose>=4) print(new_ord1_tib)
+if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 new_ord1_tib <- prbs2order(sel_prb1_tib, verbose=opt$verbose) %>% 
   dplyr::bind_rows() %>% 
   dplyr::filter(Valid_Design_Bool) %>% 
   dplyr::select(Assay_Design_Id:Normalization_Bin) %>% dplyr::filter(Normalization_Bin!='C')
 
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord2_tib={RET}"))
+if (opt$verbose>=4) print(new_ord2_tib)
+if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 new_ord2_tib <- prbs2order(sel_prb2_tib, verbose=opt$verbose) %>% 
   dplyr::bind_rows() %>% 
   dplyr::filter(Valid_Design_Bool) %>% 
   dplyr::select(Assay_Design_Id:Normalization_Bin) %>% dplyr::filter(Normalization_Bin=='C')
 
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord_tib={RET}"))
+if (opt$verbose>=4) printnew_ord_tib
+if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 new_ord_tib <- dplyr::bind_rows(new_ord1_tib,new_ord2_tib) %>%
   dplyr::arrange(Assay_Design_Id) %>%
   dplyr::mutate(
