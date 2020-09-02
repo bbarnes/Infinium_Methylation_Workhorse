@@ -336,7 +336,7 @@ des_scr_tib <- des_ord_tib %>% dplyr::select(Seq_ID,Forward_Sequence,Genome_Buil
   )) %>% dplyr::arrange(-Prb_Scr_Min, CpgCnt) %>% dplyr::distinct(Seq_ID, .keep_all=TRUE)
 
 des_scr_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
-if (opt$verbose>=4) cat(glue::glue("[{opt$prgmTag}]: des_scr_tib={RET}"))
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: des_scr_tib={RET}"))
 if (opt$verbose>=4) print(des_scr_tib)
 if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 
@@ -349,7 +349,7 @@ des_fwd_tib <- des_scr_tib %>% dplyr::select(Seq_ID, Forward_Sequence, Probe_Typ
 
 new_prb_tib <- tib2prbs(tib=des_fwd_tib, idsKey="Seq_ID", prbKey="Probe_Type", 
                         seqKey="Forward_Sequence", verbose=opt$verbose)
-if (opt$verbose>=4) cat(glue::glue("[{opt$prgmTag}]: new_prb_tib={RET}"))
+if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_prb_tib={RET}"))
 if (opt$verbose>=4) print(new_prb_tib)
 if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
 
