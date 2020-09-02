@@ -166,7 +166,9 @@ prbs2order = function(tib, addCols=NULL, retGrp=0, blank=FALSE,
                                     Valid_Design_Bool=case_when(
                                       stringr::str_to_upper(PRB1_U)==stringr::str_to_upper(PRB1_M) ~ FALSE,
                                       TRUE ~ TRUE)
-  ) %>% dplyr::select(dplyr::all_of(sel_fields), everything() )
+  ) %>% 
+    dplyr::select(sel_fields, everything())
+    # dplyr::select(dplyr::all_of(sel_fields), everything() )
   
   # Infinium II probes::
   inf2_tib <- tib %>% dplyr::mutate(Assay_Design_Id=paste(Seq_ID_Uniq,'2','T',Probe_Rep, sep=''),
@@ -195,7 +197,9 @@ prbs2order = function(tib, addCols=NULL, retGrp=0, blank=FALSE,
                                         stringr::str_to_upper(CPN_D)=='B' | stringr::str_to_upper(CPN_D)=='D' |
                                         stringr::str_to_upper(CPN_D)=='H' | stringr::str_to_upper(CPN_D)=='V' ~ TRUE,
                                       TRUE ~ FALSE)
-  ) %>% dplyr::select(dplyr::all_of(sel_fields), everything() )
+  ) %>% 
+    dplyr::select(sel_fields, everything())
+    # dplyr::select(dplyr::all_of(sel_fields), everything() )
   
   if (blank) {
     inf2_tib <- inf2_tib %>%
