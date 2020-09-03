@@ -465,10 +465,21 @@ if (FALSE) {
   improbe_v1_tsv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/data/dropbox/merged_with_raw_ordered_withHeader.tsv.gz'
   imp_des_v1_tib <- readr::read_tsv(improbe_v1_tsv)
   
-  improbe_AL_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.core-v1.tsv.gz'
+  # improbe_AL_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.core-v1.tsv.gz'
+  # imp_des_AL_tib <- readr::read_tsv(improbe_AL_tsv)
   
-  imp_des_AL_tib <- readr::read_tsv(improbe_AL_tsv)
+  improbe_AL_cols <- c('Probe_ID', 'Chrom1', 'Pos1', 'Pos2', 'Chip_Str1', 
+                       'Customer_Score', 'Customer_Underlying_CpG_Count', 'Customer_Pos', 'Customer_Design_Char', 'Customer_Dist1', 'Customer_Dist2',
+                       'Customer_Long_ID', 'Customer_ID_CO', 'Customer_Prb_A', 'Customer_Prb_B', 'Customer_Design_Type'
+  )
   
+  improbe_cols_csv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/complicated-header.csv'
+  improbe_cols_vec <- readr::read_csv(improbe_cols_csv) %>% names() %>% as.vector()
+  
+  # improbe_AL_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/joined.designed.dat.head.csv'
+  improbe_AL_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/joined.designed.dat.csv.gz'
+  
+  improbe_AL_tib <- readr::read_csv(improbe_AL_csv, col_names=improbe_cols_vec)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

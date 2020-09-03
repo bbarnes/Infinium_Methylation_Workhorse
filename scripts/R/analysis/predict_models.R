@@ -434,7 +434,7 @@ if (file_test("-d", opt$modelDir)) {
   #
   if (FALSE) {
     beta_file_tib <- getCallsMatrixFiles(
-      betaKey=betaKey,pvalKey=pvalKey,pvalMin=NULL, dirs=mergeDirs_vec, cgn=all_fet_tib, classes=opt$trainClass,
+      betaKey=betaKey,pvalKey=pvalKey,pvalMin=NULL, dirs=mergeDirs_vec, cgn=all_fet_tib, classes=trainClass_vec,
       class_var=class_var, class_idx=class_idx, pval_name=NULL, pval_perc=NULL,
       clean=opt$clean, beta_rds=beta_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
       sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",
@@ -555,7 +555,7 @@ for (rIdx in c(1:mods_cnts)) {
           predictModelWrapper(cur_mod=cur_mod,
                               betaKey=betaKeyTests, pvalKey=pvalKeyTests, pvalMin=pvalMinTests, ann=add_ano_tib,
                               dir=cur_out_dir, runName=opt$runName, modKey=modKey, modLab=modLab,
-                              tests=mergeDirs_vec, cgn=fet_tib, classes=opt$trainClass,
+                              tests=mergeDirs_vec, cgn=fet_tib, classes=trainClass_vec,
                               classVar=opt$classVar, classIdx=class_idx, pvalName=NULL, pvalPerc=NULL,
                               clean=opt$clean,
                               sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",

@@ -518,7 +518,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
       # pval_perc <- rlang::sym(pval_perc)
       
       trainClass_vec <- NULL
-      if (!is.null(classes)) trainClass_vec  <- classes %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+      if (!is.null(classes)) trainClass_vec <- classes %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
       if (!is.null(classes)) {
         if (verbose>=vt+4) {
           cat(glue::glue("[{funcTag}]:{TAB} classes={classes}; trainClass_vec={RET}") )
