@@ -157,6 +157,7 @@ if (args.dat[1]=='RStudio') {
   opt$parallel <- FALSE
   opt$single   <- FALSE
   opt$parallel <- TRUE
+  opt$parallel <- FALSE
   
   opt$workflows <- 'ind'
   
@@ -202,9 +203,14 @@ if (args.dat[1]=='RStudio') {
   # }
   # opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/data/idats', opt$expRunStr, opt$expChipNum)
 
+  locIdatDir <- '/Users/bbarnes/Documents/Projects/methylation/data/idats'
+  
   opt$expRunStr  <- 'ReferenceBETA'
-  opt$idatsDir <- file.path('/Users/bbarnes/Documents/CustomerFacing/idats', opt$expRunStr, opt$expChipNum)
-  opt$idatsDir <- file.path('/Users/bbarnes/Documents/CustomerFacing/idats', opt$expRunStr)
+  opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
+  opt$expChipNum <- '204500250013'
+  
+  opt$idatsDir <- file.path(locIdatDir, opt$expRunStr)
+  opt$idatsDir <- file.path(locIdatDir, opt$expRunStr, opt$expChipNum)
   
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
