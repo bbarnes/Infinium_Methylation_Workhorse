@@ -94,9 +94,10 @@ if [ -e ${TOP_MAC} ]; then
 elif [ -e ${TOP_LIX} ]; then
     TOP=${TOP_LIX}
 
-    CONDA=conda_4.6.8
+    # CONDA=conda_4.6.8
     # CONDA=Anaconda2-2019.10-Linux-x86_64
     # CONDA=Anaconda3-2019.10-Linux-x86_64
+    CONDA=Anaconda3-2019.10-Linux-x86_64.2020
     RSCRIPT=/illumina/scratch/darkmatter/thirdparty/${CONDA}/bin/Rscript
 
 else
