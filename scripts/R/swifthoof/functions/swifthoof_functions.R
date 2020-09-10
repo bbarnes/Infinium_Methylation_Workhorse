@@ -72,6 +72,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # ses_add_tib <- ses_man_tib %>% dplyr::select(Probe_ID) %>% dplyr::inner_join(add, by='Probe_ID')
     
     ses_dat <- idat2manifest(sigs=idat_list$sig, mans=mans, verbose=verbose,tc=tc+1,tt=tTracker)
+    
     ses_man_tib <- ses_dat$man
     ses_add_tib <- ses_dat$add
     platform_key <- ses_dat$platform
@@ -121,8 +122,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     ssheet_tib <- idat_list$ann
     if (!is.null(pool_sum_tib)) ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(pool_sum_tib)
     if (!is.null(bead_sum_tib)) ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(bead_sum_tib)
-    # ssheet_tib <- ssheet_tib %>% add_column(minPvalUsed  = opt$minPval)
-    # ssheet_tib <- ssheet_tib %>% add_column(minDeltaUsed = opt$minDelta)
+    ssheet_tib <- ssheet_tib %>% add_column(minNegPval   = opt$minNegPval)
+    ssheet_tib <- ssheet_tib %>% add_column(minOobPval   = opt$minOobPval)
+    ssheet_tib <- ssheet_tib %>% add_column(minDeltaBeta = opt$minDeltaBeta)
+    ssheet_tib <- ssheet_tib %>% add_column(platformUsed = platform_key)
+    ssheet_tib <- ssheet_tib %>% add_column(platVersUsed = version_key)
     
     if (retData) {
       ret$idat <- idat_list
@@ -277,6 +281,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     if (!is.null(raw_sset_tib) & !is.null(cur_sset_tib)) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Inferred Sample Swapped Stats.{RET}"))
+      
       swap_sum_tib <- NULL
       swap_sum_tib <- dplyr::inner_join(joinSsetTibInfI(tib=raw_sset_tib), 
                                         joinSsetTibInfI(tib=cur_sset_tib), 
@@ -293,7 +299,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         dplyr::mutate(Perc=round(100*Count/Total, 3)) %>% 
         dplyr::select(Type, Perc) %>% tidyr::spread(Type, Perc) %>%
         purrr::set_names(paste(names(.),'Perc', sep='_') )
-      
+
       ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(swap_sum_tib)
       
       ssheet_ncols <- ssheet_tib %>% base::ncol()
@@ -342,8 +348,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     #                             Add Requeue Flags::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     requ_sum_tib <- tibble::tibble(
-      Requeue_Flag_Oob=case_when(ssheet_tib$Poob_Pass_0_Perc < opt$minOobPerc ~ FALSE, TRUE ~ TRUE),
-      Requeue_Flag_Neg=case_when(ssheet_tib$Negs_Pass_0_Perc < opt$minNegPerc ~ FALSE, TRUE ~ TRUE),
+      Requeue_Flag_Oob=case_when(ssheet_tib$Poob_Pass_0_Perc <= opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
+      Requeue_Flag_Neg=case_when(ssheet_tib$Negs_Pass_0_Perc <= opt$minNegPerc ~ TRUE, TRUE ~ FALSE),
       Requeue_Pass_Perc_Oob=opt$minOobPerc,
       Requeue_Pass_Perc_Neg=opt$minNegPerc)
 
