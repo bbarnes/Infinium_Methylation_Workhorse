@@ -463,7 +463,7 @@ imp_s48_tsv  <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/dat
 int_s48_tsv  <- file.path(opt$outDir, 'mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz')
 mm10_s48_tsv <- file.path(opt$outDir, 'mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv')
 mm10_s48_tib <- mm10_man_tib %>% dplyr::arrange(Mat_PrbA)
-readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
+# readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
 
 # Probe Info with Seq48U:
 #  gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz
@@ -477,6 +477,7 @@ readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
 #  gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
 
 run_join_cmd <- TRUE
+run_join_cmd <- FALSE
 if (run_join_cmd) {
   join_cmd <- glue::glue("gzip -dc {imp_s48_tsv} | join -t $'\\", "t' -14 -27 - {mm10_s48_tsv} | gzip -c -> {int_s48_tsv}")
   cat(glue::glue("[{par$prgmTag}]: Running: cmd='{join_cmd}'...{RET}{RET}") )
@@ -488,8 +489,14 @@ if (run_join_cmd) {
 #
 
 # For completely missing ("off") source files::
+#
+#  unix: /illumina/scratch/darkmatter/Projects/LifeEpigenetics/data/designInputs/*
+#
 #  rs = /Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/Redesign/data/SNP/selected_SNP_probes.bed
-#  
+#
+#
+#
+
 
 mm10_s48_int_col <- c("Mat_PrbA",'Mat_CGN', 'Mat_TB', 'Mat_CO',
                       "Seq_ID","ID_FR","ID_TB","ID_CO","ID_PD","Infinium_Design","Mat_Prb",
@@ -538,7 +545,7 @@ mm10_cgn_cnt_tib <- readr::read_tsv(mm10_cgn_cnt_tsv)
 mm10_s48_int_mat_cgn_tsv <- file.path(opt$outDir, 'mm10_s48_int_mat_cgn_tsv.gz')
 mm10_s48_int_mat_cgn_tib <- mm10_s48_mat_tib %>% dplyr::distinct(Mat_CGN) %>% dplyr::arrange(Mat_CGN) %>%
   dplyr::rename(Seq_ID=Mat_CGN)
-readr::write_tsv(mm10_s48_int_mat_cgn_tib, mm10_s48_int_mat_cgn_tsv)
+# readr::write_tsv(mm10_s48_int_mat_cgn_tib, mm10_s48_int_mat_cgn_tsv)
 
 # /Users/bbarnes/Documents/Projects/scripts/subset/getSubset.simple.pl -header -CO C -t /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_s48_int_mat_cgn_tsv.gz -d /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.tsv.gz | head
 #  > /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_s48_int_mat.improbe.tsv
@@ -566,35 +573,44 @@ mm10_s48_mat_tib %>% base::nrow()
 mm10_man_mat_imp_tib %>% dplyr::distinct(Probe_ID) %>% base::nrow()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Manifest Improbe Matching:: Off ONLY
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Split ch/mu/rp analysis
+mm10_s48_off_types <- mm10_s48_off_tib %>% split(.$Probe_Type)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Manifest Improbe Matching:: rs ONLY
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Design Source::
+#  rs = /Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/Redesign/data/SNP/selected_SNP_probes.bed
+
+#
+# TBD:: Add back previous SNPs!!!!!       dplyr::filter(TB ===== 'N' & !is.na(TB) )         Missing most SNPs now...
+#
+mm10_man_newRS_ses_tib <- mm10_s48_off_types[['rs']] %>% dplyr::filter(TB != 'N' & !is.na(TB) ) %>%
+  dplyr::mutate(Inter_Type='T') %>% 
+  tidyr::unite(Probe_ID_Suffix, TB,CO,Infinium_Design,Inter_Type,Rep_Num, sep='', remove=FALSE) %>% 
+  tidyr::unite(Probe_ID, Seq_ID,Probe_ID_Suffix, sep='_') %>%
+  dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
+
+mm10_man_newRS_ses_tib %>% base::nrow()
+mm10_man_newRS_ses_tib %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Sesame Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# current = B2
 mm10_ses_man_cgn_out_csv <- file.path(opt$outDir, 'LEGX-B1.manifest.sesame-base.cpg-sorted.csv.gz')
-mm10_ses_man_cgn_git_csv <- file.path(par$datDir, 'manifest/base/LEGX-B1.manifest.sesame-base.cpg-sorted.csv.gz')
-mm10_ses_man_cgn_tib <- dplyr::bind_rows(mm10_man_mat_ses_tib,ses_unq_ctl_tib) %>% dplyr::arrange(Probe_ID)
+mm10_ses_man_cgn_git_csv <- file.path(par$datDir, 'manifest/base/LEGX-B2.manifest.sesame-base.cpg-sorted.csv.gz')
+mm10_ses_man_cgn_tib <- dplyr::bind_rows(mm10_man_mat_ses_tib,
+                                         mm10_man_newRS_ses_tib,
+                                         ses_unq_ctl_tib) %>% dplyr::arrange(Probe_ID)
 readr::write_csv(mm10_ses_man_cgn_tib,mm10_ses_man_cgn_out_csv)
 readr::write_csv(mm10_ses_man_cgn_tib,mm10_ses_man_cgn_git_csv)
-
-
-# Local Mac Copy Command For Testing::
-#  cp /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.cpg-sorted.csv.gz tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-B0..manifest.sesame-base.cpg-sorted.csv.gz
-#
-
-mm10_man_mat_imp_tib %>% dplyr::add_count(Probe_ID, name="PCount") %>% dplyr::filter(PCount!=1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Manifest Improbe Matching:: Non ONLY
@@ -620,13 +636,52 @@ clean_mu_mat_tib %>% dplyr::filter(ID_Count!=1) %>% as.data.frame()
 mm10_s48_int_mis_cgn_tsv <- file.path(opt$outDir, 'mm10_s48_int_mis_cgn_tsv.gz')
 mm10_s48_int_mis_cgn_tib <- clean_mu_all_tib %>% dplyr::distinct(Mat_CGN) %>% dplyr::arrange(Mat_CGN) %>%
   dplyr::rename(Seq_ID=Mat_CGN)
-readr::write_tsv(mm10_s48_int_mis_cgn_tib, mm10_s48_int_mis_cgn_tsv)
+# readr::write_tsv(mm10_s48_int_mis_cgn_tib, mm10_s48_int_mis_cgn_tsv)
 
 
 
 
 
 
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                Quick Look at Sample Sheets from CG Only::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+mm10_hum_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/Laird-IDs_to_SampleNames_basic.csv'
+mm10_hum_ss_tib <- readr::read_csv(mm10_hum_ss_csv) %>% purrr::set_names(c('Laird_ID', 'Sentrix_Pos', 'Cell_Type', 'Sample_Class'))
+
+mm10_hum_ss_tib %>% dplyr::group_by(Laird_ID) %>% dplyr::summarise(n()) %>% as.data.frame()
+mm10_hum_ss_tib %>% dplyr::group_by(Cell_Type) %>% dplyr::summarise(n()) %>% as.data.frame()
+mm10_hum_ss_tib %>% dplyr::group_by(Sample_Class) %>% dplyr::summarise(n()) %>% as.data.frame()
+
+ils_map_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/ILS-Mouse_Methylation_samplesheet.csv'
+ils_map_tib <- readr::read_csv(ils_hum_csv) %>% 
+  dplyr::mutate(Laird_ID=as.integer(stringr::str_remove(Sample_ID, '_.*$')), 
+                Sentrix_ID=SentrixBarcode_A,
+                Sentrix_Pos=SentrixPosition_A,
+                Sentrix_Name=paste(Sentrix_ID,Sentrix_Pos, sep='_')
+  ) %>% dplyr::select(Laird_ID,Sentrix_Name,Sentrix_ID,Sentrix_Pos)
+
+# Clean mapping for ILS::
+mm10_hum_ss_tib %>% dplyr::inner_join(ils_map_tib, by=c("Laird_ID", "Sentrix_Pos") )
+
+#
+# Actual Idats and plots::
+#
+ils_dat_dir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/scratch/swifthoof_main/ILMN_mm10_betaTest_17082020'
+ils_ss_tib  <- loadAutoSampleSheets(dir=ils_dat_dir, verbose=opt$verbose) %>% dplyr::mutate(Lab='ILS')
+
+van_dat_dir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/scratch/swifthoof_main/VanAndel_mm10_betaTest_31082020'
+van_ss_tib  <- loadAutoSampleSheets(dir=van_dat_dir, verbose=opt$verbose) %>% dplyr::mutate(Lab='Van')
+
+fox_dat_dir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/scratch/swifthoof_main/MURMETVEP_mm10_betaTest_06082020'
+fox_ss_tib  <- loadAutoSampleSheets(dir=fox_dat_dir, verbose=opt$verbose) %>% dplyr::mutate(Lab='FOX')
+
+mm10_ss_tib <- dplyr::bind_rows(ils_ss_tib, van_ss_tib, fox_ss_tib) %>% dplyr::group_by(Lab)
+ggplot2::ggplot(data=mm10_ss_tib, aes(x=Beta_2_Mean, y=Poob_Pass_0_Perc, color=Lab)) + ggplot2::geom_point() # + ylim(80,100)
+ggplot2::ggplot(data=mm10_ss_tib, aes(x=Beta_2_Mean, y=Poob_Pass_0_Perc, color=Lab)) + ggplot2::geom_point() + ylim(75,100)
 
 
 
@@ -1358,7 +1413,7 @@ if (FALSE) {
   write_delim(x=ctl_fin_tib, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
   
   cmd <- glue::glue("cat {gs_swap_csv} | perl -pe 's/\"//gi' | gzip -c - > {gz_swap_csv}")
-  system(cmd)
+  # system(cmd)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
