@@ -404,12 +404,14 @@ out_man_tib <- mm10_man_tib %>%
 #                              NOT USED YET!
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-cgn_key_tib <- out_man_tib %>% dplyr::filter(Probe_Type=='mu' | Probe_Type=='cg') %>% 
-  dplyr::mutate(CGN=stringr::str_remove(Probe_ID,'_.*$')) %>% 
-  dplyr::mutate(CGN=stringr::str_replace(CGN,'^mu','cg')) %>% 
-  dplyr::select(CGN,Probe_ID,Probe_Type) %>% dplyr::arrange(CGN)
-
-cgn_key_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
+if (FALSE) {
+  cgn_key_tib <- out_man_tib %>% dplyr::filter(Probe_Type=='mu' | Probe_Type=='cg') %>% 
+    dplyr::mutate(CGN=stringr::str_remove(Probe_ID,'_.*$')) %>% 
+    dplyr::mutate(CGN=stringr::str_replace(CGN,'^mu','cg')) %>% 
+    dplyr::select(CGN,Probe_ID,Probe_Type) %>% dplyr::arrange(CGN)
+  
+  cgn_key_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               Format Infinium Methylation Standard Controls::
@@ -449,17 +451,16 @@ if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
   }
 }
 
+ses_unq_ctl_tib <- dplyr::distinct(ses_ctl_tib, Probe_ID, .keep_all=TRUE)
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             Sesame Manifest::
+#                         Get improbe intersection::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# What we need to match to on unix side::
-#   /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz 
-
-# ses_neg_tib <- ses_ctl_tib %>% dplyr::filter(Probe_Type=='NEGATIVE')
-# ses_man_tib <- dplyr::bind_rows(out_man_tib) %>% 
-# ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_neg_tib) %>% 
-
+# Probe Info with Seq48U:
+#  Unix: /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz 
+imp_s48_tsv  <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz'
+int_s48_tsv  <- file.path(opt$outDir, 'mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz')
 mm10_s48_tsv <- file.path(opt$outDir, 'mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv')
 mm10_s48_tib <- mm10_man_tib %>% dplyr::arrange(Mat_PrbA)
 readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
@@ -471,43 +472,49 @@ readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
 #  gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz | join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
 #
 # FULL JOIN COMMAND:: Split Line
- # gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz | \
- #  join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | \
- #  gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
+# gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz | \
+#  join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | \
+#  gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
+
+run_join_cmd <- TRUE
+if (run_join_cmd) {
+  join_cmd <- glue::glue("gzip -dc {imp_s48_tsv} | join -t $'\\", "t' -14 -27 - {mm10_s48_tsv} | gzip -c -> {int_s48_tsv}")
+  cat(glue::glue("[{par$prgmTag}]: Running: cmd='{join_cmd}'...{RET}{RET}") )
+  system(join_cmd)
+}
 
 # Local Mac Copy Command For Testing in git repository::
 #  cp /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.cpg-sorted.csv.gz tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-B0.manifest.sesame-base.cpg-sorted.csv.gz
 #
 
-#
-# TBD::
-#  - Update match seq48U names and data
-#  - Identify Probes with no seq48U match
-#  - Firgure out how to get their data
-#    - New cgn IDs
-#    - New names?
-# 
+# For completely missing ("off") source files::
+#  rs = /Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/Redesign/data/SNP/selected_SNP_probes.bed
+#  
 
-# Load seq48U intersection: /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
+mm10_s48_int_col <- c("Mat_PrbA",'Mat_CGN', 'Mat_TB', 'Mat_CO',
+                      "Seq_ID","ID_FR","ID_TB","ID_CO","ID_PD","Infinium_Design","Mat_Prb",
+                      "Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col",
+                      "Probe_Type","Probe_Source","Next_Base",
+                      "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Normalization_Bin",
+                      "Address_A_Seq","QC_A_Action","Address_B_Seq","QC_B_Action","BP","AQP","Rep_Max","Rep_Num",
+                      "AlleleA_Probe_Length","AlleleB_Probe_Length","Old_Probe_ID","Di","DS","HS","FN")
 
-mm10_s48_int_tsv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz'
-mm10_s48_int_col <- c("Mat_PrbA",'CGN', 'TB1', 'CO1',
-                      "Seq_ID","FR","TB","CO","PD","RP",
-                      "Mat_Prb","Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col",
-                      "Probe_Type","Probe_Source","Next_Base","AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Normalization_Bin","Address_A_Seq",
-                      "QC_A_Action","Address_B_Seq","QC_B_Action","BP","AQP","Rep_Num")
-mm10_s48_int_tib <- readr::read_tsv(mm10_s48_int_tsv, col_names=mm10_s48_int_col) %>% add_count(CGN,Seq_ID, name="Paired_Count")
+mm10_s48_int_tib <- readr::read_tsv(int_s48_tsv, col_names=mm10_s48_int_col) %>% add_count(Mat_CGN,Seq_ID, name="Paired_Count")
+
+# All the CpG's to be extract::
+#  mm10_s48_int_all_cgn_tib <- mm10_s48_int_tib %>% dplyr::distinct(Mat_CGN) %>% dplyr::arrange(Mat_CGN)
 
 # Split by matching and mismatch Seq_ID
-mm10_s48_mat_tib <- mm10_s48_int_tib %>% dplyr::filter(CGN==Seq_ID) %>% dplyr::arrange(Seq_ID)
-mm10_s48_mis_tib <- mm10_s48_int_tib %>% dplyr::filter(CGN!=Seq_ID) %>% dplyr::arrange(Seq_ID)
+mm10_s48_mat_tib <- mm10_s48_int_tib %>% dplyr::filter(Mat_CGN==Seq_ID) %>% dplyr::arrange(Seq_ID)
+mm10_s48_mis_tib <- mm10_s48_int_tib %>% dplyr::filter(Mat_CGN!=Seq_ID) %>% dplyr::arrange(Seq_ID)
 #  AND make a list of missing probes from original data::
 mm10_s48_off_tib <- mm10_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by="Mat_PrbA")
 
-# QC Counts:: Passed!
+# QC Counts Matching::
 # mm10_s48_int_tib %>% base::nrow()
 # mm10_s48_mat_tib %>% base::nrow()
 # mm10_s48_mis_tib %>% base::nrow()
+# mm10_s48_off_tib %>% base::nrow()
 
 # QC: Check type distributions::
 #  mat = cg
@@ -516,30 +523,114 @@ mm10_s48_mat_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=
 mm10_s48_mis_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=n())
 mm10_s48_off_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=n())
 
-mm10_s48_mis_tib %>% dplyr::filter(Paired_Count!=1) %>% dplyr::select(1:10,Rep_Num,Paired_Count)
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        mm10 CGN Genome Count::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Split mu/rp analysis
+mm10_cgn_cnt_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-counts.tsv.gz'
+mm10_cgn_cnt_tib <- readr::read_tsv(mm10_cgn_cnt_tsv)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Manifest Improbe Matching:: CGN ONLY
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Write improbe lookup file::
+mm10_s48_int_mat_cgn_tsv <- file.path(opt$outDir, 'mm10_s48_int_mat_cgn_tsv.gz')
+mm10_s48_int_mat_cgn_tib <- mm10_s48_mat_tib %>% dplyr::distinct(Mat_CGN) %>% dplyr::arrange(Mat_CGN) %>%
+  dplyr::rename(Seq_ID=Mat_CGN)
+readr::write_tsv(mm10_s48_int_mat_cgn_tib, mm10_s48_int_mat_cgn_tsv)
+
+# /Users/bbarnes/Documents/Projects/scripts/subset/getSubset.simple.pl -header -CO C -t /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_s48_int_mat_cgn_tsv.gz -d /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.tsv.gz | head
+#  > /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_s48_int_mat.improbe.tsv
+
+mm10_s48_int_mat_imp_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.LEGX-mat.tsv.gz'
+mm10_s48_int_mat_imp_tib <- read_tsv(mm10_s48_int_mat_imp_tsv) %>% 
+  dplyr::mutate(Imp_FR=Methyl_Allele_FR_Strand,
+                Imp_TB=stringr::str_sub(Methyl_Allele_TB_Strand, 1,1),
+                Imp_CO=Methyl_Allele_CO_Strand)
+
+#
+# Join improbe data to designs::
+#
+mm10_man_mat_imp_tib <- mm10_s48_mat_tib %>% 
+  dplyr::left_join(mm10_s48_int_mat_imp_tib, by=c("Seq_ID", "Probe_Type","Mat_TB"="Imp_TB", "Mat_CO"="Imp_CO")) %>% 
+  dplyr::mutate(Inter_Type='T') %>% tidyr::unite(Probe_ID_Suffix, Mat_TB,Mat_CO,Infinium_Design,Inter_Type,Rep_Num, sep='', remove=FALSE) %>% 
+  tidyr::unite(Probe_ID, Seq_ID,Probe_ID_Suffix, sep='_')
+
+mm10_man_mat_ses_tib <- mm10_man_mat_imp_tib %>%
+  dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
+
+# QC Counts Matching::
+mm10_man_mat_imp_tib %>% base::nrow()
+mm10_s48_mat_tib %>% base::nrow()
+mm10_man_mat_imp_tib %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Sesame Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+mm10_ses_man_cgn_out_csv <- file.path(opt$outDir, 'LEGX-B1.manifest.sesame-base.cpg-sorted.csv.gz')
+mm10_ses_man_cgn_git_csv <- file.path(par$datDir, 'manifest/base/LEGX-B1.manifest.sesame-base.cpg-sorted.csv.gz')
+mm10_ses_man_cgn_tib <- dplyr::bind_rows(mm10_man_mat_ses_tib,ses_unq_ctl_tib) %>% dplyr::arrange(Probe_ID)
+readr::write_csv(mm10_ses_man_cgn_tib,mm10_ses_man_cgn_out_csv)
+readr::write_csv(mm10_ses_man_cgn_tib,mm10_ses_man_cgn_git_csv)
+
+
+# Local Mac Copy Command For Testing::
+#  cp /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.cpg-sorted.csv.gz tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-B0..manifest.sesame-base.cpg-sorted.csv.gz
+#
+
+mm10_man_mat_imp_tib %>% dplyr::add_count(Probe_ID, name="PCount") %>% dplyr::filter(PCount!=1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Manifest Improbe Matching:: Non ONLY
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Split ch/mu/rp analysis
 mm10_s48_mis_types <- mm10_s48_mis_tib %>% split(.$Probe_Type)
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Manifest Improbe Matching:: mu ONLY
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-mm10_s48_off_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::select(Seq_ID:Mat_PrbA,AlleleA_Probe_Sequence)
-
-mm10_s48_off_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::select(Seq_ID:RP,AlleleA_Probe_Sequence) %>% 
-  dplyr::mutate(
-    Mat_PrbB=dplyr::case_when(
-      PD=='I'  ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
-      PD=='II' ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
-      TRUE ~ NA_character_
-    ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
-  )
-
-# Original
 #
-# Mat_PrbB=dplyr::case_when(
-#   PD=='I'  ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
-#   PD=='II' ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
-#   TRUE ~ NA_character_
-# ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
+# Conclusion:: mu probes can be converted to cg and added back to mat_tib with extra cg's added as extra field...
+#
+clean_mu_all_tib <- mm10_s48_mis_types[['mu']] %>% dplyr::mutate(Seq_ID=stringr::str_replace(Seq_ID, '^mu', 'cg'))
+clean_mu_mat_tib <- clean_mu_all_tib %>% dplyr::filter(Mat_CGN==Seq_ID) %>% dplyr::add_count(Seq_ID,Mat_TB,Mat_CO,Infinium_Design, name="ID_Count")
+clean_mu_mis_tib <- clean_mu_all_tib %>% dplyr::filter(! Seq_ID %in% clean_mu_mat_tib$Seq_ID)
+
+clean_mu_mat_tib %>% dplyr::filter(ID_Count!=1) %>% as.data.frame()
+
+# Write improbe lookup file::
+mm10_s48_int_mis_cgn_tsv <- file.path(opt$outDir, 'mm10_s48_int_mis_cgn_tsv.gz')
+mm10_s48_int_mis_cgn_tib <- clean_mu_all_tib %>% dplyr::distinct(Mat_CGN) %>% dplyr::arrange(Mat_CGN) %>%
+  dplyr::rename(Seq_ID=Mat_CGN)
+readr::write_tsv(mm10_s48_int_mis_cgn_tib, mm10_s48_int_mis_cgn_tsv)
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -990,17 +1081,19 @@ if (FALSE) {
 #                             Sesame Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ses_neg_tib <- ses_ctl_tib %>% dplyr::filter(Probe_Type=='NEGATIVE')
-# ses_man_tib <- dplyr::bind_rows(out_man_tib) %>% 
-# ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_ctl_tib) %>% 
-ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_neg_tib) %>% 
-  # dplyr::select(-AlleleA_Probe_Sequence,-AlleleB_Probe_Sequence) %>%
-  dplyr::arrange(Probe_ID)
-readr::write_csv(ses_man_tib, ses_man_csv)
-
-# Local Mac Copy Command For Testing::
-#  cp /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.cpg-sorted.csv.gz tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-B0..manifest.sesame-base.cpg-sorted.csv.gz
-#
+if (FALSE) {
+  ses_neg_tib <- ses_ctl_tib %>% dplyr::filter(Probe_Type=='NEGATIVE')
+  # ses_man_tib <- dplyr::bind_rows(out_man_tib) %>% 
+  # ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_ctl_tib) %>% 
+  ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_neg_tib) %>% 
+    # dplyr::select(-AlleleA_Probe_Sequence,-AlleleB_Probe_Sequence) %>%
+    dplyr::arrange(Probe_ID)
+  readr::write_csv(ses_man_tib, ses_man_csv)
+  
+  # Local Mac Copy Command For Testing::
+  #  cp /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.cpg-sorted.csv.gz tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-B0..manifest.sesame-base.cpg-sorted.csv.gz
+  #
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Genome Studio Manifest::

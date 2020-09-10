@@ -40,8 +40,8 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
   tib <- tib %>% dplyr::mutate(
     M=dplyr::case_when(M=='NA' ~ NA_real_, TRUE ~ M),
     Infinium_Design=dplyr::case_when(
-      !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) & !is.na(U) &  is.na(M) ~ 1,
-      !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) & !is.na(U) & !is.na(M) ~ 2,
+      !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) & !is.na(U) & !is.na(M) ~ 1,
+      !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) & !is.na(U) &  is.na(M) ~ 2,
       TRUE ~ NA_real_
     )
   )
@@ -49,7 +49,8 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
   # Add Probe Rep_Num, Old_Probe_ID, and Probe Lengths
   tib <- tib %>%
     dplyr::filter(!is.na(Infinium_Design)) %>%
-    dplyr::add_count(Probe_ID, name="Rep_Num") %>%
+    dplyr::add_count(Probe_ID, name="Rep_Max") %>%
+    dplyr::group_by(Probe_ID) %>% dplyr::mutate(Rep_Num=dplyr::row_number()) %>% dplyr::ungroup() %>%
     dplyr::mutate(AlleleA_Probe_Length=stringr::str_length(AlleleA_Probe_Sequence),
                   AlleleB_Probe_Length=stringr::str_length(AlleleB_Probe_Sequence),
                   Old_Probe_ID=paste(Probe_ID,paste0('r',Rep_Num), sep='_'))
@@ -76,10 +77,7 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
     if (type=='cg' || type=='ch' || type=='rp') {
       cur_tib <- cur_tib %>% 
         dplyr::mutate(
-          Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_\\R1_N_\\$2')
-          # Probe_ID=stringr::str_replace(Probe_ID, '_F_C_II$', '_F_N_C_II'),
-          # Probe_ID=stringr::str_replace(Probe_ID, '_R_C_I$',  '_R_N_C_I'),
-          # Probe_ID=stringr::str_replace(Probe_ID, '_R_C_II$', '_R_N_C_II')
+          Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_\\R1_N_\\$2') %>% stringr::str_remove_all('\\\\')
         ) %>%
         tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE)
 
@@ -123,18 +121,18 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
   # Add Probe Sequences for matching::
   ret_tib <- ret_tib %>% dplyr::mutate(
     Mat_Prb=dplyr::case_when(
-      Infinium_Design=='I'  ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,50),
-      Infinium_Design=='II' ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+      Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,50),
+      Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
       TRUE ~ NA_character_
     ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
     
     Mat_PrbA=dplyr::case_when(
-      Infinium_Design=='I'  ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
-      Infinium_Design=='II' ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+      Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
+      Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
       TRUE ~ NA_character_
     ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
   ) %>% dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA,Mat_Prb, everything())
-  
+
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
   ret_tib

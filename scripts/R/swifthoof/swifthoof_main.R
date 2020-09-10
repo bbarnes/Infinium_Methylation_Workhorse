@@ -203,7 +203,6 @@ if (args.dat[1]=='RStudio') {
   # }
   # opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/data/idats', opt$expRunStr, opt$expChipNum)
 
-  
   locIdatDir <- '/Users/bbarnes/Documents/Projects/methylation/data/idats'
   
   opt$expRunStr  <- 'ReferenceBETA'
