@@ -61,8 +61,8 @@ percisionPval=6
 # Parallel/Cluster Options::
 single=false
 # single=true
-# parallel=true
-parallel=false
+parallel=true
+# parallel=false
 cluster=true
 
 # Plotting Options::
