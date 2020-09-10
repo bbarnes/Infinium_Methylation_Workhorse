@@ -53,13 +53,14 @@ opt$Rscript <- NULL
 
 # Directories::
 opt$outDir     <- NULL
-opt$datDir     <- NULL
 
 # Required Inputs::
 opt$ords <- NULL
 opt$mats <- NULL
 opt$aqps <- NULL
 opt$pqcs <- NULL
+
+opt$idats <- NULL
 
 # Pre-defined files (controls)
 opt$ctlCSV <- NULL
@@ -154,6 +155,11 @@ if (args.dat[1]=='RStudio') {
     file.path(opt$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
     sep=',')
   
+  par$idatsTopDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
+  opt$idats <- paste(
+    file.path(par$idatsTopDir, '204637490002'),
+    sep=',')
+  
   # ord_bp1_csv <- file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP1.csv.gz')
   # ord_bp2_csv <- file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP2.csv.gz')
   # ord_bp3_csv <- file.path(opt$aqpDir, 'orders/mm10_LEGX_nonCpG_probes.Jan16-2020.order.csv.gz')
@@ -200,6 +206,9 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--pqcs"), type="character", default=opt$pqcs, 
                 help="PQC files (comma seperated) [default= %default]", metavar="character"),
     
+    make_option(c("-i", "--idats"), type="character", default=opt$idats, 
+                help="idats directory [default= %default]", metavar="character"),
+    
     # Required Inputs::
     make_option(c("--ctlCSV"), type="character", default=opt$ctlCSV, 
                 help="Standard Pre-Defined Infinium Methylation Controls CSV (no-header) [default= %default]", metavar="character"),
@@ -243,7 +252,8 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
 if (is.null(opt$outDir) || 
     is.null(opt$ords) || is.null(opt$mats) || 
     # (is.null(opt$aqps) && is.null(opt$pqcs)) ||
-    # is.null(ctlCSV) ||
+    # is.null(ctlCSV) || # Can be looked up via dat directory...
+    is.null(opt$idats) ||
     is.null(opt$genomeBuild) || is.null(opt$platform) || is.null(opt$version) ||
     is.null(opt$Rscript) ||
     is.null(opt$verbose)) {
@@ -260,7 +270,7 @@ if (is.null(opt$outDir) ||
   if (is.null(opt$mats))   cat(glue::glue("[Usage]: mats is NULL!!!{RET}"))
   if (is.null(opt$aqps))   cat(glue::glue("[Usage]: aqps is NULL [Not required if pqcs defined]!!!{RET}"))
   if (is.null(opt$pqcs))   cat(glue::glue("[Usage]: pqcs is NULL [Not required if aqps defined]!!!{RET}"))
-  if (is.null(opt$ctlCSV)) cat(glue::glue("[Usage]: ctlCSV is NULL [Not Required]!!!{RET}"))
+  if (is.null(opt$idats))  cat(glue::glue("[Usage]: idats is NULL [Not Required]!!!{RET}"))
   
   if (is.null(opt$genomeBuild)) cat(glue::glue("[Usage]: genomeBuild is NULL!!!{RET}"))
   if (is.null(opt$platform))    cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
@@ -274,7 +284,8 @@ par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
 if (opt$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
 if (opt$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
-cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
+
+cat(glue::glue("[{par$prgmTag}]: Done. Validating Options.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Source Files::
@@ -310,6 +321,7 @@ if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Sou
 for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
 
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Preprocessing::
@@ -332,7 +344,6 @@ stopifnot(length(ord_vec)>0)
 stopifnot(length(mat_vec)>0)
 stopifnot(length(mat_vec)==length(ord_vec))
 
-
 opt$alnDir <- NULL
 
 # Output Definitions::
@@ -344,6 +355,8 @@ opt$outName <- paste(opt$genomeBuild,opt$platform,opt$version, sep='_')
 ses_man_csv <- file.path(opt$outDir, paste0(opt$outName,'.manifest.sesame-base.cpg-sorted.csv.gz') )
 gss_man_csv <- file.path(opt$outDir, paste0(opt$outName,'.manifest.GenomeStudio.cpg-sorted.csv') )
 out_add_csv <- file.path(opt$outDir, paste0(opt$outName,'.manifest.address-base.cpg-sorted.csv.gz') )
+
+cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Build Manifest::
@@ -365,20 +378,6 @@ if (!is.null(opt$pqcs)) {
                        original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=idx, AQP=idx)
     )
   }
-  # pqcs_man_tib <- dplyr::bind_rows(
-  #   decodeToManifest(ord=ord_bp1_csv, mat=mat1_tsv, pqc=pqc_tsv,
-  #                    platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-  #                    original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=1, AQP=1),
-  #   decodeToManifest(ord=ord_bp2_csv, mat=mat2_tsv, pqc=pqc_tsv, 
-  #                    platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-  #                    original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=2, AQP=1),
-  #   decodeToManifest(ord=ord_bp3_csv, mat=mat3_tsv, pqc=pqc_tsv, 
-  #                    platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-  #                    original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=2, AQP=2),
-  #   decodeToManifest(ord=ord_bp4_csv, mat=mat4_tsv, pqc=pqc_tsv, 
-  #                    platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-  #                    original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=3, AQP=1)
-  # )
 } else {
   cat(glue::glue("[{par$prgmTag}]: Running Non-PQC...{RET}") )
   
@@ -389,45 +388,20 @@ if (!is.null(opt$pqcs)) {
                        original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=idx, AQP=idx)
     )
   }
-  # aqps_man_tib <- dplyr::bind_rows(
-  #   decodeToManifest(ord=ord_bp1_csv, mat=mat1_tsv, aqp=aqp1_tsv,
-  #                    platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-  #                    original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=1, AQP=1),
-  #   decodeToManifest(ord=ord_bp2_csv, mat=mat2_tsv, aqp=aqp2_tsv, 
-  #                    platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-  #                    original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=2, AQP=1),
-  #   decodeToManifest(ord=ord_bp3_csv, mat=mat3_tsv, aqp=aqp3_tsv, 
-  #                    platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-  #                    original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=2, AQP=2),
-  #   decodeToManifest(ord=ord_bp4_csv, mat=mat4_tsv, aqp=aqp4_tsv, 
-  #                    platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-  #                    original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=3, AQP=1)
-  # )
 }
 full_man_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
 
-# Generate Unique Probe Stats::
-full_man_tib %>% dplyr::select(Probe_ID) %>% dplyr::group_by(Probe_ID) %>% dplyr::mutate(Rep=row_number()) %>% dplyr::ungroup() %>% 
-  dplyr::group_by(Rep) %>% dplyr::summarise(Count=n()) %>% print()
+mm10_man_tib <- fixOrderProbeIDs(full_man_tib, verbose=opt$verbose)
+mm10_man_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
 
-# Create Unique Names for duplicates::
-uniq_man_tib <- full_man_tib %>% dplyr::group_by(Probe_ID) %>% 
-  dplyr::mutate(Rep=paste0('r',row_number()) ) %>% 
-  tidyr::unite(Probe_ID, Probe_ID,Rep, sep='_')
-
-# Generate Unique Probe Stats::
-# TBD:: Only add r# if rep > 1
-uniq_man_tib %>% dplyr::select(Probe_ID) %>% dplyr::group_by(Probe_ID) %>% dplyr::mutate(Rep=row_number()) %>% dplyr::ungroup() %>% 
-  dplyr::group_by(Rep) %>% dplyr::summarise(Count=n()) %>% print()
-
-out_man_tib <- uniq_man_tib %>% 
+out_man_tib <- mm10_man_tib %>% 
   dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, 
                 AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
   dplyr::mutate(Version=opt$tar_version)
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   Extract Probe CGN Positions for cg & mu::
+#                              NOT USED YET!
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 cgn_key_tib <- out_man_tib %>% dplyr::filter(Probe_Type=='mu' | Probe_Type=='cg') %>% 
@@ -435,7 +409,7 @@ cgn_key_tib <- out_man_tib %>% dplyr::filter(Probe_Type=='mu' | Probe_Type=='cg'
   dplyr::mutate(CGN=stringr::str_replace(CGN,'^mu','cg')) %>% 
   dplyr::select(CGN,Probe_ID,Probe_Type) %>% dplyr::arrange(CGN)
 
-
+cgn_key_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               Format Infinium Methylation Standard Controls::
@@ -475,6 +449,105 @@ if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
   }
 }
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Sesame Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# What we need to match to on unix side::
+#   /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz 
+
+# ses_neg_tib <- ses_ctl_tib %>% dplyr::filter(Probe_Type=='NEGATIVE')
+# ses_man_tib <- dplyr::bind_rows(out_man_tib) %>% 
+# ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_neg_tib) %>% 
+
+mm10_s48_tsv <- file.path(opt$outDir, 'mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv')
+mm10_s48_tib <- mm10_man_tib %>% dplyr::arrange(Mat_PrbA)
+readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
+
+# Probe Info with Seq48U:
+#  gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz
+#
+# FULL JOIN COMMAND:: Single Line
+#  gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz | join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
+#
+# FULL JOIN COMMAND:: Split Line
+ # gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz | \
+ #  join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | \
+ #  gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
+
+# Local Mac Copy Command For Testing in git repository::
+#  cp /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.cpg-sorted.csv.gz tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-B0.manifest.sesame-base.cpg-sorted.csv.gz
+#
+
+#
+# TBD::
+#  - Update match seq48U names and data
+#  - Identify Probes with no seq48U match
+#  - Firgure out how to get their data
+#    - New cgn IDs
+#    - New names?
+# 
+
+# Load seq48U intersection: /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
+
+mm10_s48_int_tsv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz'
+mm10_s48_int_col <- c("Mat_PrbA",'CGN', 'TB1', 'CO1',
+                      "Seq_ID","FR","TB","CO","PD","RP",
+                      "Mat_Prb","Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col",
+                      "Probe_Type","Probe_Source","Next_Base","AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Normalization_Bin","Address_A_Seq",
+                      "QC_A_Action","Address_B_Seq","QC_B_Action","BP","AQP","Rep_Num")
+mm10_s48_int_tib <- readr::read_tsv(mm10_s48_int_tsv, col_names=mm10_s48_int_col) %>% add_count(CGN,Seq_ID, name="Paired_Count")
+
+# Split by matching and mismatch Seq_ID
+mm10_s48_mat_tib <- mm10_s48_int_tib %>% dplyr::filter(CGN==Seq_ID) %>% dplyr::arrange(Seq_ID)
+mm10_s48_mis_tib <- mm10_s48_int_tib %>% dplyr::filter(CGN!=Seq_ID) %>% dplyr::arrange(Seq_ID)
+#  AND make a list of missing probes from original data::
+mm10_s48_off_tib <- mm10_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by="Mat_PrbA")
+
+# QC Counts:: Passed!
+# mm10_s48_int_tib %>% base::nrow()
+# mm10_s48_mat_tib %>% base::nrow()
+# mm10_s48_mis_tib %>% base::nrow()
+
+# QC: Check type distributions::
+#  mat = cg
+#  mis = rp,mu
+mm10_s48_mat_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=n())
+mm10_s48_mis_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=n())
+mm10_s48_off_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=n())
+
+mm10_s48_mis_tib %>% dplyr::filter(Paired_Count!=1) %>% dplyr::select(1:10,Rep_Num,Paired_Count)
+
+# Split mu/rp analysis
+mm10_s48_mis_types <- mm10_s48_mis_tib %>% split(.$Probe_Type)
+
+
+mm10_s48_off_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::select(Seq_ID:Mat_PrbA,AlleleA_Probe_Sequence)
+
+mm10_s48_off_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::select(Seq_ID:RP,AlleleA_Probe_Sequence) %>% 
+  dplyr::mutate(
+    Mat_PrbB=dplyr::case_when(
+      PD=='I'  ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
+      PD=='II' ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+      TRUE ~ NA_character_
+    ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
+  )
+
+# Original
+#
+# Mat_PrbB=dplyr::case_when(
+#   PD=='I'  ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
+#   PD=='II' ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+#   TRUE ~ NA_character_
+# ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
+
+
+
+
+
+
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Source and Design Search::
@@ -482,14 +555,79 @@ if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
 
 if (FALSE) {
   # Objectives::
-  #  1. Gather all public product improbe GGNs and designs 
-  #     - need to add Horvath Designs
-  #  2. Gather all mouse methylation improbe CGNs and designs
-  #  3. Gather all mouse idats tangos from a few recent idats
-  #  4. 
+  #
+  #  1. Gather all mouse idats tangos from a few recent idats
+  #
+  #  2. Gather all public product improbe GGNs and designs 
+  #     - Add Horvath Manifests
+  #     - Add NZT Manifest
+  #     - Add Excalibur Manifest
+  #     - Add Custom Manifests (Genknowme, TruDX, Univ Chicago)
+  #  3. Gather all mouse methylation improbe CGNs and designs
+  #
+  #  4. Comapre Previous Products with Mouse for CGN -> Top Integrity
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                 Preprocessing:: Improbe Product Designs
+  #                   Identify Address Not Found in IDATs::
+  #
+  #  1. Gather all mouse idats tangos from a few recent idats
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  par$compare_idats <- FALSE
+  if (par$compare_idats) {
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                         Load Tangos From IDATS::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    idat_vec <- NULL
+    if (!is.null(opt$idats)) idat_vec <- opt$idats %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+    
+    max_idat_load <- 3
+    prefix_list <- sesame::searchIDATprefixes(idat_vec[1], recursive=TRUE, use.basename=TRUE)
+    idat_add_tib <- NULL
+    for (pIdx in c(1:length(prefix_list))) {
+      idat_cur_dat <- prefixToIdat(prefix=prefix_list[[pIdx]], verbose=opt$verbose)
+      idat_add_tib <- idat_add_tib %>% dplyr::bind_rows(idat_cur_dat$sig %>% dplyr::select(Address))
+      
+      if (pIdx >= max_idat_load) break
+    }
+    adds_cnt_tib <- idat_add_tib %>% dplyr::group_by(Address) %>% dplyr::summarise(Count=n())
+    idat_add_vec <- adds_cnt_tib %>% dplyr::pull(Address)
+    
+    # Sanity Check
+    adds_mis_cnt <- adds_cnt_tib %>% dplyr::filter(Count != max_idat_load) %>% base::nrow()
+    stopifnot(adds_mis_cnt==0)
+    
+    add_mis_man_tib <- dplyr::bind_rows(
+      mm10_man_tib %>% dplyr::filter(! U %in% idat_add_vec),
+      mm10_man_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(! M %in% idat_add_vec)
+    )
+    add_mis_ctl_tib <- dplyr::bind_rows(
+      ses_ctl_tib %>% dplyr::filter(! U %in% idat_add_vec),
+      ses_ctl_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(! M %in% idat_add_vec)
+    )
+    
+    # List of Probe IDs with missing tangos in idats from Wanding
+    add_mis_cgn_wand_tsv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/tango-issues/probe_with_tango_issue.tsv.gz'
+    add_mis_cgn_wand_tib <- readr::read_tsv(add_mis_cgn_wand_tsv)
+    
+    #
+    # CONCLUSION: I don't see any missing addresses: Only checked ILMN so far...
+    #  TBD:: Check IDATs from other BETA sites
+    #
+    
+    cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing::Identify Address Not Found in IDATs!{RET}{RET}") )
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #           Preprocessing:: Improbe Previous Product Designs
+  #
+  #  2. Gather all public product improbe GGNs and designs 
+  #     - Add Horvath Manifests
+  #     - Add NZT Manifest
+  #     - Add Excalibur Manifest
+  #     - Add Custom Manifests (Genknowme, TruDX, Univ Chicago)
+  #
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   imp_prd_tsv <- '/Users/bbarnes/Documents/Projects/methylation/EWAS/improbe/EPIC-reorder.improbe-design.tsv.gz'
@@ -497,47 +635,372 @@ if (FALSE) {
     dplyr::mutate(Min_Final_Score=pmin(Methyl_Final_Score,UnMethyl_Final_Score),
                   Methyl_Allele_TB_Strand=stringr::str_sub(Methyl_Allele_TB_Strand, 1,1))
   
-  imp_unq_tib <- imp_des_tib %>% dplyr::distinct(Seq_ID, Methyl_Allele_CO_Strand, Methyl_Allele_TB_Strand, UnMethyl_Probe_Sequence)
+  #
+  # Investigate Integrety of CGN -> Top_Sequence in Previous Products::
+  #
+  
+  # Build Summary:: i.e. 27k vs. 450k/EPIC
+  imp_prd_tib %>% dplyr::group_by(Genome_Build) %>% dplyr::summarise(Count=n()) %>% print()
+  
+  # Make sure CGN -> Top is unique::
+  prd_uniq_cgn_top_tib <- imp_prd_tib %>% dplyr::select(Seq_ID, Top_Sequence) %>% dplyr::distinct()
+  
+  # Check Top_Sequences all have a Count == 1
+  prd_top_cnt_tib <- prd_uniq_cgn_top_tib %>% dplyr::group_by(Top_Sequence) %>% dplyr::summarise(Count=n())
+  
+  # There should be 7 and they should be from the 27k:: i.e. Genome_Build == 36
+  prd_top_mis_tib <- prd_top_cnt_tib %>% dplyr::filter(Count != 1)
+  prd_bad_cgn_tib <- imp_prd_tib %>% dplyr::filter(Top_Sequence %in% prd_top_mis_tib$Top_Sequence) %>% 
+    dplyr::select(Seq_ID, Genome_Build) %>% dplyr::distinct()
+  prb_bad_cgn_cnt <- prd_bad_cgn_tib %>% base::nrow()
+  
+  # Check CGNs all have a Count == 1
+  prd_cgn_cnt_tib <- prd_uniq_cgn_top_tib %>% dplyr::group_by(Seq_ID) %>% dplyr::summarise(Count=n())
+  
+  # This should be zero::
+  prd_cgn_mis_tib <- prd_cgn_cnt_tib %>% dplyr::filter(Count != 1)
+  
+  cat(glue::glue("[{par$prgmTag}]: Done. Investigating Previous Product CGN -> Top_Sequence Designs; prb_bad_cgn_cnt={prb_bad_cgn_cnt}!{RET}{RET}") )
+  
+  #
+  # Investigate uniqueness of probes::
+  #
+  imp_unq_tib <- imp_prd_tib %>% dplyr::distinct(Seq_ID, Methyl_Allele_CO_Strand, Methyl_Allele_TB_Strand, UnMethyl_Probe_Sequence)
   imp_mis_tib <- imp_unq_tib %>% dplyr::group_by(UnMethyl_Probe_Sequence) %>% dplyr::summarise(Seq_Count=n())
   imp_ann_tib <- imp_unq_tib %>% dplyr::left_join(imp_mis_tib, by="UnMethyl_Probe_Sequence")
   
-  imp_ann_tib %>% dplyr::filter(Seq_Count!=1, Methyl_Allele_CO_Strand=='C')
+  # imp_ann_tib %>% dplyr::filter(Seq_Count!=1, Methyl_Allele_CO_Strand=='C')
+  imp_bad_prb_tib <- imp_ann_tib %>% dplyr::filter(Seq_Count!=1, Methyl_Allele_CO_Strand=='C') %>% dplyr::group_by(Seq_ID) %>% 
+    dplyr::summarise(CGN_Count=n()) %>% dplyr::filter(CGN_Count!=1)
+  prd_bad_prb_tib <- imp_prd_tib %>% dplyr::filter(Seq_ID %in% imp_bad_prb_tib$Seq_ID) %>% dplyr::distinct(Seq_ID, Genome_Build)
+  prd_bad_prb_cnt <- prd_bad_prb_tib %>% base::nrow()
   
-  cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing::Improbe Designs!{RET}{RET}") )
+  cat(glue::glue("[{par$prgmTag}]: Done. Investigating Previous Product Non-Unique Prb_Seq_U; prd_bad_prb_cnt={prd_bad_prb_cnt}!{RET}{RET}") )
+
+  #
+  # Join all Failed Probes due to CGN->Top or UnMethyl_Probe_Sequeunce Integrity Issues::
+  #
+  prd_fin_bad_tib <- dplyr::bind_rows( prd_bad_cgn_tib, prd_bad_prb_tib ) %>% dplyr::distinct()
+  prd_fin_bad_cnt <- prd_fin_bad_tib %>% base::nrow()
+
+  cat(glue::glue("[{par$prgmTag}]: Done. Investigating Previous Product Integrity Failures; prd_fin_bad_cnt={prd_fin_bad_cnt}!{RET}{RET}") )
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                Preprocessing:: Improbe Mouse Designs
+  #
+  #  3. Gather all mouse methylation improbe CGNs and designs
+  #
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  # Ensure we have the correct matching database between our designs, our design database (v1) and the full database (AL)
-  improbe_v1_tsv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/data/dropbox/merged_with_raw_ordered_withHeader.tsv.gz'
-  imp_des_v1_tib <- readr::read_tsv(improbe_v1_tsv)
+  # mm10_imp_AL_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU.tsv.gz'
+  # mm10_imp_AL_tib <- readr::read_tsv(mm10_imp_AL_tsv)
   
+  # Ensure we have the correct matching database between our designs, our design database (v1) and the full database (AL)
+  mm10_imp_v1_tsv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/data/dropbox/merged_with_raw_ordered_withHeader.tsv.gz'
+  mm10_imp_v1_tib <- suppressMessages(suppressWarnings( readr::read_tsv(mm10_imp_v1_tsv) )) %>% 
+    dplyr::mutate(
+      Seq_ID = stringr::str_remove_all(Seq_ID, ' '),
+      Mat_Prb1=stringr::str_sub(UnMethyl_Probe_Sequence, 2,50), 
+      Mat_Prb2=stringr::str_sub(UnMethyl_Probe_Sequence, 2,49) )
+  
+  # Non Traditional Probes::
+  #  mm10_imp_v1_tib %>% dplyr::filter(Customer_Probe_IU!=UnMethyl_Probe_Sequence) 
+  
+  #
+  # Make sure both V1 have CGN->TOP Integrity::
+  #
+  mm10_uniq_cgn_top_tib <- mm10_imp_v1_tib %>% dplyr::distinct(Seq_ID,Top_Sequence)
+  mm10_uniq_top_cnt_tib <- mm10_uniq_cgn_top_tib %>% dplyr::group_by(Top_Sequence) %>% dplyr::summarise(Top_Count=n())
+  mm10_uniq_top_mis_cnt <- mm10_uniq_top_cnt_tib %>% dplyr::filter(Top_Count != 1) %>% base::nrow()
+  
+  cat(glue::glue("[{par$prgmTag}]: Done. Investigating Mouse Product Integrity Failures; ",
+                 "mm10_uniq_top_mis_cnt={mm10_uniq_top_mis_cnt}!{RET}{RET}") )
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                Preprocessing:: Improbe Mouse Designs
+  #
+  #  4. Comapre Previous Products with Mouse for CGN -> Top Integrity
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  prd_mm10_uniq_cgn_top_tib <- dplyr::bind_rows( prd_uniq_cgn_top_tib, mm10_uniq_cgn_top_tib ) %>% dplyr::distinct()
+  prd_mm10_uniq_top_cnt_tib <- prd_mm10_uniq_cgn_top_tib %>% dplyr::group_by(Top_Sequence) %>% dplyr::summarise(Top_Count=n())
+  
+  # Validation:: Only loss of integrity comes from 27k::
+  prd_mm10_uniq_top_min_tib <- prd_mm10_uniq_top_cnt_tib %>% dplyr::filter(Top_Count != 1) %>% 
+    dplyr::inner_join(imp_prd_tib %>% dplyr::select(Seq_ID,Top_Sequence,Genome_Build), by="Top_Sequence") %>% dplyr::distinct(Seq_ID, Genome_Build)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                Preprocessing:: Update mouse CGN names::
+  #
+  #  5. Use improbe mouse designs to generate new proper CGNs
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  #
+  # LAST POINT BEFORE RESTART: TBD:
+  #  - Validate designs for all probes on mm10_man_tib
+  #
+  par$tbd_step <- FALSE
+  if (par$tbd_step) {
+    mm10_man_v1_matPrbCgn_tib <- dplyr::bind_rows(
+      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1", "Seq_ID")),
+      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2", "Seq_ID")) )
+
+    mm10_man_v1_matPrb_tib <- dplyr::bind_rows(
+      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
+      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+    
+    # Can't Anit-join until we remove the non Seq_ID matches::
+    # mm10_man_tib %>% dplyr::anti_join(mm10_man_v1_matPrb_tib, by='')
+    mm10_man_v1_matPrb_tib 
+    
+    
+    # Probes with non-match Seq_ID's
+    mm10_man_v1_matPrb_tib %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% dplyr::select(Seq_ID.x, Seq_ID.y, Top_Sequence, Mat_Prb)
+    
+    mm10_man_v1_matPrb_tib %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% dplyr::select(Seq_ID.x, Seq_ID.y) %>% as.data.frame()
+    
+  }
+  
+  #
+  # NEXT STEP:: 
+  #
+  #  - Check missing probes from basic sort above
+  #
+  #  - Perl PrbSeqU_48 and sort by it from full design file.
+  #  - Intersect by Mat_Prb
+  #  - Checking missing probes
+  #  - Identify RP/MU probes and add their values
+  #
+  mm10_des_AL_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.tsv.gz'
+  mm10_des_AL_tib <- readr::read_tsv(mm10_des_AL_tsv)
+  
+
+  #
+  # Full Unique:: 
+  #
+  par$full_cross_verification <- FALSE
+  if (par$full_cross_verification) {
+    #
+    # Takes too much memory locally::
+    #  mm10_imp_AL_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU.tsv.gz'
+    #  mm10_imp_AL_tib <- readr::read_tsv(mm10_imp_AL_tsv)
+    #
+    # Next step: cross validate all CGN/TOP against all manifest designs...
+    #  Unique Count = 20239851
+    #
+    mm10_imp_AL_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top.uniq.tsv'
+    mm10_imp_AL_rds <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top.uniq.rds'
+    # mm10_imp_AL_tib <- readr::read_tsv(mm10_imp_AL_tsv)
+    # readr::write_rds(mm10_imp_AL_tib, mm10_imp_AL_rds,  compress="gz")
+    mm10_imp_AL_tib <- readr::read_rds(mm10_imp_AL_rds)
+    
+    prd_mm10_full_cgn_top_tib <- dplyr::bind_rows( prd_uniq_cgn_top_tib, mm10_uniq_cgn_top_tib, mm10_imp_AL_tib ) %>% dplyr::distinct()
+    prd_mm10_full_top_cnt_tib <- prd_mm10_full_cgn_top_tib %>% dplyr::group_by(Top_Sequence) %>% dplyr::summarise(Top_Count=n())
+    prd_mm10_full_top_cnt_csv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.prd_mm10_full_top_cnt.csv.gz'
+    readr::write_csv(prd_mm10_full_top_cnt_tib, prd_mm10_full_top_cnt_csv)
+    
+    # Same ones as 27k::
+    prd_mm10_full_top_cnt_tib %>% dplyr::filter(Top_Count != 1)
+
+    # Conclusion: Cross Validation Validated!
+  }
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (FALSE) {
+  
+  #
+  # Cannot trust below becuase coordinate system is off for columns:: Also, the above seems to work...
+  #
+  if (FALSE) {
+    
+    #
+    # TBD:: Repeat above with AL improbe mouse designs for integrity check...
+    #  4. Comapre Previous Products with Mouse for CGN -> Top Integrity
+    #
+    
+    #
+    # Complete mouse improbe design::
+    #
+    mm10_imp_org_csv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/complicated-header.csv'
+    mm10_imp_org_col <- suppressMessages(suppressWarnings( readr::read_csv(mm10_imp_org_csv) )) %>% names() %>% as.vector()
+    # mm10_imp_org_col %>% length() = 92
+    mm10_imp_ext_col <- c('Add_Forward_Sequence','Add_Genome_Build','Add_Chromosome','Add_Position','Add_Top_Sequence',
+                          'Add_Probe_Seq_M','Add_FR','Add_TB','Add_CO','Add_Score_M','Add_CpgCnt','Add_CpgPos','Add_Probe_Seq_U',
+                          'Add_Score_U')
+    mm10_imp_AL_col <- c(mm10_imp_org_col,mm10_imp_ext_col)
+    # mm10_imp_AL_col %>% length() = 106
+    
+    # mm10_imp_AL_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/joined.designed.dat.head.csv'
+    mm10_imp_AL_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/joined.designed.dat.csv.gz'
+    mm10_imp_AL_tib <- suppressMessages(suppressWarnings( readr::read_csv(mm10_imp_AL_csv, col_names=mm10_imp_AL_col) )) %>% 
+      dplyr::mutate(
+        Mat_Prb1=stringr::str_sub(Add_Probe_Seq_U, 2,50), 
+        Mat_Prb2=stringr::str_sub(Add_Probe_Seq_U, 2,49) )
+  }
+  
+  # Join manifest probes and improbe based on Allele_A probe
+  if (FALSE) {
+    # v1 improbe::
+    mm10_man_v1_mat_tib <- dplyr::bind_rows(
+      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
+      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+    
+    # AL improbe::
+    mm10_man_AL_mat_tib <- dplyr::bind_rows(
+      mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")),
+      mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+    
+    
+    #
+    # Check improbe design uniqueness by CGN->TOP Integrity::
+    #
+    mm10_imp_v1_tib %>% base::nrow() # 285604
+    mm10_imp_AL_tib %>% base::nrow() # 1108632
+    
+    mm10_unq_v1_cgTop_tib <- mm10_imp_v1_tib %>% dplyr::distinct(Seq_ID, Top_Sequence)
+    mm10_unq_AL_cgTop_tib <- mm10_imp_AL_tib %>% dplyr::distinct(Probe_ID, Top_Sequence) %>% dplyr::rename(Seq_ID=Probe_ID)
+    
+    # Failed in translation: Probe_ID=='cg00554227'
+    
+    #
+    # By the numbers::
+    #
+    mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
+    mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
+    
+    mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
+    mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
+    
+    
+    #
+    # Probe IDs that don't match::
+    #
+    mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
+    mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
+    
+    
+  }
+  
+  #
+  # Left off checking the other mouse designs here::
+  #
+
   # improbe_AL_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.core-v1.tsv.gz'
   # imp_des_AL_tib <- readr::read_tsv(improbe_AL_tsv)
+  # improbe_AL_cols <- c('Probe_ID', 'Chrom1', 'Pos1', 'Pos2', 'Chip_Str1', 
+  #                      'Customer_Score', 'Customer_Underlying_CpG_Count', 'Customer_Pos', 'Customer_Design_Char', 'Customer_Dist1', 'Customer_Dist2',
+  #                      'Customer_Long_ID', 'Customer_ID_CO', 'Customer_Prb_A', 'Customer_Prb_B', 'Customer_Design_Type'
+  # )
   
-  improbe_AL_cols <- c('Probe_ID', 'Chrom1', 'Pos1', 'Pos2', 'Chip_Str1', 
-                       'Customer_Score', 'Customer_Underlying_CpG_Count', 'Customer_Pos', 'Customer_Design_Char', 'Customer_Dist1', 'Customer_Dist2',
-                       'Customer_Long_ID', 'Customer_ID_CO', 'Customer_Prb_A', 'Customer_Prb_B', 'Customer_Design_Type'
-  )
+  mm10_imp_org_csv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/complicated-header.csv'
+  mm10_imp_org_col <- suppressMessages(suppressWarnings( readr::read_csv(mm10_imp_org_csv) )) %>% names() %>% as.vector()
+  # mm10_imp_org_col %>% length() = 92
+  mm10_imp_ext_col <- c('Add_Forward_Sequence','Add_Genome_Build','Add_Chromosome','Add_Position','Add_Top_Sequence',
+                    'Add_Probe_Seq_M','Add_FR','Add_TB','Add_CO','Add_Score_M','Add_CpgCnt','Add_CpgPos','Add_Probe_Seq_U',
+                    'Add_Score_U')
   
-  improbe_cols_csv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/complicated-header.csv'
-  improbe_cols_vec <- readr::read_csv(improbe_cols_csv) %>% names() %>% as.vector()
+  mm10_imp_AL_col <- c(mm10_imp_org_col,mm10_imp_ext_col)
+  # mm10_imp_AL_col %>% length() = 106
   
-  # improbe_AL_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/joined.designed.dat.head.csv'
-  improbe_AL_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/joined.designed.dat.csv.gz'
+  # mm10_imp_AL_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/joined.designed.dat.head.csv'
+  mm10_imp_AL_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/manifests/joined.designed.dat.csv.gz'
+  mm10_imp_AL_tib <- suppressMessages(suppressWarnings( readr::read_csv(mm10_imp_AL_csv, col_names=mm10_imp_AL_col) )) %>% 
+    dplyr::mutate(
+      Mat_Prb1=stringr::str_sub(UnMethyl_Probe_Sequence, 2,50), 
+      Mat_Prb2=stringr::str_sub(UnMethyl_Probe_Sequence, 2,49) )
   
-  improbe_AL_tib <- readr::read_csv(improbe_AL_csv, col_names=improbe_cols_vec)
+  # Join manifest probes and improbe based on Allele_A probe
+  # mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1"))
+  # mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2"))
+  # mm10_man_tib %>% dplyr::full_join(mm10_imp_AL_tib, by=c("Seq_ID"="Probe_ID") ) %>% 
+  #   dplyr::select(Seq_ID, PD, Address_A_Seq, Mat_Prb1, Mat_Prb2)
+
+  
+    
+  #
+  # Make sure both V1/AL have CGN->TOP Integrity::
+  #
+  unq_imp_v1_tib <- imp_des_v1_tib %>% dplyr::distinct(Seq_ID,Top_Sequence)
+  top_cnt_v1_tib <- unq_imp_v1_tib %>% dplyr::group_by(Top_Sequence) %>% dplyr::summarise(Top_Count=n())
+
+  unq_imp_AL_tib <- improbe_AL_tib %>% dplyr::distinct(Probe_ID,Top_Sequence)
+  top_cnt_AL_tib <- unq_imp_AL_tib %>% dplyr::group_by(Top_Sequence) %>% dplyr::summarise(Top_Count=n())
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                Preprocessing:: Improbe Mouse Designs
+  #
+  #  4. Comapre Previous Products with Mouse for CGN -> Top Integrity
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #              Dirty and Quick Selection of Optimal Content::
+  #
+  #                           EXAMPLE CODE BELOW::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  if (FALSE) {
+    man_cn_des_all_tib <- dplyr::left_join(man_sel_cn_tib,
+                                           imp_des_tib %>% dplyr::filter(Methyl_Allele_CO_Strand=='C') %>% dplyr::select(-Probe_Type),
+                                           by=c("IlmnID"="Seq_ID"), suffix=c("_Man", "_Des")
+    ) %>% dplyr::mutate(
+      Mat_Prb1_Man=stringr::str_sub(AlleleA_ProbeSeq, 2,50) %>% stringr::str_replace_all('R', 'A'), 
+      Mat_Prb2_Man=stringr::str_sub(AlleleA_ProbeSeq, 3,50) %>% stringr::str_replace_all('R', 'A'), 
+      Mat_Prb1_Des=stringr::str_sub(UnMethyl_Probe_Sequence, 2,50), 
+      Mat_Prb2_Des=stringr::str_sub(UnMethyl_Probe_Sequence, 2,49) ) %>% dplyr::filter(! IlmnID %in% man_27k_tib$IlmnID)
+    
+    mat_des1_tib <- man_cn_des_all_tib %>% dplyr::filter(Mat_Prb1_Man==Mat_Prb1_Des & Forward_Sequence_Man == Forward_Sequence_Des)
+    mat_des2_tib <- man_cn_des_all_tib %>% dplyr::filter(Mat_Prb2_Man==Mat_Prb2_Des & Forward_Sequence_Man == Forward_Sequence_Des)
+    
+    man_cn_des_mat_tib <- dplyr::bind_rows( mat_des1_tib,mat_des2_tib ) %>% 
+      dplyr::arrange(IlmnID) %>% dplyr::rename(Forward_Sequence=Forward_Sequence_Des) %>% 
+      dplyr::select(-Forward_Sequence_Man)
+    
+    man_cn_des_mat_tib %>% dplyr::group_by( Probe_Type ) %>% dplyr::summarise(Count=n()) %>% print()
+  }
+  
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Sesame Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_ctl_tib) %>% 
+ses_neg_tib <- ses_ctl_tib %>% dplyr::filter(Probe_Type=='NEGATIVE')
+# ses_man_tib <- dplyr::bind_rows(out_man_tib) %>% 
+# ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_ctl_tib) %>% 
+ses_man_tib <- dplyr::bind_rows(out_man_tib,ses_neg_tib) %>% 
   # dplyr::select(-AlleleA_Probe_Sequence,-AlleleB_Probe_Sequence) %>%
   dplyr::arrange(Probe_ID)
 readr::write_csv(ses_man_tib, ses_man_csv)
+
+# Local Mac Copy Command For Testing::
+#  cp /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.cpg-sorted.csv.gz tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-B0..manifest.sesame-base.cpg-sorted.csv.gz
+#
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Genome Studio Manifest::
@@ -680,7 +1143,7 @@ if (FALSE) {
   ctl_gs_tib %>% dplyr::filter(Control_Group=="BISULFITE CONVERSION I") %>% dplyr::arrange(Control_Name) %>% dplyr::select(-Control_Color, -Man_Source) %>% as.data.frame()  
   ctl_gs_tib %>% dplyr::filter(Control_Group=="BISULFITE CONVERSION II") %>% dplyr::arrange(Control_Name) %>% dplyr::select(-Control_Color, -Man_Source) %>% as.data.frame()
   ctl_gs_tib %>% dplyr::filter(Control_Group=="NON-POLYMORPHIC") %>% dplyr::arrange(Control_Name) %>% dplyr::select(-Control_Color, -Man_Source) %>% as.data.frame()
-
+  
   # Make new controls::
   new_ct_list <- man_ct_tib %>% dplyr::arrange(Probe_Type) %>%
     dplyr::mutate(

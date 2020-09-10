@@ -25,6 +25,122 @@ RET <- "\n"
 #
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Specialized Mouse Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# fixOrderProbeIDs(full_man_tib, verbose=opt$verbose)
+fixOrderProbeIDs = function(tib, field="Probe_Type",
+                            verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'manToBeadSummary'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  # Add Infinium Type Definition:: Also, fail any probe that breaks this method
+  tib <- tib %>% dplyr::mutate(
+    M=dplyr::case_when(M=='NA' ~ NA_real_, TRUE ~ M),
+    Infinium_Design=dplyr::case_when(
+      !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) & !is.na(U) &  is.na(M) ~ 1,
+      !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) & !is.na(U) & !is.na(M) ~ 2,
+      TRUE ~ NA_real_
+    )
+  )
+  
+  # Add Probe Rep_Num, Old_Probe_ID, and Probe Lengths
+  tib <- tib %>%
+    dplyr::filter(!is.na(Infinium_Design)) %>%
+    dplyr::add_count(Probe_ID, name="Rep_Num") %>%
+    dplyr::mutate(AlleleA_Probe_Length=stringr::str_length(AlleleA_Probe_Sequence),
+                  AlleleB_Probe_Length=stringr::str_length(AlleleB_Probe_Sequence),
+                  Old_Probe_ID=paste(Probe_ID,paste0('r',Rep_Num), sep='_'))
+
+  # Probe_Type Group_Count
+  # <chr>            <int>
+  # 2 cg              278216  cg36638866_F_T_C_II
+  # 3 ch                3763  ch110207106_F_B_C_II
+  # 7 rp                4518  rp10563_R_B_C_II
+  #
+  # 4 mu                6307  mu31334197_F_T_C_s5_h2_II
+  #
+  # 8 rs                1669  rs249350499_YC_F_R_B_C_I
+  #
+  # Skipping for now::
+  # 1 BS                1041  BSC_CCND3-CT-R-40170_F_B_O_II
+  # 6 NO                 815  NON_CCND3.87768_GT_2_R_B_O_II
+  # 5 ne                 395  neg_cg42568514_R_B_C
+  tib_types <- tib %>% split(.$Probe_Type)
+  
+  ret_tib <- NULL
+  for (type in names(tib_types)) {
+    cur_tib <- tib_types[[type]]
+    if (type=='cg' || type=='ch' || type=='rp') {
+      cur_tib <- cur_tib %>% 
+        dplyr::mutate(
+          Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_\\R1_N_\\$2')
+          # Probe_ID=stringr::str_replace(Probe_ID, '_F_C_II$', '_F_N_C_II'),
+          # Probe_ID=stringr::str_replace(Probe_ID, '_R_C_I$',  '_R_N_C_I'),
+          # Probe_ID=stringr::str_replace(Probe_ID, '_R_C_II$', '_R_N_C_II')
+        ) %>%
+        tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE)
+
+    } else if (type=='mu') {
+      cur_tib <- cur_tib %>% dplyr::mutate(Probe_ID=stringr::str_remove(Probe_ID, '_[0-9]+M$')) %>%
+        tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','DS','HS', 'PD'), sep='_', remove=FALSE) %>%
+        dplyr::mutate(DS=stringr::str_remove(DS, 's'), HS=stringr::str_remove(HS, 'h'),
+                      PD=dplyr::case_when(is.na(PD) ~ DS, TRUE ~ PD),
+                      DS=dplyr::case_when(DS=='I' | DS=='II' ~ NA_character_, TRUE ~ DS)
+        )
+    } else if (type=='rs') {
+      cur_tib <- cur_tib %>% dplyr::filter(Probe_Type=='rs') %>% dplyr::mutate(
+        Probe_ID=stringr::str_replace(Probe_ID, '^rs([A-Z0-9]+)_([0-9]+)_', 'rs-\\$1-\\$2_') %>% stringr::str_remove_all('\\\\'),
+        Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_NN_N_\\$1_N_\\$2') %>% stringr::str_remove_all('\\\\')
+      ) %>% 
+        tidyr::separate(Probe_ID, into=c('Seq_ID','Di','FN','FR','TB','CO','PD'), sep='_', remove=FALSE)
+    } else if (type=='BS') {
+      cur_tib <- cur_tib %>% dplyr::mutate(
+        Di=stringr::str_replace(Probe_ID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% stringr::str_remove_all('\\\\')
+      ) %>% 
+        dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '^BSC_', 'bs-')) %>% 
+        tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE) 
+    } else if (type=='NO') {
+      cur_tib <- cur_tib %>% dplyr::mutate(
+        Di=stringr::str_replace(Probe_ID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% stringr::str_remove_all('\\\\')
+      ) %>% 
+        dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '^NON_', 'no-') %>% 
+                        stringr::str_replace('\\.', '-') %>% stringr::str_replace('_','-') %>% stringr::str_replace('_','-')) %>% 
+        tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE) 
+    } else if (type=='ne') {
+      cur_tib <- cur_tib %>% 
+        dplyr::mutate(Probe_ID=paste(stringr::str_replace(Probe_ID, '^neg_', 'ne-'),'_I') ) %>% 
+        tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE) 
+    } else {
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: Unsupported type={type}!{RET}{RET}"))
+    }    
+    ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
+    
+  }
+  
+  # Add Probe Sequences for matching::
+  ret_tib <- ret_tib %>% dplyr::mutate(
+    Mat_Prb=dplyr::case_when(
+      Infinium_Design=='I'  ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,50),
+      Infinium_Design=='II' ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+      TRUE ~ NA_character_
+    ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+    
+    Mat_PrbA=dplyr::case_when(
+      Infinium_Design=='I'  ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
+      Infinium_Design=='II' ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+      TRUE ~ NA_character_
+    ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
+  ) %>% dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA,Mat_Prb, everything())
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Manifest Stats Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 

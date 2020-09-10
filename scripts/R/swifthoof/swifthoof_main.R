@@ -203,6 +203,7 @@ if (args.dat[1]=='RStudio') {
   # }
   # opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/data/idats', opt$expRunStr, opt$expChipNum)
 
+  
   locIdatDir <- '/Users/bbarnes/Documents/Projects/methylation/data/idats'
   
   opt$expRunStr  <- 'ReferenceBETA'
@@ -211,11 +212,22 @@ if (args.dat[1]=='RStudio') {
   
   opt$idatsDir <- file.path(locIdatDir, opt$expRunStr)
   opt$idatsDir <- file.path(locIdatDir, opt$expRunStr, opt$expChipNum)
-  
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
+  # mm10
+  opt$idatsDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
+  opt$auto_sam_csv <- NULL
+  
+  opt$expRunStr  <- 'mm10'
+  
+  opt$autoDetect   <- FALSE
+  opt$cluster  <- FALSE
+  opt$single   <- TRUE
+  opt$parallel <- FALSE
+
   opt$verbose <- 3
   opt$verbose <- 6
+  opt$verbose <- 60
   
   opt$outDir <- file.path(par$topDir, par$prgmDir, opt$expRunStr)
   
@@ -397,7 +409,8 @@ par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
 if (opt$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
 if (opt$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
-cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
+
+cat(glue::glue("[{par$prgmTag}]: Done. Validating Options.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Source Files::
@@ -417,16 +430,20 @@ if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Sou
 for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
 
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (!dir.exists(opt$idatsDir)) stop(glue::glue("{RET}[{par$prgmTag}]: idatsDir={opt$idatsDir} does not exist!!!{RET}{RET}"))
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-cat(glue::glue("[{par$prgmTag}]: Output Directory={opt$outDir}...{RET}"))
+cat(glue::glue("[{par$prgmTag}]: Output Directory (TOP)={opt$outDir}...{RET}"))
 
 workflows_vec <- NULL
 if (!is.null(opt$workflows)) workflows_vec <- opt$workflows %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+
+cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #             Select Chips from idats and/or Target Manifest::
@@ -513,7 +530,7 @@ if (opt$cluster) {
   
   # opt$outDir <- file.path(opt$outDir, par$prgmTag)
   # if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-  cat(glue::glue("[{par$prgmTag}]:{TAB} Output Directory={opt$outDir}...{RET}"))
+  cat(glue::glue("[{par$prgmTag}]:{TAB} Output Directory (SIG)={opt$outDir}...{RET}"))
   
   mans <- NULL
   opt$manDir <- file.path(par$datDir, 'manifest/base')
