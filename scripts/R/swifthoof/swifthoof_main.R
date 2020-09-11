@@ -588,6 +588,7 @@ if (opt$cluster) {
   } else {
     funcTag <- 'sesamizeSingleSample-Linear'
 
+    # opt$skipSwap
     cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: Starting...{RET}"))
     
     for (prefix in names(chipPrefixes)) {
