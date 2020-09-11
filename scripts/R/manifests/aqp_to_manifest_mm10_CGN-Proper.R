@@ -656,23 +656,41 @@ mm10_s48_int_mis_cgn_tib <- clean_mu_all_tib %>% dplyr::distinct(Mat_CGN) %>% dp
 #               Quick Look at Auto Sample Sheets from CG Only::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-mm10_hum_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/Laird-IDs_to_SampleNames_basic.csv'
-mm10_hum_ss_tib <- readr::read_csv(mm10_hum_ss_csv) %>% purrr::set_names(c('Laird_ID', 'Sentrix_Pos', 'Cell_Type', 'Sample_Class'))
+sam_map_tib <- tibble::tibble(
+  Laird_ID   =c( 20364,  20384,  20385,  21026,   20010,   20012,   20015),
+  Sample_Name=c('RepAC','RepS3','RepM1','RepSA', 'T00DZ', 'T50DZ', 'T99DZ')
+)
 
-mm10_hum_ss_tib %>% dplyr::group_by(Laird_ID) %>% dplyr::summarise(n()) %>% as.data.frame()
-mm10_hum_ss_tib %>% dplyr::group_by(Cell_Type) %>% dplyr::summarise(n()) %>% as.data.frame()
-mm10_hum_ss_tib %>% dplyr::group_by(Sample_Class) %>% dplyr::summarise(n()) %>% as.data.frame()
-
+# Load ILS Sample Sheet::
+#
 ils_map_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/ILS-Mouse_Methylation_samplesheet.csv'
-ils_map_tib <- readr::read_csv(ils_hum_csv) %>% 
-  dplyr::mutate(Laird_ID=as.integer(stringr::str_remove(Sample_ID, '_.*$')), 
+ils_map_tib <- readr::read_csv(ils_map_csv) %>%
+  dplyr::mutate(Laird_ID=as.integer(stringr::str_remove(Sample_ID, '_.*$')),
                 Sentrix_ID=SentrixBarcode_A,
                 Sentrix_Pos=SentrixPosition_A,
                 Sentrix_Name=paste(Sentrix_ID,Sentrix_Pos, sep='_')
-  ) %>% dplyr::select(Laird_ID,Sentrix_Name,Sentrix_ID,Sentrix_Pos)
+  ) %>% 
+  dplyr::select(Laird_ID,Sentrix_Name,Sentrix_ID,Sentrix_Pos) %>% dplyr::mutate(Lab='ILS')
 
-# Clean mapping for ILS::
-mm10_hum_ss_tib %>% dplyr::inner_join(ils_map_tib, by=c("Laird_ID", "Sentrix_Pos") )
+# Load VAI Sample Sheet::
+#
+vai_map_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/VAI_SampleSheetPlate1-2.no-header.csv'
+vai_map_tib <- readr::read_csv(vai_map_csv) %>% 
+  dplyr::rename(Laird_Str=Sample_Name, Sentrix_Pos=Sentrix_Position) %>% 
+  dplyr::mutate(Laird_ID=stringr::str_remove(Laird_Str, '_.*$') %>% as.integer(),
+                Sentrix_Name=paste(Sentrix_ID,Sentrix_Pos, sep='_')) %>% 
+  dplyr::select(Laird_ID,Sentrix_Name,Sentrix_ID,Sentrix_Pos) %>% dplyr::mutate(Lab='VAI')
+
+# Build beta full Sample Sheet::
+#
+beta_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/ILS-VAI.analytical_SampleSheet.csv.gz'
+beta_ss_tib <- dplyr::bind_rows(
+  dplyr::inner_join(ils_map_tib, sam_map_tib, by="Laird_ID"),
+  dplyr::inner_join(vai_map_tib, sam_map_tib, by="Laird_ID") ) %>%
+  dplyr::select(Sentrix_Name,Sample_Name, everything())
+
+readr::write_csv(beta_ss_tib,beta_ss_csv)
+
 
 #
 # Actual Idats and plots::

@@ -66,6 +66,8 @@ opt$classVar <- 'Karyotype_0_Call'
 opt$classVar <- 'Sample_Name'
 opt$classVar <- 'Sample_Class'
 
+opt$select <- FALSE
+
 # Sample Sheet Parameters::
 opt$addSampleName    <- FALSE
 opt$addPathsCall     <- TRUE
@@ -145,6 +147,7 @@ if (args.dat[1]=='RStudio') {
     opt$clean  <- TRUE
     opt$clean  <- FALSE
     opt$single <- TRUE
+    opt$select <- TRUE
     
     if (opt$findSampleSheet) {
       #
@@ -276,6 +279,8 @@ if (args.dat[1]=='RStudio') {
                 help="Run Name [default= %default]", metavar="character"),
     make_option(c("--sampleCsv"), type="character", default=opt$sampleCsv, 
                 help="Human provide sample sheet labeling [default= %default]", metavar="character"),
+    make_option(c("--select"), action="store_true", default=opt$select, 
+                help="Boolean variable to only select samples from provided sample sheet [default= %default]", metavar="boolean"),
     
     make_option(c("--findSampleSheet"), action="store_true", default=opt$findSampleSheet,
                 help="Boolean variable to search or human provided sample sheet in build directories [default= %default]", metavar="boolean"),
@@ -519,8 +524,11 @@ if (! is.null(hum_ss_tib)) {
   # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
   # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
   #
-  labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
-  
+  if (opt$select) {
+    labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+  } else {
+    labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+  }
 } else {
   # stop(glue::glue("[{par$prgmTag}]: Failed to find humman annotation sample sheet={opt$sampleCsv}!!!{RET}{RET}"))
   cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
