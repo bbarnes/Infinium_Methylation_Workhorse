@@ -198,7 +198,45 @@ if (args.dat[1]=='RStudio') {
   #                           # file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
   #                           sep=',')
   opt$featuresDml <- "100"
-  opt$featuresDml <- "100"
+  
+  par$mm10_time <- TRUE
+  if (par$mm10_time) {
+    
+    opt$single   <- TRUE
+    opt$cluster  <- FALSE
+    opt$parallel <- FALSE
+    
+    par$platform <- 'LEGX'
+    par$version  <- 'S1'
+    
+    opt$runName  <- 'mm10-ILS-VAI.Replicates'
+    opt$runName  <- 'mm10-ILS-VAI.Titration'
+    
+    opt$mergeDir  <- paste(
+      file.path('LifeEpigentics/scratch/merge_builds/LEGX/S1/Sample_Name',opt$runName),
+      sep=',')
+
+    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+
+    opt$samplePvalName <- "Poob_Pass_0_Perc"
+    opt$samplePvalPerc <- 90
+    
+    opt$buildDml    <- FALSE
+    opt$buildDbl    <- TRUE
+    opt$buildModels <- FALSE
+    
+    # Loci Level Filtering Parameters::
+    opt$lociBetaKey <- "i_beta"
+    opt$lociBetaKey <- "ind_beta"
+    opt$lociPvalKey <- "i_poob"
+    opt$lociPvalMin <- 0.1
+    
+    opt$featuresCsv <- NULL
+    
+    opt$seeds <- "13"
+
+    opt$featuresDml <- "0"
+  }
   
   opt$outDir <- file.path(par$topDir, par$prgmTag, par$platform, par$version)
   
