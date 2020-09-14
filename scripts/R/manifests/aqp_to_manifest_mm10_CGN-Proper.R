@@ -656,9 +656,26 @@ mm10_s48_int_mis_cgn_tib <- clean_mu_all_tib %>% dplyr::distinct(Mat_CGN) %>% dp
 #               Quick Look at Auto Sample Sheets from CG Only::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# mm10_hum_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/Laird-IDs_to_SampleNames_basic.csv'
+# mm10_hum_ss_tib <- readr::read_csv(mm10_hum_ss_csv) %>% purrr::set_names(c('Laird_ID', 'Sentrix_Pos', 'Cell_Type', 'Sample_Class'))
+
+# Possible mismatch: 20364 = 20382
+RepAC_ID <- 20364
+RepAC_ID <- 20382
+
 sam_map_tib <- tibble::tibble(
-  Laird_ID   =c( 20364,  20384,  20385,  21026,   20010,   20012,   20015),
+  Laird_ID   =c( RepAC_ID,  20384,  20385,  21026,   20010,   20015,   20012),
   Sample_Name=c('RepAC','RepS3','RepM1','RepSA', 'T00DZ', 'T50DZ', 'T99DZ')
+)
+
+tit_map_tib <- tibble::tibble(
+  Laird_ID   =c( 20010,   20015,   20012),
+  Sample_Name=c('T00DZ', 'T50DZ', 'T99DZ')
+)
+
+rep_map_tib <- tibble::tibble(
+  Laird_ID   =c( RepAC_ID,  20384,  20385,  21026),
+  Sample_Name=c('RepAC','RepS3','RepM1','RepSA')
 )
 
 # Load ILS Sample Sheet::
@@ -681,16 +698,40 @@ vai_map_tib <- readr::read_csv(vai_map_csv) %>%
                 Sentrix_Name=paste(Sentrix_ID,Sentrix_Pos, sep='_')) %>% 
   dplyr::select(Laird_ID,Sentrix_Name,Sentrix_ID,Sentrix_Pos) %>% dplyr::mutate(Lab='VAI')
 
+#
 # Build beta full Sample Sheet::
 #
+
+# Full Analytical Sample Sheet::
 beta_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/ILS-VAI.analytical_SampleSheet.csv.gz'
 beta_ss_tib <- dplyr::bind_rows(
   dplyr::inner_join(ils_map_tib, sam_map_tib, by="Laird_ID"),
   dplyr::inner_join(vai_map_tib, sam_map_tib, by="Laird_ID") ) %>%
   dplyr::select(Sentrix_Name,Sample_Name, everything())
-
 readr::write_csv(beta_ss_tib,beta_ss_csv)
 
+# Titration Analytical Sample Sheet::
+beta_tit_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/Titration.ILS-VAI.analytical_SampleSheet.csv.gz'
+beta_tit_ss_tib <- beta_ss_tib %>% dplyr::filter(Laird_ID %in% tit_map_tib$Laird_ID)
+readr::write_csv(beta_tit_ss_tib,beta_tit_ss_csv)
+
+# Replicate Analytical Sample Sheet::
+beta_rep_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/Replicates.ILS-VAI.analytical_SampleSheet.csv.gz'
+beta_rep_ss_tib <- beta_ss_tib %>% dplyr::filter(Laird_ID %in% rep_map_tib$Laird_ID)
+readr::write_csv(beta_rep_ss_tib,beta_rep_ss_csv)
+
+# cp /Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/* /Users/bbarnes/Documents/Projects/methylation/tools/Infinium_Methylation_Workhorse/dat/sampleSheets/mm10/
+
+
+#
+# Done with Sample Sheets!!!
+#
+
+#
+#
+# Need to write Titration and Replicates Sample Sheets seperately...
+#
+#
 
 #
 # Actual Idats and plots::
@@ -707,6 +748,31 @@ fox_ss_tib  <- loadAutoSampleSheets(dir=fox_dat_dir, verbose=opt$verbose) %>% dp
 mm10_ss_tib <- dplyr::bind_rows(ils_ss_tib, van_ss_tib, fox_ss_tib) %>% dplyr::group_by(Lab)
 ggplot2::ggplot(data=mm10_ss_tib, aes(x=Beta_2_Mean, y=Poob_Pass_0_Perc, color=Lab)) + ggplot2::geom_point() # + ylim(80,100)
 ggplot2::ggplot(data=mm10_ss_tib, aes(x=Beta_2_Mean, y=Poob_Pass_0_Perc, color=Lab)) + ggplot2::geom_point() + ylim(75,100)
+
+
+#
+# Evidence For Missing Replicate Group::
+#
+ils_ss_tib %>% dplyr::inner_join(beta_ss_tib, by="Sentrix_Name") %>% dplyr::group_by(Sample_Name) %>% dplyr::summarise(SGroup_Count=n())
+
+#
+# Current Merged Data::
+#
+lifeDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics'
+
+mm10_tit_ss_merge_csv <- file.path(lifeDir, 'scratch/merge_builds/LEGX/S1/Sample_Name/mm10-ILS-VAI.Titration/mm10-ILS-VAI.Titration_LEGX_S1_AutoSampleSheet.csv.gz')
+mm10_tit_ss_merge_tib <- readr::read_csv(mm10_tit_ss_merge_csv)
+
+mm10_rep_ss_merge_csv <- file.path(lifeDir, 'scratch/merge_builds/LEGX/S1/Sample_Name/mm10-ILS-VAI.Replicates/mm10-ILS-VAI.Replicates_LEGX_S1_AutoSampleSheet.csv.gz')
+mm10_rep_ss_merge_tib <- readr::read_csv(mm10_rep_ss_merge_csv)
+
+
+
+
+
+
+
+
 
 
 

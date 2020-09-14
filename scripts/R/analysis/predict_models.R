@@ -147,7 +147,8 @@ if (args.dat[1]=='RStudio') {
     
     opt$modelDir <- paste(
       # file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,'ind-beta_i-poob-1'),
-      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,sesGroup,dmlGroup,seedGroup),
+      # file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,sesGroup,dmlGroup,seedGroup),
+      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,sesGroup),
       sep=',')
     # opt$modelDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/build_models/EPIC/C0/Sample_Class/COVIC-Set1-15052020/ind-beta_i-poob-1/dml-1000-Ivana-145/seed-42/alpha-1/rforest-1-lambda-min.model.rds'
     

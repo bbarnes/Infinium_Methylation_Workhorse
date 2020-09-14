@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ "$#" -lt 5 ]; then
-    echo "Usage: $0 outTopDir buildDir runName manVersion[B4,C0] classVar[Sample_Class,Sample_Name]"
+if [ "$#" -lt 6 ]; then
+    echo "Usage: $0 outTopDir buildDir runName manVersion[B4,C0] classVar[Sample_Class,Sample_Name] sampleSheet"
     exit 1
 fi
 outTop=$1
@@ -9,6 +9,7 @@ buildDir=$2
 runName=$3
 version=$4
 classVar=$5
+sampleCsv=$6
 
 platform='LEGX'
 select=true
@@ -58,7 +59,7 @@ EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
 
 # sampleCsv=${TOP}/sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv
 # sampleCsv=${DAT}/sampleSheets/COVIC/Human-Classification_COVID_Count-921_AnnotatedOnlySampleSheet.csv.gz
-sampleCsv=${DAT}/sampleSheets/mm10/ILS-VAI.analytical_SampleSheet.csv.gz
+# sampleCsv=${DAT}/sampleSheets/mm10/ILS-VAI.analytical_SampleSheet.csv.gz
 
 CMD=${RSCRIPT}" "${EXE}
 CMD+=" --"Rscript=${RSCRIPT}

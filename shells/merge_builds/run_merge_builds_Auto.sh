@@ -10,9 +10,6 @@ runName=$3
 version=$4
 classVar=$5
 
-platform='LEGX'
-select=true
-
 # version='B4'
 # version='C0'
 # classVar="Sample_Class"
@@ -58,7 +55,6 @@ EXE=${SRC}/scripts/R/${prgmDir}/${prgmTag}.R
 
 # sampleCsv=${TOP}/sampleSheets/annotation/Human-Classification_COVID_Count-656_AnnotatedMultiSampleSheet.csv
 # sampleCsv=${DAT}/sampleSheets/COVIC/Human-Classification_COVID_Count-921_AnnotatedOnlySampleSheet.csv.gz
-sampleCsv=${DAT}/sampleSheets/mm10/Replicates.ILS-VAI.analytical_SampleSheet.csv.gz
 
 CMD=${RSCRIPT}" "${EXE}
 CMD+=" --"Rscript=${RSCRIPT}
@@ -70,15 +66,13 @@ CMD+=" --buildDir"=${buildDir}
 CMD+=" --runName"=${runName}
 CMD+=" --outDir"=${outDir}
 
+platform='EPIC'
 CMD+=" --platform"=${platform}
 CMD+=" --version"=${version}
 
 CMD+=" --classVar"=${classVar}
-CMD+=" --sampleCsv"=${sampleCsv}
+# CMD+=" --sampleCsv"=${sampleCsv}
 
-if [ "${select}" = true ]; then
-    CMD+=" --select"
-fi
 if [ "${single}" = true ]; then
     CMD+=" --single"
 fi

@@ -134,89 +134,102 @@ if (args.dat[1]=='RStudio') {
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   
-  opt$classVar <- 'Sample_Name'
+  # Pre-defined local options runTypes::
+  par$local_runType <- 'covic'
+  par$local_runType <- 'mm10'
   
-  opt$classVar <- 'Karyotype_0_Call'
-  opt$classVar <- 'Karyotype_1_Call'
-
-  opt$classVar <- 'Sample_Class'
-  
-  opt$buildDml    <- TRUE
-  opt$buildModels <- TRUE
-  
-  opt$clean    <- TRUE
-  opt$clean    <- FALSE
-  
-  opt$single   <- TRUE
-  opt$cluster  <- FALSE
-  opt$cluster  <- TRUE
-  opt$parallel <- FALSE
-
-  par$platform <- 'EPIC'
-  par$version  <- 'C0'
-  
-  opt$runName  <- 'BETA-8x1-EPIC-Ref'
-  opt$runName  <- 'COVIC-Set7-06082020'
-  opt$runName  <- 'COVIC-Set5-10062020'
-  opt$runName  <- 'COVIC-Set1-15052020'
-  
-  opt$mergeDir  <- paste(
-    # file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
-    # file.path(par$topDir, 'merge_builds',par$platform,par$version,opt$classVar,opt$runName),
-    file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/merge_builds/EPIC/C0/Sample_Class',opt$runName),
-    sep=',')
-  
-  # opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
-  # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
-  # opt$trainClass <- paste('XaXi','XaY', sep=',')
-  opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
-  
-  # Sample Level Filtering Parameters::
-  opt$samplePvalName <- "Poob_Pass_0_Perc"
-  opt$samplePvalPerc <- 96
-  
-  opt$buildDml    <- TRUE
-  opt$buildDbl    <- FALSE
-  opt$buildModels <- TRUE
-  
-  # Loci Level Filtering Parameters::
-  opt$lociBetaKey <- "i_beta"
-  opt$lociBetaKey <- "ind_beta"
-  opt$lociPvalKey <- "i_poob"
-  opt$lociPvalMin <- 0.2
-  opt$lociPvalMin <- 0.9
-  opt$lociPvalMin <- 1.0
-  opt$lociPvalMin <- 0.1
-  
-  opt$seeds <- "13,17,42,43,57,61,69"
-  opt$seeds <- "13,42"
-  
-  # Loci (Feature) Selection Parameters::
-  opt$featuresCsv <- NULL
-  # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
-  #                           # file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
-  #                           # file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
-  #                           sep=',')
-  opt$featuresDml <- "100"
-  
-  par$mm10_time <- TRUE
-  if (par$mm10_time) {
+  if (par$local_runType=='covic') {
+    opt$classVar <- 'Karyotype_0_Call'
+    opt$classVar <- 'Karyotype_1_Call'
+    
+    opt$classVar <- 'Sample_Name'
+    opt$classVar <- 'Sample_Class'
+    
+    opt$buildDml    <- TRUE
+    opt$buildModels <- TRUE
+    
+    opt$clean    <- TRUE
+    opt$clean    <- FALSE
     
     opt$single   <- TRUE
     opt$cluster  <- FALSE
+    opt$cluster  <- TRUE
     opt$parallel <- FALSE
     
+    par$platform <- 'EPIC'
+    par$version  <- 'C0'
+    
+    opt$runName  <- 'BETA-8x1-EPIC-Ref'
+    opt$runName  <- 'COVIC-Set7-06082020'
+    opt$runName  <- 'COVIC-Set5-10062020'
+    opt$runName  <- 'COVIC-Set1-15052020'
+    
+    opt$mergeDir  <- paste(
+      # file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
+      # file.path(par$topDir, 'merge_builds',par$platform,par$version,opt$classVar,opt$runName),
+      file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/merge_builds/EPIC/C0/Sample_Class',opt$runName),
+      sep=',')
+    
+    # opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
+    # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
+    # opt$trainClass <- paste('XaXi','XaY', sep=',')
+    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+    
+    # Sample Level Filtering Parameters::
+    opt$samplePvalName <- "Poob_Pass_0_Perc"
+    opt$samplePvalPerc <- 96
+    
+    opt$buildDml    <- TRUE
+    opt$buildDbl    <- FALSE
+    opt$buildModels <- TRUE
+    
+    # Loci Level Filtering Parameters::
+    opt$lociBetaKey <- "i_beta"
+    opt$lociBetaKey <- "ind_beta"
+    opt$lociPvalKey <- "i_poob"
+    
+    opt$lociPvalMin <- 0.2
+    opt$lociPvalMin <- 0.9
+    opt$lociPvalMin <- 1.0
+    opt$lociPvalMin <- 0.1
+    
+    opt$seeds <- "13,17,42,43,57,61,69"
+    opt$seeds <- "13,42"
+    
+    # Loci (Feature) Selection Parameters::
+    opt$featuresCsv <- NULL
+    # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
+    #                           # file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
+    #                           # file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
+    #                           sep=',')
+    opt$featuresDml <- "100"
+  } else if (par$local_runType=='mm10') {
+    par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/scratch'
+    
+    # opt$manifest <- file.path(par$datDir, 'manifest/base/LEGX-S1.manifest.sesame-base.cpg-sorted.csv.gz')
+    
+    opt$single   <- TRUE
+    opt$single   <- FALSE
+    opt$cluster  <- FALSE
+    opt$parallel <- FALSE
+    
+    opt$classVar <- 'Sample_Name'
     par$platform <- 'LEGX'
     par$version  <- 'S1'
     
-    opt$runName  <- 'mm10-ILS-VAI.Replicates'
-    opt$runName  <- 'mm10-ILS-VAI.Titration'
+    par$titration <- FALSE
+    par$titration <- TRUE
+    if (par$titration) {
+      opt$runName  <- 'mm10-ILS-VAI.Titration'
+      opt$trainClass <- paste('T00DZ','T50DZ','T99DZ', sep=',')
+    } else {
+      opt$runName  <- 'mm10-ILS-VAI.Replicate'
+      opt$trainClass <- paste('RepAC','RepS3','RepM1','RepSA', sep=',')
+    }
     
     opt$mergeDir  <- paste(
-      file.path('LifeEpigentics/scratch/merge_builds/LEGX/S1/Sample_Name',opt$runName),
+      file.path(par$topDir,'merge_builds/LEGX/S1/Sample_Name',opt$runName),
       sep=',')
-
-    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
 
     opt$samplePvalName <- "Poob_Pass_0_Perc"
     opt$samplePvalPerc <- 90
@@ -226,18 +239,18 @@ if (args.dat[1]=='RStudio') {
     opt$buildModels <- FALSE
     
     # Loci Level Filtering Parameters::
-    opt$lociBetaKey <- "i_beta"
-    opt$lociBetaKey <- "ind_beta"
+    #  opt$lociPvalKey <- "i_poob,i_negs"
+    opt$lociBetaKey <- "i_beta,ind_beta"
     opt$lociPvalKey <- "i_poob"
-    opt$lociPvalMin <- 0.1
+    opt$lociPvalMin <- "0.02,0.1"
     
     opt$featuresCsv <- NULL
-    
-    opt$seeds <- "13"
-
-    opt$featuresDml <- "0"
+    opt$featuresDml <- NULL
+    opt$seeds <- NULL
+  } else {
+    stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
-  
+
   opt$outDir <- file.path(par$topDir, par$prgmTag, par$platform, par$version)
   
 } else {
@@ -439,6 +452,29 @@ if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Sou
 for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
 
+# Load All other function methods::
+par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
+
+par$swt_src_dir <- file.path(par$scrDir, 'swifthoof/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$swt_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$swt_src_dir}!{RET}{RET}") )
+
+par$prb_src_dir <- file.path(par$scrDir, 'probe_design/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$prb_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
+
+par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
+
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Preprocessing:: System Params
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -504,6 +540,11 @@ for (betaKey in lociBetaKey_vec) {
   for (pvalKey in lociPvalKey_vec) {
     for (pvalMin in lociPvalMin_vec) {
       
+  #     break }
+  #   break }
+  # break }
+
+      
       betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
       pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
       dirName <- paste(betaStr,pvalStr, sep='_')
@@ -556,7 +597,39 @@ for (betaKey in lociBetaKey_vec) {
         beta_masked_mat[ pval_na_idx_vec ] <- NA
       
       labs_idx_vec <- sampleSheet_tib %>% dplyr::pull(!!class_idx) %>% as.vector()
-      
+
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                         Plot R-Squared/DeltaBeta::
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+      # Example for plotting::
+      if (FALSE) {
+        # Only pick two classes::
+        picked_sentrix <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::pull(Sentrix_Name)
+        
+        picked_sam_vec <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::group_by(Sample_Name) %>% 
+          dplyr::mutate(Rep_Num=row_number(), Rep_Name=paste0(Sample_Name,'_Rep',Rep_Num)) %>% dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
+        
+        beta_masked_tib <- beta_masked_mat[,picked_sentrix] %>% as.data.frame() %>% purrr::set_names(picked_sam_vec) %>% 
+          tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble() %>%
+          dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2), 
+                        Design_Type=stringr::str_remove(Probe_ID, '^.*_[A-Z][A-Z]') %>% stringr::str_remove('[A-Z][0-9]$'),
+                        Design_Type=dplyr::case_when(
+                          Design_Type=='1' ~ 'I', Design_Type=='2' ~ 'II', TRUE ~ NA_character_
+                        )) %>%
+          dplyr::select(Probe_ID,Probe_Type,Design_Type, everything())
+        
+        plotDir <- file.path(opt$outDir,'plots')
+        gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
+                            probeType='cg', field='Beta', field_str='ind_beta', detp='i_poob', minPval=pvalMin,
+                            verbose=opt$verbose+3)
+        
+        # gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
+        #                 probeType='cg', field='Beta', field_str='ind_beta', detp='i_poob', # maxCnt = , minPval=minPval,
+        #                 spread=spread, outType=outType, dpi=dpi, format=format,
+        #                 verbose=verbose, tc=tc+1)
+      }
+
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                               Build DMLs::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -627,55 +700,20 @@ for (betaKey in lociBetaKey_vec) {
             sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
             sample_cnt_vec <- sample_cnt_tib %>% dplyr::pull(Count)
             
-            dbl_sortMu_key <- paste(paste(sample_key_vec, collapse='_'), 'CSS_mu', sep='_') %>% rlang::sym()
-            dbl_sortQ2_key <- paste(paste(sample_key_vec, collapse='_'), 'CSS_q2', sep='_') %>% rlang::sym()
-            dbl_sdNeg_key  <- paste(sample_key_vec[1], 'beta_sd', sep='_') %>% rlang::sym()
-            dbl_sdPos_key  <- paste(sample_key_vec[2], 'beta_sd', sep='_') %>% rlang::sym()
-            
-            # Need to pick one:: [ full_dblMu_tib or full_dblQ2_tib ]
-            #
-            # full_dblMu_tib %>% names() %>% length() =  65 nan
-            # full_dblMu_tib %>% names() %>% length() =  80 cmb
-            # full_dblMu_tib %>% names() %>% length() = 110 all
-            #
-            # full_dblMu_tib %>% dplyr::select(Probe_ID, dplyr::ends_with("_CSS_mu"))
+            sample_key_vec <- sampleSheet_tib %>% dplyr::pull(!!class_var) %>% unique()
+            sample_cnt_vec <- sampleSheet_tib %>% dplyr::group_by(!!class_var) %>% dplyr::summarise(Count=n()) %>% dplyr::pull(Count)
             
             cpp.verbose <- 0
+            full_dbl_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
+              as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% tibble::as_tibble() %>% 
+              dplyr::mutate_if(is.double, round, opt$percisionPval)
             
-            sample_key_vec <- sampleSheet_tib %>% dplyr::pull(Sample_Class) %>% unique()
-            sample_cnt_vec <- sampleSheet_tib %>% dplyr::group_by(Sample_Class) %>% dplyr::summarise(Count=n()) %>% dplyr::pull(Count)
-            
-            full_dblMu_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
-              as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID')
-            
-            css_names <- full_dblMu_tib %>% dplyr::select(dplyr::ends_with("_CSS_mu")) %>% names()
-            # TBD::
-            #   Now select Probe_ID,css_names[N] %>% bind_rows()
             #
+            # TBD:: Need to use beta/pval percision on output!!!
             #
-            
-            if (FALSE) {
-              full_dblMu_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
-                as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% 
-                tibble::as_tibble() %>% 
-                dplyr::arrange(-!!dbl_sortMu_key) %>% 
-                dplyr::mutate(Rank=row_number()) %>%
-                dplyr::mutate_if(is.double, list(round), opt$percisionPval)
-              readr::write_csv(full_dblMu_tib, full_dbl_csv)
-            }
-            
-            if (FALSE) {
-              full_dblQ2_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, verbose=cpp.verbose) %>% 
-                as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% 
-                tibble::as_tibble() %>% 
-                dplyr::arrange(-!!dbl_sortQ2_key) %>% 
-                dplyr::mutate(Rank=row_number()) %>%
-                dplyr::mutate_if(is.double, list(round), opt$percisionPval)
-              readr::write_csv(full_dblQ2_tib, full_dbl_csv)
-            }
             
             system(glue::glue("touch {dbl_beg_txt}"))
-            readr::write_csv(full_dblMu_tib,full_dbl_csv)
+            readr::write_csv(full_dbl_tib,full_dbl_csv)
             system(glue::glue("touch {dbl_end_txt}"))
             Sys.sleep(1)
             

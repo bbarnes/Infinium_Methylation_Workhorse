@@ -214,15 +214,28 @@ if (args.dat[1]=='RStudio') {
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
   # mm10
-  opt$idatsDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
-  opt$auto_sam_csv <- NULL
-  
-  opt$expRunStr  <- 'mm10'
-  
-  opt$autoDetect   <- FALSE
-  opt$cluster  <- FALSE
-  opt$single   <- TRUE
-  opt$parallel <- FALSE
+  par$isMouse <- FALSE
+  if (par$isMouse) {
+    opt$idatsDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
+    opt$auto_sam_csv <- NULL
+    opt$expRunStr  <- 'mm10'
+    opt$autoDetect <- FALSE
+    opt$cluster  <- FALSE
+    opt$single   <- TRUE
+    opt$parallel <- FALSE
+  }
+  par$isMVP <- TRUE
+  if (par$isMVP) {
+    opt$expRunStr  <- 'CNTL-Samples_VendA_10092020'
+    opt$autoDetect <- TRUE
+    opt$plotAuto   <- TRUE
+    opt$cluster  <- FALSE
+    opt$single   <- TRUE
+    opt$parallel <- FALSE
+    
+    opt$dpi <- 72
+    opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/VA_MVP/idats',opt$expRunStr)
+  }
 
   opt$verbose <- 3
   opt$verbose <- 6
