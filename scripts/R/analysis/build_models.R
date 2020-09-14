@@ -137,6 +137,7 @@ if (args.dat[1]=='RStudio') {
   # Pre-defined local options runTypes::
   par$local_runType <- 'covic'
   par$local_runType <- 'mm10'
+  par$local_runType <- 'ctl_mvp'
   
   if (par$local_runType=='covic') {
     opt$classVar <- 'Karyotype_0_Call'
@@ -205,7 +206,6 @@ if (args.dat[1]=='RStudio') {
     opt$featuresDml <- "100"
   } else if (par$local_runType=='mm10') {
     par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/scratch'
-    
     # opt$manifest <- file.path(par$datDir, 'manifest/base/LEGX-S1.manifest.sesame-base.cpg-sorted.csv.gz')
     
     opt$single   <- TRUE
@@ -242,11 +242,56 @@ if (args.dat[1]=='RStudio') {
     #  opt$lociPvalKey <- "i_poob,i_negs"
     opt$lociBetaKey <- "i_beta,ind_beta"
     opt$lociPvalKey <- "i_poob"
-    opt$lociPvalMin <- "0.02,0.1"
+    opt$lociPvalMin <- "0.02,0.1,0.5,0.9,1.0"
     
     opt$featuresCsv <- NULL
     opt$featuresDml <- NULL
     opt$seeds <- NULL
+  } else if (par$local_runType=='ctl_mvp') {
+    par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/VA_MVP/scratch'
+    
+    opt$single   <- FALSE
+    opt$single   <- TRUE
+    opt$cluster  <- FALSE
+    opt$parallel <- FALSE
+    
+    opt$classVar <- 'AutoSample_dB_Key'
+    par$platform <- 'EPIC'
+    par$version  <- 'B4'
+    
+    opt$runName  <- 'mm10-ILS-VAI.Titration'
+    # opt$trainClass <- paste('T00DZ','T50DZ','T99DZ', sep=',')
+    
+    par$runNameA <- 'CNTL-Samples_VendA_10092020'
+    par$runNameB <- 'CNTL-Samples_VendB_10092020'
+    
+    #
+    # TBD:: Need to re-run merge_builds with pre-defined set of combined provider and AutoSample_dB_Key as Sample_Class
+    #    and then only target one of those in opt$trainClass
+    #
+    
+    opt$mergeDir  <- paste(
+      file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameA),
+      file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameB),
+      # file.path(par$topDir,'merge_builds/LEGX/S1/Sample_Name',opt$runName),
+      sep=',')
+    
+    opt$samplePvalName <- "Poob_Pass_0_Perc"
+    opt$samplePvalPerc <- 90
+    
+    opt$buildDml    <- FALSE
+    opt$buildDbl    <- TRUE
+    opt$buildModels <- FALSE
+    
+    # Loci Level Filtering Parameters::
+    opt$lociBetaKey <- "ind_beta"
+    opt$lociPvalKey <- "i_poob"
+    opt$lociPvalMin <- "0.1"
+    
+    opt$featuresCsv <- NULL
+    opt$featuresDml <- NULL
+    opt$seeds <- NULL
+    
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
@@ -540,11 +585,6 @@ for (betaKey in lociBetaKey_vec) {
   for (pvalKey in lociPvalKey_vec) {
     for (pvalMin in lociPvalMin_vec) {
       
-  #     break }
-  #   break }
-  # break }
-
-      
       betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
       pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
       dirName <- paste(betaStr,pvalStr, sep='_')
@@ -598,6 +638,39 @@ for (betaKey in lociBetaKey_vec) {
       
       labs_idx_vec <- sampleSheet_tib %>% dplyr::pull(!!class_idx) %>% as.vector()
 
+      # Scratch for MVP::
+      if (FALSE) {
+        mvpA_vec <- c('203962710025', '203962710079', '203962710081')
+        mvpB_vec <- c('204229180144', '204229190022', '204229190023')
+        
+        samp_scr_tib <- lapply(list.files(mergeDirs_vec, pattern = 'SampleSheet.csv.gz', recursive = TRUE, full.names = TRUE), readr::read_csv) %>% 
+          dplyr::bind_rows() %>% dplyr::select(Sentrix_Name, Poob_Pass_0_Perc)
+        
+        mvp_ss_tib <- sampleSheet_tib %>% tidyr::separate(Sentrix_Name, into=c('Sentrix_ID','Sentrix_Pos'), sep='_', remove=FALSE) %>% 
+          dplyr::inner_join(samp_scr_tib, by="Sentrix_Name") %>% dplyr::filter(Poob_Pass_0_Perc>opt$samplePvalPerc)
+        
+        sampleSheetA_tib <- mvp_ss_tib %>% dplyr::filter(Sentrix_ID %in% mvpA_vec) %>% dplyr::mutate(Vender='A')
+        sampleSheetB_tib <- mvp_ss_tib %>% dplyr::filter(Sentrix_ID %in% mvpB_vec) %>% dplyr::mutate(Vender='B')
+        
+        sampleSheetA_sorted_tib <- sampleSheetA_tib %>% dplyr::filter(Class_Idx==0) %>% dplyr::arrange(-Poob_Pass_0_Perc)
+        sampleSheetB_sorted_tib <- sampleSheetB_tib %>% dplyr::filter(Class_Idx==0) %>% dplyr::arrange(-Poob_Pass_0_Perc)
+        
+        pickedA_sentrixAll <- sampleSheetA_sorted_tib %>% dplyr::pull(Sentrix_Name)
+        pickedB_sentrixAll <- sampleSheetB_sorted_tib %>% dplyr::pull(Sentrix_Name)
+        
+        pickedA_sentrix <- pickedA_sentrixAll[c(1,as.integer(length(pickedA_sentrixAll)/2),length(pickedA_sentrixAll))]
+        pickedB_sentrix <- pickedB_sentrixAll[c(1,as.integer(length(pickedB_sentrixAll)/2),length(pickedB_sentrixAll))]
+        
+        sampleSheet_tib <- dplyr::bind_rows(
+          dplyr::filter(sampleSheet_tib, Sentrix_Name %in% pickedA_sentrix) %>% 
+            dplyr::mutate(AutoSample_dB_Key=paste('A',AutoSample_dB_Key,sep='_'), Class_Idx=Class_Idx+0),
+          
+          dplyr::filter(sampleSheet_tib, Sentrix_Name %in% pickedB_sentrix) %>% 
+            dplyr::mutate(AutoSample_dB_Key=paste('B',AutoSample_dB_Key,sep='_'), Class_Idx=Class_Idx+1)
+        ) %>% purrr::set_names(c('Sentrix_Name','Sample_Name','Class_Idx'))
+        
+      }
+      
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                         Plot R-Squared/DeltaBeta::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -619,9 +692,13 @@ for (betaKey in lociBetaKey_vec) {
                         )) %>%
           dplyr::select(Probe_ID,Probe_Type,Design_Type, everything())
         
+        # Quick Fix...
+        beta_masked_tib$Design_Type <- 'I'
+        
         plotDir <- file.path(opt$outDir,'plots')
         gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
                             probeType='cg', field='Beta', field_str='ind_beta', detp='i_poob', minPval=pvalMin,
+                            format='pdf',
                             verbose=opt$verbose+3)
         
         # gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,

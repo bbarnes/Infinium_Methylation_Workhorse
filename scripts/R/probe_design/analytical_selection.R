@@ -125,10 +125,11 @@ if (args.dat[1]=='RStudio') {
   # Pre-defined local options runTypes::
   par$local_runType <- 'mm10'
   
-if (par$local_runType=='mm10') {
+  if (par$local_runType=='mm10') {
     par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/scratch'
 
     opt$single   <- TRUE
+    opt$single   <- FALSE
     opt$cluster  <- FALSE
     opt$parallel <- FALSE
     
@@ -138,9 +139,11 @@ if (par$local_runType=='mm10') {
     par$platform <- 'LEGX'
     par$version  <- 'S1'
     
-    opt$lociBetaKey <- "ind-beta"
+    opt$lociBetaKey <- "i-beta,ind-beta"
     opt$lociPvalKey <- "i-poob"
-    opt$lociPvalMin <- "0.1"
+    # opt$lociPvalMin <- "1"
+    # opt$lociPvalMin <- "0.02,0.1,1"
+    opt$lociPvalMin <- "0.02,0.1,0.5,0.9,1"
 
     # Run Parameters::
     opt$runName   <- 'mm10-ILS-VAI'
@@ -152,12 +155,18 @@ if (par$local_runType=='mm10') {
     
     # Directory Parameters::
     par$locDatDir <- file.path(par$topDir, 'build_models',par$platform,par$version,opt$classVar)
-    par$locParKey <- paste(opt$lociBetaKey, paste(opt$lociPvalKey,opt$lociPvalMin, sep='-'), sep='_')
-    par$locTitDbl <- paste0(opt$classVar,'_',opt$runName,'.Titration_',par$locParKey,'.full-dbl.csv.gz')
-    par$locRepDbl <- paste0(opt$classVar,'_',opt$runName,'.Replicate_',par$locParKey,'.full-dbl.csv.gz')
     
-    opt$titDbl <- file.path(par$locDatDir, par$titName, par$locParKey, par$locTitDbl)
-    opt$repDbl <- file.path(par$locDatDir, par$repName, par$locParKey, par$locRepDbl)
+    # For a single unique pair::
+    #
+    # par$locParKey <- paste(opt$lociBetaKey, paste(opt$lociPvalKey,opt$lociPvalMin, sep='-'), sep='_')
+    # par$locTitDbl <- paste0(opt$classVar,'_',opt$runName,'.Titration_',par$locParKey,'.full-dbl.csv.gz')
+    # par$locRepDbl <- paste0(opt$classVar,'_',opt$runName,'.Replicate_',par$locParKey,'.full-dbl.csv.gz')
+    # 
+    # opt$titDbl <- file.path(par$locDatDir, par$titName, par$locParKey, par$locTitDbl)
+    # opt$repDbl <- file.path(par$locDatDir, par$repName, par$locParKey, par$locRepDbl)
+    
+    opt$titDbl <- file.path(par$locDatDir, par$titName)
+    opt$repDbl <- file.path(par$locDatDir, par$repName)
 
     # Screening Parameters::
     opt$huCSS <- 0.2
@@ -382,9 +391,9 @@ if (!opt$isLinux && opt$buildDbl) {
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
 # mergeDirs_vec   <- opt$mergeDir %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-# lociBetaKey_vec <- opt$lociBetaKey %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-# lociPvalKey_vec <- opt$lociPvalKey %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-# lociPvalMin_vec <- opt$lociPvalMin %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
+lociBetaKey_vec <- opt$lociBetaKey %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+lociPvalKey_vec <- opt$lociPvalKey %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+lociPvalMin_vec <- opt$lociPvalMin %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
 
 class_var <- rlang::sym(opt$classVar)
 class_idx <- rlang::sym("Class_Idx")
@@ -409,24 +418,117 @@ cgn_man_tib <- ses_man_tib %>% dplyr::filter(Probe_Type=='cg')
 # Options to be added::
 #
 opt$dB_min <- 0.2
+all_sum_tib <- NULL
 
-tit_tib <- readr::read_csv(opt$titDbl)
-rep_tib <- readr::read_csv(opt$repDbl)
+for (betaKey in lociBetaKey_vec) {
+  for (pvalKey in lociPvalKey_vec) {
+    for (pvalMin in lociPvalMin_vec) {
+      
+      cat(glue::glue("[{par$prgmTag}]: Checking: betaKey={betaKey}, pvalKey={pvalKey}, pvalMin={pvalMin}.{RET}"))
+      
+      
+      locParKey <- paste(betaKey, paste(pvalKey,pvalMin, sep='-'), sep='_')
+      
+      tit_csv <- NULL
+      rep_csv <- NULL
+      
+      tit_csv <- list.files(file.path(opt$titDbl,locParKey), pattern='.full-dbl.csv.gz$', full.names=TRUE) %>% head(n=1)
+      rep_csv <- list.files(file.path(opt$repDbl,locParKey), pattern='.full-dbl.csv.gz$', full.names=TRUE) %>% head(n=1)
+      
+      if (is.null(tit_csv) || length(tit_csv)==0) next
+      if (is.null(rep_csv) || length(rep_csv)==0) next
+      
+      cat(glue::glue("[{par$prgmTag}]: Running: betaKey={betaKey}, pvalKey={pvalKey}, pvalMin={pvalMin}.{RET}"))
+      
+      tit_tib <- suppressMessages(suppressWarnings( readr::read_csv(tit_csv) ))
+      rep_tib <- suppressMessages(suppressWarnings( readr::read_csv(rep_csv) ))
+      
+      ses_tit_tib <- cgn_man_tib %>% dplyr::inner_join(tit_tib, by="Probe_ID")
+      ses_rep_tib <- cgn_man_tib %>% dplyr::inner_join(rep_tib, by="Probe_ID")
+      
+      # Quick Summary::
+      ses_tit_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(PT_Count=n()) %>% print()
+      ses_rep_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(PT_Count=n()) %>% print()
+      
+      #
+      # Titration Calling::
+      #
+      tit_call_tib <- ses_tit_tib %>% dplyr::mutate(
+        HU_Call_mu=dplyr::case_when( T00DZ_T50DZ_CSS_mu > opt$huCSS ~ 'A', T00DZ_T50DZ_CSS_mu <= opt$huCSS ~ 'F', TRUE ~ 'N' ),
+        MU_Call_mu=dplyr::case_when( T00DZ_T99DZ_CSS_mu > opt$muCSS ~ 'A', T00DZ_T99DZ_CSS_mu <= opt$muCSS ~ 'F', TRUE ~ 'N' ),
+        MH_Call_mu=dplyr::case_when( T50DZ_T99DZ_CSS_mu > opt$mhCSS ~ 'A', T50DZ_T99DZ_CSS_mu <= opt$mhCSS ~ 'F', TRUE ~ 'N' )
+      )
+      
+      #
+      # Replicate Calling::
+      #
+      # Get Row stats:: dB_mu
+      end_key <- '_beta_sd'
+      end_key <- '_dB_q2'
+      end_key <- '_dB_mu'
+      
+      rep_db_mu_tib <- ses_rep_tib %>% dplyr::select(Probe_ID,ends_with(end_key))
+      rep_db_mu_mat <- rep_db_mu_tib %>% column_to_rownames(var='Probe_ID') %>% as.matrix()
+      
+      rep_call_tib <- rep_db_mu_tib %>% 
+        dplyr::mutate(
+          dB_min_mu=matrixStats::rowMins(rep_db_mu_mat,na.rm=TRUE),
+          dB_max_mu=matrixStats::rowMaxs(rep_db_mu_mat,na.rm=TRUE) ) %>% 
+        dplyr::mutate( dB_max_Call=dplyr::case_when( dB_max_mu >  opt$dB_min ~ 'F', dB_max_mu <= opt$dB_min ~ 'A', TRUE ~ 'N' ) )
 
-ses_tit_tib <- cgn_man_tib %>% dplyr::inner_join(tit_tib, by="Probe_ID")
-ses_rep_tib <- cgn_man_tib %>% dplyr::inner_join(rep_tib, by="Probe_ID")
+      #
+      # Join Manifest with Calls::
+      #
+      full_call_tib <- cgn_man_tib %>% 
+        dplyr::left_join(tit_call_tib %>% dplyr::select(Probe_ID,HU_Call_mu:MH_Call_mu), by="Probe_ID") %>%
+        dplyr::left_join(rep_call_tib %>% dplyr::select(Probe_ID,dB_max_Call), by="Probe_ID")
+      
+      full_tot_cnt <- full_call_tib %>% base::nrow()
+      full_sum_tib <- full_call_tib %>% dplyr::select(HU_Call_mu:dB_max_Call) %>% 
+        dplyr::mutate( across(everything(), ~replace_na(.x, 'N')) ) %>% dplyr::group_by_all() %>% 
+        dplyr::summarise(Call_Cnt=n(),
+                         Call_Per=round(100*Call_Cnt/full_tot_cnt,2)) %>% 
+        dplyr::arrange(-Call_Cnt) %>% 
+        dplyr::mutate(betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin) %>% 
+        dplyr::ungroup() %>% dplyr::mutate(Rank=dplyr::row_number())
+      
+      all_sum_tib <- all_sum_tib %>% dplyr::bind_rows(full_sum_tib)
+      
+      cat(glue::glue("[{par$prgmTag}]: Done.{RET}{RET}"))
+      
+      if (opt$single) break
+    }
+    if (opt$single) break
+  }
+  if (opt$single) break
+}
 
-cgn_man_tib %>% base::nrow() %>% print()
-ses_tit_tib %>% base::nrow() %>% print()
-ses_rep_tib %>% base::nrow() %>% print()
 
 
-ses_tit_tib %>% dplyr::filter(! Probe_ID %in% ses_rep_tib$Probe_ID) %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n())
-ses_rep_tib %>% dplyr::filter(! Probe_ID %in% ses_tit_tib$Probe_ID) %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n())
 
 
-tit_tib <- readr::read_csv(opt$titDbl) %>% dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2) ) %>% split(.$Probe_Type)
-rep_tib <- readr::read_csv(opt$repDbl) %>% dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2) ) %>% split(.$Probe_Type)
+
+
+
+
+
+
+# Checking for missing data::
+#
+if (FALSE) {
+  cgn_man_tib %>% base::nrow() %>% print()
+  ses_tit_tib %>% base::nrow() %>% print()
+  ses_rep_tib %>% base::nrow() %>% print()
+  
+  # Only when the p-value min is set to 1.0 do we have 100% overlap::
+  ses_tit_tib %>% dplyr::anti_join(ses_rep_tib, by="Probe_ID") %>% dplyr::select(1:5)
+  ses_rep_tib %>% dplyr::anti_join(ses_tit_tib, by="Probe_ID") %>% dplyr::select(1:5)
+  
+  ses_tit_tib %>% dplyr::filter(! Probe_ID %in% ses_rep_tib$Probe_ID) %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n())
+  ses_rep_tib %>% dplyr::filter(! Probe_ID %in% ses_tit_tib$Probe_ID) %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n())
+}
+# tit_tib <- readr::read_csv(opt$titDbl) %>% dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2) ) %>% split(.$Probe_Type)
+# rep_tib <- readr::read_csv(opt$repDbl) %>% dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2) ) %>% split(.$Probe_Type)
 
 
 #
@@ -451,8 +553,11 @@ tit_tib[['cg']] %>% dplyr::mutate(
 # Replicate Screening::
 #
 
-# Get Row stats;;
-rep_db_mu_tib <- rep_tib[['cg']] %>% dplyr::select(Probe_ID,ends_with('_dB_mu'))
+# Get Row stats:: dB_mu
+end_key <- '_dB_q2'
+end_key <- '_dB_mu'
+
+rep_db_mu_tib <- rep_tib[['cg']] %>% dplyr::select(Probe_ID,ends_with(end_key))
 rep_db_mu_mat <- rep_db_mu_tib %>% column_to_rownames(var='Probe_ID') %>% as.matrix()
 
 rep_db_mu_sum_tib <- rep_db_mu_tib %>% dplyr::mutate(
@@ -468,8 +573,9 @@ rep_db_mu_sum_tib %>% dplyr::summarise(Total_Cnt=n(),
 )
 
 # Beta SD::
-rep_beta_sd_tib <- rep_tib[['cg']] %>% dplyr::select(Probe_ID,ends_with('_beta_sd'))
-rep_beta_sd_mat <- rep_db_mu_tib %>% column_to_rownames(var='Probe_ID') %>% as.matrix()
+end_key <- '_beta_sd'
+rep_beta_sd_tib <- rep_tib[['cg']] %>% dplyr::select(Probe_ID,ends_with(end_key))
+rep_beta_sd_mat <- rep_beta_sd_tib %>% column_to_rownames(var='Probe_ID') %>% as.matrix()
 
 rep_beta_sd_sum_tib <- rep_beta_sd_tib %>% dplyr::mutate(
   betaSD_min_mu=matrixStats::rowMins(rep_beta_sd_mat,na.rm=TRUE),
