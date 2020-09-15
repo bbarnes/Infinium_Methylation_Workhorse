@@ -80,7 +80,6 @@ opt$saveIdat    <- FALSE
 opt$loadSsets   <- FALSE
 opt$saveSsets   <- FALSE
 opt$saveRawSset <- FALSE
-opt$lightFootPrint <- FALSE
 
 opt$addSentrixID <- FALSE
 opt$writeSset    <- FALSE
@@ -90,9 +89,6 @@ opt$writeSsheet  <- FALSE
 opt$writeAuto    <- FALSE
 
 opt$addRawCalls <- FALSE
-
-# Reporting Options::
-opt$sigs_sum_field <- NULL
 
 # Threshold Options::
 opt$minNegPval   <- 0.02
@@ -229,9 +225,15 @@ if (args.dat[1]=='RStudio') {
     opt$expRunStr  <- 'CNTL-Samples_VendA_10092020'
     opt$autoDetect <- TRUE
     opt$plotAuto   <- TRUE
+    opt$plotAuto   <- FALSE
+    
     opt$cluster  <- FALSE
+    
     opt$single   <- TRUE
+    opt$single   <- FALSE
+    
     opt$parallel <- FALSE
+    opt$parallel <- TRUE
     
     opt$dpi <- 72
     opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/VA_MVP/idats',opt$expRunStr)
@@ -307,9 +309,7 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to write Signal Set RDS file [default= %default]", metavar="boolean"),
     make_option(c("--saveRawSset"), action="store_true", default=opt$saveRawSset,
                 help="Boolean variable to write Raw Signal Set RDS file [default= %default]", metavar="boolean"),
-    make_option(c("--lightFootPrint"), action="store_true", default=opt$lightFootPrint,
-                help="Boolean variable to NOT save any RDS files [default= %default]", metavar="boolean"),
-    
+
     make_option(c("--addSentrixID"), action="store_true", default=opt$addSentrixID,
                 help="Boolean variable to add Sentrix Name to calls output columns [default= %default]", metavar="boolean"),
     make_option(c("--writeSset"), action="store_true", default=opt$writeSset,
@@ -324,10 +324,6 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to write Auto-Detection Matricies (Pval/Beta) file [default= %default]", metavar="boolean"),
     make_option(c("--addRawCalls"), action="store_true", default=opt$addRawCalls,
                 help="Boolean variable to output raw calls [default= %default]", metavar="boolean"),
-    
-    # Reporting Options::
-    make_option(c("--sigs_sum_field"), type="character", default=opt$sigs_sum_field, 
-                help="Signal summary field in AutoSampleSheet [default= %default]", metavar="character"),
     
     # Threshold Options::
     make_option(c("--minNegPval"), type="double", default=opt$minNegPval, 
@@ -575,6 +571,9 @@ if (opt$cluster) {
     
     cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
 
+    cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: chipPrefixes={RET}"))
+    print(chipPrefixes)
+    
     # chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
       rdat <- NULL
@@ -601,7 +600,6 @@ if (opt$cluster) {
   } else {
     funcTag <- 'sesamizeSingleSample-Linear'
 
-    # opt$skipSwap
     cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: Starting...{RET}"))
     
     for (prefix in names(chipPrefixes)) {

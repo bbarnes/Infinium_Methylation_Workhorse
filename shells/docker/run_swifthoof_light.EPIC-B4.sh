@@ -6,11 +6,9 @@
     -i . -o /output \
     --platform=EPIC \
     --manifest=B4 \
-    --workflows=i,ind \
-    --lightFootPrint \
+    --workflows="i,ind" \
     --writeCalls \
     --writeSsheet \
-    --sigs_sum_field=avg \
     --minNegPval=0.02 \
     --minOobPval=0.1 \
     --minNegPerc=98 \
@@ -19,8 +17,7 @@
     --percisionBeta=4 \
     --percisionPval=6 \
     --parallel \
-    --verbose=3 \
+    --verbose=3
 
-# --datDir /repo/workhorse/dat \
 
 # End of file
