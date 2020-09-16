@@ -394,7 +394,7 @@ if (!is.null(opt$pqcs)) {
 }
 
 #
-# INVESTIGATION PART:: this can be deleted now
+# INVESTIGATION PART:: this can be deleted
 #
 if (FALSE) {
   full_man_tibA <- NULL

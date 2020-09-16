@@ -49,6 +49,7 @@ par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
 opt$outDir    <- NULL
 opt$mergeDir  <- NULL
 
+opt$addPval     <- FALSE
 opt$buildDml    <- TRUE
 opt$buildDbl    <- FALSE
 opt$buildModels <- FALSE
@@ -250,6 +251,10 @@ if (args.dat[1]=='RStudio') {
   } else if (par$local_runType=='ctl_mvp') {
     par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/VA_MVP/scratch'
     
+    #
+    # TBD:: Need to add Delta Values::
+    #
+    
     opt$single   <- FALSE
     opt$single   <- TRUE
     opt$cluster  <- FALSE
@@ -259,7 +264,7 @@ if (args.dat[1]=='RStudio') {
     par$platform <- 'EPIC'
     par$version  <- 'B4'
     
-    opt$runName  <- 'mm10-ILS-VAI.Titration'
+    opt$runName  <- par$local_runType
     # opt$trainClass <- paste('T00DZ','T50DZ','T99DZ', sep=',')
     
     par$runNameA <- 'CNTL-Samples_VendA_10092020'
@@ -279,6 +284,7 @@ if (args.dat[1]=='RStudio') {
     opt$samplePvalName <- "Poob_Pass_0_Perc"
     opt$samplePvalPerc <- 90
     
+    opt$addPval     <- TRUE
     opt$buildDml    <- FALSE
     opt$buildDbl    <- TRUE
     opt$buildModels <- FALSE
@@ -316,6 +322,9 @@ if (args.dat[1]=='RStudio') {
                 help="Output directory [default= %default]", metavar="character"),
     make_option(c("-m","--mergeDir"), type="character", default=opt$mergeDir, 
                 help="List of Merged Swifthoof Build Directory(s), commas seperated [default= %default]", metavar="character"),
+    
+    make_option(c("--addPval"), action="store_true", default=opt$addPval, 
+                help="Boolean variable to write and return pval matrix [default= %default]", metavar="boolean"),
     
     make_option(c("--buildDbl"), action="store_true", default=opt$buildDbl, 
                 help="Boolean variable to build delta beta (needs Rcpp) [default= %default]", metavar="boolean"),
@@ -555,6 +564,8 @@ seed_vec <- stringr::str_split(opt$seeds, pattern=',', simplify=TRUE) %>% as.vec
 
 class_var <- rlang::sym(opt$classVar)
 class_idx <- rlang::sym("Class_Idx")
+exp_var   <- 'Experiment_Key'
+exp_sym   <- rlang::sym(exp_var)
 
 opt$outDir <- file.path(opt$outDir, opt$classVar, opt$runName)
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
@@ -604,6 +615,7 @@ for (betaKey in lociBetaKey_vec) {
       
       # Defined Output files::
       beta_masked_rds <- file.path(cur_opt_dir, paste(outName,'beta_masked_mat.rds', sep='.') )
+      pval_masked_rds <- file.path(cur_opt_dir, paste(outName,'pval_masked_mat.rds', sep='.') )
       index_masks_csv <- file.path(cur_opt_dir, paste(outName,'beta_masked_idx.csv.gz', sep='.') )
       class_ss_csv <- file.path(cur_opt_dir, paste(outName,'ClasSampleSheet.sorted.csv.gz', sep='.') )
       
@@ -614,11 +626,16 @@ for (betaKey in lociBetaKey_vec) {
       dml_par_csv  <- file.path(cur_opt_dir, paste(outName,'program-parameters.csv', sep='.') )
       dml_time_csv <- file.path(cur_opt_dir, paste(outName,'time-tracker.csv.gz', sep='.') )
       
+      # opt$clean <- FALSE
+      # opt$clean <- TRUE
+      
       beta_file_tib <- getCallsMatrixFiles(
         betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=mergeDirs_vec, cgn=NULL, classes=opt$trainClass,
         class_var=class_var, class_idx=class_idx, pval_name=opt$samplePvalName, pval_perc=opt$samplePvalPerc,
-        clean=opt$clean, beta_rds=beta_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
-        sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", sentrix_name="Sentrix_Name",
+        clean=opt$clean,addPval=opt$addPval, 
+        sentrix_name="Sentrix_Name",idKey="Probe_ID", betaName='beta', pvalName='pval', del='.',exp_name=exp_sym,
+        beta_rds=beta_masked_rds, pval_rds=pval_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
+        sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", 
         verbose=opt$verbose, vt=3,tc=1,tt=cTracker)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -626,20 +643,28 @@ for (betaKey in lociBetaKey_vec) {
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
       # Now load previous results from file::
+      if (opt$addPval) pval_select_mat <- loadFromFileTib(tib=beta_file_tib, type="Pval")
       sampleSheet_tib <- loadFromFileTib(tib=beta_file_tib, type="SampleSheet")
       index_masks_tib <- loadFromFileTib(tib=beta_file_tib, type="Mask")
       beta_impute_mat <- loadFromFileTib(tib=beta_file_tib, type="Beta")
+      beta_masked_mat <- beta_impute_mat
       
       # Rebuild NA beta matrix for DML/dBL calculations::
       pval_na_idx_vec <- index_masks_tib %>% dplyr::arrange(idx) %>% dplyr::distinct(idx) %>% dplyr::pull(idx) %>% as.vector()
-      beta_masked_mat <- beta_impute_mat
-      if (!is.null(pval_na_idx_vec) && length(pval_na_idx_vec)!=0)
-        beta_masked_mat[ pval_na_idx_vec ] <- NA
+      if (!is.null(pval_na_idx_vec) && length(pval_na_idx_vec)!=0) beta_masked_mat[ pval_na_idx_vec ] <- NA
       
       labs_idx_vec <- sampleSheet_tib %>% dplyr::pull(!!class_idx) %>% as.vector()
 
+      
+      
+      
+      
+      
+      
       # Scratch for MVP::
       if (FALSE) {
+        sampleSheet_tib %>% dplyr::select(Sentrix_Name,!!class_var,!!class_idx)
+        
         mvpA_vec <- c('203962710025', '203962710079', '203962710081')
         mvpB_vec <- c('204229180144', '204229190022', '204229190023')
         
@@ -677,6 +702,37 @@ for (betaKey in lociBetaKey_vec) {
 
       # Example for plotting::
       if (FALSE) {
+        # Load Auto Sample Sheet from merged builds::
+        #
+        exp_src_var <- "Exp_Source_Name"
+        exp_src_var <- rlang::sym(exp_src_var)
+        auto_ss_tib <- NULL
+        for (merDir in mergeDirs_vec) {
+          exp_source <- base::basename(merDir)
+          cur_ss_csv <- list.files(merDir, patter='_AutoSampleSheet.csv.gz', full.names=TRUE) %>% head(n=1)
+          cur_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_ss_csv) )) %>% dplyr::mutate(!!exp_src_var:=exp_source)
+          auto_ss_tib <- auto_ss_tib %>% dplyr::bind_rows(cur_ss_tib)
+        }
+        auto_ss_tib %>% dplyr::select(Sentrix_Name,!!class_var,!!exp_src_var) %>% dplyr::arrange(!!class_var,!!exp_src_var) %>%
+          dplyr::group_by(!!class_var,!!exp_src_var) %>% dplyr::mutate(Class_Idx=dplyr::row_number())
+        
+        # sampleSheet_tib %>% dplyr::mutate(Class_Int=dplyr::cur_group_id(), !!class_idx:=Class_Int-1 )
+        
+        
+        
+        # WE really want::
+        #   Exp_Idx
+        #   Sample_Idx
+        #   Class_Idx  = What is going to be tested
+        auto_ss_tib %>% dplyr::select(Sentrix_Name,!!class_var,!!exp_src_var) %>% dplyr::arrange(!!class_var,!!exp_src_var) %>%
+          dplyr::group_by(!!class_var,!!exp_src_var) %>% dplyr::mutate(Class_Int=dplyr::cur_group_id(), !!class_idx:=Class_Int-1 )
+        
+        # Load Manifest::
+        #
+        # par$platform
+        
+        # Load Detection P-values::
+        
         # Only pick two classes::
         picked_sentrix <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::pull(Sentrix_Name)
         

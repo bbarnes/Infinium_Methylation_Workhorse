@@ -45,9 +45,6 @@ subManifest=false
 # manifestPath=NULL
 # addressPath=NULL
 
-# Reporting Options::
-sigs_sum_field='avg'
-
 # Threshold Options::
 minNegPval=0.02
 minOobPval=0.1
@@ -181,9 +178,6 @@ fi
 if [ "${writeAuto}" = true ]; then
     CMD+=" --writeAuto"
 fi
-
-# Reporting Options::
-CMD+=" --sigs_sum_field"=${sigs_sum_field}
 
 # Threshold Options::
 CMD+=" --minNegPval"=${minNegPval}

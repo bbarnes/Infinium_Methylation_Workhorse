@@ -655,7 +655,7 @@ plotBetaMatrix_bySample = function(tib, sample, manifest, minPval, pvalKey, beta
   join_prbs
 }
 
-plotPairsBeta = function(tib, sample, nameA, nameB, 
+plotPairsBeta = function(tib, sample, nameA, nameB, ddat=NULL,
                          probeType='cg', groupA='Probe_Type', groupB='Design_Type',
                          field='Beta', field_str, detp,
                          outDir, 
@@ -686,8 +686,7 @@ plotPairsBeta = function(tib, sample, nameA, nameB,
     purrr::set_names(stringr::str_remove(names(.), paste0('.',field,'$')) )
   # ddat <- tib %>% dplyr::select(!!group, dplyr::ends_with(detp)) %>%
   #   purrr::set_names(stringr::str_remove(names(.), paste0('.',detp,'$')) )
-  ddat <- NULL
-  
+
   ncols_org <- base::ncol(pdat)
   nrows_org <- base::nrow(pdat)
   tarColIdxes <- c(2:ncols_org)

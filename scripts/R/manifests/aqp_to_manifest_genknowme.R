@@ -445,7 +445,35 @@ if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
 ses_unq_ctl_tib <- dplyr::distinct(ses_ctl_tib, Probe_ID, .keep_all=TRUE)
 
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Map Back to Designs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# This is just Seq_ID
+# ses_man_tib %>% dplyr::mutate(CGN=stringr::str_remove(Probe_ID, '_.*$'))
+
+EPIC_tab_csv <- '/Users/bbarnes/Documents/Projects/manifests/methylation/MethylationEPIC_v-1-0_B4.core.cpg-only.table.csv.gz'
+EPIC_tab_tib <- suppressMessages(suppressWarnings( readr::read_csv(EPIC_tab_csv) ))
+
+ses_man_tib %>% dplyr::left_join(EPIC_tab_tib, by=c("Seq_ID"="Name"), suffix=c("_Ses", "_EPIC"))
+
+ses_man_tib %>% dplyr::left_join(EPIC_tab_tib, by=c("Seq_ID"="Name"), suffix=c("_Ses", "_EPIC")) %>% dplyr::filter(is.na(IlmnID))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Simplified Output Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+out_man_tib <- ses_man_tib %>% 
+  dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, 
+                AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
+  dplyr::mutate(Version=opt$tar_version)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Sesame Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+out_man_tib <- dplyr::bind_rows(out_man_tib,ses_ctl_tib) %>% dplyr::arrange(Probe_ID)
+readr::write_csv(out_man_tib, ses_man_csv)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
