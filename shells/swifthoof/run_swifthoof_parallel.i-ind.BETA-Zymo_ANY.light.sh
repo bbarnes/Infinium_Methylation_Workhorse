@@ -1,16 +1,18 @@
 #!/bin/bash
 
-if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 outTopDir idatsDir"
+if [ "$#" -lt 3 ]; then
+    echo "Usage: $0 outTopDir idatsDir experimentName"
     exit 1
 fi
 outTop=$1
 idatsDir=$2
-outSuffix=$3
-EXP_NAME=`basename $idatsDir`
-EXP_NAME=$(sed 's/^idats_//' <<< "$EXP_NAME")
+EXP_NAME=$3
 
-verbose=3
+# outSuffix=$3
+# EXP_NAME=`basename $idatsDir`
+# EXP_NAME=$(sed 's/^idats_//' <<< "$EXP_NAME")
+
+verbose=30
 
 # Platform/Method Options::
 # platform="HM450"
@@ -61,6 +63,7 @@ single=true
 parallel=true
 parallel=false
 cluster=true
+cluster=false
 
 # Plotting Options::
 plotSset=false

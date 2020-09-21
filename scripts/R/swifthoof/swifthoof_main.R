@@ -572,11 +572,11 @@ if (opt$cluster) {
   #                             Load Manifest(s)::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  pTracker <- timeTracker$new(verbose=opt$verbose)
-  
   # opt$outDir <- file.path(opt$outDir, par$prgmTag)
   # if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-  cat(glue::glue("[{par$prgmTag}]:{TAB} Output Directory (SIG)={opt$outDir}...{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Launching Samples in Linear Mode! isSingle={opt$single}"),"\n", sep='')
+
+  pTracker <- timeTracker$new(verbose=opt$verbose)
   
   mans <- NULL
   opt$manDir <- file.path(par$datDir, 'manifest/base')
