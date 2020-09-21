@@ -396,8 +396,6 @@ excb_ann_tib <- suppressMessages(suppressWarnings( readr::read_csv(excb_ann_csv)
   setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose) %>% 
   dplyr::mutate(Seq_ID=stringr::str_remove(Assay_Design_Id, '_.*$'))
 
-# excb_ann_tib %>% dplyr::select(Assay_Design_Id,Forward_StrandTB,Forward_Sequence,Top_Sequence)
-
 excb_uniq_cgnTop_tib <- excb_ann_tib %>% 
   dplyr::select(Seq_ID, Top_Sequence) %>% dplyr::distinct() %>%
   dplyr::add_count(Seq_ID, name='CGN_Count') %>%
@@ -421,6 +419,17 @@ horv_uniq_cgnTop_tib <- horv_man_tib %>%
 
 horv_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
 horv_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+# mm10 forced:: cg+mu
+#
+mm10_uniq_cgnTop_csv <- '/Users/bbarnes/Documents/Projects/manifests/current/mm10-LEGX-S2.forced-defined-cgnToTopSeq.csv.gz'
+mm10_uniq_cgnTop_tib <- suppressMessages(suppressWarnings( readr::read_csv(mm10_uniq_cgnTop_csv) ))
+
+mm10_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+mm10_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+
+
 
 
 # Geneknowme::
