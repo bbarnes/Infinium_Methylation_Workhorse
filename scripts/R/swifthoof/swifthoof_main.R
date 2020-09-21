@@ -281,7 +281,7 @@ if (args.dat[1]=='RStudio') {
   opt$verbose <- 6
   opt$verbose <- 60
   
-  opt$outDir <- file.path(par$topDir, par$prgmDir, opt$expRunStr)
+  opt$outDir <- file.path(par$topDir, par$prgmTag, opt$expRunStr)
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -466,15 +466,31 @@ if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Sour
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
 
+par$prgm_src_dir <- file.path(par$scrDir,par$prgmDir, 'functions')
+if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Source={par$prgm_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
+
+# Load All other function methods::
 par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
 if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
 for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
 
-par$prgm_src_dir <- file.path(par$scrDir,par$prgmDir, 'functions')
-if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Source={par$prgm_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
+par$swt_src_dir <- file.path(par$scrDir, 'swifthoof/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$swt_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$swt_src_dir}!{RET}{RET}") )
+
+par$prb_src_dir <- file.path(par$scrDir, 'probe_design/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$prb_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
+
+par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
 
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
 
@@ -572,11 +588,10 @@ if (opt$cluster) {
   #                             Load Manifest(s)::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  # opt$outDir <- file.path(opt$outDir, par$prgmTag)
-  # if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
   cat(glue::glue("[{par$prgmTag}]: Launching Samples in Linear Mode! isSingle={opt$single}"),"\n", sep='')
 
-  pTracker <- timeTracker$new(verbose=opt$verbose)
+  pTracker <- NULL
+  # pTracker <- timeTracker$new(verbose=opt$verbose)
   
   mans <- NULL
   opt$manDir <- file.path(par$datDir, 'manifest/base')
@@ -691,15 +706,11 @@ if (opt$cluster) {
   
   opt_tib  <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value") %>% dplyr::arrange(Option)
   par_tib  <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value") %>% dplyr::arrange(Params)
-  time_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+  # time_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
   
   readr::write_csv(opt_tib, opt$opt_csv)
   readr::write_csv(par_tib, opt$par_csv)
-  readr::write_csv(time_tib, opt$time_csv)
-
-  # pTracker_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
-  # time_csv <- file.path(opt$outDir, 'time-tracker.csv.gz')
-  # readr::write_csv(pTracker_tib, time_csv)
+  # readr::write_csv(time_tib, opt$time_csv)
 }
 
 
