@@ -1075,7 +1075,7 @@ addBrac = function(seq) {
 #                     Illumina Strand Methods:: TOP/BOT
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-setTopBot_tib = function(tib, seqKey, srdKey, max=0,
+setTopBot_tib = function(tib, seqKey, srdKey, topKey=NULL, max=0,
                          verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'setTopBot_tib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -1083,6 +1083,9 @@ setTopBot_tib = function(tib, seqKey, srdKey, max=0,
   
   seqKey <- rlang::sym(seqKey)
   srdKey <- rlang::sym(srdKey)
+  if (!is.null(topKey)) topKey <- rlang::sym(topKey)
+  
+  # TBD:: Should remove any seqKey that is na or not the correct length...
   
   ret_tib <- NULL
   stime <- system.time({
@@ -1133,6 +1136,19 @@ setTopBot_tib = function(tib, seqKey, srdKey, max=0,
     if (verbose>=vt+4) print(tb_vec)
     
     ret_tib <- tib %>% dplyr::mutate(!!srdKey := tb_vec)
+    
+    if (!is.null(topKey)) {
+      revCmp_vec <- ret_tib %>% dplyr::pull(!!seqKey) %>% shearBrac() %>% revCmp() %>% addBrac()
+      ret_tib <- ret_tib %>% dplyr::mutate(TMP_REVCMP_SEQ=revCmp_vec)
+      
+      ret_tib <- ret_tib %>% dplyr::mutate(
+        !!topKey:=dplyr::case_when(
+          !!srdKey=='T' ~ !!seqKey,
+          !!srdKey=='B' ~ TMP_REVCMP_SEQ,
+          TRUE ~ NA_character_
+        )
+      )
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)

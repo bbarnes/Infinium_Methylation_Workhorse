@@ -12,6 +12,29 @@ RET <- "\n"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Basic Tibble Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+reduceSortedTib = function(tib, n=3,
+                           verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'optsToCommand'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; n={n}...{RET}"))
+  
+  tib_cnt <- tib %>% base::nrow()
+  if (tib_cnt <= 1) return(tib)
+  if (tib_cnt <= n) return(tib)
+  
+  mid_cnt <- as.integer( tib_cnt/n ) + 1
+  sel_vec <- c(1,mid_cnt,tib_cnt) %>% unique()
+  tib <- tib[sel_vec, ]
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  
+  tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Options to Script Commands::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 

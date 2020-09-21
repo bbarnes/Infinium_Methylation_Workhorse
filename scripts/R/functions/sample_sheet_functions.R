@@ -647,34 +647,19 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
           pval_mat <- beta_mat[, pval_col];
         }
         mask_mat <- beta_mat[ , beta_col ]
+        
+        # Strip any suffix 
+        if (addPval) {
+          beta_col <- mask_mat %>% colnames() %>% stringr::str_remove(paste0(del,betaName))
+          colnames(mask_mat) <- beta_col
+          
+          pval_col <- pval_mat %>% colnames() %>% stringr::str_remove(paste0(del,pvalName))
+          colnames(pval_mat) <- pval_col
+        }
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Masked Matrix={RET}") )
         if (verbose>=vt+4) beta_mat %>% head(n=1) %>% print()
         if (verbose>=vt+4) print(beta_col)
         if (verbose>=vt+4) mask_mat %>% head(n=1) %>% print()
-        
-        # sentrix_sort_sym <- sentrix_name
-        # sentrix_sort_vec <- dplyr::pull(sort_ss_tib, !!sentrix_sort_sym)
-        # if (addPval) {
-        #   # sentrix_sort_vec <- tibble::tibble(b=paste(sentrix_sort_vec,'beta',sep='.'),p=paste(sentrix_sort_vec,'pval',sep='.')) %>% 
-        #   #   dplyr::mutate(Rank=dplyr::row_number()) %>% tidyr::gather(key,val, -Rank) %>% dplyr::arrange(Rank) %>% dplyr::pull(val)
-        #   
-        #   beta_col <- paste(sentrix_sort_vec,betaName,sep=del)
-        #   pval_col <- paste(sentrix_sort_vec,pvalName,sep=del)
-        #   beta_mat <- beta_mat[, beta_col];
-        #   pval_mat <- pval_mat[, pval_col];
-        #   
-        #   sentrix_sort_vec <- beta_col
-        # }
-        # if (verbose>=vt+4) print(sentrix_sort_vec)
-        
-        # QC Sanity Check:: Make sure the new ordering works::
-        # if (FALSE) {
-        #   cbind(
-        #     beta_mat %>% colnames(),
-        #     sort_ss_tib %>% dplyr::pull(!!sentrix_sort_sym),
-        #     beta_mat[ , dplyr::pull(sort_ss_tib, !!sentrix_sort_sym)] %>% colnames()
-        #   ) %>% tibble::as_tibble() %>% dplyr::filter(V2==V3)
-        # }
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                   Build Raw and Imputed Sorted Matricies::
@@ -698,15 +683,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
           if (verbose>=vt+4) print(cur_ss_tib)
           
           cur_sort_vec <- dplyr::pull(cur_ss_tib, !!sentrix_name)
-          if (addPval) {
-            #   cur_sort_vec <- tibble::tibble(b=paste(cur_sort_vec,'beta',sep='.'),p=paste(cur_sort_vec,'pval',sep='.')) %>% 
-            #     dplyr::mutate(Rank=dplyr::row_number()) %>% tidyr::gather(key,val, -Rank) %>% dplyr::arrange(Rank) %>% dplyr::pull(val)
-            cur_sort_vec <- paste(cur_sort_vec,betaName, sep=del)
-          }
           if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} sentrix_name={sentrix_name}; cur_sort_vec={RET}") )
-          cat("\n\ncur_sort_vec:\n")
-          print(cur_sort_vec)
-          cat("\n\n")
 
           cur_mask_mat <- mask_mat[ , cur_sort_vec ]
           if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_mask_mat::{RET}") )

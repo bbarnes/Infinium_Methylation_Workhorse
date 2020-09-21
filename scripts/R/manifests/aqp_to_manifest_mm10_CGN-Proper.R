@@ -116,6 +116,7 @@ if (args.dat[1]=='RStudio') {
   opt$version     <- 'B3'
   opt$version     <- 'B4'
   opt$version     <- 'S1'
+  opt$version     <- 'S2'
   
   opt$frmt_original <- TRUE
   opt$frmt_original <- FALSE

@@ -135,8 +135,12 @@ if (args.dat[1]=='RStudio') {
     platform  <- "EPIC"
     
     runNameA  <- "COVIC-Set1-15052020"
-    runNameB  <- "COVIC-Set7-06082020"
     runNameB  <- "COVIC-Set5-10062020"
+    runNameC  <- "COVIC-Set7-06082020"
+    
+    runNameD  <- 'COVIC-Set-17'
+    runNameE  <- 'COVIC-Set-15'
+    runNameF  <- 'COVIC-Set-57'
     
     sesGroup  <- 'ind-beta_i-poob-1'
     dmlGroup  <- 'dml-1000-Ivana-145'

@@ -1,0 +1,465 @@
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Manifest Colllection Scratch::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+rm(list=ls(all=TRUE))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
+
+# Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Global Params::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+doParallel::registerDoParallel()
+num_cores   <- detectCores()
+num_workers <- getDoParWorkers()
+
+COM <- ","
+TAB <- "\t"
+RET <- "\n"
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Define Default Params and Options::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+par <- NULL
+opt <- NULL
+
+# Program Parameters::
+par$codeDir <- 'Infinium_Methylation_Workhorse'
+par$prgmDir <- 'manifests'
+par$prgmTag <- 'manifest_scratch'
+cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
+
+# Illumina based directories::
+par$macDir <- '/Users/bbarnes/Documents/Projects/methylation/tools'
+par$lixDir <- '/illumina/scratch/darkmatter'
+
+par$retData <- FALSE
+
+# Executables::
+opt$Rscript <- NULL
+
+# Directories::
+opt$outDir     <- NULL
+
+# Required Inputs::
+opt$ords <- NULL
+opt$mats <- NULL
+opt$aqps <- NULL
+opt$pqcs <- NULL
+
+opt$idats <- NULL
+
+# Pre-defined files (controls)
+opt$ctlCSV <- NULL
+
+# Platform/Method Options::
+opt$genomeBuild <- NULL
+opt$platform    <- NULL
+opt$version     <- NULL
+
+# Run Options::
+opt$fresh <- FALSE
+
+opt$percisionSigs <- 1
+opt$percisionBeta <- 4
+opt$percisionPval <- 6
+
+# Parallel/Cluster Options::
+opt$single   <- FALSE
+opt$parallel <- FALSE
+opt$cluster  <- FALSE
+
+# verbose Options::
+opt$verbose <- 3
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                               Parse Options::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+args.dat <- commandArgs(trailingOnly = FALSE)
+if (args.dat[1]=='RStudio') {
+  
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
+  
+  # Default Parameters for local Mac::
+  par$runMode    <- args.dat[1]
+  par$srcDir     <- file.path(par$macDir, par$codeDir)
+  par$scrDir     <- file.path(par$srcDir, 'scripts')
+  par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
+  
+  par$prgmTag <- base::sub('\\.R$', '', base::basename(par$exePath))
+  par$locPath <- base::dirname(par$exePath)
+  par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
+  par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
+  par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
+  
+  # Default Options for local Mac::
+  opt$Rscript  <- 'Rscript'
+  
+  opt$outDir <- file.path(par$topDir)
+  
+} else {
+  par$runMode    <- 'CommandLine'
+  par$exePath <- base::substring(args.dat[grep("--file=", args.dat)], 8)
+  
+  par$prgmTag <- base::sub('\\.R$', '', base::basename(par$exePath))
+  par$locPath <- base::dirname(par$exePath)
+  par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
+  par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
+  par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
+  
+  args.dat <- commandArgs(trailingOnly = TRUE)
+  option_list = list(
+    # Directories::
+    make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
+                help="Output directory [default= %default]", metavar="character"),
+    
+    # Pre-defined files (controls)
+    make_option(c("--ords"), type="character", default=opt$ords, 
+                help="Order files (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--mats"), type="character", default=opt$mats, 
+                help="Match files (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--aqps"), type="character", default=opt$aqps, 
+                help="AQP files (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--pqcs"), type="character", default=opt$pqcs, 
+                help="PQC files (comma seperated) [default= %default]", metavar="character"),
+    
+    make_option(c("-i", "--idats"), type="character", default=opt$idats, 
+                help="idats directory [default= %default]", metavar="character"),
+    
+    # Required Inputs::
+    make_option(c("--ctlCSV"), type="character", default=opt$ctlCSV, 
+                help="Standard Pre-Defined Infinium Methylation Controls CSV (no-header) [default= %default]", metavar="character"),
+    
+    # Platform/Method Options::
+    make_option(c("--genomeBuild"), type="character", default=opt$genomeBuild, 
+                help="Genome Build (e.g. hg18, hg36, hg19, hg37, hg38, mm10) [default= %default]", metavar="character"),
+    make_option(c("--platform"), type="character", default=opt$platform, 
+                help="Platform (e.g. HM450, EPIC, LEGX, NZT, COVIC) [default= %default]", metavar="character"),
+    make_option(c("--version"), type="character", default=opt$version, 
+                help="Manifest Version (e.g. B0,B1,B2,B3,B4,C0) [default= %default]", metavar="character"),
+    
+    # Executables::
+    make_option(c("--Rscript"), type="character", default=opt$Rscript, 
+                help="Rscript path [default= %default]", metavar="character"),
+    
+    # verbose::
+    make_option(c("-v", "--verbose"), type="integer", default=opt$verbose, 
+                help="0-5 (5 is very verbose) [default= %default]", metavar="integer")
+  )
+  opt_parser = OptionParser(option_list=option_list)
+  opt = parse_args(opt_parser)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                            Validate Options::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.null(par$datDir)) {
+  
+  par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
+  par_tib %>% base::print(n=base::nrow(par_tib) )
+  
+  if (is.null(par$runMode)) cat(glue::glue("[Usage]: runMode is NULL!!!{RET}"))
+  if (is.null(par$prgmTag)) cat(glue::glue("[Usage]: prgmTag is NULL!!!{RET}"))
+  if (is.null(par$scrDir))  cat(glue::glue("[Usage]: scrDir is NULL!!!{RET}"))
+  if (is.null(par$datDir))  cat(glue::glue("[Usage]: darDir is NULL!!!{RET}"))
+  base::stop("Null Parameters!\n\n")
+}
+
+if (is.null(opt$outDir) || 
+    is.null(opt$Rscript) ||
+    is.null(opt$verbose)) {
+  if (par$runMode=='CommandLine') print_help(opt_parser)
+  
+  opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
+  opt_tib %>% base::print(n=base::nrow(opt_tib) )
+  
+  cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
+  
+  if (is.null(opt$outDir))    cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
+  
+  if (is.null(opt$Rscript)) cat(glue::glue("[Usage]: Rscript is NULL!!!{RET}"))
+  if (is.null(opt$verbose)) cat(glue::glue("[Usage]: verbose is NULL!!!{RET}"))
+  base::stop(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
+}
+par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
+opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
+if (opt$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
+if (opt$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
+
+cat(glue::glue("[{par$prgmTag}]: Done. Validating Options.{RET}{RET}"))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Source Files::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+par$gen_src_dir <- file.path(par$scrDir, 'functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
+
+par$prgm_src_dir <- file.path(par$scrDir,par$prgmDir, 'functions')
+if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Source={par$prgm_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
+
+# Load All other function methods::
+par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
+
+par$swt_src_dir <- file.path(par$scrDir, 'swifthoof/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$swt_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$swt_src_dir}!{RET}{RET}") )
+
+par$prb_src_dir <- file.path(par$scrDir, 'probe_design/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$prb_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
+
+par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
+
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Preprocessing::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Manifests::
+#  - [Done] HM27
+#  - [Done] HM450
+#  - [Done] EPIC (B0/B2/B4)
+#
+#  - Mpanel1
+#
+#  - NZT (not needed yet)
+#  - [Done] Excalibur (15k, 5k)
+#
+#  - [Done] Horvath
+#  - mm10
+#
+#  - Geneknowme
+#  - University Chicago
+#
+
+# Special Checks for 27k::
+#
+hm27_man_csv <- '/Users/bbarnes/Documents/Projects/manifests/current/HumanMethylation27_270596_v.1.2.csv.gz'
+hm27_man_tib <- loadManifestGenomeStudio(hm27_man_csv, addSource=TRUE, retType='man', normalize=TRUE, verbose=opt$verbose) %>% 
+  dplyr::mutate(Seq_ID=IlmnID, Forward_Sequence=Top_Sequence) %>% dplyr::select(Seq_ID, Probe_Type, Man_Source,Forward_Sequence) 
+
+hm27_cgn_tib <- hm27_man_tib %>% 
+  dplyr::filter(Probe_Type=='cg') %>%
+  dplyr::filter(!is.na(Forward_Sequence)) %>%
+  setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose)
+
+hm27_uniq_cgnTop_tib <- hm27_cgn_tib %>% 
+  dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% dplyr::distinct() %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+hm27_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+hm27_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+# Special Checks for 450k:: CG
+#  - cgn
+#  - chn
+hm45_man_csv <- '/Users/bbarnes/Documents/Projects/manifests/current/HumanMethylation450_15017482_v.1.2.csv.gz'
+hm45_man_tib <- loadManifestGenomeStudio(hm45_man_csv, addSource=TRUE, retType='man', normalize=TRUE, verbose=opt$verbose) %>%
+  dplyr::mutate(Seq_ID=IlmnID) %>% dplyr::select(Seq_ID, Probe_Type, Man_Source,Forward_Sequence)
+
+hm45_cgn_tib <- hm45_man_tib %>% 
+  dplyr::filter(Probe_Type=='cg') %>%
+  dplyr::filter(!is.na(Forward_Sequence)) %>%
+  setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose)
+
+hm45_uniq_cgnTop_tib <- hm45_cgn_tib %>% 
+  dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% dplyr::distinct() %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+hm45_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+hm45_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+# Special Checks for 450k:: CH
+#  - cgn
+#  - chn
+if (FALSE) {
+  hm45_chn_tib <- hm45_man_tib %>% 
+    dplyr::filter(Probe_Type=='ch') %>% head() %>%
+    dplyr::filter(!is.na(Forward_Sequence)) %>%
+    dplyr::mutate(Forward_Sequence_CH=Forward_Sequence) %>%
+    dplyr::mutate(Forward_Sequence=stringr::str_replace(Forward_Sequence, '\\[[A-Z][A-Z]\\]', "[CG]") ) %>% 
+    setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose)
+  
+  hm45_uniq_chnTop_tib <- hm45_chn_tib %>% 
+    dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% dplyr::distinct() %>%
+    dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+    dplyr::add_count(Top_Sequence, name='Top_Count')
+  
+  hm45_uniq_chnTop_tib %>% dplyr::filter(CGN_Count!=1)
+  hm45_uniq_chnTop_tib %>% dplyr::filter(Top_Count!=1)
+}
+
+# Special Checks for EPIC:: CG
+#  - cgn
+#  - chn
+hm85_man_csv <- '/Users/bbarnes/Documents/Projects/manifests/current/MethylationEPIC_v-1-0_B2.csv.gz'
+hm85_man_tib <- loadManifestGenomeStudio(hm85_man_csv, addSource=TRUE, retType='man', normalize=TRUE, verbose=opt$verbose) %>%
+  dplyr::mutate(Seq_ID=IlmnID) %>% dplyr::select(Seq_ID, Probe_Type, Man_Source, Forward_Sequence)
+
+hm85_cgn_tib <- hm85_man_tib %>% 
+  dplyr::filter(Probe_Type=='cg') %>%
+  dplyr::filter(!is.na(Forward_Sequence)) %>%
+  setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose)
+
+hm85_uniq_cgnTop_tib <- hm85_cgn_tib %>% 
+  dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% dplyr::distinct() %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+hm85_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+hm85_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+# Special Checks for EPIC:: CH
+#  - cgn
+#  - chn
+if (FALSE) {
+  hm85_chn_tib <- hm85_man_tib %>% 
+    dplyr::filter(Probe_Type=='ch') %>% head() %>%
+    dplyr::filter(!is.na(Forward_Sequence)) %>%
+    dplyr::mutate(Forward_Sequence_CH=Forward_Sequence) %>%
+    dplyr::mutate(Forward_Sequence=stringr::str_replace(Forward_Sequence, '\\[[A-Z][A-Z]\\]', "[CG]") ) %>% 
+    setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose)
+  
+  hm85_uniq_chnTop_tib <- hm85_chn_tib %>% 
+    dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% dplyr::distinct() %>%
+    dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+    dplyr::add_count(Top_Sequence, name='Top_Count')
+  
+  hm85_uniq_chnTop_tib %>% dplyr::filter(CGN_Count!=1)
+  hm85_uniq_chnTop_tib %>% dplyr::filter(Top_Count!=1)
+}
+
+#
+# Reduce human core arrays::
+#
+
+hm27_uniq_cgnTop_tib
+hm45_uniq_cgnTop_tib
+hm85_uniq_cgnTop_tib
+
+# Mpanel1::
+#
+mpan_man_csv <- '/Users/bbarnes/Documents/Projects/manifests/current/Mpanel1.LEGX.CombinedManifestEPIC.manifest.csv.gz'
+mpan_man_tib <- loadManifestGenomeStudio(mpan_man_csv, addSource=TRUE, retType='man', normalize=TRUE, verbose=opt$verbose) %>%
+  dplyr::mutate(Seq_ID=IlmnID) %>% dplyr::select(Seq_ID, Probe_Type, Man_Source, Forward_Sequence)
+
+mpan_cgn_tib <- mpan_man_tib %>% 
+  dplyr::filter(Probe_Type=='cg') %>%
+  dplyr::filter(!is.na(Forward_Sequence)) %>%
+  setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose)
+
+mpan_uniq_cgnTop_tib <- mpan_cgn_tib %>% 
+  dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% dplyr::distinct() %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+mpan_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+mpan_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+
+# Excalibur (15k)
+#
+excb_ann_csv <- '/Users/bbarnes/Documents/Projects/methylation/Excalibur/orders/order.annotation.csv.gz'
+excb_ann_tib <- suppressMessages(suppressWarnings( readr::read_csv(excb_ann_csv) )) %>% 
+  dplyr::filter(!is.na(Forward_Sequence)) %>%
+  setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose) %>% 
+  dplyr::mutate(Seq_ID=stringr::str_remove(Assay_Design_Id, '_.*$'))
+
+# excb_ann_tib %>% dplyr::select(Assay_Design_Id,Forward_StrandTB,Forward_Sequence,Top_Sequence)
+
+excb_uniq_cgnTop_tib <- excb_ann_tib %>% 
+  dplyr::select(Seq_ID, Top_Sequence) %>% dplyr::distinct() %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+excb_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+excb_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+# Horvath Mamalian::
+#
+horv_man_csv <- '/Users/bbarnes/Documents/Projects/manifests/current/HorvathMammMeth.csv.gz'
+horv_man_tib <- loadManifestGenomeStudio(file=horv_man_csv, addSource=TRUE, retType='man', verbose=opt$verbose) %>%
+  dplyr::filter(!is.na(Forward_Sequence)) %>%
+  setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose) %>% 
+  dplyr::mutate(Seq_ID=stringr::str_remove(IlmnID, '_.*$'))
+
+horv_uniq_cgnTop_tib <- horv_man_tib %>% 
+  dplyr::select(Seq_ID, Top_Sequence) %>% dplyr::distinct() %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+horv_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+horv_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+
+# Geneknowme::
+#
+genk_aqpDir <- '/Users/bbarnes/Documents/Projects/methylation/CustomContent/Genknowme/LS_Epiprofile'
+genk_ords  <- paste(
+  file.path(genk_aqpDir, 'AQP1_NAremoved_GenKnowme_CpG_SNP_order.07082020.csv'),
+  file.path(genk_aqpDir, 'AQP2_AP_Genknowme_AQP2_replicate_design_file2.csv'),
+  sep=',')
+genk_ord_vec <- genk_ords %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+
+genk_ord_tib <- lapply(genk_ord_vec, readr::read_csv) %>% 
+  dplyr::bind_rows() %>% dplyr::mutate(Seq_ID=stringr::str_remove(Assay_Design_Id, '_.*$')) %>% 
+  dplyr::filter(stringr::str_starts(Seq_ID, 'cg') )
+
+# Just ensure all cgs are in core_uniq_cgnTop_tib
+
+genk_ord_tib %>% dplyr::filter(Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID)
+
+genk_ord_tib %>% dplyr::filter(Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID)
+genk_ord_tib %>% dplyr::filter(!Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID) %>% 
+  dplyr::filter(Seq_ID %in% horv_uniq_cgnTop_tib$Seq_ID)
+
+
+
+# NZT::
+#
+# nzt_full_man_csv <- file.path(par$datDir, 'manifest/full/NZT-B1.manifest.sesame-full.cpg-sorted.csv.gz')
+# nzt_full_add_csv <- file.path(par$datDir, 'manifest/full/NZT-B1.manifest.address-full.cpg-sorted.csv.gz')
+# 
+# nzt_full_man_tib <- suppressMessages(suppressWarnings( readr::read_csv(nzt_full_man_csv) ))
+# nzt_full_add_tib <- suppressMessages(suppressWarnings( readr::read_csv(nzt_full_add_csv) ))
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                                Finished::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+sysTime <- Sys.time()
+cat(glue::glue("[{par$prgmTag}]: Finished(time={sysTime}){RET}{RET}"))
+
+
+# End of file
