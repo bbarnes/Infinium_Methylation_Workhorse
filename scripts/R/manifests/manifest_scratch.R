@@ -452,10 +452,33 @@ chig_uniq_cgnTop_tib <- chig_ord_tib %>% dplyr::inner_join(chig_des_tib, by="Seq
 chig_uniq_cgnTop_tib %>% base::nrow()
 chig_ord_tib %>% dplyr::distinct(Seq_ID) %>% base::nrow()
 
+# EPIC B0:: 
+#   /Users/bbarnes/Documents/Projects/manifests/current/MethylationEPIC_v-1-0_B0.forced-defined-cgnToTopSeq.tsv.gz
+#
+epi0_man_tsv <- '/Users/bbarnes/Documents/Projects/manifests/current/MethylationEPIC_v-1-0_B0.forced-defined-cgnToTopSeq.tsv.gz'
+epi0_man_tib <- suppressMessages(suppressWarnings( readr::read_tsv(epi0_man_tsv) )) %>%
+  dplyr::mutate(Man_Source='MethylationEPIC_v-1-0_B0', Probe_Type=stringr::str_sub(Seq_ID,1,2)) %>%
+  dplyr::rename(Forward_Sequence=Top_Sequence) %>%
+  dplyr::select(Seq_ID, Probe_Type, Man_Source, Forward_Sequence)
+
+epi0_cgn_tib <- epi0_man_tib %>% 
+  dplyr::filter(Probe_Type=='cg') %>%
+  dplyr::filter(!is.na(Forward_Sequence)) %>%
+  setTopBot_tib(seqKey='Forward_Sequence', srdKey='Forward_StrandTB', topKey='Top_Sequence', verbose=opt$verbose)
+
+epi0_uniq_cgnTop_tib <- epi0_cgn_tib %>% 
+  dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% dplyr::distinct() %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+epi0_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+epi0_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+
+
 #
 # Combine all Current arrays::
 #
-hm27_uniq_cgnTop_tib
 hm45_uniq_cgnTop_tib
 hm85_uniq_cgnTop_tib
 
@@ -463,6 +486,9 @@ excb_uniq_cgnTop_tib
 horv_uniq_cgnTop_tib
 mm10_uniq_cgnTop_tib
 chig_uniq_cgnTop_tib
+
+hm27_uniq_cgnTop_tib
+epi0_uniq_cgnTop_tib
 
 #
 # Validate All::
@@ -474,24 +500,76 @@ chig_uniq_cgnTop_tib
 #  - add NZT ???
 #
 all_full_cgnTop_tib <- dplyr::bind_rows(hm45_uniq_cgnTop_tib,hm85_uniq_cgnTop_tib,
-                                        excb_uniq_cgnTop_tib,horv_uniq_cgnTop_tib,mm10_uniq_cgnTop_tib,
-                                        chig_uniq_cgnTop_tib,hm27_uniq_cgnTop_tib) %>%
+                                        excb_uniq_cgnTop_tib,horv_uniq_cgnTop_tib,
+                                        mm10_uniq_cgnTop_tib,chig_uniq_cgnTop_tib,
+                                        hm27_uniq_cgnTop_tib,epi0_uniq_cgnTop_tib) %>%
   dplyr::select(Seq_ID,Man_Source,Top_Sequence)
 
 all_tops_cgnTop_tib <- all_full_cgnTop_tib %>% 
   dplyr::distinct(Seq_ID, .keep_all=TRUE) %>%
   dplyr::distinct(Top_Sequence, .keep_all=TRUE) %>%
   dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count') %>% 
+  dplyr::add_count(Seq_ID,Top_Sequence, name="CGN_Top_Count")
+
+all_tops_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+all_tops_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+all_tops_cgnTop_tib %>% dplyr::filter(CGN_Top_Count!=1)
+
+all_tops_cgnTop_tib %>% dplyr::group_by(Man_Source) %>% dplyr::summarise(Src_Cnt=n()) %>% dplyr::arrange(-Src_Cnt)
+
+all_tops_cgnTop_tib %>% 
+  dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% 
+  dplyr::mutate(CGN=stringr::str_remove(Seq_ID,'cg') %>% stringr::str_remove('^0+'),
+                Top_Sequence=shearBrac(Top_Sequence)) %>%
+  dplyr::rename(TOP=Top_Sequence,SRC=Man_Source) %>%
+  dplyr::select(CGN,TOP,SRC)
+
+# Pre epi0::
+# Man_Source                         Src_Cnt
+# 1 HumanMethylation450_15017482_v.1.2  482421
+# 2 MethylationEPIC_v-1-0_B2            413743
+# 3 mm10-LEGX-S2                        279051
+# 4 univ-chicago                         37043
+# 5 Horvath40k                           29769
+# 6 HumanMethylation27_270596_v.1.2       1135
+
+# Pos epi0::
+# Man_Source                         Src_Cnt
+# 1 HumanMethylation450_15017482_v.1.2  482421
+# 2 MethylationEPIC_v-1-0_B2            413743
+# 3 mm10-LEGX-S2                        279051
+# 4 univ-chicago                         37043
+# 5 MethylationEPIC_v-1-0_B0             36810
+# 6 Horvath40k                           29769
+# 7 HumanMethylation27_270596_v.1.2       1135
+
+
+
+
+
+# Old Testing Method without ordering::
+#
+all_tops_cgnTop_tib <- all_full_cgnTop_tib %>% 
+  dplyr::distinct(Seq_ID,Top_Sequence) %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
   dplyr::add_count(Top_Sequence, name='Top_Count')
 
 all_tops_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
 all_tops_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
 
-all_tops_cgnTop_tib %>% dplyr::group_by(Man_Source) %>% dplyr::summarise(Src_Cnt=n()) %>% dplyr::arrange(-Src_Cnt)
+# Failures::
+all_fail_uniq_cgnTop_tib <- all_tops_cgnTop_tib %>% dplyr::filter(CGN_Count!=1 | Top_Count!=1)
 
+hm45_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% all_fail_uniq_cgnTop_tib$Top_Sequence)
+hm85_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% all_fail_uniq_cgnTop_tib$Top_Sequence)
+epi0_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% all_fail_uniq_cgnTop_tib$Top_Sequence)
 
-
-
+excb_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% all_fail_uniq_cgnTop_tib$Top_Sequence)
+horv_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% all_fail_uniq_cgnTop_tib$Top_Sequence)
+mm10_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% all_fail_uniq_cgnTop_tib$Top_Sequence)
+chig_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% all_fail_uniq_cgnTop_tib$Top_Sequence)
+hm27_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% all_fail_uniq_cgnTop_tib$Top_Sequence)
 
 
 # Remove 27k failures::
