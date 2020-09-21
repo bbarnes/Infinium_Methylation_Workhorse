@@ -57,9 +57,9 @@ percisionPval=6
 
 # Parallel/Cluster Options::
 single=false
-# single=true
+single=true
 parallel=true
-# parallel=false
+parallel=false
 cluster=true
 
 # Plotting Options::
@@ -81,7 +81,8 @@ prgmTop="Infinium_Methylation_Workhorse"
 prgmDir="swifthoof"
 prgmTag="swifthoof_main"
 
-TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
+# TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
+TOP_MAC=/Users/bretbarnes/Documents/tools
 TOP_LIX=/illumina/scratch/darkmatter/tools
 
 if [ -e ${TOP_MAC} ]; then

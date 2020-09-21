@@ -19,7 +19,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 # Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
-#  suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -46,6 +46,7 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Illumina based directories::
 par$macDir <- '/Users/bbarnes/Documents/Projects/methylation/tools'
+par$macDir <- '/Users/bretbarnes/Documents/tools'
 par$lixDir <- '/illumina/scratch/darkmatter'
 
 par$retData     <- FALSE
@@ -130,6 +131,7 @@ args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
   if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$macDir)) par$topDir <- '/Users/bretbarnes/Documents/scratch'
   if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
@@ -199,7 +201,8 @@ if (args.dat[1]=='RStudio') {
   # }
   # opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/data/idats', opt$expRunStr, opt$expChipNum)
 
-  locIdatDir <- '/Users/bbarnes/Documents/Projects/methylation/data/idats'
+  # locIdatDir <- '/Users/bbarnes/Documents/Projects/methylation/data/idats'
+  locIdatDir <- '/Users/bretbarnes/Documents/data/idats'
   
   opt$expRunStr  <- 'ReferenceBETA'
   opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
@@ -220,7 +223,7 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- TRUE
     opt$parallel <- FALSE
   }
-  par$isMVP <- TRUE
+  par$isMVP <- FALSE
   if (par$isMVP) {
     opt$expRunStr  <- 'CNTL-Samples_VendA_10092020'
     opt$autoDetect <- TRUE
@@ -237,6 +240,41 @@ if (args.dat[1]=='RStudio') {
     
     opt$dpi <- 72
     opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/VA_MVP/idats',opt$expRunStr)
+  }
+  
+  isCOVIC <- TRUE
+  if (isCOVIC) {
+    opt$platform   <- 'EPIC'
+    opt$manifest   <- 'C0'
+
+    opt$platform   <- NULL
+    opt$manifest   <- NULL
+
+    # Set-1
+    opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
+    opt$expChipNum <- '204500250013'
+
+    opt$idatsDir <- file.path(locIdatDir, opt$expRunStr)
+    
+    opt$single   <- TRUE
+    opt$parallel <- FALSE
+    opt$cluster  <- FALSE
+  } else if (isCORE) {
+    opt$platform   <- 'EPIC'
+    opt$manifest   <- 'B4'
+
+    opt$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
+    opt$expChipNum <- '202761400007'
+
+    opt$expRunStr  <- 'idats_ADRN-blood-nonAtopic_EPIC'
+    opt$expChipNum <- '201125090068'
+
+    opt$expRunStr  <- 'idats_GSE122126_EPIC'
+    opt$expChipNum <- '202410280180'
+
+    opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
+    opt$expChipNum <- '201502830033'
+
   }
 
   opt$verbose <- 3
@@ -602,6 +640,7 @@ if (opt$cluster) {
 
     cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: Starting...{RET}"))
     
+    rdat <- NULL
     for (prefix in names(chipPrefixes)) {
       rdat <- NULL
       try_str <- ''
@@ -623,7 +662,26 @@ if (opt$cluster) {
       
       if (opt$single) break
     }
+    
+    if (FALSE) {
+      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+                                   retData=par$retData, workflows=workflows_vec)
 
+      
+      callSUM_tib <- callToSSheet(rdat$raw_call_tib, idx=0, key='raw', pre=NULL, minNegPval=opt$minNegPval, minOobPval=opt$minOobPval, 
+                                  percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
+                                  verbose=opt$verbose+30)
+      
+      
+      rawSSET <- rdat$raw_sset
+      raw_sset_tib <- sset2tib(rawSSET, by="Probe_ID", des="Probe_Design",  
+                               percision=opt$percisionSigs, sort=FALSE, save=opt$writeSsetRaw, csv=raw_sset_csv, 
+                               verbose=opt$verbose+30)
+      raw_call_tib <- sset2calls(sset=rawSSET, workflow='raw', percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
+                                 verbose=opt$verbose+30)
+      
+    }
+      
     cat(glue::glue("[{par$prgmTag}] parallelFunc={funcTag}: Done.{RET}{RET}"))
   }
   

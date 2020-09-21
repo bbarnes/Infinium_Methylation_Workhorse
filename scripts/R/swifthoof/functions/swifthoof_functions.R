@@ -186,6 +186,15 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     }
     raw_call_tib <- sset2calls(sset=raw_sset, workflow='raw', percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    
+    cat("Running: callToSSheet\n\n:")
+    if (retData) {
+      ret$raw_sset <- raw_sset
+      ret$raw_sset_tib <- raw_sset_tib
+      ret$raw_call_tib <- raw_call_tib
+      # return(ret)
+    }
+    
     call_sum_tib <- callToSSheet(call=raw_call_tib, idx=0, key='raw', pre=call_sum_tib, 
                                  minNegPval=opt$minNegPval, minOobPval=opt$minOobPval, 
                                  percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
@@ -204,7 +213,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       # return(ret)
     }
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built RAW Data.{RET}"))
-    
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 SSET to Calls by Order of Operations:: workflows
