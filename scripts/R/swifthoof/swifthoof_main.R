@@ -652,30 +652,42 @@ if (opt$cluster) {
     
   } else {
     funcTag <- 'sesamizeSingleSample-Linear'
-
-    cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: Starting...{RET}"))
+    sample_cnt <- length(chipPrefixes)
+    
+    cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: Starting; sample_cnt={sample_cnt}.{RET}"))
     
     rdat <- NULL
     for (prefix in names(chipPrefixes)) {
-      rdat <- NULL
       try_str <- ''
-      rdat = tryCatch({
-        try_str <- 'Pass'
-        sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                             retData=par$retData, workflows=workflows_vec, tc=3)
-      }, warning = function(w) {
-        try_str <- paste('warning',funcTag, sep='-')
-        rdat <- NA
-      }, error = function(e) {
-        try_str <- paste('error',funcTag, sep='-')
-        rdat <- NA
-      }, finally = {
-        try_str <- paste('cleanup',funcTag, sep='-')
-        rdat <- NA
-      })
-      cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       
+      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+                                   retData=par$retData, workflows=workflows_vec, tc=3)
+
+      cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
+      
+      next
+      
+      if (FALSE) {
+        rdat <- NULL
+        rdat = tryCatch({
+          try_str <- 'Pass'
+          sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+                               retData=par$retData, workflows=workflows_vec, tc=3)
+        }, warning = function(w) {
+          try_str <- paste('warning',funcTag, sep='-')
+          rdat <- NA
+        }, error = function(e) {
+          try_str <- paste('error',funcTag, sep='-')
+          rdat <- NA
+        }, finally = {
+          try_str <- paste('cleanup',funcTag, sep='-')
+          rdat <- NA
+        })
+        cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+        
+        if (opt$single) break
+      }
     }
     
     if (FALSE) {
