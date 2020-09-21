@@ -495,8 +495,8 @@ readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
 #  join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | \
 #  gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
 
-run_join_cmd <- FALSE
 run_join_cmd <- TRUE
+run_join_cmd <- FALSE
 if (run_join_cmd) {
   join_cmd <- glue::glue("gzip -dc {imp_s48_tsv} | join -t $'\\", "t' -14 -27 - {mm10_s48_tsv} | gzip -c -> {int_s48_tsv}")
   cat(glue::glue("[{par$prgmTag}]: Running: cmd='{join_cmd}'...{RET}{RET}") )
@@ -628,6 +628,16 @@ mm10_s48_int_ant_cgnTop_tib %>% dplyr::filter(CGN_Count!=1) %>% dplyr::filter(To
 mm10_cgnToTop_csv <- file.path(opt$outDir, paste(opt$runName,'forced-defined-cgnToTopSeq.csv.gz', sep='.') )
 readr::write_csv(mm10_s48_int_all_cgnTop_tib,mm10_cgnToTop_csv)
 
+#
+# Need to reconcile Horvath vs. mm10 mismatches::
+#
+#  Conclusion:: Need to use the Horvath Assignments!!!
+#
+err_map_csv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/manifest_scratch/error-cgnToTopSeq.csv.gz'
+err_map_tib <- readr::read_csv(err_map_csv)
+
+mm10_s48_int_mat_imp_tib %>% dplyr::filter(Seq_ID %in% err_map_tib$Seq_ID_mm10) %>% dplyr::pull(Probe_Type)
+mm10_s48_mat_tib %>% dplyr::filter(Seq_ID %in% err_map_tib$Seq_ID_mm10) %>% dplyr::pull(Probe_Type)
 
 #
 #

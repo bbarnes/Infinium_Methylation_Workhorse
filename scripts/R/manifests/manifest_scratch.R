@@ -399,7 +399,8 @@ excb_ann_tib <- suppressMessages(suppressWarnings( readr::read_csv(excb_ann_csv)
 excb_uniq_cgnTop_tib <- excb_ann_tib %>% 
   dplyr::select(Seq_ID, Top_Sequence) %>% dplyr::distinct() %>%
   dplyr::add_count(Seq_ID, name='CGN_Count') %>%
-  dplyr::add_count(Top_Sequence, name='Top_Count')
+  dplyr::add_count(Top_Sequence, name='Top_Count') %>% 
+  dplyr::mutate(Man_Source="Excalibur15k") %>% dplyr::select(Seq_ID,Man_Source,Top_Sequence, everything())
 
 excb_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
 excb_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
@@ -415,7 +416,8 @@ horv_man_tib <- loadManifestGenomeStudio(file=horv_man_csv, addSource=TRUE, retT
 horv_uniq_cgnTop_tib <- horv_man_tib %>% 
   dplyr::select(Seq_ID, Top_Sequence) %>% dplyr::distinct() %>%
   dplyr::add_count(Seq_ID, name='CGN_Count') %>%
-  dplyr::add_count(Top_Sequence, name='Top_Count')
+  dplyr::add_count(Top_Sequence, name='Top_Count') %>% 
+  dplyr::mutate(Man_Source="Horvath40k") %>% dplyr::select(Seq_ID,Man_Source,Top_Sequence, everything())
 
 horv_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
 horv_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
@@ -423,15 +425,167 @@ horv_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
 # mm10 forced:: cg+mu
 #
 mm10_uniq_cgnTop_csv <- '/Users/bbarnes/Documents/Projects/manifests/current/mm10-LEGX-S2.forced-defined-cgnToTopSeq.csv.gz'
-mm10_uniq_cgnTop_tib <- suppressMessages(suppressWarnings( readr::read_csv(mm10_uniq_cgnTop_csv) ))
+mm10_uniq_cgnTop_tib <- suppressMessages(suppressWarnings( readr::read_csv(mm10_uniq_cgnTop_csv) )) %>% 
+  dplyr::mutate(Man_Source="mm10-LEGX-S2") %>% dplyr::select(Seq_ID,Man_Source,Top_Sequence, everything())
 
 mm10_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
 mm10_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
 
+# University of Chicago::
+#
+#  - Univ Chicago
+#    - Make sure methylation/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.tsv.gz covers
+#       all probes in methylation/CustomContent/UnivChicago/jira-data/CpGs_UnivChicago_alldesigns_55860sites.order.csv
+#       and add them to the contigency check...
+#
+chig_des_tsv <- '/Users/bbarnes/Documents/Projects/methylation/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.tsv.gz'
+chig_ord_csv <- '/Users/bbarnes/Documents/Projects/methylation/CustomContent/UnivChicago/jira-data/CpGs_UnivChicago_alldesigns_55860sites.order.csv'
+
+chig_des_tib <- suppressMessages(suppressWarnings( readr::read_tsv(chig_des_tsv) ))
+chig_ord_tib <- suppressMessages(suppressWarnings( readr::read_csv(chig_ord_csv) )) %>% dplyr::mutate(Seq_ID=stringr::str_remove(Assay_Design_Id, '_.*$'))
+
+chig_uniq_cgnTop_tib <- chig_ord_tib %>% dplyr::inner_join(chig_des_tib, by="Seq_ID") %>% 
+  dplyr::select(Seq_ID, Top_Sequence) %>% dplyr::distinct() %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count') %>% 
+  dplyr::mutate(Man_Source="univ-chicago") %>% dplyr::select(Seq_ID,Man_Source,Top_Sequence, everything())
+chig_uniq_cgnTop_tib %>% base::nrow()
+chig_ord_tib %>% dplyr::distinct(Seq_ID) %>% base::nrow()
+
+#
+# Combine all Current arrays::
+#
+hm27_uniq_cgnTop_tib
+hm45_uniq_cgnTop_tib
+hm85_uniq_cgnTop_tib
+
+excb_uniq_cgnTop_tib
+horv_uniq_cgnTop_tib
+mm10_uniq_cgnTop_tib
+chig_uniq_cgnTop_tib
+
+#
+# Validate All::
+#  - add EPIC_B0
+#  - write corrections: (mm10, chig)
+#  - write black-list cgns from 27k
+#
+#  - add COVIC ???
+#  - add NZT ???
+#
+all_full_cgnTop_tib <- dplyr::bind_rows(hm45_uniq_cgnTop_tib,hm85_uniq_cgnTop_tib,
+                                        excb_uniq_cgnTop_tib,horv_uniq_cgnTop_tib,mm10_uniq_cgnTop_tib,
+                                        chig_uniq_cgnTop_tib,hm27_uniq_cgnTop_tib) %>%
+  dplyr::select(Seq_ID,Man_Source,Top_Sequence)
+
+all_tops_cgnTop_tib <- all_full_cgnTop_tib %>% 
+  dplyr::distinct(Seq_ID, .keep_all=TRUE) %>%
+  dplyr::distinct(Top_Sequence, .keep_all=TRUE) %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+all_tops_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+all_tops_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+all_tops_cgnTop_tib %>% dplyr::group_by(Man_Source) %>% dplyr::summarise(Src_Cnt=n()) %>% dplyr::arrange(-Src_Cnt)
 
 
 
 
+
+
+# Remove 27k failures::
+#  - fix 27k failures
+#    - write black-list cgns from 27k
+#
+# Conclusion:: Pick 7 and black list 7
+#
+fx27_full_cgnTop_tib <- dplyr::bind_rows(hm27_uniq_cgnTop_tib,hm45_uniq_cgnTop_tib,hm85_uniq_cgnTop_tib) %>%
+  dplyr::select(Seq_ID,Man_Source,Top_Sequence)
+
+fx27_uniq_cgnTop_tib <- fx27_full_cgnTop_tib %>% 
+  dplyr::distinct(Seq_ID,Top_Sequence) %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+fx27_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+fx27_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+fx27_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1) %>% dplyr::inner_join(fx27_full_cgnTop_tib, by="Top_Sequence")
+
+fx27_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1) %>% dplyr::distinct(Top_Sequence) %>%
+  dplyr::left_join(fx27_full_cgnTop_tib, by="Top_Sequence") %>% 
+  dplyr::distinct(Top_Sequence,Man_Source)
+  # dplyr::group_by(Man_Source) %>% dplyr::summarise(Src_Count=n())
+
+no27_full_cgnTop_tib %>% dplyr::inner_join(
+  dplyr::filter(fx27_uniq_cgnTop_tib,Top_Count!=1) %>% dplyr::distinct(Seq_ID),
+  by="Seq_ID"
+)
+
+#
+# Current Steps::
+#
+#  - fix 27k failures
+#    - write black-list cgns from 27k
+#  - add COVIC
+#  - add EPIC_B0
+#  - Univ Chicago
+#    - Make sure methylation/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.tsv.gz covers
+#       all probes in methylation/CustomContent/UnivChicago/jira-data/CpGs_UnivChicago_alldesigns_55860sites.order.csv
+#       and add them to the contigency check...
+#  - validate Geneknowme
+#  - order current cgnTop tibs by importance and distinct on cgn order
+#    - Horvath before mm10 & Univ-Chicago
+#    - Last 27k
+#
+
+#
+# Validate all non-27k CGN->Top assignments::
+#
+no27_full_cgnTop_tib <- dplyr::bind_rows(hm45_uniq_cgnTop_tib,hm85_uniq_cgnTop_tib,
+                                         excb_uniq_cgnTop_tib,horv_uniq_cgnTop_tib,mm10_uniq_cgnTop_tib,
+                                         chig_uniq_cgnTop_tib) %>%
+  dplyr::select(Seq_ID,Man_Source,Top_Sequence)
+
+no27_uniq_cgnTop_tib <- no27_full_cgnTop_tib %>% 
+  dplyr::distinct(Seq_ID,Top_Sequence) %>%
+  dplyr::add_count(Seq_ID, name='CGN_Count') %>%
+  dplyr::add_count(Top_Sequence, name='Top_Count')
+
+no27_uniq_cgnTop_tib %>% dplyr::filter(CGN_Count!=1)
+no27_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+# Failures::
+no27_fail_uniq_cgnTop_tib <- no27_uniq_cgnTop_tib %>% dplyr::filter(Top_Count!=1)
+
+hm45_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% no27_fail_uniq_cgnTop_tib$Top_Sequence)
+hm85_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% no27_fail_uniq_cgnTop_tib$Top_Sequence)
+excb_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% no27_fail_uniq_cgnTop_tib$Top_Sequence)
+horv_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% no27_fail_uniq_cgnTop_tib$Top_Sequence)
+mm10_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% no27_fail_uniq_cgnTop_tib$Top_Sequence)
+chig_uniq_cgnTop_tib %>% dplyr::filter(Top_Sequence %in% no27_fail_uniq_cgnTop_tib$Top_Sequence)
+
+#
+# Resolve Horvath and mm10::
+#
+# Conclusion:: Need to use the Horvath Assignments!!!
+#
+if (FALSE) {
+  opt$outDir <- file.path(opt$outDir, par$prgmTag)
+  if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
+  
+  err_csv <- file.path(opt$outDir, 'error-cgnToTopSeq.csv.gz')
+  err_tib <- dplyr::inner_join(
+    dplyr::filter(horv_uniq_cgnTop_tib,Top_Sequence %in% no27_fail_uniq_cgnTop_tib$Top_Sequence) %>% dplyr::select(Seq_ID,Man_Source,Top_Sequence),
+    dplyr::filter(mm10_uniq_cgnTop_tib,Top_Sequence %in% no27_fail_uniq_cgnTop_tib$Top_Sequence) %>% dplyr::select(Seq_ID,Man_Source,Top_Sequence),
+    by="Top_Sequence", suffix=c("_horv","_mm10"))
+  readr::write_csv(err_tib, err_csv)
+}
+
+
+
+  
 # Geneknowme::
 #
 genk_aqpDir <- '/Users/bbarnes/Documents/Projects/methylation/CustomContent/Genknowme/LS_Epiprofile'
@@ -446,12 +600,18 @@ genk_ord_tib <- lapply(genk_ord_vec, readr::read_csv) %>%
   dplyr::filter(stringr::str_starts(Seq_ID, 'cg') )
 
 # Just ensure all cgs are in core_uniq_cgnTop_tib
+genk_ord_tib %>% dplyr::filter(Seq_ID %in% all_full_cgnTop_tib$Seq_ID)
 
-genk_ord_tib %>% dplyr::filter(Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID)
+#
+# TBD:: Next ensure by seq48U matching::
+#
 
-genk_ord_tib %>% dplyr::filter(Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID)
-genk_ord_tib %>% dplyr::filter(!Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID) %>% 
-  dplyr::filter(Seq_ID %in% horv_uniq_cgnTop_tib$Seq_ID)
+# OLD::
+#  genk_ord_tib %>% dplyr::filter(Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID)
+#
+# genk_ord_tib %>% dplyr::filter(Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID)
+# genk_ord_tib %>% dplyr::filter(!Seq_ID %in% core_uniq_cgnTop_tib$Seq_ID) %>% 
+#   dplyr::filter(Seq_ID %in% horv_uniq_cgnTop_tib$Seq_ID)
 
 
 
