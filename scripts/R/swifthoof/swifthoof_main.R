@@ -39,15 +39,17 @@ RET <- "\n"
 par <- NULL
 opt <- NULL
 
+par$runMode <- ''
+
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'swifthoof'
 par$prgmTag <- paste(par$prgmDir,'main', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Illumina based directories::
-par$macDir <- '/Users/bbarnes/Documents/Projects/methylation/tools'
-par$macDir <- '/Users/bretbarnes/Documents/tools'
-par$lixDir <- '/illumina/scratch/darkmatter'
+par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation/tools'
+par$macDir2 <- '/Users/bretbarnes/Documents/tools'
+par$lixDir1 <- '/illumina/scratch/darkmatter'
 
 par$retData     <- FALSE
 
@@ -129,14 +131,19 @@ opt$verbose <- 3
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
+  par$runMode    <- args.dat[1]
+  cat(glue::glue("[{par$prgmTag}]: Local Run args.dat[1]={args.dat[1]}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local Run     runMode={par$runMode}.{RET}"))
   
-  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
-  if (dir.exists(par$macDir)) par$topDir <- '/Users/bretbarnes/Documents/scratch'
-  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (dir.exists(par$macDir1)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
+  if (dir.exists(par$macDir2)) par$topDir <- '/Users/bretbarnes/Documents/scratch'
+  if (dir.exists(par$lixDir1)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
+  if (dir.exists(par$macDir1)) par$macDir <- par$macDir1
+  if (dir.exists(par$macDir2)) par$macDir <- par$macDir2
+  
   # Default Parameters for local Mac::
-  par$runMode    <- args.dat[1]
   par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
@@ -166,41 +173,6 @@ if (args.dat[1]=='RStudio') {
   
   par$retData <- TRUE
   
-  # isCORE  <- TRUE
-  # isCOVIC <- TRUE
-  # isCOVIC <- FALSE
-  # if (isCOVIC) {
-  #   opt$platform   <- 'EPIC'
-  #   opt$manifest   <- 'C0'
-  #   
-  #   opt$platform   <- NULL
-  #   opt$manifest   <- NULL
-  #   
-  #   # Set-1
-  #   opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
-  #   opt$expChipNum <- '204500250013'
-  #   
-  # } else if (isCORE) {
-  #   opt$platform   <- 'EPIC'
-  #   opt$manifest   <- 'B4'
-  #   
-  #   opt$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
-  #   opt$expChipNum <- '202761400007'
-  # 
-  #   opt$expRunStr  <- 'idats_ADRN-blood-nonAtopic_EPIC'
-  #   opt$expChipNum <- '201125090068'
-  #   
-  #   opt$expRunStr  <- 'idats_GSE122126_EPIC'
-  #   opt$expChipNum <- '202410280180'
-  # 
-  #   opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
-  #   opt$expChipNum <- '201502830033'
-  #   
-  # } else {
-  #   stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Unsupported pre-defined method! Exiting...{RET}{RET}"))
-  # }
-  # opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/data/idats', opt$expRunStr, opt$expChipNum)
-
   # locIdatDir <- '/Users/bbarnes/Documents/Projects/methylation/data/idats'
   locIdatDir <- '/Users/bretbarnes/Documents/data/idats'
   
@@ -242,8 +214,8 @@ if (args.dat[1]=='RStudio') {
     opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/VA_MVP/idats',opt$expRunStr)
   }
   
-  isCOVIC <- TRUE
-  if (isCOVIC) {
+  par$isCOVIC <- TRUE
+  if (par$isCOVIC) {
     opt$platform   <- 'EPIC'
     opt$manifest   <- 'C0'
 
@@ -259,7 +231,10 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- TRUE
     opt$parallel <- FALSE
     opt$cluster  <- FALSE
-  } else if (isCORE) {
+  }
+  
+  par$isCORE <- FALSE
+  if (par$isCORE) {
     opt$platform   <- 'EPIC'
     opt$manifest   <- 'B4'
 
@@ -274,7 +249,24 @@ if (args.dat[1]=='RStudio') {
 
     opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
     opt$expChipNum <- '201502830033'
+  }
+  
+  par$isExcalibur <- TRUE
+  if (par$isExcalibur) {
+    opt$platform   <- 'EPIC'
+    opt$manifest   <- 'B4'
+    
+    opt$platform   <- NULL
+    opt$manifest   <- NULL
 
+    opt$expRunStr  <- 'idats_Excalibur-Old-1609202'
+    opt$expChipNum <- '204076530053'
+    opt$expChipNum <- '204076530110'
+    
+    opt$expRunStr  <- 'idats_Excalibur-New-1609202'
+    opt$expChipNum <- '202915460071'
+    
+    opt$idatsDir <- file.path(par$topDir, '../data/idats', opt$expRunStr)
   }
 
   opt$verbose <- 3
@@ -286,6 +278,8 @@ if (args.dat[1]=='RStudio') {
 } else {
   par$runMode    <- 'CommandLine'
   par$exePath <- base::substring(args.dat[grep("--file=", args.dat)], 8)
+  
+  cat(glue::glue("[{par$prgmTag}]: Local Run par$runMode={par$runMode}.{RET}"))
   
   par$prgmTag <- base::sub('\\.R$', '', base::basename(par$exePath))
   par$locPath <- base::dirname(par$exePath)
