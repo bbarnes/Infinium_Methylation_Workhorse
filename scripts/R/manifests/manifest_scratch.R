@@ -518,12 +518,16 @@ all_tops_cgnTop_tib %>% dplyr::filter(CGN_Top_Count!=1)
 
 all_tops_cgnTop_tib %>% dplyr::group_by(Man_Source) %>% dplyr::summarise(Src_Cnt=n()) %>% dplyr::arrange(-Src_Cnt)
 
-all_tops_cgnTop_tib %>% 
+fin_tops_cgnTop_tib <- all_tops_cgnTop_tib %>% 
   dplyr::select(Seq_ID, Man_Source, Top_Sequence) %>% 
   dplyr::mutate(CGN=stringr::str_remove(Seq_ID,'cg') %>% stringr::str_remove('^0+'),
                 Top_Sequence=shearBrac(Top_Sequence)) %>%
   dplyr::rename(TOP=Top_Sequence,SRC=Man_Source) %>%
   dplyr::select(CGN,TOP,SRC)
+
+fin_tops_cgnTop_csv <- file.path(opt$outDir, par$prgmTag, 'pre-assigned.cgnTop.hash.csv.gz')
+readr::write_csv(fin_tops_cgnTop_tib, fin_tops_cgnTop_csv)
+
 
 # Pre epi0::
 # Man_Source                         Src_Cnt

@@ -9,7 +9,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
+# suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
 
 # Plotting Extras
 suppressWarnings(suppressPackageStartupMessages( base::require("GGally") ))
