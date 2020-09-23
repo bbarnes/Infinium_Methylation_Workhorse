@@ -728,14 +728,36 @@ genk_ord_tib %>% dplyr::filter(Seq_ID %in% all_full_cgnTop_tib$Seq_ID)
 
 # Invesitgate current Auto Sample Sheet results::
 #
-dkfz_map_dir <- '/Users/bretbarnes/Documents/data/sampleSheets/raw/DKFZ'
-dkfz_sen_csv <- file.path(dkfz_map_dir,'sentrix_name.txt')
-dkfz_sam_csv <- file.path(dkfz_map_dir,'classifier_abbr.txt')
+if (FALSE) {
+  dkfz_map_dir <- '/Users/bretbarnes/Documents/data/sampleSheets/raw/DKFZ'
+  dkfz_sen_csv <- file.path(dkfz_map_dir,'sentrix_name.txt')
+  dkfz_sam_csv <- file.path(dkfz_map_dir,'classifier_abbr.txt')
+  
+  dkfz_sen_tib <- readr::read_csv(dkfz_sen_csv)
+  dkfz_sam_tib <- readr::read_csv(dkfz_sam_csv)
+  
+  dkfz_dat_tib <- dplyr::bind_cols( dkfz_sen_tib, dkfz_sam_tib ) %>% 
+    dplyr::mutate(Sample_Class=stringr::str_replace_all(Sample_Class, ' ', '-') %>% 
+                    stringr::str_replace_all('_', '-'), Sample_Class=paste('DKFZ',Sample_Class, sep='-'))
+  
+  dkfz_dat_tib %>% dplyr::group_by(Sample_Class) %>% dplyr::summarise(Class_Count=n()) %>% dplyr::arrange(-Class_Count) %>% as.data.frame()
+  
+  #
+  # Latest DKFZ Clases:: 2803
+  #  data/sampleSheets/raw/DKFZ/sample_class_2803.csv
+  #
+  dkfz_map_dir <- '/Users/bretbarnes/Documents'
+  dkfz_ids_csv <- file.path(dkfz_map_dir,'data/sampleSheets/raw/DKFZ/sentrix_name_2803.csv')
+  dkfz_cls_csv <- file.path(dkfz_map_dir,'data/sampleSheets/raw/DKFZ/sample_class_2803.csv')
+  dkfz_out_csv <- '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/sampleSheets/DKFZ/dkfz_sentrix-name_classes.csv.gz'
+  
+  dkfz_sen_tib <- readr::read_csv(dkfz_ids_csv)
+  dkfz_sam_tib <- readr::read_csv(dkfz_cls_csv)
+  
+  dkfz_dat_tib <- dplyr::bind_cols( dkfz_sen_tib, dkfz_sam_tib )
+  readr::write_csv(dkfz_dat_tib, dkfz_out_csv)
+}
 
-dkfz_sen_tib <- readr::read_csv(dkfz_sen_csv)
-dkfz_sam_tib <- readr::read_csv(dkfz_sam_csv)
-
-dkfz_dat_tib <- dplyr::bind_cols( dkfz_sen_tib, dkfz_sam_tib )
 
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
