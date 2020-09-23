@@ -1,15 +1,17 @@
 #!/bin/bash
 
-if [ "$#" -lt 5 ]; then
-    echo "Usage: $0 outTopDir buildDir runName manVersion[B4,C0] classVar[Sample_Class,Sample_Name]"
+if [ "$#" -lt 6 ]; then
+    echo "Usage: $0 outTopDir buildDir runName platform[HM450,EPIC] manVersion[B4,C0] classVar[Sample_Class,Sample_Name]"
     exit 1
 fi
 outTop=$1
 buildDir=$2
 runName=$3
-version=$4
-classVar=$5
+platform=$4
+version=$5
+classVar=$6
 
+# platform='EPIC'
 # version='B4'
 # version='C0'
 # classVar="Sample_Class"
@@ -81,7 +83,6 @@ CMD+=" --buildDir"=${buildDir}
 CMD+=" --runName"=${runName}
 CMD+=" --outDir"=${outDir}
 
-platform='EPIC'
 CMD+=" --platform"=${platform}
 CMD+=" --version"=${version}
 
