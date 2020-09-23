@@ -728,8 +728,14 @@ genk_ord_tib %>% dplyr::filter(Seq_ID %in% all_full_cgnTop_tib$Seq_ID)
 
 # Invesitgate current Auto Sample Sheet results::
 #
+dkfz_map_dir <- '/Users/bretbarnes/Documents/data/sampleSheets/raw/DKFZ'
+dkfz_sen_csv <- file.path(dkfz_map_dir,'sentrix_name.txt')
+dkfz_sam_csv <- file.path(dkfz_map_dir,'classifier_abbr.txt')
 
+dkfz_sen_tib <- readr::read_csv(dkfz_sen_csv)
+dkfz_sam_tib <- readr::read_csv(dkfz_sam_csv)
 
+dkfz_dat_tib <- dplyr::bind_cols( dkfz_sen_tib, dkfz_sam_tib )
 
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
