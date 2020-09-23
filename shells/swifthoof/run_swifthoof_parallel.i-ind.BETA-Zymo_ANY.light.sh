@@ -23,7 +23,7 @@ verbose=3
 # manifest="C0"
 
 # Run Options::
-fresh=false
+fresh=true
 buildSubDir=true
 autoDetect=true
 workflows='i,ind'
@@ -40,7 +40,7 @@ saveRawSset=false
 writeSset=false
 writeCalls=true
 writeSsheet=true
-writeAuto=true
+writeAuto=false
 
 # Optional Files::
 subManifest=false

@@ -11,6 +11,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
@@ -184,7 +185,7 @@ if (args.dat[1]=='RStudio') {
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
   # mm10
-  par$isMouse <- TRUE
+  par$isMouse <- FALSE
   if (par$isMouse) {
     opt$idatsDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
     opt$auto_sam_csv <- NULL

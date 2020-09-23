@@ -109,7 +109,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     bead_sum_tib <- ses_add_tib %>% dplyr::filter(Probe_Type=='cg') %>% 
       dplyr::select(Address) %>% dplyr::left_join(idat_list$sig, by="Address") %>% 
-      summarise(CG_Bead_Count=n(), CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), CG_Bead_AvgRep=CG_Bead_Total/CG_Bead_Count/2)
+      dplyr::summarise(CG_Bead_Count=n(), CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), CG_Bead_AvgRep=CG_Bead_Total/CG_Bead_Count/2)
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bead_sum_tib built.{RET}"))
     if (verbose>=vt+10) print(bead_sum_tib)
     
