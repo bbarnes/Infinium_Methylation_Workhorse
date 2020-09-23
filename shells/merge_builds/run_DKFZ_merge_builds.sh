@@ -20,7 +20,7 @@ single=false
 parallel=true
 cluster=true
 
-verbose=3
+verbose=30
 
 #
 # Standard Options:: DON'T CHANGE::
