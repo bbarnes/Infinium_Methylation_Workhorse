@@ -5,18 +5,18 @@
 
 rm(list=ls(all=TRUE))
 
-suppressWarnings(suppressPackageStartupMessages(require("optparse",quietly=TRUE)))
+suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages(require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages(require("tidyverse")) )
-suppressWarnings(suppressPackageStartupMessages(require("stringr")) )
-suppressWarnings(suppressPackageStartupMessages(require("glue")) )
-suppressWarnings(suppressPackageStartupMessages(require("scales")) )
-suppressWarnings(suppressPackageStartupMessages(require("matrixStats")) )
-# suppressWarnings(suppressPackageStartupMessages(require("grid")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 
 # Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages(require("doParallel")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -40,10 +40,6 @@ par <- NULL
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'analysis'
 par$prgmTag <- 'build_models'
-
-# Illumina based directories::
-par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
-par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
 
 # Directory Parameters::
 opt$outDir    <- NULL
@@ -115,13 +111,23 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
+  # Illumina based directories::
+  par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation/tools'
+  par$macDir2 <- '/Users/bretbarnes/Documents/tools'
+  par$lixDir1 <- '/illumina/scratch/darkmatter'
   
-  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
-  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  par$runMode    <- args.dat[1]
+  cat(glue::glue("[{par$prgmTag}]: Local Run args.dat[1]={args.dat[1]}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local Run     runMode={par$runMode}.{RET}"))
+  
+  if (dir.exists(par$macDir1)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation'
+  if (dir.exists(par$macDir2)) par$topDir <- '/Users/bretbarnes/Documents'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
+  if (dir.exists(par$macDir1)) par$macDir <- par$macDir1
+  if (dir.exists(par$macDir2)) par$macDir <- par$macDir2
+  
   # Default Parameters for local Mac::
-  par$runMode    <- args.dat[1]
   par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
@@ -131,6 +137,9 @@ if (args.dat[1]=='RStudio') {
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
+  
+  opt$outDir <- file.path(par$topDir, 'scratch')
+  locIdatDir <- file.path(par$topDir, 'data/idats')
   
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'

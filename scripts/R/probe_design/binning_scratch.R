@@ -5,18 +5,18 @@
 
 rm(list=ls(all=TRUE))
 
-suppressWarnings(suppressPackageStartupMessages(require("optparse",quietly=TRUE)))
+suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages(require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages(require("tidyverse")) )
-suppressWarnings(suppressPackageStartupMessages(require("stringr")) )
-suppressWarnings(suppressPackageStartupMessages(require("glue")) )
-suppressWarnings(suppressPackageStartupMessages(require("scales")) )
-suppressWarnings(suppressPackageStartupMessages(require("matrixStats")) )
-# suppressWarnings(suppressPackageStartupMessages(require("grid")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 
 # Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages(require("doParallel")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 # Manifest RDS Required Packages
 suppressWarnings(suppressPackageStartupMessages(require("GenomicRanges")) )

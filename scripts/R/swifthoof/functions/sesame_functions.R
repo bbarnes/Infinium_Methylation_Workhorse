@@ -1,10 +1,20 @@
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Source Packages::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
-# Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
-#  suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+
+# Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 COM <- ","
 TAB <- "\t"

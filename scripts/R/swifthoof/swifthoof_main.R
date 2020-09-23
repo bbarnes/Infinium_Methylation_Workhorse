@@ -8,12 +8,12 @@ rm(list=ls(all=TRUE))
 suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-# suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
 
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
@@ -45,11 +45,6 @@ par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'swifthoof'
 par$prgmTag <- paste(par$prgmDir,'main', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
-
-# Illumina based directories::
-par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation/tools'
-par$macDir2 <- '/Users/bretbarnes/Documents/tools'
-par$lixDir1 <- '/illumina/scratch/darkmatter'
 
 par$retData     <- FALSE
 
@@ -131,13 +126,17 @@ opt$verbose <- 3
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
+  # Illumina based directories::
+  par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation/tools'
+  par$macDir2 <- '/Users/bretbarnes/Documents/tools'
+  par$lixDir1 <- '/illumina/scratch/darkmatter'
+  
   par$runMode    <- args.dat[1]
   cat(glue::glue("[{par$prgmTag}]: Local Run args.dat[1]={args.dat[1]}.{RET}"))
   cat(glue::glue("[{par$prgmTag}]: Local Run     runMode={par$runMode}.{RET}"))
   
-  if (dir.exists(par$macDir1)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
-  if (dir.exists(par$macDir2)) par$topDir <- '/Users/bretbarnes/Documents/scratch'
-  if (dir.exists(par$lixDir1)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  if (dir.exists(par$macDir1)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation'
+  if (dir.exists(par$macDir2)) par$topDir <- '/Users/bretbarnes/Documents'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
   if (dir.exists(par$macDir1)) par$macDir <- par$macDir1
@@ -153,6 +152,9 @@ if (args.dat[1]=='RStudio') {
   par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
+  
+  opt$outDir <- file.path(par$topDir, 'scratch')
+  locIdatDir <- file.path(par$topDir, 'data/idats')
   
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
@@ -173,9 +175,6 @@ if (args.dat[1]=='RStudio') {
   
   par$retData <- TRUE
   
-  # locIdatDir <- '/Users/bbarnes/Documents/Projects/methylation/data/idats'
-  locIdatDir <- '/Users/bretbarnes/Documents/data/idats'
-  
   opt$expRunStr  <- 'ReferenceBETA'
   opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
   opt$expChipNum <- '204500250013'
@@ -185,7 +184,7 @@ if (args.dat[1]=='RStudio') {
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
   # mm10
-  par$isMouse <- FALSE
+  par$isMouse <- TRUE
   if (par$isMouse) {
     opt$idatsDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
     opt$auto_sam_csv <- NULL
@@ -195,6 +194,7 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- TRUE
     opt$parallel <- FALSE
   }
+  
   par$isMVP <- FALSE
   if (par$isMVP) {
     opt$expRunStr  <- 'CNTL-Samples_VendA_10092020'
@@ -228,9 +228,9 @@ if (args.dat[1]=='RStudio') {
 
     opt$idatsDir <- file.path(locIdatDir, opt$expRunStr)
     
-    opt$single   <- TRUE
-    opt$parallel <- FALSE
-    opt$cluster  <- FALSE
+    opt$single   <- FALSE
+    opt$parallel <- TRUE
+    opt$cluster  <- TRUE
   }
   
   par$isCORE <- FALSE
@@ -266,13 +266,15 @@ if (args.dat[1]=='RStudio') {
     opt$expRunStr  <- 'idats_Excalibur-New-1609202'
     opt$expChipNum <- '202915460071'
     
-    opt$idatsDir <- file.path(par$topDir, '../data/idats', opt$expRunStr)
+    opt$idatsDir <- file.path(locIdatDir, opt$expRunStr)
+    
+    opt$single   <- TRUE
+    opt$parallel <- TRUE
+    opt$cluster  <- FALSE
   }
 
   opt$verbose <- 3
-  opt$verbose <- 6
-  opt$verbose <- 60
-  
+
   opt$outDir <- file.path(par$topDir, par$prgmTag, opt$expRunStr)
   
 } else {
@@ -606,104 +608,102 @@ if (opt$cluster) {
   #                             Process Chip::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   chipTimes <- NULL
-  
-  # opt_csv  <- file.path(opt$outDir, 'program-options.csv')
-  # par_csv  <- file.path(opt$outDir, 'program-parameters.csv')
-  # readr::write_csv(opt_tib, opt_csv)
-  # readr::write_csv(par_tib, par_csv)
-  
+  sample_cnt <- length(chipPrefixes)
+
   if (opt$parallel) {
-    funcTag <- 'sesamizeSingleSample-Parallel'
+    par$funcTag <- 'sesamizeSingleSample-Parallel'
     par$retData <- FALSE
     
-    cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
 
-    cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: chipPrefixes={RET}"))
+    cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: chipPrefixes={RET}"))
     print(chipPrefixes)
     
     # chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
-      rdat <- NULL
-      try_str <- ''
-      rdat = tryCatch({
-        try_str <- 'Pass'
-        sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                             retData=par$retData, workflows=workflows_vec, tc=3)
-      }, warning = function(w) {
-        try_str <- paste('warning',funcTag, sep='-')
-        rdat <- NA
-      }, error = function(e) {
-        try_str <- paste('error',funcTag, sep='-')
-        rdat <- NA
-      }, finally = {
-        try_str <- paste('cleanup',funcTag, sep='-')
-        rdat <- NA
-      })
-      cat(glue::glue("[{par$prgmTag}]: parallelFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+                                   retData=par$retData, workflows=workflows_vec, tc=2)
+      # rdat <- NULL
+      # try_str <- ''
+      # rdat = tryCatch({
+      #   try_str <- 'Pass'
+      #   sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+      #                        retData=par$retData, workflows=workflows_vec, tc=3)
+      # }, warning = function(w) {
+      #   try_str <- paste('warning',par$funcTag, sep='-')
+      #   rdat <- NA
+      # }, error = function(e) {
+      #   try_str <- paste('error',par$funcTag, sep='-')
+      #   rdat <- NA
+      # }, finally = {
+      #   try_str <- paste('cleanup',par$funcTag, sep='-')
+      #   rdat <- NA
+      # })
+      # cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       
       rdat
     }
     
   } else {
-    funcTag <- 'sesamizeSingleSample-Linear'
-    sample_cnt <- length(chipPrefixes)
+    par$funcTag <- 'sesamizeSingleSample-Linear'
     
-    cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: Starting; sample_cnt={sample_cnt}.{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: samples={sample_cnt}.{RET}"))
     
     rdat <- NULL
     for (prefix in names(chipPrefixes)) {
       try_str <- ''
       
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                                   retData=par$retData, workflows=workflows_vec, tc=3)
+                                   retData=par$retData, workflows=workflows_vec, tc=2)
 
-      cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
-      
-      next
-      
-      if (FALSE) {
-        rdat <- NULL
-        rdat = tryCatch({
-          try_str <- 'Pass'
-          sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                               retData=par$retData, workflows=workflows_vec, tc=3)
-        }, warning = function(w) {
-          try_str <- paste('warning',funcTag, sep='-')
-          rdat <- NA
-        }, error = function(e) {
-          try_str <- paste('error',funcTag, sep='-')
-          rdat <- NA
-        }, finally = {
-          try_str <- paste('cleanup',funcTag, sep='-')
-          rdat <- NA
-        })
-        cat(glue::glue("[{par$prgmTag}]: linearFunc={funcTag}: try_str={try_str}. Done.{RET}{RET}"))
-        
-        if (opt$single) break
-      }
     }
     
-    if (FALSE) {
-      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                                   retData=par$retData, workflows=workflows_vec)
-
+    #   next
+    #   
+    #   if (FALSE) {
+    #     rdat <- NULL
+    #     rdat = tryCatch({
+    #       try_str <- 'Pass'
+    #       sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+    #                            retData=par$retData, workflows=workflows_vec, tc=3)
+    #     }, warning = function(w) {
+    #       try_str <- paste('warning',par$funcTag, sep='-')
+    #       rdat <- NA
+    #     }, error = function(e) {
+    #       try_str <- paste('error',par$funcTag, sep='-')
+    #       rdat <- NA
+    #     }, finally = {
+    #       try_str <- paste('cleanup',par$funcTag, sep='-')
+    #       rdat <- NA
+    #     })
+    #     cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+    #     
+    #     if (opt$single) break
+    #   }
+    # }
+    # 
+    # if (FALSE) {
+    #   rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+    #                                retData=par$retData, workflows=workflows_vec)
+    # 
+    #   
+    #   callSUM_tib <- callToSSheet(rdat$raw_call_tib, idx=0, key='raw', pre=NULL, minNegPval=opt$minNegPval, minOobPval=opt$minOobPval, 
+    #                               percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
+    #                               verbose=opt$verbose+30)
+    #   
+    #   
+    #   rawSSET <- rdat$raw_sset
+    #   raw_sset_tib <- sset2tib(rawSSET, by="Probe_ID", des="Probe_Design",  
+    #                            percision=opt$percisionSigs, sort=FALSE, save=opt$writeSsetRaw, csv=raw_sset_csv, 
+    #                            verbose=opt$verbose+30)
+    #   raw_call_tib <- sset2calls(sset=rawSSET, workflow='raw', percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
+    #                              verbose=opt$verbose+30)
+    #   
+    # }
       
-      callSUM_tib <- callToSSheet(rdat$raw_call_tib, idx=0, key='raw', pre=NULL, minNegPval=opt$minNegPval, minOobPval=opt$minOobPval, 
-                                  percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
-                                  verbose=opt$verbose+30)
-      
-      
-      rawSSET <- rdat$raw_sset
-      raw_sset_tib <- sset2tib(rawSSET, by="Probe_ID", des="Probe_Design",  
-                               percision=opt$percisionSigs, sort=FALSE, save=opt$writeSsetRaw, csv=raw_sset_csv, 
-                               verbose=opt$verbose+30)
-      raw_call_tib <- sset2calls(sset=rawSSET, workflow='raw', percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
-                                 verbose=opt$verbose+30)
-      
-    }
-      
-    cat(glue::glue("[{par$prgmTag}] parallelFunc={funcTag}: Done.{RET}{RET}"))
+    cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   }
   
   opt$opt_csv  <- file.path(opt$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )

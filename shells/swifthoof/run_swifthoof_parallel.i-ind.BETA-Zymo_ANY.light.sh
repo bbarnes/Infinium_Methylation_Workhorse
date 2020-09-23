@@ -12,7 +12,7 @@ EXP_NAME=$3
 # EXP_NAME=`basename $idatsDir`
 # EXP_NAME=$(sed 's/^idats_//' <<< "$EXP_NAME")
 
-verbose=30
+verbose=3
 
 # Platform/Method Options::
 # platform="HM450"
@@ -33,19 +33,17 @@ loadIdat=true
 saveIdat=false
 
 skipSwap=false
-loadSsets=true
+loadSsets=false
 saveSsets=false
 saveRawSset=false
 
 writeSset=false
 writeCalls=true
 writeSsheet=true
-writeAuto=false
+writeAuto=true
 
 # Optional Files::
 subManifest=false
-# manifestPath=NULL
-# addressPath=NULL
 
 # Threshold Options::
 minNegPval=0.02
@@ -58,11 +56,11 @@ percisionBeta=4
 percisionPval=6
 
 # Parallel/Cluster Options::
+# single=true
 single=false
-single=true
-parallel=true
 parallel=false
-cluster=true
+# parallel=true
+# cluster=true
 cluster=false
 
 # Plotting Options::
