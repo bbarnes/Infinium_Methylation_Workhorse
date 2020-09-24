@@ -5,18 +5,18 @@
 
 rm(list=ls(all=TRUE))
 
-suppressWarnings(suppressPackageStartupMessages(require("optparse",quietly=TRUE)))
+suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages(require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages(require("tidyverse")) )
-suppressWarnings(suppressPackageStartupMessages(require("stringr")) )
-suppressWarnings(suppressPackageStartupMessages(require("glue")) )
-suppressWarnings(suppressPackageStartupMessages(require("scales")) )
-suppressWarnings(suppressPackageStartupMessages(require("matrixStats")) )
-suppressWarnings(suppressPackageStartupMessages(require("grid")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 
 # Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages(require("doParallel")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -135,8 +135,12 @@ if (args.dat[1]=='RStudio') {
     platform  <- "EPIC"
     
     runNameA  <- "COVIC-Set1-15052020"
-    runNameB  <- "COVIC-Set7-06082020"
     runNameB  <- "COVIC-Set5-10062020"
+    runNameC  <- "COVIC-Set7-06082020"
+    
+    runNameD  <- 'COVIC-Set-17'
+    runNameE  <- 'COVIC-Set-15'
+    runNameF  <- 'COVIC-Set-57'
     
     sesGroup  <- 'ind-beta_i-poob-1'
     dmlGroup  <- 'dml-1000-Ivana-145'
@@ -147,7 +151,8 @@ if (args.dat[1]=='RStudio') {
     
     opt$modelDir <- paste(
       # file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,'ind-beta_i-poob-1'),
-      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,sesGroup,dmlGroup,seedGroup),
+      # file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,sesGroup,dmlGroup,seedGroup),
+      file.path(par$topDir, 'build_models',platform,version,opt$classVar,opt$runName,sesGroup),
       sep=',')
     # opt$modelDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch/build_models/EPIC/C0/Sample_Class/COVIC-Set1-15052020/ind-beta_i-poob-1/dml-1000-Ivana-145/seed-42/alpha-1/rforest-1-lambda-min.model.rds'
     

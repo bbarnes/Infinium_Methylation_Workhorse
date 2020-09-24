@@ -3,11 +3,18 @@
 #                          Basic IDAT Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
  
-suppressWarnings(suppressPackageStartupMessages( base::require("illuminaio") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+
+# Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 COM <- ","
 TAB <- "\t"
@@ -196,7 +203,7 @@ getIdatFormatTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
 }
 
 getIdatTimeStampTib = function(idat, method='Extract', sherlockID='sherlockID', order='latest', 
-                               verbose=0,vt=3,tc=1,tt=NULL) {
+                               verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'getIdatTimeStampTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))

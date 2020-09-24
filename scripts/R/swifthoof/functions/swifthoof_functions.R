@@ -1,13 +1,20 @@
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Source Packages::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
-
-# Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
-#  suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -102,7 +109,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     bead_sum_tib <- ses_add_tib %>% dplyr::filter(Probe_Type=='cg') %>% 
       dplyr::select(Address) %>% dplyr::left_join(idat_list$sig, by="Address") %>% 
-      summarise(CG_Bead_Count=n(), CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), CG_Bead_AvgRep=CG_Bead_Total/CG_Bead_Count/2)
+      dplyr::summarise(CG_Bead_Count=n(), CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), CG_Bead_AvgRep=CG_Bead_Total/CG_Bead_Count/2)
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bead_sum_tib built.{RET}"))
     if (verbose>=vt+10) print(bead_sum_tib)
     
@@ -186,6 +193,15 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     }
     raw_call_tib <- sset2calls(sset=raw_sset, workflow='raw', percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    
+    cat("Running: callToSSheet\n\n:")
+    if (retData) {
+      ret$raw_sset <- raw_sset
+      ret$raw_sset_tib <- raw_sset_tib
+      ret$raw_call_tib <- raw_call_tib
+      # return(ret)
+    }
+    
     call_sum_tib <- callToSSheet(call=raw_call_tib, idx=0, key='raw', pre=call_sum_tib, 
                                  minNegPval=opt$minNegPval, minOobPval=opt$minOobPval, 
                                  percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
@@ -204,7 +220,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       # return(ret)
     }
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built RAW Data.{RET}"))
-    
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 SSET to Calls by Order of Operations:: workflows
@@ -705,12 +720,13 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Pre-join. dname={dname}, pname={pname}, pval={pval}, field={field}, jval={jval}.{RET}"))
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref=={RET}"))
       print(ref)
-      cat("\n\ntib1==\n")
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib1=={RET}"))
       can %>% dplyr::select(!!jval,!!dname,!!pname,!!pval,!!field) %>% print()
-      cat("\n\ntib2==\n")
-      can %>% dplyr::select(!!jval,!!dname,!!pname,!!pval,!!field) %>%
-        purrr::set_names(can_names) %>% print()
-      cat("\n\nVerbose Done!\n\n")
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib2=={RET}"))
+      can %>% dplyr::select(!!jval,!!dname,!!pname,!!pval,!!field) %>% purrr::set_names(can_names) %>% print()
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Verbose Message Complete.{RET}{RET}"))
     }
     tib <- can %>% dplyr::select(!!jval,!!dname,!!pname,!!pval,!!field) %>%
       purrr::set_names(can_names) %>%

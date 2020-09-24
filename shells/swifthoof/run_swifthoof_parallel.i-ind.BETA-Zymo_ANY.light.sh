@@ -1,14 +1,16 @@
 #!/bin/bash
 
-if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 outTopDir idatsDir"
+if [ "$#" -lt 3 ]; then
+    echo "Usage: $0 outTopDir idatsDir experimentName"
     exit 1
 fi
 outTop=$1
 idatsDir=$2
-outSuffix=$3
-EXP_NAME=`basename $idatsDir`
-EXP_NAME=$(sed 's/^idats_//' <<< "$EXP_NAME")
+EXP_NAME=$3
+
+# outSuffix=$3
+# EXP_NAME=`basename $idatsDir`
+# EXP_NAME=$(sed 's/^idats_//' <<< "$EXP_NAME")
 
 verbose=3
 
@@ -21,7 +23,7 @@ verbose=3
 # manifest="C0"
 
 # Run Options::
-fresh=false
+fresh=true
 buildSubDir=true
 autoDetect=true
 workflows='i,ind'
@@ -31,7 +33,7 @@ loadIdat=true
 saveIdat=false
 
 skipSwap=false
-loadSsets=true
+loadSsets=false
 saveSsets=false
 saveRawSset=false
 
@@ -42,11 +44,6 @@ writeAuto=false
 
 # Optional Files::
 subManifest=false
-# manifestPath=NULL
-# addressPath=NULL
-
-# Reporting Options::
-sigs_sum_field='avg'
 
 # Threshold Options::
 minNegPval=0.02
@@ -59,11 +56,12 @@ percisionBeta=4
 percisionPval=6
 
 # Parallel/Cluster Options::
-single=false
 # single=true
-parallel=true
-# parallel=false
-cluster=true
+single=false
+parallel=false
+# parallel=true
+# cluster=true
+cluster=false
 
 # Plotting Options::
 plotSset=false
@@ -84,7 +82,8 @@ prgmTop="Infinium_Methylation_Workhorse"
 prgmDir="swifthoof"
 prgmTag="swifthoof_main"
 
-TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
+# TOP_MAC=/Users/bbarnes/Documents/Projects/methylation/tools
+TOP_MAC=/Users/bretbarnes/Documents/tools
 TOP_LIX=/illumina/scratch/darkmatter/tools
 
 if [ -e ${TOP_MAC} ]; then
@@ -181,9 +180,6 @@ fi
 if [ "${writeAuto}" = true ]; then
     CMD+=" --writeAuto"
 fi
-
-# Reporting Options::
-CMD+=" --sigs_sum_field"=${sigs_sum_field}
 
 # Threshold Options::
 CMD+=" --minNegPval"=${minNegPval}

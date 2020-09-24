@@ -1,10 +1,20 @@
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Source Packages::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
-# Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
-#  suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+
+# Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 COM <- ","
 TAB <- "\t"
@@ -284,7 +294,10 @@ sset2tib = function(sset, man=NULL, by="Probe_ID", type="Probe_Type", des="Probe
     by  <- by %>% rlang::sym()
     if (sort) tib <- tib %>% dplyr::arrange(!!by)
     
-    if (save && !is.null(csv)) {
+    if (!is.null(save) && save==TRUE && !is.null(csv)) {
+      csv_dir <- base::basename(csv)
+      if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing signal set (percision={percision}) CSV={csv}.{RET}"))
       readr::write_csv(tib, csv)
     }
@@ -312,12 +325,16 @@ sset2calls = function(sset, workflow, percisionBeta=0, percisionPval=0,
     
     name <- paste(workflow,'negs', sep='_')
     sset <- mutateSesame(sset=sset, method='detectionPnegEcdf', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    pval <- ssetToPvalTib(sset=sset, name=name, percision=percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    print(sset)
+    pval <- ssetToPvalTib(sset=sset, method='PnegEcdf', name=name, percision=percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    print(pval)
     tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
     
     name <- paste(workflow,'poob', sep='_')
     sset <- mutateSesame(sset=sset, method='pOOBAH', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    pval <- ssetToPvalTib(sset=sset, name=name, percision=percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    print(sset)
+    pval <- ssetToPvalTib(sset=sset, method='pOOBAH', name=name, percision=percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    print(pval)
     tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
   })
   nrows <- tib %>% base::nrow()
@@ -400,32 +417,46 @@ callToSSheet = function(call, idx, key, pre=NULL, minNegPval, minOobPval,
                         verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'callToSSheet'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; idx={idx}, key={key}, del={del}...{RET}"))
   
   tib <- NULL
   stime <- system.time({
 
     id <- id %>% rlang::sym()
     if (onlyCG) call <- call %>% dplyr::filter(stringr::str_starts(!!id, 'cg'))
-
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} call={RET}"))
+    print(call)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} call=done.{RET}{RET}"))
+    
     beta_tib <- NULL
-    inf_key  <- paste('Beta',idx,'Method', sep=del) %>% rlang::sym()
-    inf_val  <- paste('Beta',idx,'Mean', sep=del) %>% rlang::sym()
-    beta_tib <- tibble::tibble(!!inf_key := key, !!inf_val := dplyr::select(call, ends_with('_beta')) %>% 
+    beta_key_str <- paste('Beta',idx,'Method', sep=del)
+    beta_val_str <- paste('Beta',idx,'Mean', sep=del)
+    beta_key_sym <- rlang::sym(beta_key_str)
+    beta_val_sym <- rlang::sym(beta_val_str)
+    beta_tib <- tibble::tibble(!!beta_key_sym := key, !!beta_val_sym := dplyr::select(call, ends_with('_beta')) %>% 
                                  dplyr::summarise_all(list(mean=mean), na.rm=TRUE) %>% 
                                  dplyr::pull() %>% round(percisionBeta) )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} beta_key_str={beta_key_str}, beta_val_str={beta_val_str}.{RET}"))
     
     negs_tib <- NULL
-    inf_key  <- paste('Negs_Pass',idx,'Method', sep=del) %>% rlang::sym()
-    inf_val  <- paste('Negs_Pass',idx,'Perc', sep=del) %>% rlang::sym()
-    negs_tib <- tibble::tibble(!!inf_key := key, !!inf_val := dplyr::select(call, ends_with('_negs')) %>% 
+    negs_key_str <- paste('Negs_Pass',idx,'Method', sep=del)
+    negs_val_str <- paste('Negs_Pass',idx,'Perc', sep=del)
+    negs_key_sym <- rlang::sym(negs_key_str)
+    negs_val_sym <- rlang::sym(negs_val_str)
+    
+    negs_tib <- tibble::tibble(!!negs_key_sym := key, !!negs_val_sym := dplyr::select(call, ends_with('_negs')) %>%
                                  dplyr::summarise_all(list(pass_perc=cntPer_lte), min=minNegPval) %>%
                                  dplyr::pull() %>% round(percisionPval) )
-    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} negs_key_str={negs_key_str}, negs_val_str={negs_val_str}.{RET}"))
+
     poob_tib <- NULL
-    inf_key  <- paste('Poob_Pass',idx,'Method', sep=del) %>% rlang::sym()
-    inf_val  <- paste('Poob_Pass',idx,'Perc', sep=del) %>% rlang::sym()
-    poob_tib <- tibble::tibble(!!inf_key := key, !!inf_val := dplyr::select(call, ends_with('_poob')) %>% 
+    poob_key_str <- paste('Poob_Pass',idx,'Method', sep=del)
+    poob_val_str <- paste('Poob_Pass',idx,'Perc', sep=del)
+    poob_key_sym <- rlang::sym(poob_key_str)
+    poob_val_sym <- rlang::sym(poob_val_str)
+    
+    poob_tib <- tibble::tibble(!!poob_key_sym := key, !!poob_val_sym := dplyr::select(call, ends_with('_poob')) %>% 
                                  dplyr::summarise_all(list(pass_perc=cntPer_lte), min=minOobPval) %>%
                                  dplyr::pull() %>% round(percisionPval) )
     
@@ -726,13 +757,13 @@ safePhenoAge = function(beta, verbose=0,vt=3,tc=1,tt=NULL) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Sesame SSET to Tibs Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-ssetToPvalTib = function(sset, name, percision=0, verbose=0,vt=3,tc=1,tt=NULL) {
+ssetToPvalTib = function(sset, method, name, percision=0, verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'ssetToPvalTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} name={name}.{RET}"))
   stime <- system.time({
-    dat <- sset@pval %>% tibble::enframe(name='Probe_ID', value=name)
+    dat <- sset@pval[[method]] %>% tibble::enframe(name='Probe_ID', value=name)
     if (percision!=0) dat <- dat %>% dplyr::mutate_if(purrr::is_double, round, percision)
   })
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))

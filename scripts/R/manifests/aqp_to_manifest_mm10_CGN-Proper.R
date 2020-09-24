@@ -8,12 +8,12 @@ rm(list=ls(all=TRUE))
 suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
 
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
@@ -41,10 +41,6 @@ par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'manifests'
 par$prgmTag <- 'aqp_to_manifest_mm10'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
-
-# Illumina based directories::
-par$macDir <- '/Users/bbarnes/Documents/Projects/methylation/tools'
-par$lixDir <- '/illumina/scratch/darkmatter'
 
 par$retData <- FALSE
 
@@ -90,13 +86,23 @@ opt$verbose <- 3
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
+  # Illumina based directories::
+  par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation/tools'
+  par$macDir2 <- '/Users/bretbarnes/Documents/tools'
+  par$lixDir1 <- '/illumina/scratch/darkmatter'
   
-  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
-  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  par$runMode    <- args.dat[1]
+  cat(glue::glue("[{par$prgmTag}]: Local Run args.dat[1]={args.dat[1]}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local Run     runMode={par$runMode}.{RET}"))
+  
+  if (dir.exists(par$macDir1)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation'
+  if (dir.exists(par$macDir2)) par$topDir <- '/Users/bretbarnes/Documents'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
+  if (dir.exists(par$macDir1)) par$macDir <- par$macDir1
+  if (dir.exists(par$macDir2)) par$macDir <- par$macDir2
+  
   # Default Parameters for local Mac::
-  par$runMode    <- args.dat[1]
   par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
@@ -107,6 +113,9 @@ if (args.dat[1]=='RStudio') {
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
+  opt$outDir <- file.path(par$topDir, 'scratch')
+  locIdatDir <- file.path(par$topDir, 'data/idats')
+  
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   
@@ -116,6 +125,7 @@ if (args.dat[1]=='RStudio') {
   opt$version     <- 'B3'
   opt$version     <- 'B4'
   opt$version     <- 'S1'
+  opt$version     <- 'S2'
   
   opt$frmt_original <- TRUE
   opt$frmt_original <- FALSE
@@ -351,10 +361,9 @@ opt$alnDir <- NULL
 opt$outDir <- file.path(opt$outDir, par$prgmDir, opt$runName)
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 
-opt$outName <- paste(opt$genomeBuild,opt$platform,opt$version, sep='_')
-ses_man_csv <- file.path(opt$outDir, paste0(opt$outName,'.manifest.sesame-base.cpg-sorted.csv.gz') )
-gss_man_csv <- file.path(opt$outDir, paste0(opt$outName,'.manifest.GenomeStudio.cpg-sorted.csv') )
-out_add_csv <- file.path(opt$outDir, paste0(opt$outName,'.manifest.address-base.cpg-sorted.csv.gz') )
+ses_man_csv <- file.path(opt$outDir, paste0(opt$runName,'.manifest.sesame-base.cpg-sorted.csv.gz') )
+gss_man_csv <- file.path(opt$outDir, paste0(opt$runName,'.manifest.GenomeStudio.cpg-sorted.csv') )
+out_add_csv <- file.path(opt$outDir, paste0(opt$runName,'.manifest.address-base.cpg-sorted.csv.gz') )
 
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
@@ -394,7 +403,7 @@ if (!is.null(opt$pqcs)) {
 }
 
 #
-# INVESTIGATION PART::
+# INVESTIGATION PART:: this can be deleted
 #
 if (FALSE) {
   full_man_tibA <- NULL
@@ -479,8 +488,8 @@ mm10_cgn_cnt_tib <- readr::read_tsv(mm10_cgn_cnt_tsv, col_names=mm10_cgn_cnt_col
 # Probe Info with Seq48U:
 #  Unix: /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz 
 imp_s48_tsv  <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz'
-int_s48_tsv  <- file.path(opt$outDir, 'mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz')
-mm10_s48_tsv <- file.path(opt$outDir, 'mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv')
+int_s48_tsv  <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.full-join.tsv.gz', sep='.') )
+mm10_s48_tsv <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.tsv', sep='.') )
 mm10_s48_tib <- mm10_man_tib %>% dplyr::arrange(Mat_PrbA)
 readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
 
@@ -522,6 +531,14 @@ mm10_s48_int_tib <- readr::read_tsv(int_s48_tsv, col_names=mm10_s48_int_col) %>%
   dplyr::left_join(mm10_cgn_cnt_tib, by=c("Mat_CGN"="Seq_ID"))
 
 
+# Adjust mu and rp with with cg prefix::
+#
+mm10_s48_org_tib <- mm10_s48_int_tib
+mm10_s48_int_tib <- mm10_s48_int_tib %>% dplyr::mutate(
+  Seq_ID=dplyr::case_when(
+    Probe_Type=='mu' ~ stringr::str_replace(Seq_ID, '^mu', 'cg'),
+    TRUE ~ Seq_ID) )
+
 # Split by matching and mismatch Seq_ID
 #
 mm10_s48_mat_tib <- mm10_s48_int_tib %>% dplyr::filter(Mat_CGN==Seq_ID) %>% dplyr::arrange(Seq_ID)
@@ -542,32 +559,118 @@ mm10_s48_mat_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=
 mm10_s48_mis_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=n())
 mm10_s48_off_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Grp_Count=n())
 
+# QC:: This should be equal to zero!!!
+#
+mm10_s48_mat_tib %>% dplyr::filter(Mat_CGN!=Seq_ID) %>% base::nrow()
+
+#
+# MU Investigation:: This just verifies all the MU probes are found in their cg analogous matching codes::
+#
+if (FALSE) {
+  mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% base::nrow()
+  mm10_s48_mat_tib %>% dplyr::filter(Probe_Type=='mu') %>% base::nrow()
+  mm10_s48_mis_tib %>% dplyr::filter(Probe_Type=='mu') %>% base::nrow()
+  
+  mm10_s48_mis_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::filter(Mat_CGN %in% mm10_s48_int_tib$Mat_CGN) %>% base::nrow()
+  mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::filter(Mat_CGN %in% mm10_s48_mis_tib$Mat_CGN) %>% base::nrow()
+  mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::anti_join(mm10_s48_mis_tib, by="Mat_CGN") %>% base::nrow()
+  
+  # True Unique::
+  mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN) %>% base::nrow()
+  mm10_s48_mat_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN) %>% base::nrow()
+  
+  mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN) %>% base::nrow()
+  mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN,Infinium_Design,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
+  mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN,Infinium_Design,M,U,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
+}
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Manifest Improbe Matching:: CGN ONLY
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 # Write improbe lookup file::
-mm10_s48_int_mat_cgn_tsv <- file.path(opt$outDir, 'mm10_s48_int_mat_cgn_tsv.gz')
-mm10_s48_int_mat_cgn_tib <- mm10_s48_mat_tib %>% dplyr::distinct(Mat_CGN) %>% dplyr::arrange(Mat_CGN) %>%
-  dplyr::rename(Seq_ID=Mat_CGN)
-readr::write_tsv(mm10_s48_int_mat_cgn_tib, mm10_s48_int_mat_cgn_tsv)
+mm10_s48_int_mat_cgn_tsv <- file.path(opt$outDir, paste(opt$runName,'s48_int_mat_cgn_tsv.gz', sep='.') )
+mm10_des_int_mat_cgn_tsv <- file.path(opt$outDir, paste(opt$runName,'des_int_mat_cgn_tsv.gz', sep='.') )
+mm10_s48_int_mat_cgn_tib <- mm10_s48_mat_tib %>% dplyr::distinct(Mat_CGN) %>% dplyr::arrange(Mat_CGN) %>% dplyr::rename(Seq_ID=Mat_CGN)
 
-# /Users/bbarnes/Documents/Projects/scripts/subset/getSubset.simple.pl -header -CO C -t /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_s48_int_mat_cgn_tsv.gz -d /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.tsv.gz | head
-#  > /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_s48_int_mat.improbe.tsv
+opt$subExe <- '/Users/bbarnes/Documents/Projects/scripts/subset/getSubset.simple.pl'
+opt$impDesOutTsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.tsv.gz'
 
-mm10_s48_int_mat_imp_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.LEGX-mat.tsv.gz'
-mm10_s48_int_mat_imp_tib <- read_tsv(mm10_s48_int_mat_imp_tsv) %>% 
+run_sub_cmd <- TRUE
+run_sub_cmd <- FALSE
+if (run_sub_cmd) {
+  readr::write_tsv(mm10_s48_int_mat_cgn_tib, mm10_s48_int_mat_cgn_tsv)
+  sub_cmd <- glue::glue("{opt$subExe} -header -t {mm10_s48_int_mat_cgn_tsv} -d {opt$impDesOutTsv} | gzip -c - > {mm10_des_int_mat_cgn_tsv}")
+  system(sub_cmd)
+}
+mm10_s48_int_mat_imp_tib <- read_tsv(mm10_des_int_mat_cgn_tsv) %>% 
   dplyr::mutate(Imp_FR=Methyl_Allele_FR_Strand,
                 Imp_TB=stringr::str_sub(Methyl_Allele_TB_Strand, 1,1),
                 Imp_CO=Methyl_Allele_CO_Strand)
 
 #
-# Join improbe data to designs::
+# Join on Seq_ID for MAT only
+#
+mm10_s48_int_all_cgnTop_tib <- dplyr::distinct(mm10_s48_int_mat_imp_tib, Seq_ID,Top_Sequence) %>% 
+  dplyr::add_count(Seq_ID, name="CGN_Count") %>% dplyr::add_count(Top_Sequence, name="Top_Count")
+
+mm10_s48_int_mat_cgnTop_tib <- dplyr::distinct(mm10_s48_int_mat_imp_tib, Seq_ID,Top_Sequence) %>% 
+  dplyr::inner_join(mm10_s48_mat_tib, by="Seq_ID") %>% dplyr::distinct(Seq_ID, Top_Sequence) %>% 
+  dplyr::add_count(Seq_ID, name="CGN_Count") %>% dplyr::add_count(Top_Sequence, name="Top_Count")
+
+mm10_s48_int_ant_cgnTop_tib <- dplyr::distinct(mm10_s48_int_mat_imp_tib, Seq_ID,Top_Sequence) %>% 
+  dplyr::anti_join(mm10_s48_mat_tib, by="Seq_ID") %>% dplyr::distinct(Seq_ID, Top_Sequence) %>%
+  dplyr::add_count(Seq_ID, name="CGN_Count") %>% dplyr::add_count(Top_Sequence, name="Top_Count")
+
+mm10_s48_int_mat_imp_tib %>% base::nrow()
+mm10_s48_int_all_cgnTop_tib %>% base::nrow()
+mm10_s48_int_mat_cgnTop_tib %>% base::nrow()
+mm10_s48_int_ant_cgnTop_tib %>% base::nrow()
+
+mm10_s48_int_all_cgnTop_tib %>% dplyr::filter(CGN_Count!=1) %>% dplyr::filter(Top_Count!=1)
+mm10_s48_int_mat_cgnTop_tib %>% dplyr::filter(CGN_Count!=1) %>% dplyr::filter(Top_Count!=1)
+mm10_s48_int_ant_cgnTop_tib %>% dplyr::filter(CGN_Count!=1) %>% dplyr::filter(Top_Count!=1)
+
+#
+# Write the mouse forced assigned CGN->TopSeqs
+#
+mm10_cgnToTop_csv <- file.path(opt$outDir, paste(opt$runName,'forced-defined-cgnToTopSeq.csv.gz', sep='.') )
+readr::write_csv(mm10_s48_int_all_cgnTop_tib,mm10_cgnToTop_csv)
+
+#
+# Need to reconcile Horvath vs. mm10 mismatches::
+#
+#  Conclusion:: Need to use the Horvath Assignments!!!
+#
+err_map_csv <- '/Users/bbarnes/Documents/Projects/methylation/scratch/manifest_scratch/error-cgnToTopSeq.csv.gz'
+err_map_tib <- readr::read_csv(err_map_csv)
+
+mm10_s48_int_mat_imp_tib %>% dplyr::filter(Seq_ID %in% err_map_tib$Seq_ID_mm10) %>% dplyr::pull(Probe_Type)
+mm10_s48_mat_tib %>% dplyr::filter(Seq_ID %in% err_map_tib$Seq_ID_mm10) %>% dplyr::pull(Probe_Type)
+
+#
+#
+# Left off here::
+#
+#
+
+
+
+
+
+
+#
+# Join improbe data to designs:: MAT Only
 #
 mm10_man_mat_imp_tib <- mm10_s48_mat_tib %>% 
   dplyr::left_join(mm10_s48_int_mat_imp_tib, by=c("Seq_ID", "Probe_Type","Mat_TB"="Imp_TB", "Mat_CO"="Imp_CO")) %>% 
-  dplyr::mutate(Inter_Type='T') %>% tidyr::unite(Probe_ID_Suffix, Mat_TB,Mat_CO,Infinium_Design,Inter_Type,Rep_Num, sep='', remove=FALSE) %>% 
+  dplyr::mutate(Inter_Type='T') %>% 
+  tidyr::unite(Probe_ID_Suffix, Mat_TB,Mat_CO,Infinium_Design,Inter_Type,Rep_Num, sep='', remove=FALSE) %>% 
   tidyr::unite(Probe_ID, Seq_ID,Probe_ID_Suffix, sep='_')
+
+mm10_man_mat_imp_nunq_tib <- mm10_man_mat_imp_tib %>% dplyr::add_count(Probe_ID, name="Probe_Count") %>% dplyr::filter(Probe_Count!=1)
+
+
 
 mm10_man_mat_ses_tib <- mm10_man_mat_imp_tib %>%
   dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
@@ -656,9 +759,26 @@ mm10_s48_int_mis_cgn_tib <- clean_mu_all_tib %>% dplyr::distinct(Mat_CGN) %>% dp
 #               Quick Look at Auto Sample Sheets from CG Only::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# mm10_hum_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/Laird-IDs_to_SampleNames_basic.csv'
+# mm10_hum_ss_tib <- readr::read_csv(mm10_hum_ss_csv) %>% purrr::set_names(c('Laird_ID', 'Sentrix_Pos', 'Cell_Type', 'Sample_Class'))
+
+# Possible mismatch: 20364 = 20382
+RepAC_ID <- 20364
+RepAC_ID <- 20382
+
 sam_map_tib <- tibble::tibble(
-  Laird_ID   =c( 20364,  20384,  20385,  21026,   20010,   20012,   20015),
+  Laird_ID   =c( RepAC_ID,  20384,  20385,  21026,   20010,   20015,   20012),
   Sample_Name=c('RepAC','RepS3','RepM1','RepSA', 'T00DZ', 'T50DZ', 'T99DZ')
+)
+
+tit_map_tib <- tibble::tibble(
+  Laird_ID   =c( 20010,   20015,   20012),
+  Sample_Name=c('T00DZ', 'T50DZ', 'T99DZ')
+)
+
+rep_map_tib <- tibble::tibble(
+  Laird_ID   =c( RepAC_ID,  20384,  20385,  21026),
+  Sample_Name=c('RepAC','RepS3','RepM1','RepSA')
 )
 
 # Load ILS Sample Sheet::
@@ -681,16 +801,40 @@ vai_map_tib <- readr::read_csv(vai_map_csv) %>%
                 Sentrix_Name=paste(Sentrix_ID,Sentrix_Pos, sep='_')) %>% 
   dplyr::select(Laird_ID,Sentrix_Name,Sentrix_ID,Sentrix_Pos) %>% dplyr::mutate(Lab='VAI')
 
+#
 # Build beta full Sample Sheet::
 #
+
+# Full Analytical Sample Sheet::
 beta_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/ILS-VAI.analytical_SampleSheet.csv.gz'
 beta_ss_tib <- dplyr::bind_rows(
   dplyr::inner_join(ils_map_tib, sam_map_tib, by="Laird_ID"),
   dplyr::inner_join(vai_map_tib, sam_map_tib, by="Laird_ID") ) %>%
   dplyr::select(Sentrix_Name,Sample_Name, everything())
-
 readr::write_csv(beta_ss_tib,beta_ss_csv)
 
+# Titration Analytical Sample Sheet::
+beta_tit_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/Titration.ILS-VAI.analytical_SampleSheet.csv.gz'
+beta_tit_ss_tib <- beta_ss_tib %>% dplyr::filter(Laird_ID %in% tit_map_tib$Laird_ID)
+readr::write_csv(beta_tit_ss_tib,beta_tit_ss_csv)
+
+# Replicate Analytical Sample Sheet::
+beta_rep_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/Replicates.ILS-VAI.analytical_SampleSheet.csv.gz'
+beta_rep_ss_tib <- beta_ss_tib %>% dplyr::filter(Laird_ID %in% rep_map_tib$Laird_ID)
+readr::write_csv(beta_rep_ss_tib,beta_rep_ss_csv)
+
+# cp /Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/sampleSheets/betaTest/analytical/* /Users/bbarnes/Documents/Projects/methylation/tools/Infinium_Methylation_Workhorse/dat/sampleSheets/mm10/
+
+
+#
+# Done with Sample Sheets!!!
+#
+
+#
+#
+# Need to write Titration and Replicates Sample Sheets seperately...
+#
+#
 
 #
 # Actual Idats and plots::
@@ -707,6 +851,31 @@ fox_ss_tib  <- loadAutoSampleSheets(dir=fox_dat_dir, verbose=opt$verbose) %>% dp
 mm10_ss_tib <- dplyr::bind_rows(ils_ss_tib, van_ss_tib, fox_ss_tib) %>% dplyr::group_by(Lab)
 ggplot2::ggplot(data=mm10_ss_tib, aes(x=Beta_2_Mean, y=Poob_Pass_0_Perc, color=Lab)) + ggplot2::geom_point() # + ylim(80,100)
 ggplot2::ggplot(data=mm10_ss_tib, aes(x=Beta_2_Mean, y=Poob_Pass_0_Perc, color=Lab)) + ggplot2::geom_point() + ylim(75,100)
+
+
+#
+# Evidence For Missing Replicate Group::
+#
+ils_ss_tib %>% dplyr::inner_join(beta_ss_tib, by="Sentrix_Name") %>% dplyr::group_by(Sample_Name) %>% dplyr::summarise(SGroup_Count=n())
+
+#
+# Current Merged Data::
+#
+lifeDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics'
+
+mm10_tit_ss_merge_csv <- file.path(lifeDir, 'scratch/merge_builds/LEGX/S1/Sample_Name/mm10-ILS-VAI.Titration/mm10-ILS-VAI.Titration_LEGX_S1_AutoSampleSheet.csv.gz')
+mm10_tit_ss_merge_tib <- readr::read_csv(mm10_tit_ss_merge_csv)
+
+mm10_rep_ss_merge_csv <- file.path(lifeDir, 'scratch/merge_builds/LEGX/S1/Sample_Name/mm10-ILS-VAI.Replicates/mm10-ILS-VAI.Replicates_LEGX_S1_AutoSampleSheet.csv.gz')
+mm10_rep_ss_merge_tib <- readr::read_csv(mm10_rep_ss_merge_csv)
+
+
+
+
+
+
+
+
 
 
 
@@ -1236,7 +1405,7 @@ loci_cnt <- out_man_tib %>% base::nrow()
 gs_head_tib <- tibble::tibble(Key=character(), Value=character())
 gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="Illumina, Inc.", Value="")
 gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="[Heading]", Value="")
-gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="Descriptor File Name", Value=paste0('Infinium_Methylation_',opt$outName,'.csv.gz'))
+gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="Descriptor File Name", Value=paste0('Infinium_Methylation_',opt$runName,'.csv.gz'))
 gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="Assay Format", Value="Infinium 2")
 gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="Date Manufactured", Value=as.character(Sys.Date()))
 gs_head_tib <- gs_head_tib %>% tibble::add_row(Key="Loci Count", Value=as.character(loci_cnt))

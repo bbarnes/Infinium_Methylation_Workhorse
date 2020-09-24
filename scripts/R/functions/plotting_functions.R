@@ -1,15 +1,106 @@
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                            Plotting Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
+# suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
 
 # Plotting Extras
 suppressWarnings(suppressPackageStartupMessages( base::require("GGally") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("hexbin") ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("ggpubr") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("Hmisc") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("corrplot") ))
+
+# require(ggpubr)
+# require(tidyverse)
+# require(Hmisc)
+# require(corrplot)
+# library(corrplot)
+
+COM <- ","
+TAB <- "\t"
+RET <- "\n"
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      R-Squared Plotting Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+cor.mtest <- function(mat, ...) {
+  mat <- as.matrix(mat)
+  n <- ncol(mat)
+  p.mat<- matrix(NA, n, n)
+  diag(p.mat) <- 0
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
+      tmp <- cor.test(mat[, i], mat[, j], ...)
+      p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+    }
+  }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Call (Beta/Pval) Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+maskTibs = function(tib, id, field, pval, minPval, del='_',
+                    rm.suffix=FALSE, only.field=FALSE, no.mask=FALSE,
+                    verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'maskTibs'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; field={field}, pval={pval}, minPval={minPval}.{RET}"))
+  if (!no.mask) {
+    pval_del <- paste0(del,pval)
+    snames <- tib %>% dplyr::select(ends_with(pval_del)) %>% names() %>% stringr::str_remove(pval_del)
+    for (sname in snames) {
+      fstr <- paste(sname,field, sep=del)
+      pstr <- paste(sname,pval, sep=del)
+      tib <- maskTib(tib, field=fstr, id=id, pval=pstr, minPval=minPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    }
+  }
+  if (only.field) tib <- tib %>% dplyr::select(1,ends_with(field))
+  if (rm.suffix) tib  <- tib %>% purrr::set_names(stringr::str_remove(names(.), paste0(del,field) ) )
+  
+  tib
+}
+
+maskTib = function(tib, id, field, pval, minPval, rm.pval=FALSE, only.field=FALSE, mask.controls=FALSE,
+                   verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'maskTib'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; id={id}, field={field}, pval={pval}, minPval={minPval}.{RET}"))
+  
+  field <- field %>% rlang::sym()
+  pval  <- pval %>% rlang::sym()
+  id    <- id %>% rlang::sym()
+  # minPval <- minPval %>% rlang::sym()
+  
+  stime <- system.time({
+    if (mask.controls) {
+      tib <- tib %>% dplyr::mutate(!!field := case_when(!!pval > !!minPval ~ NA_real_, TRUE ~ !!field))
+    } else {
+      tib <- tib %>% dplyr::mutate(!!field := case_when(
+        !stringr::str_starts(!!id, 'ctl_') & !!pval > !!minPval ~ NA_real_,
+        TRUE ~ !!field))
+    }
+    if (rm.pval) tib <- tib %>% dplyr::select(-!!pval)
+    if (only.field) tib <- tib %>% dplyr::select(!!field)
+  })
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  
+  tib
+}
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Old DML Plotting Methods::
@@ -592,6 +683,125 @@ plotBetaMatrix_bySample = function(tib, sample, manifest, minPval, pvalKey, beta
   join_prbs
 }
 
+plotPairsBeta = function(beta, pval=NULL, sample, nameA, nameB, 
+                         probeType='cg', groupA='Probe_Type', groupB='Design_Type',
+                         field='Beta', field_str, detp,
+                         outDir, 
+                         maxCnt=30000, wsize=2.8, minPval, minDelta=0.2,
+                         spread='mid', outType='auto', dpi=72, format='png',
+                         datIdx=4, non.ref=TRUE,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'plotPairsBeta'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting sample={sample}: {nameA} vs. {nameB}{RET}"), sep='')
+  
+  plotDir  <- file.path(outDir, paste(nameA,'VS',nameB,paste('pval',minPval, sep='-'), sep='_'))
+  plotName <- paste(sample,nameA,'VS',nameB,probeType,field_str, sep='_')
+  if (!dir.exists(plotDir)) dir.create(plotDir, recursive=TRUE)
+  
+  # Combine Probe_Type+Design_Type
+  group <- 'Group'
+  # group  <- rlang::sym(group)
+  groupA <- rlang::sym(groupA)
+  groupB <- rlang::sym(groupB)
+  
+  valid_probe_types <- c('cg','ch','rs','rp','mu')
+  
+  beta_tib <- beta %>% dplyr::filter(Probe_Type %in% valid_probe_types) %>% 
+    dplyr::mutate(!!group := paste0(!!groupA,'.',!!groupB) ) %>% 
+    dplyr::select(-c(1,!!groupA, !!groupB)) %>% dplyr::select(!!group, everything())
+  pval_tib <- pval %>% dplyr::filter(Probe_Type %in% valid_probe_types) %>% 
+    dplyr::mutate(!!group := paste0(!!groupA,'.',!!groupB) ) %>% 
+    dplyr::select(-c(1,!!groupA, !!groupB)) %>% dplyr::select(!!group, everything())
+  
+  ncols_org <- base::ncol(beta_tib)
+  nrows_org <- base::nrow(beta_tib)
+  tarColIdxes <- c(2:ncols_org)
+  
+  bsub_tib <- beta_tib
+  if (nrows_org>maxCnt) bsub_tib <- beta_tib %>% sampleGroup_n(n=maxCnt, field=group)
+  nrows_sub  <- base::nrow(bsub_tib)
+  nrows_per  <- round(100*nrows_sub/nrows_org,1)
+  nrows_orgK <- number_as_commaK(nrows_org)
+  nrows_subK <- number_as_commaK(nrows_sub)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Total={nrows_orgK}, Subset={nrows_subK}, Percent={nrows_per}{RET}"))
+  if (verbose>=vt+4) print(bsub_tib)
+  if (verbose>=vt+4) print(beta_tib)
+  
+  ptime <- Sys.time()
+  gg_mtitle <- glue::glue("{nameA} VS {nameB}")
+  gg_stitle <- glue::glue("Sample={sample}; PlottedProbes={probeType}, Metric={field_str}, DetP={detp}, MinPval={minPval}")
+  gg_ctitle <- glue::glue("TimeStamp={ptime}, DPI={dpi}, Plot displays downsampled percent = {nrows_per}% ",
+                          "({nrows_subK}/{nrows_orgK})")
+  
+  alpha_hih <- 0.3
+  alpha_mid <- 0.3
+  alpha_low <- 0.9
+  alpha_lab <- 0.3
+  
+  dsize_low <- 0.1
+  wsize_low <- 2.4
+  wsize_low <- 1.5
+  wsize_low <- 1.0
+  
+  if (ncols_org>6) wsize_low <- 1.0
+  
+  # Calculate Upper Righer Delta x/y buffers::
+  bufs <- NULL
+  bufs <- getDeltaMaxXY(data=bsub_tib,datIdx=2, verbose=verbose,vt=vt+1,tc=tc+1)
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building ggpairs(group={group}, field={field}, gg_mtitle={gg_mtitle})"),"\n", sep='')
+  
+  gg <- GGally::ggpairs(
+    data=bsub_tib, columns=tarColIdxes,
+    mapping = ggplot2::aes_(color=as.name(group) ),
+    
+    # upper = 'blank',
+    upper = list(combo = "box_no_facet",
+                 continuous = wrap(geomDensity1d_Delta, fdat=beta_tib, bufs=bufs, group=group, minDelta=minDelta, only=probeType,
+                                   alpha=alpha_hih,alpha_lab=alpha_lab, size=dsize_low, wsize=wsize_low,
+                                   verbose=verbose,vt=vt+1,tc=tc+1) ),
+    
+    # diag  = list(continuous='blankDiag'),
+    diag  = list(continuous=wrap(diag_density, fdat=pval_tib, group=group, minPval=minPval, only=probeType, field=field,
+                                 alpha=alpha_mid,alpha_lab=alpha_lab, size=dsize_low, wsize=wsize_low, non.ref=non.ref,
+                                 x_min=0,x_max=1,y_min=0,ticks=3,
+                                 verbose=verbose,vt=vt+1,tc=tc+1) ),
+    
+    # lower = 'blank'
+    lower = list(combo = "box_no_facet",
+                 continuous = wrap(geomDensity2d_RSquared, fdat=beta_tib, group=group, only=probeType,
+                                   alpha=alpha_low,alpha_lab=alpha_lab, size=dsize_low, wsize=wsize_low,
+                                   x_min=0,x_max=1,y_min=0,y_max=1,ticks=3,
+                                   verbose=verbose,vt=vt+1,tc=tc+1) )
+  )
+  gg <- gg +
+    theme(panel.grid.major = element_blank()) +
+    labs(title=gg_mtitle, subtitle=gg_stitle, caption=gg_ctitle)
+  
+  if (format=='both') {
+    formats <- c('png','pdf')
+    for (curFormat in formats) {
+      name_pdf <- glue::glue("{plotName}.{curFormat}")
+      gg_pdf   <- file.path(plotDir, name_pdf)
+      
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} GGally::ggpairs writing image={gg_pdf}.{RET}"))
+      suppressMessages(ggplot2::ggsave(gg_pdf, gg, dpi=dpi) )
+    }
+  } else {
+    name_pdf <- glue::glue("{plotName}.{format}")
+    gg_pdf   <- file.path(plotDir, name_pdf)
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} GGally::ggpairs writing image={gg_pdf}.{RET}"))
+    suppressMessages(ggplot2::ggsave(gg_pdf, gg, dpi=dpi) )
+  }
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  
+  # gg
+  bsub_tib
+}
+
 plotPairs = function(tib, sample, nameA, nameB, 
                      probeType='cg', groupA='Probe_Type', groupB='Design_Type',
                      field='Beta', field_str, detp,
@@ -662,7 +872,7 @@ plotPairs = function(tib, sample, nameA, nameB,
   bufs <- getDeltaMaxXY(data=sdat,datIdx=2, verbose=verbose,vt=vt+1,tc=tc+1)
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building ggpairs(group={group}, field={field}, gg_mtitle={gg_mtitle})"),"\n", sep='')
-
+  
   # return(sdat)
   # print(sdat)
   # print(pdat)
@@ -730,8 +940,7 @@ diag_density <- function(data, mapping, fdat=NULL, group, minPval, only, field='
       fdat <- fdat %>% dplyr::mutate(Pval=0)
     }
   }
-  cat("\nHERE\n\n")
-  
+
   data <- data %>% dplyr::mutate(!!field :=GGally::eval_data_col(data, mapping$x))
   # data <- data %>% dplyr::mutate(Beta=GGally::eval_data_col(data, mapping$x))
   
