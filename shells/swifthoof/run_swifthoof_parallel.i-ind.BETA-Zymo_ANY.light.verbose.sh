@@ -12,7 +12,7 @@ EXP_NAME=$3
 # EXP_NAME=`basename $idatsDir`
 # EXP_NAME=$(sed 's/^idats_//' <<< "$EXP_NAME")
 
-verbose=3
+verbose=30
 
 # Platform/Method Options::
 # platform="HM450"
@@ -26,7 +26,6 @@ verbose=3
 fresh=true
 buildSubDir=true
 autoDetect=true
-autoDetect=false
 workflows='i,ind'
 
 # Output Options::
@@ -59,7 +58,7 @@ percisionPval=6
 # Parallel/Cluster Options::
 # single=true
 single=false
-parallel=true
+parallel=false
 # parallel=true
 # cluster=true
 cluster=false

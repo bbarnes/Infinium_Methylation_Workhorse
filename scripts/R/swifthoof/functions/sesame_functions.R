@@ -315,26 +315,39 @@ sset2calls = function(sset, workflow, percisionBeta=0, percisionPval=0,
   funcTag <- 'sset2calls'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; workflow={workflow}.{RET}"))
-  
+  if (verbose>=vt+4) print(sset)
   tib <- NULL
   stime <- system.time({
-    name <- paste(workflow,'beta', sep='_')
-    beta <- ssetToBetaTib(sset=sset, name=name, as.enframe=FALSE, percision=percisionBeta, 
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    tib <- tibble::enframe(beta, name='Probe_ID', value=name)
     
+    # noob:: beta
+    #
+    name <- paste(workflow,'beta', sep='_')
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Settting name={name}...{RET}"))
+    beta <- ssetToBetaTib(sset=sset, name=name, as.enframe=FALSE, percision=percisionBeta, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    tib <- tibble::enframe(beta, name='Probe_ID', value=name)
+    if (verbose>=vt+4) print(tib)
+    
+    # PnegEcdf:: negs
+    #
     name <- paste(workflow,'negs', sep='_')
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
     sset <- mutateSesame(sset=sset, method='detectionPnegEcdf', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    print(sset)
+    if (verbose>=vt+4) print(sset)
+    
     pval <- ssetToPvalTib(sset=sset, method='PnegEcdf', name=name, percision=percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    print(pval)
+    if (verbose>=vt+4) print(pval)
     tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
     
+    # pOOBAH:: poob
+    #
     name <- paste(workflow,'poob', sep='_')
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
     sset <- mutateSesame(sset=sset, method='pOOBAH', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    print(sset)
+    if (verbose>=vt+4) print(sset)
+    
     pval <- ssetToPvalTib(sset=sset, method='pOOBAH', name=name, percision=percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    print(pval)
+    if (verbose>=vt+4) print(pval)
+    
     tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
   })
   nrows <- tib %>% base::nrow()
@@ -761,13 +774,15 @@ ssetToPvalTib = function(sset, method, name, percision=0, verbose=0,vt=3,tc=1,tt
   funcTag <- 'ssetToPvalTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} name={name}.{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; method={method}, name={name}.{RET}"))
+  
   stime <- system.time({
     dat <- sset@pval[[method]] %>% tibble::enframe(name='Probe_ID', value=name)
     if (percision!=0) dat <- dat %>% dplyr::mutate_if(purrr::is_double, round, percision)
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
   dat
 }

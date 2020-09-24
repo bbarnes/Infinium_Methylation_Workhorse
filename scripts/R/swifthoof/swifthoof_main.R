@@ -41,6 +41,9 @@ par <- NULL
 opt <- NULL
 
 par$runMode <- ''
+par$macDir1 <- NULL
+par$macDir2 <- NULL
+par$lixDir1 <- NULL
 
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'swifthoof'
@@ -160,123 +163,75 @@ if (args.dat[1]=='RStudio') {
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   
-  opt$single   <- TRUE
-  opt$cluster  <- FALSE
-  opt$parallel <- FALSE
-  opt$single   <- FALSE
-  opt$parallel <- TRUE
-  opt$parallel <- FALSE
-  
   opt$workflows <- 'ind'
   
   opt$buildSubDir  <- FALSE
-  opt$autoDetect   <- TRUE
+  opt$autoDetect   <- FALSE
   opt$writeCalls   <- TRUE
   opt$writeSsheet  <- TRUE
   
-  par$retData <- TRUE
+  opt$platform   <- 'EPIC'
+  opt$manifest   <- 'B4'
+  opt$platform   <- NULL
+  opt$manifest   <- NULL
   
-  opt$expRunStr  <- 'ReferenceBETA'
-  opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
-  opt$expChipNum <- '204500250013'
+  par$expRunStr  <- NULL
+  par$expChipNum <- NULL
   
-  opt$idatsDir <- file.path(locIdatDir, opt$expRunStr)
-  opt$idatsDir <- file.path(locIdatDir, opt$expRunStr, opt$expChipNum)
+  par$locRunStr <- 'covic'
+  par$locRunStr <- 'core'
+  par$locRunStr <- 'excb'
+  par$locRunStr <- 'mm10'
+  
+  if (par$locRunStr=='mm10') {
+    par$expRunStr <- 'MURMETVEP_mm10_betaTest_06082020'
+    par$expRunStr <- 'VanAndel_mm10_betaTest_31082020'
+    par$expRunStr <- 'ILMN_mm10_betaTest_17082020'
+    opt$autoDetect <- FALSE
+  } else if (par$isMVP) {
+    par$expRunStr  <- 'CNTL-Samples_VendA_10092020'
+    opt$autoDetect <- TRUE
+    opt$dpi <- 72
+  } else if (par$locRunStr=='covic') {
+    par$expRunStr  <- 'idats_COVIC-Set1-15052020'
+    par$expChipNum <- '204500250013'
+    opt$autoDetect <- TRUE
+  } else if (par$locRunStr=='core') {
+    par$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
+    par$expChipNum <- '202761400007'
+
+    par$expRunStr  <- 'idats_ADRN-blood-nonAtopic_EPIC'
+    par$expChipNum <- '201125090068'
+
+    par$expRunStr  <- 'idats_GSE122126_EPIC'
+    par$expChipNum <- '202410280180'
+
+    par$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
+    par$expChipNum <- '201502830033'
+    opt$autoDetect <- TRUE
+  } else if (par$locRunStr=='excb') {
+    par$expRunStr  <- 'Excalibur-Old-1609202'
+    par$expChipNum <- '204076530053'
+    par$expChipNum <- '204076530110'
+    
+    par$expRunStr  <- 'Excalibur-New-1609202'
+    par$expChipNum <- '202915460071'
+    opt$autoDetect <- TRUE
+  } else {
+    stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized locRunStr={par$locRunStr}.{RET}{RET}"))
+  }
+
+  opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_') )
+  if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_'),  par$expChipNum)
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
-  # mm10
-  par$isMouse <- FALSE
-  if (par$isMouse) {
-    opt$idatsDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
-    opt$auto_sam_csv <- NULL
-    opt$expRunStr  <- 'mm10'
-    opt$autoDetect <- FALSE
-    opt$cluster  <- FALSE
-    opt$single   <- TRUE
-    opt$parallel <- FALSE
-  }
-  
-  par$isMVP <- FALSE
-  if (par$isMVP) {
-    opt$expRunStr  <- 'CNTL-Samples_VendA_10092020'
-    opt$autoDetect <- TRUE
-    opt$plotAuto   <- TRUE
-    opt$plotAuto   <- FALSE
-    
-    opt$cluster  <- FALSE
-    
-    opt$single   <- TRUE
-    opt$single   <- FALSE
-    
-    opt$parallel <- FALSE
-    opt$parallel <- TRUE
-    
-    opt$dpi <- 72
-    opt$idatsDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/VA_MVP/idats',opt$expRunStr)
-  }
-  
-  par$isCOVIC <- TRUE
-  if (par$isCOVIC) {
-    opt$platform   <- 'EPIC'
-    opt$manifest   <- 'C0'
+  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag, par$expRunStr)
 
-    opt$platform   <- NULL
-    opt$manifest   <- NULL
-
-    # Set-1
-    opt$expRunStr  <- 'idats_COVIC-Set1-15052020'
-    opt$expChipNum <- '204500250013'
-
-    opt$idatsDir <- file.path(locIdatDir, opt$expRunStr)
-    
-    opt$single   <- FALSE
-    opt$parallel <- TRUE
-    opt$cluster  <- TRUE
-  }
-  
-  par$isCORE <- FALSE
-  if (par$isCORE) {
-    opt$platform   <- 'EPIC'
-    opt$manifest   <- 'B4'
-
-    opt$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
-    opt$expChipNum <- '202761400007'
-
-    opt$expRunStr  <- 'idats_ADRN-blood-nonAtopic_EPIC'
-    opt$expChipNum <- '201125090068'
-
-    opt$expRunStr  <- 'idats_GSE122126_EPIC'
-    opt$expChipNum <- '202410280180'
-
-    opt$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
-    opt$expChipNum <- '201502830033'
-  }
-  
-  par$isExcalibur <- TRUE
-  if (par$isExcalibur) {
-    opt$platform   <- 'EPIC'
-    opt$manifest   <- 'B4'
-    
-    opt$platform   <- NULL
-    opt$manifest   <- NULL
-
-    opt$expRunStr  <- 'idats_Excalibur-Old-1609202'
-    opt$expChipNum <- '204076530053'
-    opt$expChipNum <- '204076530110'
-    
-    opt$expRunStr  <- 'idats_Excalibur-New-1609202'
-    opt$expChipNum <- '202915460071'
-    
-    opt$idatsDir <- file.path(locIdatDir, opt$expRunStr)
-    
-    opt$single   <- TRUE
-    opt$parallel <- TRUE
-    opt$cluster  <- FALSE
-  }
-
+  par$retData  <- TRUE
+  opt$single   <- TRUE
+  opt$parallel <- FALSE
+  opt$cluster  <- FALSE
   opt$verbose <- 3
-
-  opt$outDir <- file.path(par$topDir, par$prgmTag, opt$expRunStr)
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -524,7 +479,7 @@ if (opt$cluster) {
   
   par$lan_exe <- ''
   par$isLinux <- FALSE
-  if (dir.exists(par$lixDir)) {
+  if (!is.null(par$lixDir1) && length(par$lixDir1)>0 && dir.exists(par$lixDir1)) {
     par$isLinux <- TRUE
     par$lan_exe <- 'qsub -cwd -pe threaded 16 -l excl=true -N'
     if (dir.exists(par$macDir)) stop(glue::glue("[{par$prgmTag}]: Linux/Mac directories exist???{RET}{RET}"))
@@ -611,6 +566,7 @@ if (opt$cluster) {
   chipTimes <- NULL
   sample_cnt <- length(chipPrefixes)
 
+  try_str <- ''
   if (opt$parallel) {
     par$funcTag <- 'sesamizeSingleSample-Parallel'
     par$retData <- FALSE
@@ -652,11 +608,22 @@ if (opt$cluster) {
     
     rdat <- NULL
     for (prefix in names(chipPrefixes)) {
-      try_str <- ''
-      
+      # par$retData <- TRUE
+      # opt$verbose <- 30
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=2)
 
+      if (FALSE) {
+        sset <- sesame::readIDATpair(rdat$prefix, platform=rdat$platform, manifest=rdat$sman)
+        
+        
+        raw_sset_rds <- paste(opt$outDir, 'raw-sset.rds', sep=del)
+        raw_sset <- initSesameRaw(prefix=rdat$prefix, platform=rdat$platform, manifest=rdat$sman,
+                      load=opt$loadSsets, save=opt$saveRawSset, rds=raw_sset_rds,
+                      verbose=opt$verbose)
+      }
+      
+      
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
     }

@@ -12,6 +12,13 @@ suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
+par <- NULL
+
+par$runMode <- ''
+par$macDir1 <- NULL
+par$macDir2 <- NULL
+par$lixDir1 <- NULL
+
 beta_mat <- NULL
 labs_ss_tib <- NULL
 for (curDir in mergeDirs_vec) {

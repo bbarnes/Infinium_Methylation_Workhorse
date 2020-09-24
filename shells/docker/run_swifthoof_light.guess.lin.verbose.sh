@@ -1,12 +1,9 @@
 #!/bin/sh
 
-# /usr/bin/Rscript \
 /usr/local/bin/Rscript \
     /repo/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R \
     --Rscript /usr/local/bin/Rscript \
     -i . -o /output \
-    --platform=EPIC \
-    --manifest=B4 \
     --workflows="i,ind" \
     --writeCalls \
     --writeSsheet \
@@ -17,8 +14,12 @@
     --minDeltaBeta=0.2 \
     --percisionBeta=4 \
     --percisionPval=6 \
-    --parallel \
-    --verbose=3
+    --verbose=30
 
+
+#
+# --datDir /repo/workhorse/dat \
+# --platform=EPIC \
+# --manifest=B4 \
 
 # End of file

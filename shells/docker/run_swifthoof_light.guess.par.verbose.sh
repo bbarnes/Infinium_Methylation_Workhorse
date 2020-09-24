@@ -1,8 +1,8 @@
 #!/bin/sh
 
-/usr/bin/Rscript \
+/usr/local/bin/Rscript \
     /repo/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R \
-    --Rscript /usr/bin/Rscript \
+    --Rscript /usr/local/bin/Rscript \
     -i . -o /output \
     --workflows="i,ind" \
     --writeCalls \

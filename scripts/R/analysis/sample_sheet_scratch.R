@@ -39,6 +39,12 @@ RET <- "\n"
 
 opt <- NULL
 par <- NULL
+
+par$runMode <- ''
+par$macDir1 <- NULL
+par$macDir2 <- NULL
+par$lixDir1 <- NULL
+
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'analysis'

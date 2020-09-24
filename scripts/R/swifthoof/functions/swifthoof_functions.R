@@ -80,6 +80,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     ses_dat <- idat2manifest(sigs=idat_list$sig, mans=mans, verbose=verbose,tc=tc+1,tt=tTracker)
     
+    # Make sure we have unique names::
+    ses_dat$man <- ses_dat$man %>% dplyr::distinct(Probe_ID, .keep_all=TRUE)
     ses_man_tib <- ses_dat$man
     ses_add_tib <- ses_dat$add
     platform_key <- ses_dat$platform
@@ -100,7 +102,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     phen_sum_tib <- NULL
     pred_sum_tib <- NULL
     
-    if (TRUE || retData) {
+    if (retData) {
       ret$idat <- idat_list
       ret$sman <- ses_man_tib
       ret$sadd <- ses_add_tib
@@ -166,7 +168,13 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     raw_sset_csv <- paste(out_prefix, 'raw-sset.csv.gz', sep=del)
     raw_sset_rds <- paste(out_prefix, 'raw-sset.rds', sep=del)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Defined output files: out_prefix={out_prefix}, basecode={basecode}, out_name={out_name}.{RET}"))
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Defined output files: platform_key={platform_key}, version_key={version_key}, outDir={opt$outDir}.{RET}"))
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  raw_sset_csv={raw_sset_csv}.{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  raw_sset_rds={raw_sset_rds}.{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}    ssheet_csv={ssheet_csv}.{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}     calls_csv={calls_csv}.{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}     times_csv={times_csv}.{RET}") )
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                          Initialize RAW SSET::
@@ -177,6 +185,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     raw_sset <- initSesameRaw(prefix=prefix, platform=platform_key, manifest=ses_man_tib,
                               load=opt$loadSsets, save=opt$saveRawSset, rds=raw_sset_rds,
                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} raw_sset={RET}") )
+    if (verbose>=vt+4) print(raw_sset)
     
     if (retData) {
       ret$raw_sset <- raw_sset

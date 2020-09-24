@@ -310,7 +310,7 @@ idat2manifest = function(sigs, mans, verbose=0,vt=4,tc=1,tt=NULL) {
     min_rec_per <- 0
     sigs_add_cnt <- sigs %>% dplyr::distinct(Address) %>% base::nrow()
     for (cur_man_key in names(mans)) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_man_key={cur_man_key}.{RET}"))
+      # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_man_key={cur_man_key}.{RET}"))
       
       cur_key_tib <- stringr::str_split(cur_man_key, pattern='-', simplify=TRUE) %>% as.data.frame() %>% tibble::as_tibble() %>% 
         purrr::set_names(c('platform','manifest')) %>% dplyr::mutate(platform=as.character(platform), manifest=as.character(manifest))

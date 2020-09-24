@@ -26,7 +26,6 @@ verbose=3
 fresh=true
 buildSubDir=true
 autoDetect=true
-autoDetect=false
 workflows='i,ind'
 
 # Output Options::
@@ -59,7 +58,7 @@ percisionPval=6
 # Parallel/Cluster Options::
 # single=true
 single=false
-parallel=true
+parallel=false
 # parallel=true
 # cluster=true
 cluster=false

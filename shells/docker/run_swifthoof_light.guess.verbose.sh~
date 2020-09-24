@@ -15,7 +15,8 @@
     --percisionBeta=4 \
     --percisionPval=6 \
     --parallel \
-    --verbose=3
+    --cluster \
+    --verbose=30
 
 
 #
