@@ -47,10 +47,6 @@ par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'analysis'
 par$prgmTag <- 'predict_models'
 
-# Illumina based directories::
-par$macDir  <- '/Users/bbarnes/Documents/Projects/methylation/tools'
-par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
-
 # Directory Parameters::
 opt$outDir    <- NULL
 opt$mergeDir  <- NULL
@@ -96,13 +92,23 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
+  # Illumina based directories::
+  par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation/tools'
+  par$macDir2 <- '/Users/bretbarnes/Documents/tools'
+  par$lixDir1 <- '/illumina/scratch/darkmatter'
   
-  if (dir.exists(par$macDir)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/scratch'
-  if (dir.exists(par$lixDir)) par$topDir <- '/illumina/scratch/darkmatter/data/scratch'
+  par$runMode    <- args.dat[1]
+  cat(glue::glue("[{par$prgmTag}]: Local Run args.dat[1]={args.dat[1]}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local Run     runMode={par$runMode}.{RET}"))
+  
+  if (dir.exists(par$macDir1)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation'
+  if (dir.exists(par$macDir2)) par$topDir <- '/Users/bretbarnes/Documents'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
+  if (dir.exists(par$macDir1)) par$macDir <- par$macDir1
+  if (dir.exists(par$macDir2)) par$macDir <- par$macDir2
+  
   # Default Parameters for local Mac::
-  par$runMode    <- args.dat[1]
   par$srcDir     <- file.path(par$macDir, par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
@@ -116,6 +122,10 @@ if (args.dat[1]=='RStudio') {
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   
+  #
+  # End of local parameter definitions::
+  #
+
   # Loci Level Filtering Parameters::
   opt$lociBetaKey <- "i_beta"
   opt$lociPvalKey <- "i_poob"
@@ -325,10 +335,28 @@ if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Sou
 for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
 
+# Load All other function methods::
 par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
 if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
 for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
+
+par$swt_src_dir <- file.path(par$scrDir, 'swifthoof/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$swt_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$swt_src_dir}!{RET}{RET}") )
+
+par$prb_src_dir <- file.path(par$scrDir, 'probe_design/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$prb_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
+
+par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
+
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Preprocessing:: System Params

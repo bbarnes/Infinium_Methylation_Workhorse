@@ -26,7 +26,7 @@ verbose=3
 fresh=true
 buildSubDir=true
 autoDetect=true
-autoDetect=false
+# autoDetect=false
 workflows='i,ind'
 
 # Output Options::
@@ -62,7 +62,7 @@ single=false
 parallel=true
 # parallel=true
 # cluster=true
-cluster=false
+cluster=true
 
 # Plotting Options::
 plotSset=false

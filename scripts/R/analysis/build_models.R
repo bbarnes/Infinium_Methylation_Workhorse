@@ -15,6 +15,10 @@ suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 
+# Plotting Packages::
+suppressWarnings(suppressPackageStartupMessages( base::require("corrplot") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("GGally") ))
+
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
@@ -63,7 +67,7 @@ opt$runName   <- NULL
 opt$classVar <- NULL
 
 opt$trainClass <- NULL
-opt$cross_perc_min <- 80
+opt$cross_perc_min <- 90
 
 # Sample Level Filtering Parameters::
 opt$samplePvalName <- NULL
@@ -93,6 +97,9 @@ opt$seeds <- NULL
 # Output Format Parameters::
 opt$percisionBeta <- 4
 opt$percisionPval <- 6
+
+# Plot parameters::
+opt$plot_pairs <- FALSE
 
 # Parallel/Cluster Options::
 opt$execute  <- TRUE
@@ -143,95 +150,80 @@ if (args.dat[1]=='RStudio') {
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
-  opt$outDir <- file.path(par$topDir, 'scratch')
-  locIdatDir <- file.path(par$topDir, 'data/idats')
-  
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   
+  #
+  # End of local parameter definitions::
+  #
+  
+  opt$addPval     <- TRUE
+  opt$buildDml    <- FALSE
+  opt$buildDbl    <- FALSE
+  opt$buildModels <- FALSE
+  
+  opt$single   <- FALSE
+  opt$cluster  <- FALSE
+  opt$parallel <- FALSE
+  
+  opt$samplePvalName <- "Poob_Pass_0_Perc"
+  opt$samplePvalPerc <- 90
+  
+  # Loci Level Filtering Parameters::
+  opt$lociBetaKey <- "i_beta,ind_beta"
+  opt$lociBetaKey <- "ind_beta"
+  
+  opt$lociPvalKey <- "i_poob,i_negs"
+  opt$lociPvalKey <- "i_poob"
+  
+  opt$lociPvalMin <- "0.02,0.1,0.5,0.9,1.0"
+  opt$lociPvalMin <- "0.05,0.1"
+  opt$lociPvalMin <- "0.1"
+  opt$lociPvalMin <- "0.05"
+  
+  opt$seeds <- "13,17,42,43,57,61,69"
+  opt$seeds <- "13,42"
+
+  opt$featuresCsv <- NULL
+  opt$featuresDml <- NULL
+
+  opt$classVar <- 'Sample_Class'
+  par$platform <- 'EPIC'
+  par$version  <- 'B4'
+  
+  opt$plot_pairs <- FALSE
+  
+  opt$clean <- FALSE
+  opt$clean <- TRUE
+  
+  # opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
+  # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
+  # opt$trainClass <- paste('XaXi','XaY', sep=',')
+  # opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+  
+  #
   # Pre-defined local options runTypes::
+  #
   par$local_runType <- 'covic'
   par$local_runType <- 'mm10'
   par$local_runType <- 'ctl_mvp'
-  
-  if (par$local_runType=='covic') {
-    opt$classVar <- 'Karyotype_0_Call'
-    opt$classVar <- 'Karyotype_1_Call'
+
+  if (par$local_runType=='mm10') {
+    par$runNameA  <- 'ILMN_mm10_betaTest_17082020'
+    par$runNameB  <- 'VanAndel_mm10_betaTest_31082020'
+    par$runNameC  <- 'MURMETVEP_mm10_betaTest_06082020'
     
-    opt$classVar <- 'Sample_Name'
-    opt$classVar <- 'Sample_Class'
-    
-    opt$buildDml    <- TRUE
-    opt$buildModels <- TRUE
-    
-    opt$clean    <- TRUE
-    opt$clean    <- FALSE
-    
-    opt$single   <- TRUE
-    opt$cluster  <- FALSE
-    opt$cluster  <- TRUE
-    opt$parallel <- FALSE
-    
-    par$platform <- 'EPIC'
-    par$version  <- 'C0'
-    
-    opt$runName  <- 'BETA-8x1-EPIC-Ref'
-    opt$runName  <- 'COVIC-Set7-06082020'
-    opt$runName  <- 'COVIC-Set5-10062020'
-    opt$runName  <- 'COVIC-Set1-15052020'
-    
-    opt$mergeDir  <- paste(
-      # file.path(par$topDir, 'docker', 'merge_builds',opt$runName,'EPIC/B4/Karyotype_1_Call/r1'),
-      # file.path(par$topDir, 'merge_builds',par$platform,par$version,opt$classVar,opt$runName),
-      file.path('/Users/bbarnes/Documents/Projects/methylation/scratch/merge_builds/EPIC/C0/Sample_Class',opt$runName),
+    opt$runName   <- 'mm10_controls'
+
+    opt$buildDir  <- paste(
+      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameA),
+      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameB),
+      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameC),
       sep=',')
-    
-    # opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI', sep=',')
-    # opt$trainClass <- paste('Xa','XaXaY','XaXi','XaXiY','XaY', sep=',')
-    # opt$trainClass <- paste('XaXi','XaY', sep=',')
-    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
-    
-    # Sample Level Filtering Parameters::
-    opt$samplePvalName <- "Poob_Pass_0_Perc"
-    opt$samplePvalPerc <- 96
-    
-    opt$buildDml    <- TRUE
-    opt$buildDbl    <- FALSE
-    opt$buildModels <- TRUE
-    
-    # Loci Level Filtering Parameters::
-    opt$lociBetaKey <- "i_beta"
-    opt$lociBetaKey <- "ind_beta"
-    opt$lociPvalKey <- "i_poob"
-    
-    opt$lociPvalMin <- 0.2
-    opt$lociPvalMin <- 0.9
-    opt$lociPvalMin <- 1.0
-    opt$lociPvalMin <- 0.1
-    
-    opt$seeds <- "13,17,42,43,57,61,69"
-    opt$seeds <- "13,42"
-    
-    # Loci (Feature) Selection Parameters::
-    opt$featuresCsv <- NULL
-    # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
-    #                           # file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
-    #                           # file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
-    #                           sep=',')
-    opt$featuresDml <- "100"
-  } else if (par$local_runType=='mm10') {
-    par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/scratch'
-    # opt$manifest <- file.path(par$datDir, 'manifest/base/LEGX-S1.manifest.sesame-base.cpg-sorted.csv.gz')
-    
-    opt$single   <- TRUE
-    opt$single   <- FALSE
-    opt$cluster  <- FALSE
-    opt$parallel <- FALSE
     
     opt$classVar <- 'Sample_Name'
     par$platform <- 'LEGX'
-    par$version  <- 'S1'
-    
+
     par$titration <- FALSE
     par$titration <- TRUE
     if (par$titration) {
@@ -245,79 +237,67 @@ if (args.dat[1]=='RStudio') {
     opt$mergeDir  <- paste(
       file.path(par$topDir,'merge_builds/LEGX/S1/Sample_Name',opt$runName),
       sep=',')
-
-    opt$samplePvalName <- "Poob_Pass_0_Perc"
-    opt$samplePvalPerc <- 90
     
-    opt$buildDml    <- FALSE
-    opt$buildDbl    <- TRUE
-    opt$buildModels <- FALSE
+  } else if (par$local_runType=='covic') {
+    opt$runName  <- 'COVIC-Set7-06082020'
+    opt$runName  <- 'COVIC-Set5-10062020'
+    opt$runName  <- 'COVIC-Set1-15052020'
     
-    # Loci Level Filtering Parameters::
-    #  opt$lociPvalKey <- "i_poob,i_negs"
-    opt$lociBetaKey <- "i_beta,ind_beta"
-    opt$lociPvalKey <- "i_poob"
-    opt$lociPvalMin <- "0.02,0.1,0.5,0.9,1.0"
+    par$version  <- 'C0'
     
-    opt$featuresCsv <- NULL
-    opt$featuresDml <- NULL
-    opt$seeds <- NULL
+    opt$mergeDir  <- paste(
+      file.path(par$topDir, 'scratch/merge_builds', par$platform,par$version,opt$classVar, opt$runName),
+      sep=',')
+    
+    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+    
+    # Loci (Feature) Selection Parameters::
+    #
+    # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
+    #                           file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
+    #                           file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
+    #                           sep=',')
+    # opt$featuresDml <- "100"
+    
   } else if (par$local_runType=='ctl_mvp') {
-    par$topDir <- '/Users/bbarnes/Documents/Projects/methylation/VA_MVP/scratch'
-    
-    #
-    # TBD:: Need to add Delta Values::
-    #
-    
-    opt$single   <- FALSE
-    opt$single   <- TRUE
-    opt$cluster  <- FALSE
-    opt$parallel <- FALSE
-    
     opt$classVar <- 'AutoSample_dB_Key'
     par$platform <- 'EPIC'
     par$version  <- 'B4'
     
-    opt$runName  <- paste(par$local_runType,'decoder', sep='_')
-    # opt$trainClass <- paste('T00DZ','T50DZ','T99DZ', sep=',')
+    opt$samplePvalPerc <- 10
     
     par$runNameA <- 'CNTL-Samples_VendA_10092020'
     par$runNameB <- 'CNTL-Samples_VendB_10092020'
     par$runNameC <- 'BETA-8x1-EPIC-Core'
     par$runNameD <- 'DELTA-8x1-EPIC-Core'
+    par$runNameE <- 'BETA-8x1-EPIC-Bad'
+    par$runNameF <- 'DELTA-24x1-EPIC'
+    
+    opt$runName  <- paste(par$local_runType,'decoder', sep='_')
+    
+    opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI','T00BZ','T50BZ','T99BZ', sep=',')
     
     opt$mergeDir  <- paste(
-      file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameA),
-      file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameB),
-      file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameC),
-      file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameD),
+      file.path(par$topDir,'scratch/merge_builds',par$platform,par$version,opt$classVar,opt$runName),
+      
+      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameA),
+      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameB),
+      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameC),
+      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameD),
+      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameE),
+      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameF),
       sep=',')
     
-    opt$samplePvalName <- "Poob_Pass_0_Perc"
-    opt$samplePvalPerc <- 90
-    
-    opt$addPval     <- TRUE
-    opt$buildDml    <- FALSE
-    opt$buildDbl    <- TRUE
-    opt$buildModels <- FALSE
-    
-    # Loci Level Filtering Parameters::
-    opt$lociBetaKey <- "ind_beta"
-    opt$lociPvalKey <- "i_poob"
-    opt$lociPvalMin <- "0.05,0.1"
-    opt$lociPvalMin <- "0.1"
-    opt$lociPvalMin <- "0.05"
-    opt$clean <- TRUE
-    
-    opt$featuresCsv <- NULL
-    opt$featuresDml <- NULL
-    opt$seeds <- NULL
+    opt$plot_pairs <- TRUE
     
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
+  
+  opt$single   <- TRUE
 
-  opt$outDir <- file.path(par$topDir, par$prgmTag, par$platform, par$version)
+  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag, par$platform, par$version)
+  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -402,6 +382,10 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--percisionPval"), type="integer", default=opt$percisionPval,
                 help="Rounding percision for detection p-values in calls output files [default= %default]", metavar="integer"),
     
+    # Plot parameters::
+    make_option(c("--plot_pairs"), action="store_true", default=opt$plot_pairs, 
+                help="Boolean variable to plot pairs (mostly testing stuff) [default= %default]", metavar="boolean"),
+    
     # Parallel/Cluster Parameters::
     make_option(c("--execute"), action="store_true", default=opt$execute, 
                 help="Boolean variable to shell scripts (mostly testing stuff) [default= %default]", metavar="boolean"),
@@ -452,7 +436,7 @@ if (is.null(opt$outDir) || is.null(opt$mergeDir) ||
     is.null(opt$samplePvalName) || is.null(opt$samplePvalPerc) ||
     is.null(opt$lociBetaKey) || is.null(opt$lociPvalKey) || is.null(opt$lociPvalMin) || 
     is.null(opt$alphaMin) || is.null(opt$alphaMax) || is.null(opt$alphaInc) ||
-    (is.null(opt$featuresCsv) && is.null(opt$featuresDml) && is.null(opt$featuresDbl) ) ||
+    # (is.null(opt$featuresCsv) && is.null(opt$featuresDml) && is.null(opt$featuresDbl) ) ||
     is.null(opt$seeds) ||
     is.null(opt$percisionBeta) || is.null(opt$percisionPval) || 
     is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
@@ -485,8 +469,8 @@ if (is.null(opt$outDir) || is.null(opt$mergeDir) ||
   if (is.null(opt$alphaMax)) cat(glue::glue("[Usage]: alphaMax is NULL!!!{RET}"))
   if (is.null(opt$alphaInc)) cat(glue::glue("[Usage]: alphaInc is NULL!!!{RET}"))
   
-  if (is.null(opt$featuresCsv) && is.null(opt$featuresDml) && is.null(opt$featuresDbl)) 
-    cat(glue::glue("[Usage]: Both featuresCsv AND featuresDml AND featuresDbl are NULL!!!{RET}"))
+  # if (is.null(opt$featuresCsv) && is.null(opt$featuresDml) && is.null(opt$featuresDbl)) 
+  #   cat(glue::glue("[Usage]: Both featuresCsv AND featuresDml AND featuresDbl are NULL!!!{RET}"))
   if (is.null(opt$seeds)) cat(glue::glue("[Usage]: seeds is NULL!!!{RET}"))
   
   if (is.null(opt$percisionBeta)) cat(glue::glue("[Usage]: percisionBeta is NULL!!!{RET}"))
@@ -610,6 +594,15 @@ if (!is.null(featuresCsv_vec) && length(featuresCsv_vec)!=0 ) {
 for (betaKey in lociBetaKey_vec) {
   for (pvalKey in lociPvalKey_vec) {
     for (pvalMin in lociPvalMin_vec) {
+      cat(glue::glue("[{par$prgmTag}]: Starting; betaKey={betaKey}, pvalKey={pvalKey}, pvalMin={pvalMin}.{RET}{RET}") )
+      
+#       break
+#     }
+#     break
+#   }
+#   break
+# }
+      opt$clean <- FALSE
       
       betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
       pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
@@ -679,7 +672,16 @@ for (betaKey in lociBetaKey_vec) {
       #                   Plot Pairwise R-squared and DeltaBeta::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      if (TRUE) {
+      #
+      # TBD::
+      #  3. Add sample specific opt$samplePvalPerc
+      #     - opt$filterSamples <- TRUE
+      #     - sampleSheet_tib %>% dplyr::group_by(Experiment_Key) %>% dplyr::summarise(Exp_Pass_avg=mean(!!sam_pval_name_sym, na.rm=TRUE), Exp_Pass_max=max(!!sam_pval_name_sym, na.rm=TRUE))
+      #
+      #  4. Load signal sets
+      #  5. Plot signal sets
+      #
+      if (opt$plot_pairs) {
         sam_pval_name_sym <- rlang::sym(opt$samplePvalName)
         
         opt$filterSamples <- FALSE
@@ -695,6 +697,19 @@ for (betaKey in lociBetaKey_vec) {
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                   Update Sample Sheet for Plotting::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        # Below are two attempts to set up the Experiment_Key which should be defined by performing each 
+        #  merge_builds individually::
+        #
+        # Update class_var by build_source
+        # class_two_str <- 'build_source'
+        # class_two_sym <- rlang::sym(class_two_str)
+        # sampleSheet_tib <- sampleSheet_tib %>% dplyr::mutate(Experiment_Key=!!class_two_sym) # %>% dplyr::select(Experiment_Key)
+        #
+        # if (length(grep(class_two_str, names(sampleSheet_tib))) != 0) {
+        #   sampleSheet_tib <- sampleSheet_tib %>% 
+        #     dplyr::mutate(!!class_var := paste(!!class_two_sym,!!class_var, sep='_')) # %>% dplyr::select(!!class_var) %>% as.data.frame()
+        # }
         
         plotSheet_tib <- sampleSheet_tib %>% 
           dplyr::filter(!!sam_pval_name_sym >= opt$samplePvalPerc) %>%

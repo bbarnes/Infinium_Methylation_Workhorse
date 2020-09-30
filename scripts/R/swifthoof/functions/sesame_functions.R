@@ -295,8 +295,8 @@ sset2tib = function(sset, man=NULL, by="Probe_ID", type="Probe_Type", des="Probe
     if (sort) tib <- tib %>% dplyr::arrange(!!by)
     
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
-      csv_dir <- base::basename(csv)
-      if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      # csv_dir <- base::basename(csv)
+      # if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
       
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing signal set (percision={percision}) CSV={csv}.{RET}"))
       readr::write_csv(tib, csv)

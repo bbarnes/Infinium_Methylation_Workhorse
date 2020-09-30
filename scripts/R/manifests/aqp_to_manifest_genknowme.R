@@ -142,9 +142,8 @@ if (args.dat[1]=='RStudio') {
   opt$addControls <- TRUE
   opt$addManifest <- FALSE
   
-  # opt$aqpDir <- file.path('/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics', 'AQP')
-  opt$aqpDir <- '/Users/bbarnes/Documents/Projects/methylation/CustomContent/Genknowme/LS_Epiprofile'
-  
+  opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/Genknowme/LS_Epiprofile')
+
   opt$ords <- paste(
     file.path(opt$aqpDir, 'AQP1_NAremoved_GenKnowme_CpG_SNP_order.07082020.csv'),
     file.path(opt$aqpDir, 'AQP2_AP_Genknowme_AQP2_replicate_design_file2.csv'),
@@ -164,14 +163,10 @@ if (args.dat[1]=='RStudio') {
     file.path(opt$aqpDir, '20042793X371678_A_ProductQC_AP.txt'),
     sep=',')
   
-  par$idatsTopDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
-  opt$idats <- paste(
-    file.path(par$idatsTopDir, '204637490002'),
-    sep=',')
   opt$idats <- NULL
 
   opt$runName <- paste(opt$genomeBuild,opt$platform,opt$version, sep='-')
-  opt$outDir <- file.path(par$topDir)
+  opt$outDir <- file.path(par$topDir, 'scratch')
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -388,44 +383,6 @@ if (!is.null(opt$pqcs)) {
 }
 
 #
-# INVESTIGATION PART:: this can be deleted now
-#
-if (FALSE) {
-  full_man_tibA <- NULL
-  for (idx in c(1:ord_cnt)) {
-    full_man_tibA <- full_man_tibA %>% dplyr::bind_rows(
-      decodeToManifest(ord=ord_vec[idx], mat=mat_vec[idx], aqp=aqp_vec[idx],
-                       platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-                       original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=idx, AQP=idx)
-    )
-  }
-  full_man_tib1 <- full_man_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1)
-  
-  # Check known case::
-  full_man_tib  %>% dplyr::filter(U==99706982) %>% as.data.frame()
-  full_man_tibA %>% dplyr::filter(U==99706982) %>% as.data.frame()
-  full_man_tib1 %>% dplyr::filter(U==99706982) %>% as.data.frame()
-  
-  # Check summary::
-  full_man_tib  %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
-  full_man_tibA %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
-  full_man_tib1 %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
-  
-  # Check counts::
-  full_man_tib %>% base::nrow()
-  full_man_tib %>% dplyr::distinct(U) %>% base::nrow()
-  full_man_tib %>% dplyr::distinct(U,AlleleA_Probe_Sequence) %>% base::nrow()
-  
-  full_man_tibA %>% base::nrow()
-  full_man_tibA %>% dplyr::distinct(U) %>% base::nrow()
-  full_man_tibA %>% dplyr::distinct(U,AlleleA_Probe_Sequence) %>% base::nrow()
-  
-  full_man_tib1 %>% base::nrow()
-  full_man_tib1 %>% dplyr::distinct(U) %>% base::nrow()
-  full_man_tib1 %>% dplyr::distinct(U,AlleleA_Probe_Sequence) %>% base::nrow()
-}
-
-#
 # Conclusion Use full_man_tib1 to ensure most recent PQC results!!!
 #
 # Should be zero below::
@@ -466,11 +423,11 @@ ses_unq_ctl_tib <- dplyr::distinct(ses_ctl_tib, Probe_ID, .keep_all=TRUE)
 # This is just Seq_ID
 # ses_man_tib %>% dplyr::mutate(CGN=stringr::str_remove(Probe_ID, '_.*$'))
 
-EPIC_tab_csv <- '/Users/bbarnes/Documents/Projects/manifests/methylation/MethylationEPIC_v-1-0_B4.core.cpg-only.table.csv.gz'
+# EPIC_tab_csv <- '/Users/bbarnes/Documents/Projects/manifests/methylation/MethylationEPIC_v-1-0_B4.core.cpg-only.table.csv.gz'
+EPIC_tab_csv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/MethylationEPIC_v-1-0_B4.core.cpg-only.table.csv.gz'
 EPIC_tab_tib <- suppressMessages(suppressWarnings( readr::read_csv(EPIC_tab_csv) ))
 
 ses_man_tib %>% dplyr::left_join(EPIC_tab_tib, by=c("Seq_ID"="Name"), suffix=c("_Ses", "_EPIC"))
-
 ses_man_tib %>% dplyr::left_join(EPIC_tab_tib, by=c("Seq_ID"="Name"), suffix=c("_Ses", "_EPIC")) %>% dplyr::filter(is.na(IlmnID))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

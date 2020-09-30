@@ -137,7 +137,11 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
     if (addPathsSigs) {
       auto_ss_tibs <- auto_ss_tibs %>%
         addPathsToSampleSheet(dir=dir, platform=platform, manifest=manifest, del='_',
-                              field='Sigs_Path', suffix='sigs.csv.gz$', verbose=verbose)
+                              field='Sigs_Path', suffix='ind-sset.csv.gz$', verbose=verbose)
+      
+      #  addPathsToSampleSheet(dir=dir, platform=platform, manifest=manifest, del='_',
+      #                        field='Sigs_Path', suffix='sset.csv.gz$', verbose=verbose)
+      #                      field='Sigs_Path', suffix='sigs.csv.gz$', verbose=verbose)
       
       auto_ss_tlen <- base::nrow(auto_ss_tibs)
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(paths)={auto_ss_tlen}{RET}"))
