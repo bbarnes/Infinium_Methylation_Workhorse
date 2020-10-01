@@ -39,7 +39,10 @@ par <- NULL
 par$runMode <- ''
 par$macDir1 <- NULL
 par$macDir2 <- NULL
-par$lixDir1 <- NULL
+par$lixDir  <- '/illumina/scratch/darkmatter'
+par$lixDir1 <- '/illumina/scratch/darkmatter'
+
+par$max_test <- NULL
 
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
@@ -72,7 +75,7 @@ opt$select <- FALSE
 # Sample Sheet Parameters::
 opt$addSampleName    <- FALSE
 opt$addPathsCall     <- TRUE
-opt$addPathsSigs     <- FALSE
+opt$addPathsSset     <- FALSE
 
 opt$flagDetectPval   <- FALSE
 opt$flagSampleDetect <- FALSE
@@ -262,16 +265,24 @@ if (args.dat[1]=='RStudio') {
     par$runNameE <- 'BETA-8x1-EPIC-Bad'
     par$runNameF <- 'DELTA-24x1-EPIC'
     
+    # opt$buildDir  <- paste(
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runNameA),
+    #   sep=',')
+    # opt$runName  <- par$runNameA
+    
     opt$buildDir  <- paste(
       file.path(par$topDir,'scratch/swifthoof_main',par$runNameA),
       file.path(par$topDir,'scratch/swifthoof_main',par$runNameB),
       file.path(par$topDir,'scratch/swifthoof_main',par$runNameC),
       file.path(par$topDir,'scratch/swifthoof_main',par$runNameD),
       file.path(par$topDir,'scratch/swifthoof_main',par$runNameE),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runNameF),
+      # file.path(par$topDir,'scratch/swifthoof_main',par$runNameF),
       sep=',')
-    
+
     opt$runName  <- paste(par$local_runType,'decoder', sep='_')
+    
+    opt$addPathsCall <- TRUE
+    opt$addPathsSset <- TRUE
     
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
@@ -324,7 +335,7 @@ if (args.dat[1]=='RStudio') {
                 help="Sample Sheet processing to add Auto-SampleNames (mostly testing stuff) [default= %default]", metavar="boolean"),
     make_option(c("--addPathsCall"), action="store_true", default=opt$addPathsCall, 
                 help="Sample Sheet processing to add Calls Local Full Paths (mostly testing stuff) [default= %default]", metavar="boolean"),
-    make_option(c("--addPathsSigs"), action="store_true", default=opt$addPathsSigs, 
+    make_option(c("--addPathsSset"), action="store_true", default=opt$addPathsSset, 
                 help="Sample Sheet processing to add Signals Local Full Paths (mostly testing stuff) [default= %default]", metavar="boolean"),
     
     make_option(c("--flagDetectPval"), action="store_true", default=opt$flagDetectPval, 
@@ -393,7 +404,7 @@ if (is.null(opt$outDir) || is.null(opt$buildDir) ||
      is.null(opt$runName) || 
      # is.null(opt$sampleCsv) || 
      is.null(opt$classVar) ||
-     is.null(opt$addSampleName) || is.null(opt$addPathsCall) || is.null(opt$addPathsSigs) ||
+     is.null(opt$addSampleName) || is.null(opt$addPathsCall) || is.null(opt$addPathsSset) ||
      is.null(opt$flagDetectPval) || is.null(opt$flagSampleDetect) || is.null(opt$flagRefMatch) ||
      # is.null(opt$pvalDetectMinKey) || is.nulll(opt$pvalDetectMinVal) ||
      is.null(opt$platform) || is.null(opt$version) ||
@@ -415,7 +426,7 @@ if (is.null(opt$outDir) || is.null(opt$buildDir) ||
 
   if (is.null(opt$addSampleName)) cat(glue::glue("[Usage]: addSampleName is NULL!!!{RET}"))
   if (is.null(opt$addPathsCall))  cat(glue::glue("[Usage]: addPathsCall is NULL!!!{RET}"))
-  if (is.null(opt$addPathsSigs))  cat(glue::glue("[Usage]: addPathsSigs is NULL!!!{RET}"))
+  if (is.null(opt$addPathsSset))  cat(glue::glue("[Usage]: addPathsSset is NULL!!!{RET}"))
   
   if (is.null(opt$flagDetectPval))   cat(glue::glue("[Usage]: flagDetectPval is NULL!!!{RET}"))
   if (is.null(opt$flagSampleDetect)) cat(glue::glue("[Usage]: flagSampleDetect is NULL!!!{RET}"))
@@ -526,7 +537,7 @@ for (curDir in blds_dir_vec) {
   }
   
   cur_ss_tib <- loadAutoSampleSheets(dir=curDir, platform=opt$platform, manifest=opt$version,
-                                     addSampleName=opt$addSampleName,  addPathsCall=opt$addPathsCall, addPathsSigs=opt$addPathsSigs,
+                                     addSampleName=opt$addSampleName,  addPathsCall=opt$addPathsCall, addPathsSset=opt$addPathsSset,
                                      flagDetectPval=opt$flagDetectPval, flagSampleDetect=opt$flagSampleDetect, flagRefMatch=opt$flagRefMatch,
                                      pvalDetectMinKey=opt$pvalDetectMinKey, pvalDetectMinVal=opt$pvalDetectMinVal,
                                      verbose=opt$verbose,tc=2,tt=NULL) %>% 
@@ -545,6 +556,16 @@ for (curDir in blds_dir_vec) {
 auto_ss_len <- auto_ss_tib %>% base::nrow()
 cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len}.{RET}{RET}"))
 # print(auto_ss_tib)
+
+# Temp Output::
+va_ss_csv <- '/Users/bretbarnes/Documents/VA-MVP.AutoSampleSheet.csv.gz'
+va_ss_tib <- auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::select(Sentrix_Name,AutoSample_R2_Key,build_source, everything())
+readr::write_csv(va_ss_tib,va_ss_csv)
+
+# auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key!=AutoSample_R2_Key) %>% dplyr::select(AutoSample_dB_Key,AutoSample_R2_Key,AutoSample_dB_Val,AutoSample_R2_Val,Poob_Pass_0_Perc)
+# auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::arrange(Poob_Pass_0_Perc)
+# auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::arrange(Poob_Pass_0_Perc) %>% dplyr::select(Poob_Pass_0_Perc)
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   Load Humman Annotation Sample Sheets::
@@ -617,6 +638,7 @@ opt$beg_file <- file.path(opt$outDir, paste(outName, 'load-beg.txt', sep='_') )
 opt$end_file <- file.path(opt$outDir, paste(outName, 'load-end.txt', sep='_') )
 opt$labs_csv <- file.path(opt$outDir, paste(outName, 'AutoSampleSheet.csv.gz', sep='_') )
 opt$call_csv <- file.path(opt$outDir, paste(outName, 'MergedDataFiles.tib.csv.gz', sep='_') )
+opt$sset_csv <- file.path(opt$outDir, paste(outName, 'MergedSsetFiles.tib.csv.gz', sep='_') )
 
 if (opt$clean) unlink( list.files(opt$outDir, full.names=TRUE) )
 
@@ -649,11 +671,62 @@ if (!pass_time_check) {
   cmd <- paste('touch',opt$beg_file, sep=' ')
   system(cmd)
   
-  call_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=0, outName=outName, outDir=opt$outDir, 
-                               verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
+  # Testing::
+  # par$max_test <- 3
   
-  # Write Merged Data Files Tibble::
-  readr::write_csv(call_tib, opt$call_csv)
+  #
+  # TESTING::
+  #
+  if (FALSE) {
+    labs_ss_tib %>% dplyr::arrange(desc(Poob_Pass_0_Perc)) %>% dplyr::select(Sentrix_Name, opt$samplePvalName) %>% as.data.frame()
+    
+    labs_ss_tib %>% dplyr::arrange(opt$samplePvalName) %>%
+      dplyr::group_by(!!class_var) %>% 
+      dplyr::mutate(Sample_Rank=paste(!!class_var, dplyr::row_number(), sep='_') ) %>% 
+      dplyr::ungroup() %>% dplyr::select(Sample_Rank)
+    
+    call_list <- labs_ss_tib$Ssets_Path
+    names(call_list) <- labs_ss_tib$Sentrix_Name
+    
+    
+    lapply(head(call_list, n=3), readr::read_csv)
+    data_list <- lapply(head(call_list, n=3), function(x) { 
+      d <- readr::read_csv(x)
+      n <- names(d)
+      print(n)
+      
+      d
+    }
+    )
+    
+    cur_tib <- lapply(head(call_list, n=3), readr::read_csv) %>% dplyr::bind_rows(.id="Sentrix_Name")
+    
+    data_list %>% reduce(left_join, by = "Probe_ID")
+    
+    data_list %>% purrr::reduce(dplyr::left_join, by = c("Probe_ID","Probe_Design"))
+    
+    data_list %>% reduce(dplyr::left_join, by = c("Probe_ID","Probe_Design")) %>% 
+      purrr::set_names(c('Probe_ID','Probe_Design', paste('M',data_list,sep='_'), paste('U',data_list,sep='_')) )
+    
+    
+    paste(c('M','U'),names(data_list),sep='_')
+  }
+  
+  # Write Merged Call Files Tibble::
+  if (opt$addPathsCall) {
+    call_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=par$max_test, outName=outName, outDir=opt$outDir, 
+                                 chipName="Sentrix_Name", pathName="Calls_Path", joinNameA="Probe_ID",
+                                 verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
+    readr::write_csv(call_tib, opt$call_csv)
+  }
+
+  # Write Merged Sset Files Tibble::
+  if (opt$addPathsSset) {
+    sset_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=par$max_test, outName=outName, outDir=opt$outDir, 
+                                 chipName="Sentrix_Name", pathName="Ssets_Path", joinNameA="Probe_ID", joinNameB="Probe_Design",
+                                 verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
+    readr::write_csv(sset_tib, opt$sset_csv)
+  }
   
   cmd <- paste('touch',opt$end_file, sep=' ')
   system(cmd)

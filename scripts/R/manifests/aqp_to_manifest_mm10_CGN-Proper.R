@@ -131,7 +131,7 @@ if (args.dat[1]=='RStudio') {
   opt$version     <- 'B4'
   opt$version     <- 'S1'
   opt$version     <- 'S2'
-  opt$version     <- 'S3'
+  opt$version     <- 'S4'
   
   opt$frmt_original <- TRUE
   opt$frmt_original <- FALSE
@@ -343,6 +343,8 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
 #                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+pTracker <- timeTracker$new(verbose=opt$verbose)
+
 # Input Definitions::
 if (is.null(opt$ctlCSV))
   opt$ctlCsv <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
@@ -377,27 +379,150 @@ cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 #                             Build Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+opt$matFormat <- 'new'
+
+# 296724 x 18 - without filtering
+# 295796 x 18 - with filtering
+pqc_man_tib <- NULL
+pqc_man_tib <- decodeToManifestWrapper(
+  ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+  platform=opt$platform, version=opt$version, 
+  matFormat=opt$matFormat,
+  pqcFormat='pqc',
+  full=par$retData, cleanAdds=TRUE,
+  verbose=opt$verbose,vt=2,tc=0,tt=pTracker)
+# Full AQP History=296724, AQP Ordered Unique=295796, delta=928.
+# Full AQP History=296724, AQP Ordered Unique=295796, delta=928.
+
+# -329221 x 18 - without filtering
+# -296174 x 18 - with filtering
+aqp_man_tib <- NULL
+aqp_man_tib <- decodeToManifestWrapper(
+  ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+  platform=opt$platform, version=opt$version, 
+  matFormat=opt$matFormat,
+  pqcFormat='aqp',
+  full=par$retData, cleanAdds=TRUE,
+  verbose=opt$verbose,vt=2,tc=0,tt=pTracker)
+# Full AQP History=298565, AQP Ordered Unique=298552, delta=13.
+# Full AQP History=298565, AQP Ordered Unique=298552, delta=13.
+#
+# Lost in PQC::
+#  2756 = 298552-295796
+
+
+
+
+
+# Report what went missing::
+aqp_unq_man_tib <- aqp_man_tib %>% dplyr::anti_join(pqc_man_tib, by=c("M","U"))
+pqc_unq_man_tib <- pqc_man_tib %>% dplyr::anti_join(aqp_man_tib, by=c("M","U"))
+
+aqp_list <- rev(aqp_vec)
+names(aqp_list) <- base::basename(aqp_vec) %>% stringr::str_remove('.gz$') %>% stringr::str_remove('.txt$')
+aqp_tib <- lapply(aqp_list, readr::read_tsv, skip=7) %>% dplyr::bind_rows() %>%
+  dplyr::distinct(Address, Decode_Status)
+pqc_tib <- loadPQC(pqc_vec[1])
+
+
+dplyr::inner_join(
+  dplyr::left_join(aqp_unq_man_tib, pqc_tib, by=c("U"="Address")) %>% dplyr::select(U, Decode_Status) %>% dplyr::rename(Decode_Status_U=Decode_Status),
+  dplyr::left_join(aqp_unq_man_tib, pqc_tib, by=c("M"="Address")) %>% dplyr::select(M, Decode_Status) %>% dplyr::rename(Decode_Status_M=Decode_Status),
+  by=c("U","M")
+)
+
+aqp_unq_man_tib %>% dplyr::left_join(pqc_tib, by=c("M"="Address")) %>% 
+  dplyr::rename(Decode_Status_M=Decode_Status) %>%
+  dplyr::select(QC_A_Action,QC_B_Action,Decode_Status_M)
+
+
+#
+# Individual Investigation
+#
+ord_tib <- loadORD(ord_vec[1])
+mat_tib <- loadMAT(mat_vec[1])
+aqp_tib <- loadPQC(aqp_vec[1], format='aqp')
+pqc_tib <- loadPQC(pqc_vec[1], format='pqc')
+
+mat_tib %>% dplyr::left_join(aqp_tib, by="Address")
+mat_tib %>% dplyr::inner_join(aqp_tib, by="Address")
+mat_tib %>% dplyr::inner_join(pqc_tib, by="Address")
+
+
+mat_tib %>% dplyr::anti_join(aqp_tib, by="Address")
+
+
+
+
+
+
+
+
 opt$frmt_original <- FALSE
 isFull <- FALSE
-
+full_man_tib <- NULL
 ord_cnt <- length(ord_vec)
+for (idx in c(1:ord_cnt)) {
+  pqc_file <- pqc_vec[1]
+  if (is.null(opt$pqcs) || opt$useAQP) pqc_file <- aqp_vec[idx]
+  
+  full_man_tib <- full_man_tib %>% dplyr::bind_rows(
+    decodeToManifest(ord=ord_vec[idx], mat=mat_vec[idx], pqc=pqc_vec[1],
+                     platform=opt$platform, version=opt$version, round=idx,
+                     matFormat=matFormat, 
+                     full=isFull, cleanAdds=TRUE,
+                     verbose=opt$verbose,vt=2,tc=1,tt=pTracker)
+  )
+}
+pre_man_cnt  <- full_man_tib %>% base::nrow()
+full_man_tib <- full_man_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1)
+pos_man_cnt  <- full_man_tib %>% base::nrow()
+del_man_cnt  <- pre_man_cnt - pos_man_cnt
+cat(glue::glue("[{par$prgmTag}]: Full AQP History={pre_man_cnt}, AQP Ordered Unique={pos_man_cnt}, delta={del_man_cnt}.{RET}") )
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 full_man_tib <- NULL
 if (!is.null(opt$pqcs)) {
   cat(glue::glue("[{par$prgmTag}]: Running with PQC...{RET}") )
   
+  # 296,724 x 18 - without filtering
+  # 295,796 x 18 - with filtering
+  full_man_tib <- NULL
   for (idx in c(1:ord_cnt)) {
+    pqc_file <- pqc_vec[1]
+    if (is.null(opt$pqcs) || opt$useAQP) pqc_file <- aqp_vec[idx]
+    
     full_man_tib <- full_man_tib %>% dplyr::bind_rows(
       decodeToManifest(ord=ord_vec[idx], mat=mat_vec[idx], pqc=pqc_vec[1],
-                       platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-                       original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=idx, AQP=idx)
+                       platform=opt$platform, version=opt$version, round=idx,
+                       matFormat=matFormat, 
+                       full=isFull, cleanAdds=TRUE,
+                       verbose=opt$verbose+10,vt=1,tc=3,tt=pTracker)
     )
   }
+  pre_man_cnt  <- full_man_tib %>% base::nrow()
   full_man_tib <- full_man_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1)
+  pos_man_cnt  <- full_man_tib %>% base::nrow()
+  del_man_cnt  <- pre_man_cnt - pos_man_cnt
+  cat(glue::glue("[{par$prgmTag}]: Full AQP History={pre_man_cnt}, AQP Ordered Unique={pos_man_cnt}, delta={del_man_cnt}.{RET}") )
   
 } else {
   cat(glue::glue("[{par$prgmTag}]: Running Non-PQC...{RET}") )
-  
+
+  # 329,221 x 18 - without filtering
+  # 296,174 x 18 - with filtering
   full_man_tib <- NULL
   for (idx in c(1:ord_cnt)) {
     full_man_tib <- full_man_tib %>% dplyr::bind_rows(
@@ -406,7 +531,17 @@ if (!is.null(opt$pqcs)) {
                        original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=idx, AQP=idx)
     )
   }
+  pre_man_cnt  <- full_man_tib %>% base::nrow()
+  full_man_tib <- full_man_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1)
+  pos_man_cnt  <- full_man_tib %>% base::nrow()
+  del_man_cnt  <- pre_man_cnt - pos_man_cnt
+  cat(glue::glue("[{par$prgmTag}]: Full AQP History={pre_man_cnt}, AQP Ordered Unique={pos_man_cnt}, delta={del_man_cnt}.{RET}") )
+  
+  
 }
+
+pqc_tib <- loadPQC(pqc=pqc_vec[1])
+# aqp_tib <- loadPQC(aqp=aqp_vec[1])
 
 #
 # INVESTIGATION PART:: this can be deleted
@@ -453,6 +588,7 @@ if (FALSE) {
 #  full_man_tib %>% dplyr::add_count(U, name="U_Tango_Count") %>% dplyr::filter(U_Tango_Count!=1) %>% dplyr::arrange(U) 
 full_man_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
 
+mm10_non_tib <- fixOrderProbeIDs(full_non_tib, verbose=opt$verbose)
 mm10_man_tib <- fixOrderProbeIDs(full_man_tib, verbose=opt$verbose)
 mm10_man_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
 
@@ -490,7 +626,7 @@ ses_unq_ctl_tib <- dplyr::distinct(ses_ctl_tib, Probe_ID, .keep_all=TRUE)
 #   NOT Delete this:: imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10--21092020.noHeader.unique.prb48U-sorted.tsv.gz')
 # imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.sorted-seqU48.tsv.gz')
 
-imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10--21092020.noHeader.unique.prb48U-sorted.tsv.gz')
+imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.tsv.gz')
 int_s48_tsv  <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.full-join.tsv.gz', sep='.') )
 mm10_s48_tsv <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.tsv', sep='.') )
 mm10_s48_tib <- mm10_man_tib %>% dplyr::arrange(Mat_PrbA)
@@ -534,6 +670,13 @@ mm10_s48_int_col <- c("Mat_PrbA",'Mat_CGN', 'Mat_TB', 'Mat_CO',
 mm10_s48_int_tib <- readr::read_tsv(int_s48_tsv, col_names=mm10_s48_int_col) %>% 
   dplyr::mutate(Seq_CGN=stringr::str_remove(Seq_ID, '^[a-zA-Z]+') %>% stringr::str_remove('^0+') %>% as.double()) %>%
   add_count(Mat_CGN,Seq_CGN, name="Paired_Count")
+
+
+
+mm10_man_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n())
+mm10_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by=c("M","U") ) %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n())
+
+
 
 # We need to pull up design data for these cg's::
 mm10_s48_int_tib %>% dplyr::distinct(Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::arrange(Mat_CGN)
@@ -1810,8 +1953,20 @@ if (FALSE) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-sysTime <- Sys.time()
-cat(glue::glue("[{par$prgmTag}]: Finished(time={sysTime}){RET}{RET}"))
 
+opt$opt_csv  <- file.path(opt$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )
+opt$par_csv  <- file.path(opt$outDir, paste(par$prgmTag,'program-parameters.csv', sep='.') )
+opt$time_csv <- file.path(opt$outDir, paste(par$prgmTag,'time-tracker.csv.gz', sep='.') )
+
+opt_tib  <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
+par_tib  <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
+time_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+
+readr::write_csv(opt_tib, opt$opt_csv)
+readr::write_csv(par_tib, opt$par_csv)
+readr::write_csv(time_tib, opt$time_csv)
+
+sysTime <- Sys.time()
+cat(glue::glue("{RET}[{par$prgmTag}]: Finished(time={sysTime}){RET}{RET}"))
 
 # End of file

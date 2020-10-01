@@ -149,146 +149,310 @@ manToBeadSummary = function(man, field="Infinium_Design",
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} field={field}.{RET}"))
   
-  field <- rlang::sym(field)
-  inf1_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
-    dplyr::filter(!!field=='I') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
-  inf2_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
-    dplyr::filter(!!field=='II') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
-  
-  bead1_cnt <- inf1_cnt * 2
-  bead2_cnt <- inf2_cnt
-  beads_cnt <- bead1_cnt + bead2_cnt
-  beads_per <- bead1_cnt / beads_cnt
-  
-  sum_tib <- tibble::tibble(Inf1=inf1_cnt, Inf2=inf2_cnt, 
-                            Bead1=bead1_cnt, Bead2=bead2_cnt, Beads=beads_cnt,
-                            BeadPerc=beads_per)
-  
+  stime <- system.time({
+    
+    field <- rlang::sym(field)
+    inf1_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
+      dplyr::filter(!!field=='I') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
+    inf2_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
+      dplyr::filter(!!field=='II') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
+    
+    bead1_cnt <- inf1_cnt * 2
+    bead2_cnt <- inf2_cnt
+    beads_cnt <- bead1_cnt + bead2_cnt
+    beads_per <- bead1_cnt / beads_cnt
+    
+    sum_tib <- tibble::tibble(Inf1=inf1_cnt, Inf2=inf2_cnt, 
+                              Bead1=bead1_cnt, Bead2=bead2_cnt, Beads=beads_cnt,
+                              BeadPerc=beads_per)
+    
+  })
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done...{RET}"))
   
   sum_tib
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        AQP Manifest Generation::
+#                   Order, Match, PQC/AQP File IO Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-decodeToManifest = function(ord, mat, aqp=NULL, pqc=NULL, platform, version,
-                            ordSkip=8, matSkip=40, aqpSkip=7,
-                            guessCnt=50000,
-                            full=FALSE, original=FALSE, cleanAdds=TRUE,
+loadORD = function(file, format='old', skip=8, guess=50000,
+                   verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'loadORD'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Staring; format={format}; skip={skip}, file={file}.{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    if (format=='old') {
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(file, skip=skip, guess_max=guess)  )) %>%
+        dplyr::mutate(AlleleB_Probe_Id=as.character(AlleleB_Probe_Id), 
+                      AlleleB_Probe_Sequence=as.character(AlleleB_Probe_Sequence))
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported format={format}!!!{RET}{RET}"))
+    }
+    ret_tib <- ret_tib %>% dplyr::filter(!is.na(Assay_Design_Id))
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+loadMAT = function(file, format='new', skip=40, guess=1000,
+                   verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'loadMAT'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Staring; format={format}; skip={skip}, file={file}.{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  match_cnames <- c("Plate", "Row", "Col", "Address", "Mod5", "Full_Seq", "Mod3", "Comment")
+  
+  stime <- system.time({
+    if (format=='old') {
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, skip=skip, guess_max=guess) )) %>%
+        dplyr::rename(Probe_ID=probe_id, Full_Seq=bo_seq, Address=address_name, Ord_Seq=sequence) %>% 
+        dplyr::mutate(Tango_Seq=stringr::str_sub(Full_Seq,1,45),
+                      Probe_Seq=stringr::str_sub(Full_Seq,46))
+    } else if (format=='new') {
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, skip=skip, guess_max=guess) )) %>% 
+        purrr::set_names(match_cnames) %>% 
+        dplyr::mutate(Tango_Seq=stringr::str_sub(Full_Seq,1,45), 
+                      Probe_Seq=stringr::str_sub(Full_Seq,46))
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported format={format}!!!{RET}{RET}"))
+    }
+    ret_tib <- ret_tib %>% dplyr::filter(!is.na(Address))
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+loadPQC = function(file, format='pqc', skip=7, guess=1000,
+                   verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'loadPQC'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Staring; format={format}; skip={skip}, file={file}.{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  
+  stime <- system.time({
+    if (format=='aqp') {
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, skip=skip, guess_max=guess) )) %>%
+        dplyr::select(Address, Decode_Status)
+    } else if (format=='pqc') {
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, skip=skip, guess_max=guess) )) %>% 
+        purrr::set_names(stringr::str_replace_all(names(.),' ','_')) %>%
+        dplyr::rename(Decode_Status=Status) %>%
+        dplyr::select(Address, Decode_Status)
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported format={format}!!!{RET}{RET}"))
+    }
+    ret_tib <- ret_tib %>% dplyr::filter(!is.na(Address)) %>% dplyr::filter(!is.na(Decode_Status)) %>%
+      dplyr::ungroup()
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   AQP Manifest Generation Wrappers::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
+                            ordFormat='old', ordSkip=8,  ordGuess=50000,
+                            matFormat='new', matSkip=40, matGuess=1000,
+                            pqcFormat='pqc', pqcSkip=7,  pqcGuess=1000,
+                            full=FALSE, cleanAdds=TRUE,
                             verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'decodeToManifest'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
   
-  if (is.null(aqp) && is.null(pqc))
-    stop(glue::glue("{RET}[{funcTag}]: Both aqp and pqc are NULL!!!{RET}{RET}"))
+  mat_tib <- NULL
+  stime <- system.time({
+    
+    manifest_str <- paste(platform,version, sep='-')
+    
+    ord_tib <- loadORD(file=ord, format=ordFormat, skip=ordSkip, guess=ordGuess,
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    mat_tib <- loadMAT(file=mat, format=matFormat, skip=matSkip, guess=matGuess,
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    pqc_tib <- loadPQC(file=pqc, format=pqcFormat, skip=pqcSkip, guess=pqcGuess,
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    if (full) {
+      ret <- NULL
+      ret$aqp <- pqc_tib
+      ret$mat <- mat_tib
+      ret$ord <- ord_tib
+    }
+    
+    # Workflow::
+    #  - Clean up ord_tib
+    #  - join mat and pqc
+    #  - 
+    
+    #
+    # New Code::
+    #
+    ord_tib <- dplyr::rename(ord_tib, Probe_ID=Assay_Design_Id) %>% 
+      dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id)
+    mat_tib <- dplyr::inner_join(mat_tib,pqc_tib, by="Address") %>%
+      dplyr::select(Address, Tango_Seq, Probe_Seq, Decode_Status)
+    
+    man_tib <- ord_tib %>%
+      dplyr::left_join(mat_tib, by=c("AlleleA_Probe_Sequence"="Probe_Seq")) %>% 
+        dplyr::rename(U=Address, Decode_Status_A=Decode_Status, Address_Seq_A=Tango_Seq) %>%
+      dplyr::left_join(mat_tib, by=c("AlleleA_Probe_Sequence"="Probe_Seq")) %>% 
+        dplyr::rename(M=Address, Decode_Status_B=Decode_Status, Address_Seq_B=Tango_Seq)
 
-  manifest_str <- paste(platform,version, sep='-')
-  match_cnames <- c("Plate", "Row", "Col", "Address", "Mod5", "Full_Seq", "Mod3", "Comment")
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading Order(skip={ordSkip})={ord}.{RET}"))
-  ord_tib <- suppressMessages(suppressWarnings( readr::read_csv(ord, skip=ordSkip, guess_max=guessCnt)  )) %>%
-    dplyr::mutate(AlleleB_Probe_Id=as.character(AlleleB_Probe_Id), 
-                  AlleleB_Probe_Sequence=as.character(AlleleB_Probe_Sequence))
-  if (verbose>=vt) print(ord_tib)
-  
-  if (original) {
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading Match(org)={mat}.{RET}"))
+    #
+    # Old Code
+    #
+    # mat_tib <- mat_tib %>% dplyr::inner_join(pqc_tib, by="Address")
+    # if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} join(mat_tib, pqc_tib)::{RET}"))
+    # if (verbose>=vt+4) print(mat_tib)
+    # 
+    # man_tib <- ord_tib %>% dplyr::rename(Probe_ID=Assay_Design_Id) %>% dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id) %>%
+    #   dplyr::left_join(dplyr::select(mat_tib, Address, Tango_Seq, Probe_Seq, Decode_Status), by=c("AlleleA_Probe_Sequence"="Probe_Seq")) %>%
+    #   dplyr::rename(Address_A=Address, Address_A_Seq=Tango_Seq, Decode_Status_A=Decode_Status) %>%
+    #   dplyr::left_join(dplyr::select(mat_tib, Address, Tango_Seq, Probe_Seq, Decode_Status), by=c("AlleleB_Probe_Sequence"="Probe_Seq")) %>%
+    #   dplyr::rename(Address_B=Address, Address_B_Seq=Tango_Seq, Decode_Status_B=Decode_Status)
     
-    mat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(mat) )) %>%
-      dplyr::rename(Probe_ID=probe_id, Full_Seq=bo_seq, Address=address_name, Ord_Seq=sequence) %>% 
-      dplyr::mutate(Tango_Seq=stringr::str_sub(Full_Seq,1,45),
-                    Probe_Seq=stringr::str_sub(Full_Seq,46))
+    # TBD:: Should redo the logic to remove -999 too
+    #  - probably easier to remove !=0 or NA...
+    man_tib <- man_tib %>% 
+      dplyr::filter(Decode_Status_A!=-1) %>% 
+      dplyr::filter(is.na(Decode_Status_B) | Decode_Status_B!=-1) %>% 
+      dplyr::mutate(
+        DESIGN=case_when(Normalization_Bin=='C' ~ 'II',
+                         Normalization_Bin=='A' ~ 'I',
+                         Normalization_Bin=='B' ~ 'I',
+                         # Normalization_Bin=='A' ~ 'IR',
+                         # Normalization_Bin=='B' ~ 'IG',
+                         TRUE ~ NA_character_),
+        COLOR_CHANNEL=case_when(Normalization_Bin=='A' ~ 'Red',
+                                Normalization_Bin=='B' ~ 'Grn',
+                                TRUE ~ NA_character_),
+        col=stringr::str_sub(COLOR_CHANNEL, 1,1),
+        Probe_Type=stringr::str_sub(Probe_ID, 1,2),
+        Probe_Source=manifest_str,
+        Next_Base=case_when(Normalization_Bin=='A' ~ 'T',
+                            Normalization_Bin=='B' ~ 'C',
+                            TRUE ~ NA_character_)
+      ) %>% dplyr::ungroup() %>%
+      dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, everything())
     
-  } else {
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading Match(new; skip={matSkip})={mat}.{RET}"))
+    if (!is.null(round)) man_tib <- man_tib %>% dplyr::mutate(BP=round, AQP=round)
     
-    mat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(mat, skip=matSkip) )) %>% 
-      purrr::set_names(match_cnames) %>% 
-      dplyr::mutate(Tango_Seq=stringr::str_sub(Full_Seq,1,45), 
-                    Probe_Seq=stringr::str_sub(Full_Seq,46))
-  }
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} mat_tib::{RET}"))
-  if (verbose>=vt) print(mat_tib)
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading AQP(skip={aqpSkip})={aqp}.{RET}"))
-  if (!is.null(aqp)) {
-    aqp_tib <- suppressMessages(suppressWarnings( readr::read_tsv(aqp, skip=aqpSkip) )) %>%
-      dplyr::select(Address, Decode_Status)
-  } else if (!is.null(pqc)) {
-    aqp_tib  <- suppressMessages(suppressWarnings( readr::read_tsv(pqc,skip=aqpSkip) )) %>% 
-      purrr::set_names(stringr::str_replace_all(names(.),' ','_')) %>%
-      dplyr::rename(Decode_Status=Status) %>%
-      dplyr::select(Address, Decode_Status)
-  }
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} aqp_tib::{RET}"))
-  if (verbose>=vt) print(aqp_tib)
-  
-  if (full) {
-    ret <- NULL
-    ret$aqp <- aqp_tib
-    ret$mat <- mat_tib
-    ret$ord <- ord_tib
-    ret$man <- man_tib
+    if (cleanAdds) {
+      man_tib <- man_tib %>%
+        dplyr::mutate(M=as.numeric(stringr::str_remove(stringr::str_remove(M, '^1'), '^0+')),
+                      U=as.numeric(stringr::str_remove(stringr::str_remove(U, '^1'), '^0+')) )
+    }
     
-    return(ret)
-  }
-  
-  mat_tib <- mat_tib %>% dplyr::inner_join(aqp_tib, by="Address")
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} join(mat_tib, aqp_tib)::{RET}"))
-  if (verbose>=vt) print(mat_tib)
-  
-  man_tib <- ord_tib %>% dplyr::rename(Probe_ID=Assay_Design_Id) %>% dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id) %>%
-    dplyr::left_join(dplyr::select(mat_tib, Address, Tango_Seq, Probe_Seq, Decode_Status), by=c("AlleleA_Probe_Sequence"="Probe_Seq")) %>%
-    dplyr::rename(Address_A=Address, Address_A_Seq=Tango_Seq, QC_A_Action=Decode_Status) %>%
-    dplyr::left_join(dplyr::select(mat_tib, Address, Tango_Seq, Probe_Seq, Decode_Status), by=c("AlleleB_Probe_Sequence"="Probe_Seq")) %>%
-    dplyr::rename(Address_B=Address, Address_B_Seq=Tango_Seq, QC_B_Action=Decode_Status)
-  
-  # TBD:: Should redo the logic to remove -999 too
-  #  - probably easier to remove !=0 or NA...
-  man_tib <- man_tib %>% dplyr::filter(QC_A_Action!=-1) %>% dplyr::filter(is.na(QC_B_Action) | QC_B_Action!=-1) %>% 
-    dplyr::rename(U=Address_A, M=Address_B) %>% 
-    dplyr::mutate(
-      DESIGN=case_when(Normalization_Bin=='C' ~ 'II',
-                       Normalization_Bin=='A' ~ 'I',
-                       Normalization_Bin=='B' ~ 'I',
-                       # Normalization_Bin=='A' ~ 'IR',
-                       # Normalization_Bin=='B' ~ 'IG',
-                       TRUE ~ NA_character_),
-      COLOR_CHANNEL=case_when(Normalization_Bin=='A' ~ 'Red',
-                              Normalization_Bin=='B' ~ 'Grn',
-                              TRUE ~ NA_character_),
-      col=stringr::str_sub(COLOR_CHANNEL, 1,1),
-      Probe_Type=stringr::str_sub(Probe_ID, 1,2),
-      Probe_Source=manifest_str,
-      Next_Base=case_when(Normalization_Bin=='A' ~ 'T',
-                          Normalization_Bin=='B' ~ 'C',
-                          TRUE ~ NA_character_)
-    ) %>% 
-    dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, everything())
-  
-  if (cleanAdds) {
-    man_tib <- man_tib %>%
-      dplyr::mutate(M=as.numeric(stringr::str_remove(stringr::str_remove(M, '^1'), '^0+')),
-                    U=as.numeric(stringr::str_remove(stringr::str_remove(U, '^1'), '^0+')) )
-  }
-  
-  if (full) {
-    ret <- NULL
-    ret$aqp <- aqp_tib
-    ret$mat <- mat_tib
-    ret$ord <- ord_tib
-    ret$man <- man_tib
-    
-    return(ret)
-  }
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
-  
-  
+    if (full) {
+      ret <- NULL
+      ret$aqp <- pqc_tib
+      ret$mat <- mat_tib
+      ret$ord <- ord_tib
+      ret$man <- man_tib
+      
+      return(ret)
+    }
+    ret_cnt <- man_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+
   man_tib
+}
+
+decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, version,
+                            ordFormat='old', ordSkip=8,  ordGuess=50000,
+                            matFormat='new', matSkip=40, matGuess=1000,
+                            pqcFormat='pqc', pqcSkip=7,  pqcGuess=1000,
+                            full=FALSE, cleanAdds=TRUE,
+                            verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'decodeToManifestWrapper'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  if (is.null(pqcs) && is.null(aqps)) {
+    stop(glue::glue("{RET}[{funcTag}]: ERROR: Both AQPs and PQCs can't be null!!!{RET}{RET}"))
+    return(ret_tib)
+  }
+  
+  stime <- system.time({
+
+    ord_cnt <- length(ords)
+    for (idx in c(1:ord_cnt)) {
+      pqc_file <- NULL
+      if (pqcFormat=='pqc') {
+        pqc_file <- pqc_vec[1]
+      } else if (pqcFormat=='aqp') {
+        pqc_file <- aqps[idx]
+      } else {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: Unrecognized pqc format={pqcFormat}!!!{RET}{RET}"))
+        return(NULL)
+      }
+      if (is.null(pqc_file)) {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: PQC File Logic Failed useAQP={useAQP}!!!{RET}{RET}"))
+        return(NULL)
+      }
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Round={idx}, pqc={pqc_file}.{RET}"))
+      
+      ret_tib <- ret_tib %>% dplyr::bind_rows(
+        decodeToManifest(ord=ords[idx], mat=mats[idx], pqc=pqc_file,
+                         platform=platform, version=version, round=idx,
+                         
+                         ordFormat=ordFormat, ordSkip=ordSkip, ordGuess=ordGuess,
+                         matFormat=matFormat, matSkip=matSkip, matGuess=matGuess,
+                         pqcFormat=pqcFormat, pqcSkip=pqcSkip, pqcGuess=pqcGuess,
+                         
+                         full=full, cleanAdds=cleanAdds,
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      )
+    }
+    pre_cnt <- ret_tib %>% base::nrow()
+    ret_tib <- ret_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1) %>% dplyr::ungroup()
+    pos_cnt <- ret_tib %>% base::nrow()
+    del_man_cnt  <- pre_cnt - pos_cnt
+    cat(glue::glue("[{par$prgmTag}]: Full AQP History={pre_cnt}, AQP Ordered Unique={pos_cnt}, delta={del_man_cnt}.{RET}") )
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

@@ -25,7 +25,7 @@ RET <- "\n"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoSampleSheet.csv.gz', 
-                                addSampleName=FALSE, addPathsCall=FALSE, addPathsSigs=FALSE,
+                                addSampleName=FALSE, addPathsCall=FALSE, addPathsSset=FALSE,
                                 flagDetectPval=FALSE, flagSampleDetect=FALSE, flagRefMatch=FALSE,
                                 pvalDetectMinKey=NULL, pvalDetectMinVal=0,
                                 
@@ -113,7 +113,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
       }
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #  Flag Auto Detections with poor matching (pval)::
+      #  Flag Auto Detection with poor matching (pval)::
       if (flagRefMatch) {
         auto_ss_tibs <- auto_ss_tibs %>% dplyr::filter() %>% dplyr::filter(!!dbVal >= dbMin) %>% dplyr::filter(!!r2Val >= r2Min)
         auto_ss_flen <- base::nrow(auto_ss_tibs)
@@ -134,10 +134,10 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
       auto_ss_tlen <- base::nrow(auto_ss_tibs)
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(paths)={auto_ss_tlen}{RET}"))
     }
-    if (addPathsSigs) {
+    if (addPathsSset) {
       auto_ss_tibs <- auto_ss_tibs %>%
         addPathsToSampleSheet(dir=dir, platform=platform, manifest=manifest, del='_',
-                              field='Sigs_Path', suffix='ind-sset.csv.gz$', verbose=verbose)
+                              field='Ssets_Path', suffix='ind-sset.csv.gz$', verbose=verbose)
       
       #  addPathsToSampleSheet(dir=dir, platform=platform, manifest=manifest, del='_',
       #                        field='Sigs_Path', suffix='sset.csv.gz$', verbose=verbose)
@@ -329,45 +329,70 @@ formatSS_COVID = function(csv, skip=0, addID,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 mergeCallsFromSS = function(ss, max=0, outName, outDir, 
+                            chipName='Sentrix_Name', pathName='Calls_Path', joinNameA="Probe_ID", joinNameB="Probe_Design",
                             verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'mergeCallsFromSS'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; chipName={chipName}, pathName={pathName}, joinName={joinNameA}.{RET}"))
 
   files_tib <- tibble::tibble()
   file_list <- base::list()
   data_list <- base::list()
   stime <- system.time({
+    
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
 
     ss_cnt <- ss %>% base::nrow()
     for (ssIdx in c(1:ss_cnt)) {
-      sentrix_name <- ss$Sentrix_Name[ssIdx]
-      call_path <- ss$Calls_Path[ssIdx]
+      sentrix_name <- ss[[chipName]][ssIdx]
+      call_path    <- ss[[pathName]][ssIdx]
+      
       ss_perc = round(100*ssIdx/ss_cnt, 3)
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading Calls; idx={ssIdx}/{ss_cnt}={ss_perc}, sentrix_name={sentrix_name}; path={call_path}.{RET}"))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading {pathName}; idx={ssIdx}/{ss_cnt}={ss_perc}, sentrix_name={sentrix_name}; path={call_path}.{RET}"))
 
       call_tib  <- suppressMessages(suppressWarnings( readr::read_csv(call_path) ))
-      call_cols <- call_tib %>% dplyr::select(-1) %>% names()
-      call_lens <- length(call_cols)
+
+      if (pathName=='Calls_Path') {
+        call_cols <- call_tib %>% dplyr::select(-c(!!joinNameA)) %>% names()
+        call_lens <- length(call_cols)
+      } else {
+        call_cols <- call_tib %>% dplyr::select(-c(!!joinNameA,!!joinNameB)) %>% names()
+        call_lens <- length(call_cols)
+      }
+      # print(call_cols)
+      # print(call_tib)
       
       for (cIdx in (1:call_lens)) {
         cur_col <- call_cols[cIdx]
-        cur_tib <- dplyr::select(call_tib, 1,cur_col)
-        colnames(cur_tib)[2] <- sentrix_name
-        if (is.null(data_list[[cur_col]])) {
-          data_list[[cur_col]] <- cur_tib
+        # cur_tib <- dplyr::select(call_tib, 1,cur_col)
+        
+        if (pathName=='Calls_Path') {
+          cur_tib <- dplyr::select(call_tib, !!joinNameA, dplyr::all_of(cur_col) )
+          colnames(cur_tib)[2] <- sentrix_name
+          if (is.null(data_list[[cur_col]])) {
+            data_list[[cur_col]] <- cur_tib
+          } else {
+            data_list[[cur_col]] <- dplyr::full_join(data_list[[cur_col]],cur_tib, by=joinNameA)
+          }
         } else {
-          data_list[[cur_col]] <- dplyr::full_join(data_list[[cur_col]],cur_tib, by="Probe_ID")
+          cur_tib <- dplyr::select(call_tib, !!joinNameA,!!joinNameB, dplyr::all_of(cur_col) )
+          colnames(cur_tib)[3] <- sentrix_name
+          
+          if (is.null(data_list[[cur_col]])) {
+            data_list[[cur_col]] <- cur_tib
+          } else {
+            data_list[[cur_col]] <- dplyr::full_join(data_list[[cur_col]],cur_tib, by=c(joinNameA,joinNameB) )
+          }
         }
       }
       
-      if (max>0 && ssIdx>=max) break
+      if (!is.null(max) && max>0 && ssIdx>=max) break
     }
     
     for (name in names(data_list)) {
       out_name <- paste(outName,name, sep='_')
       file_list[[name]] <- file.path(outDir, paste(out_name,'raw-data.csv.gz', sep='.') )
-      cat(glue::glue("[{funcTag}]: Writing Calls File; name={name}, out_name={out_name}; CSV={file_list[[name]]}...{RET}"))
+      cat(glue::glue("[{funcTag}]: Writing {pathName} File; name={name}, out_name={out_name}; CSV={file_list[[name]]}...{RET}"))
       
       readr::write_csv(data_list[[name]], file_list[[name]])
     }

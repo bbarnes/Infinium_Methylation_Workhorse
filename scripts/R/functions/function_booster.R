@@ -134,13 +134,13 @@ setLaunchExe = function(opts, pars, verbose=0,vt=3,tc=1,tt=NULL) {
   opts$lanExe <- ''
   opts$isLinux <- FALSE
   
+  # if (is.null(pars$lixDir))
   if (is.null(pars$lixDir))
     stop(glue::glue("{RET}[{funcTag}]: ERROR: Options lixDir=NULL not allowed!!!{RET}{RET}"))
   
   if (dir.exists(pars$lixDir)) {
     opts$isLinux <- TRUE
     opts$lanExe <- 'qsub -cwd -pe threaded 16 -l excl=true -N'
-    # if (opts$isLinux) opts$Rscript <- ''
     if (dir.exists(pars$macDir)) stop(glue::glue("{RET}[{funcTag}]: Linux/Mac directories exist???{RET}{RET}"))
   }
   
