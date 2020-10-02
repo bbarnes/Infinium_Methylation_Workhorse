@@ -92,7 +92,7 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
       # Clean up for some mm10 mu early designs...
       cur_tib <- dplyr::bind_rows(
         dplyr::filter(cur_tib, !stringr::str_detect(Probe_ID, '_s[0-9]')) %>%
-          dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '_(I.*)$', '_sA_hA_\\$1') %>% stringr::str_remove('\\\\')),
+          dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '_(I.*)$', '_s0_h0_\\$1') %>% stringr::str_remove('\\\\')),
         dplyr::filter(cur_tib, stringr::str_detect(Probe_ID, '_s[0-9]')) )
 
       cur_tib <- cur_tib %>% dplyr::mutate(Probe_ID=stringr::str_remove(Probe_ID, '_[0-9]+M$')) %>%

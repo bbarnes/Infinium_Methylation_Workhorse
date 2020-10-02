@@ -481,14 +481,16 @@ if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
 
 # Use the PQC manifest if not use AQP::
 #
-full_man_tib <- NULL
+raw_man_tib <- NULL
 if (length(pqc_vec)!=0) {
-  full_man_tib <- fix_pqc_man_tib
+  raw_man_tib <- fix_pqc_man_tib
 } else if (length(aqp_vec)!=0) {
-  full_man_tib <- fix_aqp_man_tib
+  raw_man_tib <- fix_aqp_man_tib
 } else {
   stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
 }
+raw_man_tib <- raw_man_tib %>% dplyr::arrange(Mat_PrbA)
+raw_mat_cnt <- raw_man_tib %>% base::nrow()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               Format Infinium Methylation Standard Controls::
@@ -522,13 +524,13 @@ if (FALSE) {
 #                         Get improbe intersection::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.tsv.gz')
-int_s48_tsv  <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.full-join.tsv.gz', sep='.') )
-mm10_s48_tsv <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.tsv', sep='.') )
-mm10_s48_tib <- full_man_tib %>% dplyr::arrange(Mat_PrbA)
-mm10_s48_org_cnt <- mm10_s48_tib %>% dplyr::distinct(Seq_ID,U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>% base::nrow()
-
-readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
+# TBD:: Not sure the difference between the first imp_unq_s48.tsv and the locMac one...
+#
+imp_unq_s48_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.tsv.gz')
+imp_unq_s48_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.locMac.tsv.gz')
+raw_int_s48_tsv <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.full-join.tsv.gz', sep='.') )
+raw_mat_s48_tsv <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.tsv', sep='.') )
+readr::write_tsv(raw_man_tib, raw_mat_s48_tsv, col_names=FALSE)
 
 # Probe Info with Seq48U:
 #  gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz
@@ -541,10 +543,10 @@ readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
 #  join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | \
 #  gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
 
-run_join_cmd <- FALSE
 run_join_cmd <- TRUE
-if (run_join_cmd) {
-  join_cmd <- glue::glue("gzip -dc {imp_s48_tsv} | join -t $'\\", "t' -14 -27 - {mm10_s48_tsv} | gzip -c -> {int_s48_tsv}")
+run_join_cmd <- FALSE
+if (!file.exists(raw_int_s48_tsv) || run_join_cmd) {
+  join_cmd <- glue::glue("gzip -dc {imp_unq_s48_tsv} | join -t $'\\", "t' -14 -27 - {raw_mat_s48_tsv} | gzip -c -> {raw_int_s48_tsv}")
   cat(glue::glue("[{par$prgmTag}]: Running: cmd='{join_cmd}'...{RET}{RET}") )
   system(join_cmd)
 }
@@ -555,37 +557,185 @@ if (run_join_cmd) {
 #
 #  rs = /Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/Redesign/data/SNP/selected_SNP_probes.bed
 #
-
-mm10_s48_int_col <- c("Mat_PrbA",'Mat_CGN', 'Mat_TB', 'Mat_CO',
-                      "Seq_ID","ID_FR","ID_TB","ID_CO","ID_PD","Infinium_Design","Mat_Prb",
-                      "Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col",
-                      "Probe_Type","Probe_Source","Next_Base",
-                      "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Normalization_Bin",
-                      "Address_A_Seq","QC_A_Action","Address_B_Seq","QC_B_Action","BP","AQP","Rep_Max","Rep_Num",
-                      "AlleleA_Probe_Length","AlleleB_Probe_Length","Old_Probe_ID","Di","DS","HS","FN")
-mm10_s48_int_tib <- readr::read_tsv(int_s48_tsv, col_names=mm10_s48_int_col) %>% 
+raw_s48_int_col <- c("Mat_PrbA","Mat_CGN","Mat_TB","Mat_CO", names(dplyr::select(raw_man_tib,-Mat_PrbA)))
+raw_s48_int_tib <- readr::read_tsv(raw_int_s48_tsv, col_names=raw_s48_int_col, guess_max=100000) %>% 
   dplyr::mutate(Seq_CGN=stringr::str_remove(Seq_ID, '^[a-zA-Z]+') %>% stringr::str_remove('^0+') %>% as.double()) %>%
   add_count(Mat_CGN,Seq_CGN, name="Paired_Count")
 
+# Target Found Probes::
+raw_s48_int_tib %>% dplyr::select(Mat_PrbA,Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::distinct() %>% dplyr::arrange(Mat_CGN)
 
 
-full_man_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n())
-full_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by=c("M","U") ) %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n())
+# Most Common::
+# most_des_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz'
+most_des_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.LEGX-core.tsv.gz'
+most_des_tib <- loadIMP(file=most_des_tsv,verbose=opt$verbose,vt=4,tc=0,tt=pTracker)
+
+most_mat_tib <- most_des_tib %>%
+  dplyr::mutate(Mat_CGN=stringr::str_remove(Seq_ID,'^cg') %>% stringr::str_remove('^0+') %>% as.double(),
+                Mat_TB=stringr::str_sub(Methyl_Allele_TB_Strand, 1,1),
+                Mat_CO=Methyl_Allele_CO_Strand) %>% 
+  dplyr::select(Mat_CGN,Mat_TB,Mat_CO, everything())
+
+# Most Unique::
+top_unq_tib <- raw_man_tib %>% dplyr::distinct(Mat_PrbA,M,U,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
+
+# Join Data::
+most_int_tib <-  most_mat_tib %>% dplyr::inner_join(raw_s48_int_tib, by=c("Mat_CGN","Mat_TB","Mat_CO"), suffix=c("_IMP","_DES"))
+
+most_int_tib %>% dplyr::filter(!is.na(Seq_ID_IMP)) %>% dplyr::filter(!is.na(Seq_ID_DES))
+most_int_tib %>% dplyr::filter(!is.na(Seq_ID_IMP)) %>% dplyr::filter(!is.na(Seq_ID_DES)) %>% dplyr::filter(Seq_ID_IMP == Seq_ID_DES) %>% dplyr::select(Seq_ID_IMP,Seq_ID_DES)
+most_int_tib %>% dplyr::filter(!is.na(Seq_ID_IMP)) %>% dplyr::filter(!is.na(Seq_ID_DES)) %>% dplyr::filter(Seq_ID_IMP != Seq_ID_DES) %>% dplyr::select(Seq_ID_IMP,Seq_ID_DES)
+
+most_int_rev_tib <- raw_s48_int_tib %>% dplyr::inner_join(most_mat_tib, by=c("Mat_CGN","Mat_TB","Mat_CO"), suffix=c("_DES","_IMP"))
+most_prb_inp_tib <- most_int_rev_tib %>% dplyr::select(Seq_ID_IMP,Top_Sequence) %>% dplyr::distinct() %>% 
+  dplyr::rename(Seq_ID=Seq_ID_IMP,Forward_Sequence=Top_Sequence) %>% dplyr::arrange(Seq_ID) %>% dplyr::mutate(Probe_Type='cg')
+
+#
+# BUILD PROBES::
+#
+opt$load_probes  <- TRUE
+opt$load_probes  <- FALSE
+most_prb_des_csv <- file.path(opt$outDir, paste(opt$runName,'all-strands-current-probes.csv.gz', sep='.') )
+if (opt$load_probes && file.exists(most_prb_des_csv)) {
+  most_prb_des_tib <- readr::read_csv(most_prb_des_csv)
+} else {
+  most_prb_des_tib <- tib2prbs(tib=most_prb_inp_tib, idsKey="Seq_ID", prbKey="Probe_Type", 
+                               seqKey="Forward_Sequence", verbose=opt$verbose+10)
+  
+  readr::write_csv(most_prb_des_tib,most_prb_des_csv)
+}
+raw_man_tib %>% dplyr::group_by(Probe_Type,Infinium_Design) %>% dplyr::summarise(Count=n())
+
+
+# CURRENTLY HERE::
+
+#
+# Check if upper case makes a difference::
+#
+most_prb_des_MAT_tib <- most_prb_des_tib %>% 
+  dplyr::mutate(PRB1_U_MAT=stringr::str_to_upper(PRB1_U),
+                PRB1_M_MAT=stringr::str_to_upper(PRB1_M),
+                PRB2_D_MAT=stringr::str_to_upper(PRB2_D))
+
+fin_inf1_tib <- raw_man_tib %>% 
+  dplyr::inner_join(most_prb_des_MAT_tib, by=c("AlleleA_Probe_Sequence"="PRB1_U_MAT","AlleleB_Probe_Sequence"="PRB1_M_MAT"),
+                    suffix=c("_RAW","_DES"))
+fin_inf1_tib %>% dplyr::group_by(Probe_Type_RAW,Infinium_Design) %>% 
+  dplyr::summarise(Count=n(), .groups='drop') %>% print()
+
+fin_inf2_tib <- raw_man_tib %>% 
+  dplyr::inner_join(most_prb_des_MAT_tib, by=c("AlleleA_Probe_Sequence"="PRB2_D_MAT"), 
+                    suffix=c("_RAW","_DES"))
+fin_inf2_tib %>% dplyr::group_by(Probe_Type_RAW,Infinium_Design) %>% 
+  dplyr::summarise(Count=n(), .groups='drop') %>% print()
+
+raw_man_tib %>% dplyr::filter(Probe_Type=='cg') %>% dplyr::group_by(Probe_Type,Infinium_Design) %>% 
+  dplyr::summarise(Count=n(), .groups='drop') %>% print()
+
+
+
+
+dplyr::filter(raw_man_tib, Probe_Type=='cg' & Infinium_Design==1) %>% 
+  dplyr::anti_join(dplyr::filter(fin_inf1_tib, Probe_Type_DES=='cg' & Infinium_Design==1), 
+                   by=c("AlleleA_Probe_Sequence"="PRB1_U_MAT","AlleleB_Probe_Sequence"="PRB1_M_MAT"))
+
+man1_tib <- dplyr::filter(raw_man_tib, Probe_Type=='cg' & Infinium_Design==1)
+fin1_tib <- dplyr::filter(fin_inf1_tib, Probe_Type_DES=='cg' & Infinium_Design==1)
+
+dplyr::anti_join(man1_tib, fin1_tib, by=c("AlleleA_Probe_Sequence","AlleleB_Probe_Sequence") )
+
+
+man2_tib <- dplyr::filter(raw_man_tib, Probe_Type=='cg' & Infinium_Design==2)
+fin2_tib <- dplyr::filter(fin_inf2_tib, Probe_Type_DES=='cg' & Infinium_Design==2)
+
+
+dplyr::anti_join(man2_tib, fin2_tib, by=c("AlleleA_Probe_Sequence","PRB2_D_MAT") )
+dplyr::anti_join(man2_tib, fin2_tib, by=c("AlleleA_Probe_Sequence","PRB2_D_MAT") )
+
+
+
+#
+#
+# RUNNING ABOVE....
+#
+#
+
+
+
+
+
+
+
+
+
+
+# Full Join::
+most_int_all_tib <- raw_s48_int_tib %>% dplyr::full_join(most_mat_tib, by=c("Mat_CGN","Mat_TB","Mat_CO"), suffix=c("_DES","_IMP"))
+
+
+
+
+most_des_tib %>% dplyr::mutate()
+
+raw_s48_int_tib %>% dplyr::select(Mat_PrbA,Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::distinct()
+raw_s48_int_tib %>% dplyr::select(Mat_PrbA) %>% dplyr::distinct()
+raw_s48_int_tib %>% dplyr::select(Mat_PrbA,Mat_CGN) %>% dplyr::distinct()
+
+# Split Groups::
+#  - Match  by s48
+#  - Failed by s48
+mat_s48_man_tib <- raw_man_tib %>% dplyr::inner_join(dplyr::select(raw_s48_int_tib, M,U), by=c("M","U") )
+mtt_s48_man_tib <- raw_man_tib %>% dplyr::inner_join(raw_s48_int_tib, by=c("M","U") )
+mis_s48_man_tib <- raw_man_tib %>% dplyr::anti_join(raw_s48_int_tib, by=c("M","U") )
+
+raw_s48_int_tib %>% base::nrow()
+mat_s48_man_tib %>% base::nrow()
+mtt_s48_man_tib %>% base::nrow()
+mis_s48_man_tib %>% base::nrow()
+
+# Build Summaries::
+#
+mat_s48_sum_tib <- mat_s48_man_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n(), .groups='drop')
+mis_s48_sum_tib <- mis_s48_man_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n(), .groups='drop')
+raw_man_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n(), .groups='drop')
+
+
+# Build intersect M,U keys::
+#
+mus_s48_int_tib <- raw_s48_int_tib %>% dplyr::distinct(M,U)
+
+mus_s48_int_tib <- raw_s48_int_tib %>% dplyr::distinct(Mat_CGN,Mat_TB,Mat_CO,M,U,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
+
+
+
+# Build basic stats
+#
+raw_man_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n(), .groups='drop') %>% print()
+raw_s48_int_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n(), .groups='drop') %>% print()
+
+# Split Groups::
+#  - Match  by s48
+#  - Failed by s48
+raw_man_tib %>% dplyr::inner_join(mus_s48_int_tib, by=c("M","U") )
+raw_man_tib %>% dplyr::inner_join(dplyr::distinct(raw_s48_int_tib, M,U), by=c("M","U") )
+raw_man_tib %>% dplyr::inner_join(dplyr::select(raw_s48_int_tib, M,U), by=c("M","U") )
+
 
 
 
 # We need to pull up design data for these cg's::
-mm10_s48_int_tib %>% dplyr::distinct(Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::arrange(Mat_CGN)
-mm10_s48_int_tib %>% dplyr::distinct(Mat_CGN,Mat_TB,Mat_CO,Seq_ID)
-mm10_s48_int_tib %>% dplyr::distinct(Mat_CGN,Mat_TB,Mat_CO,Seq_ID,Probe_Type) %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(PTCount=n())
+raw_s48_int_tib %>% dplyr::distinct(Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::arrange(Mat_CGN)
+raw_s48_int_tib %>% dplyr::distinct(Mat_CGN,Mat_TB,Mat_CO,Seq_ID)
+raw_s48_int_tib %>% dplyr::distinct(Mat_CGN,Mat_TB,Mat_CO,Seq_ID,Probe_Type) %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(PTCount=n())
 
 pull_seqIds_csv <- file.path(opt$outDir, 'pull-seqIds.csv.gz')
-pull_seqIds_tib <- dplyr::distinct(mm10_s48_int_tib, Seq_ID)
+pull_seqIds_tib <- dplyr::distinct(raw_s48_int_tib, Seq_ID)
 readr::write_csv(pull_seqIds_tib, pull_seqIds_csv)
 
-mm10_s48_int_tib %>% dplyr::filter(Mat_CGN!=Seq_CGN) %>% # dplyr::select(Mat_CGN,Seq_CGN,Seq_ID,Mat_TB,Mat_CO,Probe_ID,Probe_Type) %>%
+raw_s48_int_tib %>% dplyr::filter(Mat_CGN!=Seq_CGN) %>% # dplyr::select(Mat_CGN,Seq_CGN,Seq_ID,Mat_TB,Mat_CO,Probe_ID,Probe_Type) %>%
   dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(PTCount=n())
-mm10_s48_int_tib %>% dplyr::filter(Mat_CGN==Seq_CGN) %>% # dplyr::select(Mat_CGN,Seq_CGN,Seq_ID,Mat_TB,Mat_CO,Probe_ID,Probe_Type) %>%
+raw_s48_int_tib %>% dplyr::filter(Mat_CGN==Seq_CGN) %>% # dplyr::select(Mat_CGN,Seq_CGN,Seq_ID,Mat_TB,Mat_CO,Probe_ID,Probe_Type) %>%
   dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(PTCount=n())
 
 #
@@ -606,7 +756,7 @@ subset_cmd <- glue::glue("{par$topDir}/scripts/subset/getSubset.simple.pl -heade
 # mm10_imp_des_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.LEGX-core.tsv.gz'
 # mm10_imp_des_tib <- readr::read_tsv(mm10_des_tsv)
 
-mm10_s48_sel_tib <- dplyr::distinct(mm10_s48_int_tib, Seq_ID,Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::arrange(Mat_CGN)
+mm10_s48_sel_tib <- dplyr::distinct(raw_s48_int_tib, Seq_ID,Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::arrange(Mat_CGN)
 mm10_tar_des_tib <- dplyr::mutate(mm10_imp_des_tib, Mat_CGN=stringr::str_remove(Seq_ID, 'cg') %>% stringr::str_remove('^0+') %>% as.double(),
               Mat_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
               Mat_CO=Methyl_Allele_CO_Strand) %>% dplyr::select(Seq_ID,Mat_CGN, Mat_TB, Mat_CO) %>% dplyr::arrange(Mat_CGN)
@@ -618,7 +768,7 @@ mm10_tar_des_tib <- dplyr::mutate(mm10_imp_des_tib, Mat_CGN=stringr::str_remove(
 #
 
 mm10_s48_cgn_tib <- dplyr::inner_join(
-  dplyr::distinct(mm10_s48_int_tib, Mat_CGN,Mat_TB,Mat_CO, .keep_all=TRUE) %>% dplyr::arrange(Mat_CGN),
+  dplyr::distinct(raw_s48_int_tib, Mat_CGN,Mat_TB,Mat_CO, .keep_all=TRUE) %>% dplyr::arrange(Mat_CGN),
   dplyr::mutate(mm10_des_tib, Mat_CGN=stringr::str_remove(Seq_ID, 'cg') %>% stringr::str_remove('^0+') %>% as.double(),
                 Mat_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
                 Mat_CO=Methyl_Allele_CO_Strand),
@@ -631,26 +781,26 @@ mm10_s48_cgn_tib %>% dplyr::group_by(Probe_Type.x) %>% dplyr::summarise(PT_Count
 
 
 mm10_s48_des_tib <- dplyr::inner_join(
-  dplyr::distinct(mm10_s48_int_tib, Mat_CGN,Mat_TB,Mat_CO, .keep_all=TRUE) %>% dplyr::arrange(Mat_CGN),
+  dplyr::distinct(raw_s48_int_tib, Mat_CGN,Mat_TB,Mat_CO, .keep_all=TRUE) %>% dplyr::arrange(Mat_CGN),
   dplyr::mutate(mm10_des_tib, Mat_CGN=stringr::str_remove(Seq_ID, 'cg') %>% stringr::str_remove('^0+') %>% as.double(),
                 Mat_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
                 Mat_CO=Methyl_Allele_CO_Strand),
   by=c("Mat_CGN"="Mat_CGN", "Mat_TB","Mat_CO"))
 
 mm10_s48_des_tib %>% dplyr::group_by(Probe_Type.x) %>% dplyr::summarise(PT_Count=n())
-mm10_s48_int_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(PT_Count=n())
+raw_s48_int_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(PT_Count=n())
 
 # Some Stat summaries::
 #
-mm10_s48_int_tib %>% dplyr::filter(Mat_CGN==Seq_CGN) %>% dplyr::group_by(AQP) %>% dplyr::summarise(AQP_Count=n())
-mm10_s48_int_tib %>% dplyr::filter(Mat_CGN!=Seq_CGN) %>% dplyr::group_by(AQP) %>% dplyr::summarise(AQP_Count=n())
+raw_s48_int_tib %>% dplyr::filter(Mat_CGN==Seq_CGN) %>% dplyr::group_by(AQP) %>% dplyr::summarise(AQP_Count=n())
+raw_s48_int_tib %>% dplyr::filter(Mat_CGN!=Seq_CGN) %>% dplyr::group_by(AQP) %>% dplyr::summarise(AQP_Count=n())
 
 #
 # Split by matching and mis-matching 
 #
-mm10_s48_mat_tib <- mm10_s48_int_tib %>% dplyr::distinct(Seq_ID,U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>% dplyr::filter(!is.na(Seq_ID))
-mm10_s48_mis_tib <- full_man_tib %>% dplyr::anti_join(mm10_s48_mat_tib, by="Seq_ID")
-#                   full_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by="Mat_PrbA")
+mm10_s48_mat_tib <- raw_s48_int_tib %>% dplyr::distinct(Seq_ID,U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>% dplyr::filter(!is.na(Seq_ID))
+mm10_s48_mis_tib <- raw_man_tib %>% dplyr::anti_join(mm10_s48_mat_tib, by="Seq_ID")
+#                   raw_man_tib %>% dplyr::anti_join(raw_s48_int_tib, by="Mat_PrbA")
 
 
 
@@ -667,7 +817,7 @@ mm10_s48_mat_cnt <- mm10_s48_mat_tib %>% base::nrow()
 mm10_s48_mis_cnt <- mm10_s48_mis_tib %>% base::nrow()
 mm10_s48_sum_cnt <- mm10_s48_mat_cnt + mm10_s48_mis_cnt
 
-cat(glue::glue("[{par$prgmTag}]: Match={mm10_s48_org_cnt}={mm10_s48_sum_cnt}; mm10_s48_mat_cnt={mm10_s48_mat_cnt}, mm10_s48_mis_cnt={mm10_s48_mis_cnt}.{RET}"))
+cat(glue::glue("[{par$prgmTag}]: Match={raw_mat_cnt}={mm10_s48_sum_cnt}; mm10_s48_mat_cnt={mm10_s48_mat_cnt}, mm10_s48_mis_cnt={mm10_s48_mis_cnt}.{RET}"))
 
 mm10_s48_mat_tib %>% group_by(Probe_Type) %>% dplyr::summarise(Count=n())
 mm10_s48_mis_tib %>% group_by(Probe_Type) %>% dplyr::summarise(Count=n())
@@ -698,14 +848,14 @@ if (FALSE) {
   # mm10_cgn_cnt_tsv <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-counts.tsv.gz'
   # mm10_cgn_cnt_tib <- readr::read_tsv(mm10_cgn_cnt_tsv, col_names=mm10_cgn_cnt_col)
   # 
-  # mm10_s48_int_tib %>% mm10_s48_int_tib %>%
+  # raw_s48_int_tib %>% raw_s48_int_tib %>%
   #   dplyr::left_join(mm10_cgn_cnt_tib, by=c("Mat_CGN"="Seq_ID"))
   
   
   # Adjust mu and rp with with cg prefix::
   #
   if (FALSE) {
-    mm10_s48_int_tib <- mm10_s48_org_tib %>% dplyr::mutate(
+    raw_s48_int_tib <- mm10_s48_org_tib %>% dplyr::mutate(
       Seq_ID=dplyr::case_when(
         Probe_Type=='mu' ~ stringr::str_replace(Seq_ID, '^mu', 'cg'),
         TRUE ~ Seq_ID) ) %>% 
@@ -713,23 +863,23 @@ if (FALSE) {
     # dplyr::filter(Mat_CGN != Mat_Seq_ID)
     # dplyr::select(Mat_CGN, Mat_Seq_ID)
   } else {
-    mm10_s48_int_tib <- mm10_s48_org_tib %>%
+    raw_s48_int_tib <- mm10_s48_org_tib %>%
       dplyr::mutate(Mat_Seq_ID=stringr::str_remove(Seq_ID,'[a-zA-Z][a-zA-A]') %>% stringr::str_remove('^0+') %>% as.integer())
   }
   
-  # mm10_s48_int_tib %>% 
+  # raw_s48_int_tib %>% 
   #   dplyr::mutate(Mat_Seq_ID=stringr::str_remove(Seq_ID,'cg') %>% stringr::str_remove('^0+') %>% as.integer()) %>% 
   #   dplyr::select(Mat_CGN, Mat_Seq_ID)
   
   # Split by matching and mismatch Seq_ID
   #
-  mm10_s48_mat_tib <- mm10_s48_int_tib %>% dplyr::filter(Mat_CGN==Mat_Seq_ID) %>% dplyr::arrange(Seq_ID)
-  mm10_s48_mis_tib <- mm10_s48_int_tib %>% dplyr::filter(Mat_CGN!=Mat_Seq_ID) %>% dplyr::arrange(Seq_ID)
+  mm10_s48_mat_tib <- raw_s48_int_tib %>% dplyr::filter(Mat_CGN==Mat_Seq_ID) %>% dplyr::arrange(Seq_ID)
+  mm10_s48_mis_tib <- raw_s48_int_tib %>% dplyr::filter(Mat_CGN!=Mat_Seq_ID) %>% dplyr::arrange(Seq_ID)
   #  AND make a list of missing probes from original data::
-  mm10_s48_off_tib <- full_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by="Mat_PrbA")
+  mm10_s48_off_tib <- raw_man_tib %>% dplyr::anti_join(raw_s48_int_tib, by="Mat_PrbA")
   
   # QC Counts Matching::
-  mm10_s48_int_tib %>% base::nrow()
+  raw_s48_int_tib %>% base::nrow()
   mm10_s48_mat_tib %>% base::nrow()
   mm10_s48_mis_tib %>% base::nrow()
   mm10_s48_off_tib %>% base::nrow()
@@ -749,21 +899,21 @@ if (FALSE) {
   # MU Investigation:: This just verifies all the MU probes are found in their cg analogous matching codes::
   #
   if (FALSE) {
-    mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% base::nrow()
+    raw_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% base::nrow()
     mm10_s48_mat_tib %>% dplyr::filter(Probe_Type=='mu') %>% base::nrow()
     mm10_s48_mis_tib %>% dplyr::filter(Probe_Type=='mu') %>% base::nrow()
     
-    mm10_s48_mis_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::filter(Mat_CGN %in% mm10_s48_int_tib$Mat_CGN) %>% base::nrow()
-    mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::filter(Mat_CGN %in% mm10_s48_mis_tib$Mat_CGN) %>% base::nrow()
-    mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::anti_join(mm10_s48_mis_tib, by="Mat_CGN") %>% base::nrow()
+    mm10_s48_mis_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::filter(Mat_CGN %in% raw_s48_int_tib$Mat_CGN) %>% base::nrow()
+    raw_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::filter(Mat_CGN %in% mm10_s48_mis_tib$Mat_CGN) %>% base::nrow()
+    raw_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::anti_join(mm10_s48_mis_tib, by="Mat_CGN") %>% base::nrow()
     
     # True Unique::
-    mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN) %>% base::nrow()
+    raw_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN) %>% base::nrow()
     mm10_s48_mat_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN) %>% base::nrow()
     
-    mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN) %>% base::nrow()
-    mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN,Infinium_Design,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
-    mm10_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN,Infinium_Design,M,U,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
+    raw_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN) %>% base::nrow()
+    raw_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN,Infinium_Design,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
+    raw_s48_int_tib %>% dplyr::filter(Probe_Type=='mu') %>% dplyr::distinct(Mat_CGN,Infinium_Design,M,U,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
   }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1121,8 +1271,8 @@ if (FALSE) {
       stopifnot(adds_mis_cnt==0)
       
       add_mis_man_tib <- dplyr::bind_rows(
-        full_man_tib %>% dplyr::filter(! U %in% idat_add_vec),
-        full_man_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(! M %in% idat_add_vec)
+        raw_man_tib %>% dplyr::filter(! U %in% idat_add_vec),
+        raw_man_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(! M %in% idat_add_vec)
       )
       add_mis_ctl_tib <- dplyr::bind_rows(
         ses_ctl_tib %>% dplyr::filter(! U %in% idat_add_vec),
@@ -1260,20 +1410,20 @@ if (FALSE) {
     
     #
     # LAST POINT BEFORE RESTART: TBD:
-    #  - Validate designs for all probes on full_man_tib
+    #  - Validate designs for all probes on raw_man_tib
     #
     par$tbd_step <- FALSE
     if (par$tbd_step) {
       mm10_man_v1_matPrbCgn_tib <- dplyr::bind_rows(
-        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1", "Seq_ID")),
-        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2", "Seq_ID")) )
+        raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1", "Seq_ID")),
+        raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2", "Seq_ID")) )
       
       mm10_man_v1_matPrb_tib <- dplyr::bind_rows(
-        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
-        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+        raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
+        raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
       
       # Can't Anit-join until we remove the non Seq_ID matches::
-      # full_man_tib %>% dplyr::anti_join(mm10_man_v1_matPrb_tib, by='')
+      # raw_man_tib %>% dplyr::anti_join(mm10_man_v1_matPrb_tib, by='')
       mm10_man_v1_matPrb_tib 
       
       
@@ -1385,13 +1535,13 @@ if (FALSE) {
     if (FALSE) {
       # v1 improbe::
       mm10_man_v1_mat_tib <- dplyr::bind_rows(
-        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
-        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+        raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
+        raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
       
       # AL improbe::
       mm10_man_AL_mat_tib <- dplyr::bind_rows(
-        full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")),
-        full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+        raw_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")),
+        raw_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) )
       
       
       #
@@ -1408,18 +1558,18 @@ if (FALSE) {
       #
       # By the numbers::
       #
-      full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
-      full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
+      raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
+      raw_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
       
-      full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
-      full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
+      raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
+      raw_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
       
       
       #
       # Probe IDs that don't match::
       #
-      full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
-      full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
+      raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
+      raw_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
       
       
     }
@@ -1453,9 +1603,9 @@ if (FALSE) {
         Mat_Prb2=stringr::str_sub(UnMethyl_Probe_Sequence, 2,49) )
     
     # Join manifest probes and improbe based on Allele_A probe
-    # full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1"))
-    # full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2"))
-    # full_man_tib %>% dplyr::full_join(mm10_imp_AL_tib, by=c("Seq_ID"="Probe_ID") ) %>% 
+    # raw_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1"))
+    # raw_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2"))
+    # raw_man_tib %>% dplyr::full_join(mm10_imp_AL_tib, by=c("Seq_ID"="Probe_ID") ) %>% 
     #   dplyr::select(Seq_ID, PD, Address_A_Seq, Mat_Prb1, Mat_Prb2)
     
     
@@ -1522,7 +1672,7 @@ if (FALSE) {
   #                       Simplified Output Manifest::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  out_man_tib <- full_man_tib %>% 
+  out_man_tib <- raw_man_tib %>% 
     dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, 
                   AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
     dplyr::mutate(Version=opt$tar_version)
@@ -1678,11 +1828,11 @@ if (FALSE) {
     hits_ann_tib <- gene_ann_tib %>% dplyr::select(Probe_ID:DT, Probe_Chrom, Probe_Beg, Probe_End, Strand_FR) %>% dplyr::distinct() %>% 
       dplyr::add_count(Probe_ID, name='Aln_Count') %>% dplyr::arrange(-Aln_Count) %>% dplyr::distinct(Probe_ID, Aln_Count)
     
-    gene_man_tib <- full_man_tib %>% dplyr::inner_join(gene_ann_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
-    misA_man_tib <- full_man_tib %>% dplyr::anti_join(gene_ann_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
-    misB_man_tib <- gene_ann_tib %>% dplyr::anti_join(full_man_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
+    gene_man_tib <- raw_man_tib %>% dplyr::inner_join(gene_ann_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
+    misA_man_tib <- raw_man_tib %>% dplyr::anti_join(gene_ann_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
+    misB_man_tib <- gene_ann_tib %>% dplyr::anti_join(raw_man_tib, by="Probe_ID", suffix=c("_Man", "_Ann"))
     
-    # full_man_tib %>% dplyr::filter(stringr::str_starts( 'cg00065388' ) )
+    # raw_man_tib %>% dplyr::filter(stringr::str_starts( 'cg00065388' ) )
     
     
     #
