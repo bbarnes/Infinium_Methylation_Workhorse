@@ -131,7 +131,7 @@ if (args.dat[1]=='RStudio') {
   opt$version     <- 'B4'
   opt$version     <- 'S1'
   opt$version     <- 'S2'
-  opt$version     <- 'S4'
+  opt$version     <- 'S5'
   
   opt$frmt_original <- TRUE
   opt$frmt_original <- FALSE
@@ -381,255 +381,151 @@ cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
 opt$matFormat <- 'new'
 
+pqc_man_tib <- NULL
+aqp_man_tib <- NULL
+
+fix_pqc_man_tib <- NULL
+fix_aqp_man_tib <- NULL
+
 # 296724 x 18 - without filtering
 # 295796 x 18 - with filtering
-pqc_man_tib <- NULL
-pqc_man_tib <- decodeToManifestWrapper(
-  ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
-  platform=opt$platform, version=opt$version, 
-  matFormat=opt$matFormat,
-  pqcFormat='pqc',
-  full=par$retData, cleanAdds=TRUE,
-  verbose=opt$verbose,vt=2,tc=0,tt=pTracker)
-# Full AQP History=296724, AQP Ordered Unique=295796, delta=928.
-# Full AQP History=296724, AQP Ordered Unique=295796, delta=928.
+if (length(pqc_vec)!=0) {
+  pqc_man_tib <- decodeToManifestWrapper(
+    ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+    platform=opt$platform, version=opt$version,
+    matFormat=opt$matFormat,
+    pqcFormat='pqc',
+    full=par$retData, trim=TRUE,
+    verbose=opt$verbose,vt=2,tc=0,tt=pTracker)
+  fix_pqc_man_tib <- fixOrderProbeIDs(pqc_man_tib, verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
+}
 
 # -329221 x 18 - without filtering
 # -296174 x 18 - with filtering
-aqp_man_tib <- NULL
-aqp_man_tib <- decodeToManifestWrapper(
-  ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
-  platform=opt$platform, version=opt$version, 
-  matFormat=opt$matFormat,
-  pqcFormat='aqp',
-  full=par$retData, cleanAdds=TRUE,
-  verbose=opt$verbose,vt=2,tc=0,tt=pTracker)
-# Full AQP History=298565, AQP Ordered Unique=298552, delta=13.
-# Full AQP History=298565, AQP Ordered Unique=298552, delta=13.
-#
-# Lost in PQC::
-#  2756 = 298552-295796
-
-
-
-
-
-# Report what went missing::
-aqp_unq_man_tib <- aqp_man_tib %>% dplyr::anti_join(pqc_man_tib, by=c("M","U"))
-pqc_unq_man_tib <- pqc_man_tib %>% dplyr::anti_join(aqp_man_tib, by=c("M","U"))
-
-aqp_list <- rev(aqp_vec)
-names(aqp_list) <- base::basename(aqp_vec) %>% stringr::str_remove('.gz$') %>% stringr::str_remove('.txt$')
-aqp_tib <- lapply(aqp_list, readr::read_tsv, skip=7) %>% dplyr::bind_rows() %>%
-  dplyr::distinct(Address, Decode_Status)
-pqc_tib <- loadPQC(pqc_vec[1])
-
-
-dplyr::inner_join(
-  dplyr::left_join(aqp_unq_man_tib, pqc_tib, by=c("U"="Address")) %>% dplyr::select(U, Decode_Status) %>% dplyr::rename(Decode_Status_U=Decode_Status),
-  dplyr::left_join(aqp_unq_man_tib, pqc_tib, by=c("M"="Address")) %>% dplyr::select(M, Decode_Status) %>% dplyr::rename(Decode_Status_M=Decode_Status),
-  by=c("U","M")
-)
-
-aqp_unq_man_tib %>% dplyr::left_join(pqc_tib, by=c("M"="Address")) %>% 
-  dplyr::rename(Decode_Status_M=Decode_Status) %>%
-  dplyr::select(QC_A_Action,QC_B_Action,Decode_Status_M)
-
-
-#
-# Individual Investigation
-#
-ord_tib <- loadORD(ord_vec[1])
-mat_tib <- loadMAT(mat_vec[1])
-aqp_tib <- loadPQC(aqp_vec[1], format='aqp')
-pqc_tib <- loadPQC(pqc_vec[1], format='pqc')
-
-mat_tib %>% dplyr::left_join(aqp_tib, by="Address")
-mat_tib %>% dplyr::inner_join(aqp_tib, by="Address")
-mat_tib %>% dplyr::inner_join(pqc_tib, by="Address")
-
-
-mat_tib %>% dplyr::anti_join(aqp_tib, by="Address")
-
-
-
-
-
-
-
-
-opt$frmt_original <- FALSE
-isFull <- FALSE
-full_man_tib <- NULL
-ord_cnt <- length(ord_vec)
-for (idx in c(1:ord_cnt)) {
-  pqc_file <- pqc_vec[1]
-  if (is.null(opt$pqcs) || opt$useAQP) pqc_file <- aqp_vec[idx]
-  
-  full_man_tib <- full_man_tib %>% dplyr::bind_rows(
-    decodeToManifest(ord=ord_vec[idx], mat=mat_vec[idx], pqc=pqc_vec[1],
-                     platform=opt$platform, version=opt$version, round=idx,
-                     matFormat=matFormat, 
-                     full=isFull, cleanAdds=TRUE,
-                     verbose=opt$verbose,vt=2,tc=1,tt=pTracker)
-  )
+if (length(aqp_vec)!=0) {
+  aqp_man_tib <- decodeToManifestWrapper(
+    ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+    platform=opt$platform, version=opt$version, 
+    matFormat=opt$matFormat,
+    pqcFormat='aqp',
+    full=par$retData, trim=TRUE,
+    verbose=opt$verbose,vt=2,tc=0,tt=pTracker)
+  fix_aqp_man_tib <- fixOrderProbeIDs(aqp_man_tib, verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
 }
-pre_man_cnt  <- full_man_tib %>% base::nrow()
-full_man_tib <- full_man_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1)
-pos_man_cnt  <- full_man_tib %>% base::nrow()
-del_man_cnt  <- pre_man_cnt - pos_man_cnt
-cat(glue::glue("[{par$prgmTag}]: Full AQP History={pre_man_cnt}, AQP Ordered Unique={pos_man_cnt}, delta={del_man_cnt}.{RET}") )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-full_man_tib <- NULL
-if (!is.null(opt$pqcs)) {
-  cat(glue::glue("[{par$prgmTag}]: Running with PQC...{RET}") )
+# QC Sanity Checks for AQP/PQC if present::
+#
+if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
+  aqp_unq_man_tib <- aqp_man_tib %>% dplyr::anti_join(pqc_man_tib, by=c("M","U"))
+  pqc_unq_man_tib <- pqc_man_tib %>% dplyr::anti_join(aqp_man_tib, by=c("M","U"))
   
-  # 296,724 x 18 - without filtering
-  # 295,796 x 18 - with filtering
-  full_man_tib <- NULL
-  for (idx in c(1:ord_cnt)) {
-    pqc_file <- pqc_vec[1]
-    if (is.null(opt$pqcs) || opt$useAQP) pqc_file <- aqp_vec[idx]
+  aqp_list <- rev(aqp_vec)
+  names(aqp_list) <- base::basename(aqp_vec) %>% stringr::str_remove('.gz$') %>% stringr::str_remove('.txt$')
+  pqc_name <- base::basename(pqc_vec[1]) %>% stringr::str_remove('.gz$') %>% stringr::str_remove('.txt$')
+
+  aqp_unq_tib <- lapply(aqp_list, loadPQC, format='aqp', trim=TRUE) %>% dplyr::bind_rows(.id="AQP_Name") %>%
+    dplyr::select(Address,Decode_Status,AQP_Name) %>% dplyr::distinct(Address, .keep_all=TRUE) %>% dplyr::arrange(Address)
+  pqc_unq_tib <- loadPQC(pqc_vec[1], format='pqc', trim=TRUE) %>% dplyr::mutate(AQP_Name=pqc_name) %>% 
+    dplyr::distinct(Address, .keep_all=TRUE) %>% dplyr::arrange(Address)
+
+  # Conclusion:: All missing calls from PQC to AQP are 0 at the most recent AQP stage!!!
+  #  - This is what we want to see
+  pqc_unq_sum_tib <- dplyr::bind_rows(
+    pqc_unq_man_tib %>% dplyr::rename(Decode_Status_PQC=Decode_Status_A) %>%
+      dplyr::inner_join(aqp_unq_tib, by=c("U"="Address") ) %>% 
+      dplyr::select(Decode_Status_PQC,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>%
+      dplyr::mutate(Allele="U"),
+    pqc_unq_man_tib %>% dplyr::rename(Decode_Status_PQC=Decode_Status_A) %>%
+      dplyr::inner_join(aqp_unq_tib, by=c("M"="Address") ) %>% 
+      dplyr::select(Decode_Status_PQC,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>%
+      dplyr::mutate(Allele="M") )
+  
+  pqc_unq_mis_cnt <- pqc_unq_sum_tib %>% dplyr::filter(Decode_Status_PQC != 0 | Decode_Status != 0) %>% base::nrow()
+  if (pqc_unq_mis_cnt!=0) {
+    print(pqc_unq_sum_tib)
+    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed QC Sanity Check; pqc_unq_mis_cnt={pqc_unq_mis_cnt}"))
+  }
     
-    full_man_tib <- full_man_tib %>% dplyr::bind_rows(
-      decodeToManifest(ord=ord_vec[idx], mat=mat_vec[idx], pqc=pqc_vec[1],
-                       platform=opt$platform, version=opt$version, round=idx,
-                       matFormat=matFormat, 
-                       full=isFull, cleanAdds=TRUE,
-                       verbose=opt$verbose+10,vt=1,tc=3,tt=pTracker)
-    )
-  }
-  pre_man_cnt  <- full_man_tib %>% base::nrow()
-  full_man_tib <- full_man_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1)
-  pos_man_cnt  <- full_man_tib %>% base::nrow()
-  del_man_cnt  <- pre_man_cnt - pos_man_cnt
-  cat(glue::glue("[{par$prgmTag}]: Full AQP History={pre_man_cnt}, AQP Ordered Unique={pos_man_cnt}, delta={del_man_cnt}.{RET}") )
+  # Conclusion:: Need to investigate more; take away is that the AQP results will have failures
+  #  NOTE: its surprising how other tangos come up often... Implying Biziprobe has a ranked order of probes to use
+  aqp_unq_sum_tib <- aqp_unq_man_tib %>% 
+    dplyr::rename(Decode_Status_AQP=Decode_Status_A) %>%
+    dplyr::inner_join(pqc_unq_tib, by=c("U"="Address") ) %>% 
+    dplyr::select(Decode_Status_AQP,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
   
+  aqp_unq_mis_cnt <- aqp_unq_sum_tib %>% dplyr::filter(Decode_Status_AQP != 0 & Decode_Status != 0 & Decode_Status != 1 ) %>% base::nrow()
+  if (aqp_unq_mis_cnt!=0) {
+    print(pqc_unq_sum_tib)
+    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed QC Sanity Check; aqp_unq_mis_cnt={aqp_unq_mis_cnt}"))
+  }
+  cat(glue::glue("[{par$prgmTag}]: Passed all AQP/PQC Sanity Validation; ",
+                 "pqc_unq_mis_cnt={pqc_unq_mis_cnt}, aqp_unq_mis_cnt={aqp_unq_mis_cnt}.{RET}"))
+  
+  fix_man_sum_tib <- dplyr::full_join(
+    dplyr::group_by(fix_pqc_man_tib,Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop"),
+    dplyr::group_by(fix_aqp_man_tib,Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop"),
+    by="Probe_Type", suffix=c("_PQC","_AQP")) %>%
+    dplyr::mutate(Count_Dif=Count_AQP-Count_PQC)
+  fix_man_mis_cnt <- fix_man_sum_tib %>% dplyr::filter(Count_Dif<=0) %>% base::nrow()
+  
+  if (fix_man_mis_cnt>0) {
+    fix_man_sum_tib %>% print()
+    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed QC Sanity Check; PQC>AQP; fix_man_sum_tib={fix_man_sum_tib}"))
+  }
+  cat(glue::glue("[{par$prgmTag}]: Passed all QC Sanity Check; PQC>AQP Validation; ",
+                 "fix_man_sum_tib={fix_man_sum_tib}.{RET}{RET}"))
+}
+
+# Use the PQC manifest if not use AQP::
+#
+full_man_tib <- NULL
+if (length(pqc_vec)!=0) {
+  full_man_tib <- fix_pqc_man_tib
+} else if (length(aqp_vec)!=0) {
+  full_man_tib <- fix_aqp_man_tib
 } else {
-  cat(glue::glue("[{par$prgmTag}]: Running Non-PQC...{RET}") )
-
-  # 329,221 x 18 - without filtering
-  # 296,174 x 18 - with filtering
-  full_man_tib <- NULL
-  for (idx in c(1:ord_cnt)) {
-    full_man_tib <- full_man_tib %>% dplyr::bind_rows(
-      decodeToManifest(ord=ord_vec[idx], mat=mat_vec[idx], aqp=aqp_vec[idx],
-                       platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-                       original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=idx, AQP=idx)
-    )
-  }
-  pre_man_cnt  <- full_man_tib %>% base::nrow()
-  full_man_tib <- full_man_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1)
-  pos_man_cnt  <- full_man_tib %>% base::nrow()
-  del_man_cnt  <- pre_man_cnt - pos_man_cnt
-  cat(glue::glue("[{par$prgmTag}]: Full AQP History={pre_man_cnt}, AQP Ordered Unique={pos_man_cnt}, delta={del_man_cnt}.{RET}") )
-  
-  
+  stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
 }
-
-pqc_tib <- loadPQC(pqc=pqc_vec[1])
-# aqp_tib <- loadPQC(aqp=aqp_vec[1])
-
-#
-# INVESTIGATION PART:: this can be deleted
-#
-if (FALSE) {
-  full_man_tibA <- NULL
-  for (idx in c(1:ord_cnt)) {
-    full_man_tibA <- full_man_tibA %>% dplyr::bind_rows(
-      decodeToManifest(ord=ord_vec[idx], mat=mat_vec[idx], aqp=aqp_vec[idx],
-                       platform=opt$platform, version=opt$version, full=isFull, cleanAdds=TRUE,
-                       original=opt$frmt_original, verbose=opt$verbose) %>% dplyr::mutate(BP=idx, AQP=idx)
-    )
-  }
-  full_man_tib1 <- full_man_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1)
-  
-  # Check known case::
-  full_man_tib  %>% dplyr::filter(U==99706982) %>% as.data.frame()
-  full_man_tibA %>% dplyr::filter(U==99706982) %>% as.data.frame()
-  full_man_tib1 %>% dplyr::filter(U==99706982) %>% as.data.frame()
-  
-  # Check summary::
-  full_man_tib  %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
-  full_man_tibA %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
-  full_man_tib1 %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
-  
-  # Check counts::
-  full_man_tib %>% base::nrow()
-  full_man_tib %>% dplyr::distinct(U) %>% base::nrow()
-  full_man_tib %>% dplyr::distinct(U,AlleleA_Probe_Sequence) %>% base::nrow()
-  
-  full_man_tibA %>% base::nrow()
-  full_man_tibA %>% dplyr::distinct(U) %>% base::nrow()
-  full_man_tibA %>% dplyr::distinct(U,AlleleA_Probe_Sequence) %>% base::nrow()
-  
-  full_man_tib1 %>% base::nrow()
-  full_man_tib1 %>% dplyr::distinct(U) %>% base::nrow()
-  full_man_tib1 %>% dplyr::distinct(U,AlleleA_Probe_Sequence) %>% base::nrow()
-}
-
-#
-# Conclusion Use full_man_tib1 to ensure most recent PQC results!!!
-#
-# Should be zero below::
-#  full_man_tib %>% dplyr::add_count(U, name="U_Tango_Count") %>% dplyr::filter(U_Tango_Count!=1) %>% dplyr::arrange(U) 
-full_man_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
-
-mm10_non_tib <- fixOrderProbeIDs(full_non_tib, verbose=opt$verbose)
-mm10_man_tib <- fixOrderProbeIDs(full_man_tib, verbose=opt$verbose)
-mm10_man_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n()) %>% print()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               Format Infinium Methylation Standard Controls::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ses_ctl_tib <- NULL
-if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
-  org_ctl_tib <- suppressMessages(suppressWarnings(
-    readr::read_csv(opt$ctlCsv, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID"))
-  ))
-  
-  ses_ctl_tib <- org_ctl_tib %>% 
-    dplyr::mutate(Probe_ID=stringr::str_replace_all(Probe_ID, ' ','_')) %>% 
-    dplyr::mutate(Probe_ID=stringr::str_replace_all(Probe_ID, '-','_')) %>% 
-    dplyr::mutate(Probe_ID=stringr::str_replace_all(Probe_ID, '\\(', '')) %>% 
-    dplyr::mutate(Probe_ID=stringr::str_replace_all(Probe_ID, '\\)', '')) %>%
-    dplyr::rename(U=Address) %>%
-    dplyr::mutate(M=NA,DESIGN='II',col=NA,Probe_Source='IM_Controls',Next_Base=NA) %>%
-    dplyr::mutate(M=as.double(M), Probe_ID=paste('ctl',Probe_ID, sep='_')) %>%
-    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Probe_Source,Next_Base) %>%
-    dplyr::arrange(Probe_Type,Probe_ID)
+#
+# TBD:: Come back to this later...
+#
+if (FALSE) {
+  ses_ctl_tib <- NULL
+  if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv)) {
+    org_ctl_tib <- suppressMessages(suppressWarnings(
+      readr::read_csv(opt$ctlCsv, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID"))
+    ))
+    
+    ses_ctl_tib <- org_ctl_tib %>% 
+      dplyr::mutate(Probe_ID=stringr::str_replace_all(Probe_ID, ' ','_')) %>% 
+      dplyr::mutate(Probe_ID=stringr::str_replace_all(Probe_ID, '-','_')) %>% 
+      dplyr::mutate(Probe_ID=stringr::str_replace_all(Probe_ID, '\\(', '')) %>% 
+      dplyr::mutate(Probe_ID=stringr::str_replace_all(Probe_ID, '\\)', '')) %>%
+      dplyr::rename(U=Address) %>%
+      dplyr::mutate(M=NA,DESIGN='II',col=NA,Probe_Source='IM_Controls',Next_Base=NA) %>%
+      dplyr::mutate(M=as.double(M), Probe_ID=paste('ctl',Probe_ID, sep='_')) %>%
+      dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Probe_Source,Next_Base) %>%
+      dplyr::arrange(Probe_Type,Probe_ID)
+  }
+  ses_unq_ctl_tib <- dplyr::distinct(ses_ctl_tib, Probe_ID, .keep_all=TRUE)
 }
-ses_unq_ctl_tib <- dplyr::distinct(ses_ctl_tib, Probe_ID, .keep_all=TRUE)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Get improbe intersection::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Probe Info with Seq48U:
-#  Unix: /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz 
-#   imp_s48_tsv  <- '/Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz'
-#   imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U/prb48U-GRCh36-38-10--21092020.noHeader.tsv.gz')
-#   NOT Delete this:: imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10--21092020.noHeader.unique.prb48U-sorted.tsv.gz')
-# imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.sorted-seqU48.tsv.gz')
-
 imp_s48_tsv  <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.tsv.gz')
 int_s48_tsv  <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.full-join.tsv.gz', sep='.') )
 mm10_s48_tsv <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.tsv', sep='.') )
-mm10_s48_tib <- mm10_man_tib %>% dplyr::arrange(Mat_PrbA)
+mm10_s48_tib <- full_man_tib %>% dplyr::arrange(Mat_PrbA)
 mm10_s48_org_cnt <- mm10_s48_tib %>% dplyr::distinct(Seq_ID,U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>% base::nrow()
 
 readr::write_tsv(mm10_s48_tib, mm10_s48_tsv, col_names=FALSE)
@@ -673,8 +569,8 @@ mm10_s48_int_tib <- readr::read_tsv(int_s48_tsv, col_names=mm10_s48_int_col) %>%
 
 
 
-mm10_man_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n())
-mm10_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by=c("M","U") ) %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n())
+full_man_tib %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n())
+full_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by=c("M","U") ) %>% dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Count=n())
 
 
 
@@ -753,8 +649,8 @@ mm10_s48_int_tib %>% dplyr::filter(Mat_CGN!=Seq_CGN) %>% dplyr::group_by(AQP) %>
 # Split by matching and mis-matching 
 #
 mm10_s48_mat_tib <- mm10_s48_int_tib %>% dplyr::distinct(Seq_ID,U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>% dplyr::filter(!is.na(Seq_ID))
-mm10_s48_mis_tib <- mm10_man_tib %>% dplyr::anti_join(mm10_s48_mat_tib, by="Seq_ID")
-#                   mm10_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by="Mat_PrbA")
+mm10_s48_mis_tib <- full_man_tib %>% dplyr::anti_join(mm10_s48_mat_tib, by="Seq_ID")
+#                   full_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by="Mat_PrbA")
 
 
 
@@ -830,7 +726,7 @@ if (FALSE) {
   mm10_s48_mat_tib <- mm10_s48_int_tib %>% dplyr::filter(Mat_CGN==Mat_Seq_ID) %>% dplyr::arrange(Seq_ID)
   mm10_s48_mis_tib <- mm10_s48_int_tib %>% dplyr::filter(Mat_CGN!=Mat_Seq_ID) %>% dplyr::arrange(Seq_ID)
   #  AND make a list of missing probes from original data::
-  mm10_s48_off_tib <- mm10_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by="Mat_PrbA")
+  mm10_s48_off_tib <- full_man_tib %>% dplyr::anti_join(mm10_s48_int_tib, by="Mat_PrbA")
   
   # QC Counts Matching::
   mm10_s48_int_tib %>% base::nrow()
@@ -1225,8 +1121,8 @@ if (FALSE) {
       stopifnot(adds_mis_cnt==0)
       
       add_mis_man_tib <- dplyr::bind_rows(
-        mm10_man_tib %>% dplyr::filter(! U %in% idat_add_vec),
-        mm10_man_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(! M %in% idat_add_vec)
+        full_man_tib %>% dplyr::filter(! U %in% idat_add_vec),
+        full_man_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(! M %in% idat_add_vec)
       )
       add_mis_ctl_tib <- dplyr::bind_rows(
         ses_ctl_tib %>% dplyr::filter(! U %in% idat_add_vec),
@@ -1364,20 +1260,20 @@ if (FALSE) {
     
     #
     # LAST POINT BEFORE RESTART: TBD:
-    #  - Validate designs for all probes on mm10_man_tib
+    #  - Validate designs for all probes on full_man_tib
     #
     par$tbd_step <- FALSE
     if (par$tbd_step) {
       mm10_man_v1_matPrbCgn_tib <- dplyr::bind_rows(
-        mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1", "Seq_ID")),
-        mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2", "Seq_ID")) )
+        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1", "Seq_ID")),
+        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2", "Seq_ID")) )
       
       mm10_man_v1_matPrb_tib <- dplyr::bind_rows(
-        mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
-        mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
+        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
       
       # Can't Anit-join until we remove the non Seq_ID matches::
-      # mm10_man_tib %>% dplyr::anti_join(mm10_man_v1_matPrb_tib, by='')
+      # full_man_tib %>% dplyr::anti_join(mm10_man_v1_matPrb_tib, by='')
       mm10_man_v1_matPrb_tib 
       
       
@@ -1489,13 +1385,13 @@ if (FALSE) {
     if (FALSE) {
       # v1 improbe::
       mm10_man_v1_mat_tib <- dplyr::bind_rows(
-        mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
-        mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")),
+        full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) )
       
       # AL improbe::
       mm10_man_AL_mat_tib <- dplyr::bind_rows(
-        mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")),
-        mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) )
+        full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")),
+        full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) )
       
       
       #
@@ -1512,18 +1408,18 @@ if (FALSE) {
       #
       # By the numbers::
       #
-      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
-      mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
+      full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
+      full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% base::nrow()
       
-      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
-      mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
+      full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
+      full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% base::nrow()
       
       
       #
       # Probe IDs that don't match::
       #
-      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
-      mm10_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
+      full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb1")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
+      full_man_tib %>% dplyr::inner_join(mm10_imp_v1_tib, by=c("Mat_Prb"="Mat_Prb2")) %>% dplyr::filter(Seq_ID.x != Seq_ID.y) %>% as.data.frame()
       
       
     }
@@ -1557,9 +1453,9 @@ if (FALSE) {
         Mat_Prb2=stringr::str_sub(UnMethyl_Probe_Sequence, 2,49) )
     
     # Join manifest probes and improbe based on Allele_A probe
-    # mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1"))
-    # mm10_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2"))
-    # mm10_man_tib %>% dplyr::full_join(mm10_imp_AL_tib, by=c("Seq_ID"="Probe_ID") ) %>% 
+    # full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb1"))
+    # full_man_tib %>% dplyr::inner_join(mm10_imp_AL_tib, by=c("Mat_Prb"="Mat_Prb2"))
+    # full_man_tib %>% dplyr::full_join(mm10_imp_AL_tib, by=c("Seq_ID"="Probe_ID") ) %>% 
     #   dplyr::select(Seq_ID, PD, Address_A_Seq, Mat_Prb1, Mat_Prb2)
     
     
@@ -1626,7 +1522,7 @@ if (FALSE) {
   #                       Simplified Output Manifest::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  out_man_tib <- mm10_man_tib %>% 
+  out_man_tib <- full_man_tib %>% 
     dplyr::select(Probe_ID, M, U, DESIGN, COLOR_CHANNEL, col, Probe_Type, Probe_Source, Next_Base, 
                   AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>%
     dplyr::mutate(Version=opt$tar_version)
