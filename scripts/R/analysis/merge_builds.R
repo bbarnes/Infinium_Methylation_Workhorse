@@ -36,18 +36,21 @@ RET <- "\n"
 opt <- NULL
 par <- NULL
 
+# Illumina based directories::
+par$date    <- Sys.Date() %>% as.character()
 par$runMode <- ''
-par$macDir1 <- NULL
-par$macDir2 <- NULL
-par$lixDir  <- '/illumina/scratch/darkmatter'
+par$maxTest <- NULL
+par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation'
+par$macDir2 <- '/Users/bretbarnes/Documents'
 par$lixDir1 <- '/illumina/scratch/darkmatter'
-
-par$max_test <- NULL
+par$lixDir  <- '/illumina/scratch/darkmatter'
 
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'analysis'
 par$prgmTag <- 'merge_builds'
+cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
+
 
 # Predefined human sample sheet name::
 par$humanSampleSheetName <- 'humanSampleSheet.csv'
@@ -114,24 +117,21 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
-  # Illumina based directories::
-  par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation/tools'
-  par$macDir2 <- '/Users/bretbarnes/Documents/tools'
-  par$lixDir1 <- '/illumina/scratch/darkmatter'
   
-  par$runMode    <- args.dat[1]
-  cat(glue::glue("[{par$prgmTag}]: Local Run args.dat[1]={args.dat[1]}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: Local Run     runMode={par$runMode}.{RET}"))
+  if (dir.exists(par$macDir1)) par$topDir <- par$macDir1
+  if (dir.exists(par$macDir2)) par$topDir <- par$macDir2
+  if (dir.exists(par$lixDir1)) par$topDir <- par$lixDir1
+  if (dir.exists(par$lixDir))  par$topDir <- par$lixDir
   
-  if (dir.exists(par$macDir1)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation'
-  if (dir.exists(par$macDir2)) par$topDir <- '/Users/bretbarnes/Documents'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
-  if (dir.exists(par$macDir1)) par$macDir <- par$macDir1
-  if (dir.exists(par$macDir2)) par$macDir <- par$macDir2
+  par$runMode    <- args.dat[1]
+  cat(glue::glue("[{par$prgmTag}]: Local args.dat[1]={args.dat[1]}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local      runMode={par$runMode}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local       topDir={par$topDir}.{RET}"))
   
   # Default Parameters for local Mac::
-  par$srcDir     <- file.path(par$macDir, par$codeDir)
+  par$srcDir     <- file.path(par$topDir, 'tools', par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -141,8 +141,13 @@ if (args.dat[1]=='RStudio') {
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
+  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
+  
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/Anaconda2-2019.10-Linux-x86_64/bin/Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/Anaconda3-2019.10-Linux-x86_64/bin/Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/conda_4.6.8/bin/Rscript'
   
   #
   # End of local parameter definitions::
@@ -672,7 +677,7 @@ if (!pass_time_check) {
   system(cmd)
   
   # Testing::
-  # par$max_test <- 3
+  # par$maxTest <- 3
   
   #
   # TESTING::
@@ -714,7 +719,7 @@ if (!pass_time_check) {
   
   # Write Merged Call Files Tibble::
   if (opt$addPathsCall) {
-    call_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=par$max_test, outName=outName, outDir=opt$outDir, 
+    call_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=par$maxTest, outName=outName, outDir=opt$outDir, 
                                  chipName="Sentrix_Name", pathName="Calls_Path", joinNameA="Probe_ID",
                                  verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
     readr::write_csv(call_tib, opt$call_csv)
@@ -722,7 +727,7 @@ if (!pass_time_check) {
 
   # Write Merged Sset Files Tibble::
   if (opt$addPathsSset) {
-    sset_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=par$max_test, outName=outName, outDir=opt$outDir, 
+    sset_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=par$maxTest, outName=outName, outDir=opt$outDir, 
                                  chipName="Sentrix_Name", pathName="Ssets_Path", joinNameA="Probe_ID", joinNameB="Probe_Design",
                                  verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
     readr::write_csv(sset_tib, opt$sset_csv)

@@ -14,6 +14,79 @@ RET <- "\n"
 BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Modern improbe IO Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+isTibIMP = function(tib,
+                    verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'loadIMP'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_val <- FALSE
+  stime <- system.time({
+    
+    imp_col <- INIT_IMP_HEADER()
+    imp_key <- imp_col$cols %>% names()
+    sam_col <- tib %>% names()
+    
+    if (base::all.equal(imp_key,sam_col)) ret_val <- TRUE
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Matched Header={ret_val}, elapsed={etime}.{RET}{RET}"))
+  
+  ret_val
+}
+
+loadIMP = function(file, max=Inf, format=NULL, del='\t',
+                   verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'loadIMP'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    imp_col <- INIT_IMP_HEADER()
+    imp_key <- imp_col$cols %>% names()
+    sam_col <- utils::read.table(file, header=TRUE, sep=del, nrows=1) %>% names()
+    
+    if (max==Inf) {
+      if (base::all.equal(imp_key,sam_col)) {
+        ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, col_types = imp_col) ))
+      } else {
+        ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
+      }
+    } else {
+      if (!is.numeric(max)) {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: max must be an integer; max={max}!!!{RET}{RET}"))
+        return(ret_tib)
+      }
+      max <- as.integer(max)
+      
+      if (base::all.equal(imp_key,sam_col)) {
+        ret_tib <- suppressMessages(suppressWarnings( 
+          utils::read.table(file, header=TRUE, sep=del, nrows=max, colClasses=imp_col) )) %>% 
+          tibble::as_tibble() %>% dplyr::mutate(Chromosome=as.character(Chromosome))
+      } else {
+        ret_tib <- suppressMessages(suppressWarnings( 
+          utils::read.table(file, header=TRUE, sep=del, nrows=max) )) %>% tibble::as_tibble()
+      }
+    }
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Size={ret_cnt}, elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Bowtie Alignment Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -493,23 +566,34 @@ prbsToStrMUD = function(tib, mu='U', verbose=0,vt=5,tc=1,tt=NULL) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 # Function to design all probes from a generic tibble
-tib2prbs = function(tib, idsKey,prbKey,seqKey, 
+tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
+                    parallel=FALSE,del='_',
                     verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'tib2prbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; idsKey={idsKey}, prbKey={prbKey}, seqKey={seqKey}.{RET}"))
-
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; srd={srdStr}, ",
+                                  "idsKey={idsKey}, prbKey={prbKey}, seqKey={seqKey}.{RET}"))
+  
+  # Unambigous Source Design Sequence Strand
+  srd_vec <- stringr::str_split(srdStr, '', simplify=TRUE) %>% as.vector()
+  src_srd_str <- srd_vec[1]
+  src_srd_sym <- rlang::sym(src_srd_str)
+  cmp_srd_str <- srd_vec[2]
+  cmp_srd_sym <- rlang::sym(cmp_srd_str)
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     idsKey <- rlang::sym(idsKey)
     prbKey <- rlang::sym(prbKey)
     seqKey <- rlang::sym(seqKey)
-    # src_man_tib <- tib %>% dplyr::select(!!idsKey, !!prbKey, !!seqKey) %>% 
+    
     src_man_tib <- tib %>% dplyr::select(!!idsKey, !!prbKey, !!seqKey) %>% 
       dplyr::mutate(Seq_ID:=!!idsKey, PRB_DES:=!!prbKey)
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} src_man_tib(original)={RET}"))
     if (verbose>=vt+4) print(src_man_tib)
-
+    
     # Ensure we have 122 mer format 60[NN]60
     #  tib <- tib %>% 
     src_man_tib <- src_man_tib %>%
@@ -529,12 +613,12 @@ tib2prbs = function(tib, idsKey,prbKey,seqKey,
     #                      Calcluate Probes on All Strands::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     des_seq_F_C <- src_man_tib %>% 
-      dplyr::mutate(FR=TRUE, CO=TRUE, DesSeqN=shearBrac(!!seqKey))
+      dplyr::mutate(SR=TRUE, CO=TRUE, DesSeqN=shearBrac(!!seqKey))
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_F_C={RET}"))
     if (verbose>=vt+4) print(des_seq_F_C)
     
     des_seq_R_C <- des_seq_F_C %>% dplyr::mutate(
-      FR=!FR,CO=CO, DesSeqN=revCmp(DesSeqN) )
+      SR=!SR,CO=CO, DesSeqN=revCmp(DesSeqN) )
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_R_C={RET}"))
     if (verbose>=vt+4) print(des_seq_R_C)
     
@@ -553,8 +637,7 @@ tib2prbs = function(tib, idsKey,prbKey,seqKey,
     
     # BSC-Foward-Opposite::
     bsc_tibs$FO <- bsc_tibs$FC %>% dplyr::mutate(
-      FR=FR,CO=!CO, 
-      # DesSeqN=revCmp(DesSeqN),
+      SR=SR,CO=!CO,
       DesBscU=revCmp(DesBscU),
       DesBscM=revCmp(DesBscM),
       DesBscD=revCmp(DesBscD) )
@@ -567,8 +650,7 @@ tib2prbs = function(tib, idsKey,prbKey,seqKey,
     
     # BSC-Reverse-Opposite::
     bsc_tibs$RO <- bsc_tibs$RC %>% dplyr::mutate(
-      FR=FR,CO=!CO, 
-      # DesSeqN=revCmp(DesSeqN),
+      SR=SR,CO=!CO,
       DesBscU=revCmp(DesBscU),
       DesBscM=revCmp(DesBscM),
       DesBscD=revCmp(DesBscD) )
@@ -578,34 +660,41 @@ tib2prbs = function(tib, idsKey,prbKey,seqKey,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                    Build all Probes on Each Strand::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building probes for each strand...{RET}"))
     
-    prb_tibs <- NULL
-    if (FALSE && verbose>=vt+3) {
-      for (srd in names(bsc_tibs)) {
-        prb_tibs <- dplyr::bind_rows(
-          prb_tibs, lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
-                           verbose=verbose, vt=vt, tc=tc+1) %>% dplyr::bind_rows() )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building probes for each strand...{RET}"))
+    srd_names <- names(bsc_tibs)
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Strand Names={RET}"))
+    if (verbose>=vt+4) print(srd_names)
+    
+    if (parallel) {
+      ret_tib <- foreach (srd=srd_names, .combine=rbind) %dopar% {
+        lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
+               verbose=verbose, vt=vt+1, tc=tc+1) %>% dplyr::bind_rows()
       }
     } else {
-      prb_tibs <- foreach (srd=names(bsc_tibs), .combine=rbind) %dopar% {
-        lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
-               verbose=verbose, vt=vt, tc=tc+1) %>% dplyr::bind_rows()
+      for (srd in srd_names) {
+        ret_tib <- ret_tib %>% dplyr::bind_rows(
+          lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
+                 verbose=verbose, vt=vt+1, tc=tc+1) %>% dplyr::bind_rows() )
       }
     }
     
     # Update Key::
-    prb_tibs <- prb_tibs %>% dplyr::mutate(
-      FR_Str=case_when(FR ~ 'F', TRUE ~ 'R'),
-      CO_Str=case_when(CO ~ 'C', TRUE ~ 'O'),
-      Seq_ID_Uniq=paste(Seq_ID, FR_Str,CO_Str, sep='_')
+    ret_tib <- ret_tib %>% dplyr::mutate(
+      SR_Str=case_when(SR ~ src_srd_str, !SR ~ cmp_srd_str, TRUE ~ NA_character_),
+      CO_Str=case_when(CO ~ 'C', !CO ~ 'O', TRUE ~ NA_character_),
+      Seq_ID_Uniq=paste(Seq_ID,SR_Str,CO_Str, sep=del)
     )
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
-
-  prb_tibs
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
 }
 
 # Function to design all probes in a single call
@@ -613,14 +702,27 @@ desAllPrbs = function(tib, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'desAllPrbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  fr <- tib %>% dplyr::distinct(FR) %>% base::as.logical()
-  co <- tib %>% dplyr::distinct(CO) %>% base::as.logical()
-  pr <- tib %>% dplyr::distinct(PRB_DES) %>% base::as.character()
-
-  dplyr::bind_rows(tib %>% 
-                     des2prbs(fwd=fr, con=co, pr=pr, mu='U', desSeq='DesBscU', verbose=verbose, vt=vt, tc=tc+1) %>%
-                     des2prbs(fwd=fr, con=co, pr=pr, mu='M', desSeq='DesBscM', verbose=verbose, vt=vt, tc=tc+1) %>%
-                     des2prbs(fwd=fr, con=co, pr=pr, mu='D', desSeq='DesBscD', verbose=verbose, vt=vt, tc=tc+1) )
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    fr <- tib %>% dplyr::distinct(SR) %>% base::as.logical()
+    co <- tib %>% dplyr::distinct(CO) %>% base::as.logical()
+    pr <- tib %>% dplyr::distinct(PRB_DES) %>% base::as.character()
+    
+    ret_tib <- dplyr::bind_rows(tib %>% 
+                       des2prbs(fwd=fr, con=co, pr=pr, mu='U', desSeq='DesBscU', verbose=verbose, vt=vt, tc=tc+1) %>%
+                       des2prbs(fwd=fr, con=co, pr=pr, mu='M', desSeq='DesBscM', verbose=verbose, vt=vt, tc=tc+1) %>%
+                       des2prbs(fwd=fr, con=co, pr=pr, mu='D', desSeq='DesBscD', verbose=verbose, vt=vt, tc=tc+1) )
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
 }
 
 # Function to design probes from single design strand and orientations::
@@ -959,6 +1061,9 @@ loadManifestYH = function(file, pr='ch',
   cph_man_tib
 }                          
 
+#
+# TBD:: This function should probably be deprecated::
+#
 loadImprobeDesign = function(file=NULL, src_des_tib=NULL, 
                              verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'loadImprobeDesign'
@@ -1426,109 +1531,92 @@ tr = function(x, old, new) {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     Improbe Full Design Loading IO::
+#                     Improbe Header Mapping Structure::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-loadIMP = function(file, format=NULL,                    
-                       verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'loadIMP'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
+INIT_IMP_HEADER = function() {
+  IMP_TYPES = cols(
+    Seq_ID = col_character(),
+    Forward_Sequence = col_character(),
+    Genome_Build = col_character(),
+    Chromosome = col_character(),
+    Coordinate = col_double(),
+    Design_State = col_character(),
+    Seq_Length = col_double(),
+    Forward_CpG_Coord = col_double(),
+    TB_Strand = col_character(),
+    Top_Sequence = col_character(),
+    Top_CpG_Coord = col_double(),
+    Probe_Type = col_character(),
+    Probeset_ID = col_character(),
+    Probeset_Score = col_double(),
+    Methyl_Probe_ID = col_character(),
+    Methyl_Probe_Sequence = col_character(),
+    Methyl_Probe_Length = col_double(),
+    Methyl_Start_Coord = col_double(),
+    Methyl_End_Coord = col_double(),
+    Methyl_Probe_Covered_Top_Sequence = col_character(),
+    Methyl_Allele_FR_Strand = col_character(),
+    Methyl_Allele_TB_Strand = col_character(),
+    Methyl_Allele_CO_Strand = col_character(),
+    Methyl_Allele_Type = col_character(),
+    Methyl_Final_Score = col_double(),
+    Methyl_Tm = col_double(),
+    Methyl_Tm_Score = col_double(),
+    Methyl_GC_Percent = col_double(),
+    Methyl_GC_Score = col_double(),
+    Methyl_13mer_Count = col_double(),
+    Methyl_13mer_Score = col_double(),
+    Methyl_Address_Count = col_double(),
+    Methyl_Address_Score = col_double(),
+    Methyl_Self_Complementarity = col_double(),
+    Methyl_Self_Complementarity_Score = col_double(),
+    Methyl_Mono_Run = col_double(),
+    Methyl_Mono_Run_Score = col_double(),
+    Methyl_Ectopic_Count = col_double(),
+    Methyl_Ectopic_Score = col_double(),
+    Methyl_Underlying_CpG_Count = col_double(),
+    Methyl_Underlying_CpG_Min_Dist = col_double(),
+    Methyl_Underlying_CpG_Score = col_double(),
+    Methyl_In_CpG_Island_Relaxed = col_logical(),
+    Methyl_CpG_Island_Score = col_double(),
+    Methyl_Next_Base = col_character(),
+    Methyl_Next_Base_Score = col_double(),
+    UnMethyl_Probe_ID = col_character(),
+    UnMethyl_Probe_Sequence = col_character(),
+    UnMethyl_Probe_Length = col_double(),
+    UnMethyl_Start_Coord = col_double(),
+    UnMethyl_End_Coord = col_double(),
+    UnMethyl_Probe_Covered_Top_Sequence = col_character(),
+    UnMethyl_Allele_FR_Strand = col_character(),
+    UnMethyl_Allele_TB_Strand = col_character(),
+    UnMethyl_Allele_CO_Strand = col_character(),
+    UnMethyl_Allele_Type = col_character(),
+    UnMethyl_Final_Score = col_double(),
+    UnMethyl_Tm = col_double(),
+    UnMethyl_Tm_Score = col_double(),
+    UnMethyl_GC_Percent = col_double(),
+    UnMethyl_GC_Score = col_double(),
+    UnMethyl_13mer_Count = col_double(),
+    UnMethyl_13mer_Score = col_double(),
+    UnMethyl_Address_Count = col_double(),
+    UnMethyl_Address_Score = col_double(),
+    UnMethyl_Self_Complementarity = col_double(),
+    UnMethyl_Self_Complementarity_Score = col_double(),
+    UnMethyl_Mono_Run = col_double(),
+    UnMethyl_Mono_Run_Score = col_double(),
+    UnMethyl_Ectopic_Count = col_double(),
+    UnMethyl_Ectopic_Score = col_double(),
+    UnMethyl_Underlying_CpG_Count = col_double(),
+    UnMethyl_Underlying_CpG_Min_Dist = col_double(),
+    UnMethyl_Underlying_CpG_Score = col_double(),
+    UnMethyl_In_CpG_Island_Relaxed = col_logical(),
+    UnMethyl_CpG_Island_Score = col_double(),
+    UnMethyl_Next_Base = col_character(),
+    UnMethyl_Next_Base_Score = col_double()
+  )
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- system.time({
-    
-    ret_tib <- readr::read_tsv(file, # guess_max=1000000)
-                               col_types = cols(
-                                 Seq_ID = col_character(),
-                                 Forward_Sequence = col_character(),
-                                 Genome_Build = col_character(),
-                                 Chromosome = col_character(),
-                                 Coordinate = col_double(),
-                                 Design_State = col_character(),
-                                 Seq_Length = col_double(),
-                                 Forward_CpG_Coord = col_double(),
-                                 TB_Strand = col_character(),
-                                 Top_Sequence = col_character(),
-                                 Top_CpG_Coord = col_double(),
-                                 Probe_Type = col_character(),
-                                 Probeset_ID = col_character(),
-                                 Probeset_Score = col_double(),
-                                 Methyl_Probe_ID = col_character(),
-                                 Methyl_Probe_Sequence = col_character(),
-                                 Methyl_Probe_Length = col_double(),
-                                 Methyl_Start_Coord = col_double(),
-                                 Methyl_End_Coord = col_double(),
-                                 Methyl_Probe_Covered_Top_Sequence = col_character(),
-                                 Methyl_Allele_FR_Strand = col_character(),
-                                 Methyl_Allele_TB_Strand = col_character(),
-                                 Methyl_Allele_CO_Strand = col_character(),
-                                 Methyl_Allele_Type = col_character(),
-                                 Methyl_Final_Score = col_double(),
-                                 Methyl_Tm = col_double(),
-                                 Methyl_Tm_Score = col_double(),
-                                 Methyl_GC_Percent = col_double(),
-                                 Methyl_GC_Score = col_double(),
-                                 Methyl_13mer_Count = col_double(),
-                                 Methyl_13mer_Score = col_double(),
-                                 Methyl_Address_Count = col_double(),
-                                 Methyl_Address_Score = col_double(),
-                                 Methyl_Self_Complementarity = col_double(),
-                                 Methyl_Self_Complementarity_Score = col_double(),
-                                 Methyl_Mono_Run = col_double(),
-                                 Methyl_Mono_Run_Score = col_double(),
-                                 Methyl_Ectopic_Count = col_double(),
-                                 Methyl_Ectopic_Score = col_double(),
-                                 Methyl_Underlying_CpG_Count = col_double(),
-                                 Methyl_Underlying_CpG_Min_Dist = col_double(),
-                                 Methyl_Underlying_CpG_Score = col_double(),
-                                 Methyl_In_CpG_Island_Relaxed = col_logical(),
-                                 Methyl_CpG_Island_Score = col_double(),
-                                 Methyl_Next_Base = col_character(),
-                                 Methyl_Next_Base_Score = col_double(),
-                                 UnMethyl_Probe_ID = col_character(),
-                                 UnMethyl_Probe_Sequence = col_character(),
-                                 UnMethyl_Probe_Length = col_double(),
-                                 UnMethyl_Start_Coord = col_double(),
-                                 UnMethyl_End_Coord = col_double(),
-                                 UnMethyl_Probe_Covered_Top_Sequence = col_character(),
-                                 UnMethyl_Allele_FR_Strand = col_character(),
-                                 UnMethyl_Allele_TB_Strand = col_character(),
-                                 UnMethyl_Allele_CO_Strand = col_character(),
-                                 UnMethyl_Allele_Type = col_character(),
-                                 UnMethyl_Final_Score = col_double(),
-                                 UnMethyl_Tm = col_double(),
-                                 UnMethyl_Tm_Score = col_double(),
-                                 UnMethyl_GC_Percent = col_double(),
-                                 UnMethyl_GC_Score = col_double(),
-                                 UnMethyl_13mer_Count = col_double(),
-                                 UnMethyl_13mer_Score = col_double(),
-                                 UnMethyl_Address_Count = col_double(),
-                                 UnMethyl_Address_Score = col_double(),
-                                 UnMethyl_Self_Complementarity = col_double(),
-                                 UnMethyl_Self_Complementarity_Score = col_double(),
-                                 UnMethyl_Mono_Run = col_double(),
-                                 UnMethyl_Mono_Run_Score = col_double(),
-                                 UnMethyl_Ectopic_Count = col_double(),
-                                 UnMethyl_Ectopic_Score = col_double(),
-                                 UnMethyl_Underlying_CpG_Count = col_double(),
-                                 UnMethyl_Underlying_CpG_Min_Dist = col_double(),
-                                 UnMethyl_Underlying_CpG_Score = col_double(),
-                                 UnMethyl_In_CpG_Island_Relaxed = col_logical(),
-                                 UnMethyl_CpG_Island_Score = col_double(),
-                                 UnMethyl_Next_Base = col_character(),
-                                 UnMethyl_Next_Base_Score = col_double()
-                               )
-    )
-    ret_cnt <- ret_tib %>% base::nrow()
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Size={ret_cnt}, elapsed={etime}.{RET}{RET}"))
-  
-  ret_tib
+  IMP_TYPES
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -2055,6 +2143,94 @@ INIT_IUPAC_EQ = function() {
 }
 IUPAC_EQ <- INIT_IUPAC_EQ()
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Temp Code to be deleted::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  ret_tib <- readr::read_tsv(file, # guess_max=1000000)
+                             col_types = cols(
+                               Seq_ID = col_character(),
+                               Forward_Sequence = col_character(),
+                               Genome_Build = col_character(),
+                               Chromosome = col_character(),
+                               Coordinate = col_double(),
+                               Design_State = col_character(),
+                               Seq_Length = col_double(),
+                               Forward_CpG_Coord = col_double(),
+                               TB_Strand = col_character(),
+                               Top_Sequence = col_character(),
+                               Top_CpG_Coord = col_double(),
+                               Probe_Type = col_character(),
+                               Probeset_ID = col_character(),
+                               Probeset_Score = col_double(),
+                               Methyl_Probe_ID = col_character(),
+                               Methyl_Probe_Sequence = col_character(),
+                               Methyl_Probe_Length = col_double(),
+                               Methyl_Start_Coord = col_double(),
+                               Methyl_End_Coord = col_double(),
+                               Methyl_Probe_Covered_Top_Sequence = col_character(),
+                               Methyl_Allele_FR_Strand = col_character(),
+                               Methyl_Allele_TB_Strand = col_character(),
+                               Methyl_Allele_CO_Strand = col_character(),
+                               Methyl_Allele_Type = col_character(),
+                               Methyl_Final_Score = col_double(),
+                               Methyl_Tm = col_double(),
+                               Methyl_Tm_Score = col_double(),
+                               Methyl_GC_Percent = col_double(),
+                               Methyl_GC_Score = col_double(),
+                               Methyl_13mer_Count = col_double(),
+                               Methyl_13mer_Score = col_double(),
+                               Methyl_Address_Count = col_double(),
+                               Methyl_Address_Score = col_double(),
+                               Methyl_Self_Complementarity = col_double(),
+                               Methyl_Self_Complementarity_Score = col_double(),
+                               Methyl_Mono_Run = col_double(),
+                               Methyl_Mono_Run_Score = col_double(),
+                               Methyl_Ectopic_Count = col_double(),
+                               Methyl_Ectopic_Score = col_double(),
+                               Methyl_Underlying_CpG_Count = col_double(),
+                               Methyl_Underlying_CpG_Min_Dist = col_double(),
+                               Methyl_Underlying_CpG_Score = col_double(),
+                               Methyl_In_CpG_Island_Relaxed = col_logical(),
+                               Methyl_CpG_Island_Score = col_double(),
+                               Methyl_Next_Base = col_character(),
+                               Methyl_Next_Base_Score = col_double(),
+                               UnMethyl_Probe_ID = col_character(),
+                               UnMethyl_Probe_Sequence = col_character(),
+                               UnMethyl_Probe_Length = col_double(),
+                               UnMethyl_Start_Coord = col_double(),
+                               UnMethyl_End_Coord = col_double(),
+                               UnMethyl_Probe_Covered_Top_Sequence = col_character(),
+                               UnMethyl_Allele_FR_Strand = col_character(),
+                               UnMethyl_Allele_TB_Strand = col_character(),
+                               UnMethyl_Allele_CO_Strand = col_character(),
+                               UnMethyl_Allele_Type = col_character(),
+                               UnMethyl_Final_Score = col_double(),
+                               UnMethyl_Tm = col_double(),
+                               UnMethyl_Tm_Score = col_double(),
+                               UnMethyl_GC_Percent = col_double(),
+                               UnMethyl_GC_Score = col_double(),
+                               UnMethyl_13mer_Count = col_double(),
+                               UnMethyl_13mer_Score = col_double(),
+                               UnMethyl_Address_Count = col_double(),
+                               UnMethyl_Address_Score = col_double(),
+                               UnMethyl_Self_Complementarity = col_double(),
+                               UnMethyl_Self_Complementarity_Score = col_double(),
+                               UnMethyl_Mono_Run = col_double(),
+                               UnMethyl_Mono_Run_Score = col_double(),
+                               UnMethyl_Ectopic_Count = col_double(),
+                               UnMethyl_Ectopic_Score = col_double(),
+                               UnMethyl_Underlying_CpG_Count = col_double(),
+                               UnMethyl_Underlying_CpG_Min_Dist = col_double(),
+                               UnMethyl_Underlying_CpG_Score = col_double(),
+                               UnMethyl_In_CpG_Island_Relaxed = col_logical(),
+                               UnMethyl_CpG_Island_Score = col_double(),
+                               UnMethyl_Next_Base = col_character(),
+                               UnMethyl_Next_Base_Score = col_double()
+                             )
+  )
+}
 
 
 # End of file

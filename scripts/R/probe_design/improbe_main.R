@@ -14,6 +14,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("data.table") ))
 
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
@@ -36,21 +37,34 @@ RET <- "\n"
 opt <- NULL
 par <- NULL
 
+# Illumina based directories::
+par$date    <- Sys.Date() %>% as.character()
+par$runMode <- ''
+par$maxTest <- NULL
+par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation'
+par$macDir2 <- '/Users/bretbarnes/Documents'
+par$lixDir1 <- '/illumina/scratch/darkmatter'
+par$lixDir  <- '/illumina/scratch/darkmatter'
+
 # Program Parameters::
+par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'probe_design'
 par$prgmTag <- 'improbe_main'
-
-# Illumina based directories::
-par$macDir  <- '/Users/bbarnes/Documents/CustomerFacing'
-par$lixDir  <- '/illumina/scratch/darkmatter/Projects/COVIC'
+cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Directory Parameters::
 opt$outDir    <- NULL
 opt$buildDir  <- NULL
 
 # Run Parameters::
-opt$runName   <- NULL
+opt$max        <- Inf
+opt$runName    <- NULL
 opt$improbeTSV <- NULL
+opt$probe_type <- 'cg'
+opt$design_key <- 'Seq_ID'
+opt$design_seq <- 'Forward_Sequence'
+opt$design_prb <- 'Probe_Type'
+opt$design_srd <- NULL
 
 # Chip Platform and Version Parameters::
 opt$platform <- NULL
@@ -70,7 +84,7 @@ opt$percisionPval <- 6
 # Parallel/Cluster Options::
 opt$execute  <- TRUE
 opt$single   <- FALSE
-opt$parallel <- FALSE
+opt$parallel <- TRUE
 opt$cluster  <- FALSE
 
 # Make clean output
@@ -90,12 +104,20 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir)) par$topDir <- par$macDir
-  if (dir.exists(par$lixDir)) par$topDir <- par$lixDir
+  if (dir.exists(par$macDir1)) par$topDir <- par$macDir1
+  if (dir.exists(par$macDir2)) par$topDir <- par$macDir2
+  if (dir.exists(par$lixDir1)) par$topDir <- par$lixDir1
+  if (dir.exists(par$lixDir))  par$topDir <- par$lixDir
+  
+  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
+  
+  par$runMode    <- args.dat[1]
+  cat(glue::glue("[{par$prgmTag}]: Local args.dat[1]={args.dat[1]}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local      runMode={par$runMode}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local       topDir={par$topDir}.{RET}"))
   
   # Default Parameters for local Mac::
-  par$runMode    <- args.dat[1]
-  par$srcDir     <- file.path(par$topDir, 'workhorse')
+  par$srcDir     <- file.path(par$topDir, 'tools', par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -105,24 +127,42 @@ if (args.dat[1]=='RStudio') {
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
+  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
+  
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/Anaconda2-2019.10-Linux-x86_64/bin/Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/Anaconda3-2019.10-Linux-x86_64/bin/Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/conda_4.6.8/bin/Rscript'
+  
+  #
+  # End of local parameter definitions::
+  #
   
   opt$platform  <- 'EPIC'
   opt$version   <- 'C0'
 
+  opt$parallel <- TRUE
   opt$clean  <- TRUE
   opt$clean  <- FALSE
-  
-  opt$runName <- 'CpGs_UnivChicago_alldesigns_55860sites'
-  opt$improbeTSV  <- '/Users/bbarnes/Documents/CustomerFacing/CustomContent/data/CpGs_UnivChicago_alldesigns_55860sites.tsv.gz'
-  
-  # fin_sum_csv <- file.path(opt$outDir, paste(opt$runName, 'order.csv', sep='.') )
-  # fin_ord_csv <- file.path(opt$outDir, paste(opt$runName, 'order-summary.csv', sep='.') )
-  # des_ord_tsv <- file.path(opt$outDir, 'data', paste(opt$runName,'ForwardSequence.tsv.gz', sep='.') )
-  
-  opt$outDir <- file.path(par$topDir, par$prgmTag, 'CustomContent/CO.standard')
 
+  opt$max <- 10000
+  opt$design_key <- 'Seq_ID'
+  opt$design_seq <- 'Top_Sequence'
+  opt$design_seq <- 'Forward_Sequence'
+  
+  # opt$runName    <- 'improbe.test10'
+  # opt$improbeTSV <- file.path(par$topDir, 'tmp/test', paste(opt$runName,'tsv.gz', sep='.') )
+  
+  opt$runName    <- 'GRCm10-21092020'
+  opt$improbeTSV <- file.path(par$topDir,'data/improbe/designOutput_21092020',paste(opt$runName,'improbe-designOutput.tsv.gz', sep='_') )
+  
+  opt$outDir <- file.path(opt$outDir, opt$design_seq)
+  
+  if (opt$max != Inf) {
+    par$max_str <- paste('max',opt$max, sep='-')
+    opt$outDir <- file.path(opt$outDir, par$max_str)
+  }
 } else {
   par$runMode    <- 'CommandLine'
   par$exePath <- base::substring(args.dat[grep("--file=", args.dat)], 8)
@@ -143,10 +183,22 @@ if (args.dat[1]=='RStudio') {
     #             help="List of Build Directory [default= %default]", metavar="character"),
     
     # Run Parameters::
+    make_option(c("--max"), type="integer", default=opt$max,
+                help="Max number of records to read [default= %default]", metavar="integer"),
     make_option(c("--runName"), type="character", default=opt$runName, 
                 help="Run Name [default= %default]", metavar="character"),
     make_option(c("--improbeTSV"), type="character", default=opt$improbeTSV, 
                 help="Improbe Design Output (TSV) [default= %default]", metavar="character"),
+    make_option(c("--probe_type"), type="character", default=opt$probe_type, 
+                help="Improbe Design Probe Type (cg,ch,rs) [default= %default]", metavar="character"),
+    make_option(c("--design_key"), type="character", default=opt$design_key, 
+                help="Improbe Design Key Name (Seq_ID) [default= %default]", metavar="character"),
+    make_option(c("--design_seq"), type="character", default=opt$design_seq, 
+                help="Improbe Design Sequence Name (Forward_Sequence, Top_Sequence) [default= %default]", metavar="character"),
+    make_option(c("--design_prb"), type="character", default=opt$design_prb, 
+                help="Improbe Probe Design Type Name (Probe_Type) [default= %default]", metavar="character"),
+    make_option(c("--design_srd"), type="character", default=opt$design_srd, 
+                help="Improbe Design Sequence Strand Letters. If null will guess base on Design Sequence Name (FR,TB) [default= %default]", metavar="character"),
     
     # Chip Platform and Version Parameters::
     make_option(c("--platform"), type="character", default=opt$platform, 
@@ -215,7 +267,9 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
 }
 
 if (is.null(opt$outDir) || 
-    is.null(opt$runName) || is.null(opt$improbeTSV) ||
+    is.null(opt$runName) || is.null(opt$improbeTSV) || 
+    is.null(opt$probe_type) || 
+    is.null(opt$design_seq) || is.null(opt$design_key) || is.null(opt$design_prb) ||
     is.null(opt$platform) || is.null(opt$version) ||
     
     is.null(opt$minPrbScore) || is.null(opt$minCpgRank) || is.null(opt$minScrRank) ||
@@ -236,6 +290,10 @@ if (is.null(opt$outDir) ||
   # if (is.null(opt$buildDir))   cat(glue::glue("[Usage]: buildDirs is NULL!!!{RET}"))
   if (is.null(opt$runName))    cat(glue::glue("[Usage]: runName is NULL!!!{RET}"))
   if (is.null(opt$improbeTSV)) cat(glue::glue("[Usage]: improbeTSV is NULL!!!{RET}"))
+  if (is.null(opt$probe_type)) cat(glue::glue("[Usage]: probe_type is NULL!!!{RET}"))
+  if (is.null(opt$design_key)) cat(glue::glue("[Usage]: design_key is NULL!!!{RET}"))
+  if (is.null(opt$design_seq)) cat(glue::glue("[Usage]: design_seq is NULL!!!{RET}"))
+  if (is.null(opt$design_prb)) cat(glue::glue("[Usage]: design_prb is NULL!!!{RET}"))
   
   if (is.null(opt$platform)) cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
   if (is.null(opt$version))  cat(glue::glue("[Usage]: version is NULL!!!{RET}"))
@@ -278,17 +336,59 @@ if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Sou
 for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
 
+# Load All other function methods::
 par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
 if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
 for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
 
+# par$swt_src_dir <- file.path(par$scrDir, 'swifthoof/functions')
+# if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$swt_src_dir} does not exist!{RET}"))
+# for (sfile in list.files(path=par$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+# cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$swt_src_dir}!{RET}{RET}") )
+
+par$prb_src_dir <- file.path(par$scrDir, 'probe_design/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$prb_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
+
+# par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
+# if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
+# for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+# cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
+
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                      Example SNP Data for GenKnowMe::
+#                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+pTracker <- timeTracker$new(verbose=opt$verbose)
+
+strandCO_vec <- NULL
+cpgRank_vec  <- NULL
+scrRank_vec  <- NULL
+strandCO_vec <- opt$strandCO %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+cpgRank_vec  <- opt$minCpgRank %>% str_split(pattern=',', simplify=TRUE) %>% as.integer() %>% as.vector()
+scrRank_vec  <- opt$minScrRank %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
+
+des_key_sym  <- rlang::sym(opt$design_key)
+des_seq_sym  <- rlang::sym(opt$design_seq)
+des_prb_sym  <- rlang::sym(opt$design_prb)
+
 #
-# Workflow::
+# Guess Design SRD Pair if NULL
+#
+if (is.null(opt$design_srd)) {
+  if (opt$design_seq=='Forward_Sequence') opt$design_srd <- 'FR'
+  if (opt$design_seq=='Top_Sequence') opt$design_srd <- 'TB'
+}
+if (is.null(opt$design_srd))
+  stop(glue::glue("{RET}[{par$prgmTag}]: Design SRD is null; usually: FR,TB; ",
+                  "base on design_seq={opt$design_seq}!!!{RET}{RET}"))
+
+#
+# TBD:: Workflow:: ONLY FOR PRE-DESIGNS!!!
 #
 #  1. Format improbe inpute
 #  2. Run improbe
@@ -297,128 +397,143 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source
 #  5. Write order/annotation file
 #
 
-strandCO_vec <- opt$strandCO %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-cpgRank_vec  <- opt$minCpgRank %>% str_split(pattern=',', simplify=TRUE) %>% as.integer() %>% as.vector()
-scrRank_vec  <- opt$minScrRank %>% str_split(pattern=',', simplify=TRUE) %>% as.double() %>% as.vector()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         General Order CpGs Only::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ord_out_dir <- file.path(opt$outDir, 'orders')
-if (!dir.exists(ord_out_dir)) dir.create(ord_out_dir, recursive=TRUE)
-
-des_ord_tib <- suppressMessages(suppressWarnings( readr::read_tsv(opt$improbeTSV)) ) %>% 
-  dplyr::mutate(Probe_Type='cg')
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                Filter and Assign Optimal Design Type::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-des_scr_tib <- des_ord_tib %>% dplyr::select(Seq_ID,Forward_Sequence,Genome_Build,Chromosome,Coordinate,
-                              UnMethyl_Probe_Sequence,Methyl_Probe_Sequence, Probe_Type,
-                              UnMethyl_Final_Score,Methyl_Final_Score,Methyl_Underlying_CpG_Count,
-                              Methyl_Allele_FR_Strand,Methyl_Allele_TB_Strand,Methyl_Allele_CO_Strand) %>% 
-  dplyr::rename(Prb_Seq_IU_IMP=UnMethyl_Probe_Sequence,Prb_Seq_IM_IMP=Methyl_Probe_Sequence,
-                Prb_Scr_IU=UnMethyl_Final_Score,Prb_Scr_IM=Methyl_Final_Score,CpgCnt=Methyl_Underlying_CpG_Count,
-                FR_Str=Methyl_Allele_FR_Strand,TB_Str=Methyl_Allele_TB_Strand,CO_Str=Methyl_Allele_CO_Strand) %>%
-  dplyr::mutate(TB_Str=stringr::str_sub(TB_Str,1,1), Probe_ID=paste(Seq_ID, FR_Str,TB_Str,CO_Str, sep='_'), Prb_Scr_Min=pmin(Prb_Scr_IU,Prb_Scr_IM)) %>%
-  dplyr::select(Seq_ID,Probe_ID,everything()) %>%
-  dplyr::filter(Prb_Scr_Min>=opt$minPrbScore) %>% 
-  dplyr::filter(CO_Str %in% strandCO_vec) %>% 
-  dplyr::filter(Prb_Scr_Min>=opt$minPrbScore) %>%
-  dplyr::mutate(Design_Type=dplyr::case_when(
-    CpgCnt==cpgRank_vec[1] & Prb_Scr_Min>=scrRank_vec[1] ~ 'II', # CpgCnt == 3 & Prb_Scr >= 0.6
-    CpgCnt==cpgRank_vec[2] & Prb_Scr_Min>=scrRank_vec[2] ~ 'II', # CpgCnt == 2 & Prb_Scr >= 0.5
-    CpgCnt==cpgRank_vec[3] & Prb_Scr_Min>=scrRank_vec[3] ~ 'II', # CpgCnt == 1 & Prb_Scr >= 0.4
-    CpgCnt==cpgRank_vec[4] & Prb_Scr_Min>=scrRank_vec[4] ~ 'II', # CpgCnt == 0 & Prb_Scr >= 0.3
-    TRUE ~ 'I'
-  )) %>% dplyr::arrange(-Prb_Scr_Min, CpgCnt) %>% dplyr::distinct(Seq_ID, .keep_all=TRUE)
-
-des_scr_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: des_scr_tib={RET}"))
-if (opt$verbose>=4) print(des_scr_tib)
-if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
-
-des_fwd_tib <- des_scr_tib %>% dplyr::select(Seq_ID, Forward_Sequence, Probe_Type) %>%
-  dplyr::distinct(Seq_ID, .keep_all=TRUE)
+des_tar_tib <- 
+  loadIMP(file=opt$improbeTSV, max=opt$max, verbose=opt$verbose,tc=1,tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                            Design All Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-new_prb_tib <- tib2prbs(tib=des_fwd_tib, idsKey="Seq_ID", prbKey="Probe_Type", 
-                        seqKey="Forward_Sequence", verbose=opt$verbose)
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_prb_tib={RET}"))
-if (opt$verbose>=4) print(new_prb_tib)
-if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+seq_tar_tib <- dplyr::select(des_tar_tib, opt$design_key, opt$design_seq) %>% 
+  dplyr::distinct() %>% dplyr::mutate(!!des_prb_sym := opt$probe_type)
+
+new_prb_tib <- tib2prbs(tib=seq_tar_tib,
+                        idsKey=opt$design_key,
+                        seqKey=opt$design_seq,
+                        prbKey=opt$design_prb,
+                        srdStr=opt$design_srd, 
+                        parallel=opt$parallel,
+                        verbose=opt$verbose,tc=1,tt=pTracker)
+
+new_prb_tib %>% dplyr::group_by(SR,CO,SR_Str,CO_Str) %>% 
+  dplyr::summarise(Count=n(), .groups='drop') %>% print()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                  Match Probes by Strand to Top Picks::
+#                Filter and Assign Optimal Design Type::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c("Seq_ID","FR_Str","CO_Str") )
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: sel_prb_tib={RET}"))
-if (opt$verbose>=4) sel_prb_tib %>% print()
-if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+par$isIMP <- isTibIMP(des_tar_tib, verbose=opt$verbose,tc=1,tt=pTracker)
 
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: summary(sel_prb_tib)={RET}"))
-if (opt$verbose>=4) sel_prb_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
-if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
-
-sel_prb1_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='I')
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: summary(sel_prb_tib)={RET}"))
-
-sel_prb2_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='II')
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                           Format Order File::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: Formating orders...{RET}{RET}"))
-
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: sel_prb1_tib={RET}"))
-if (opt$verbose>=4) print(sel_prb1_tib)
-if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
-
-new_ord1_tib <- prbs2order(sel_prb1_tib, verbose=opt$verbose) %>% 
-  dplyr::bind_rows() %>% 
-  dplyr::filter(Valid_Design_Bool) %>% 
-  dplyr::select(Assay_Design_Id:Normalization_Bin) %>% dplyr::filter(Normalization_Bin!='C')
-
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord1_tib={RET}"))
-if (opt$verbose>=4) print(new_ord1_tib)
-if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
-
-new_ord2_tib <- prbs2order(sel_prb2_tib, verbose=opt$verbose) %>% 
-  dplyr::bind_rows() %>% 
-  dplyr::filter(Valid_Design_Bool) %>% 
-  dplyr::select(Assay_Design_Id:Normalization_Bin) %>% dplyr::filter(Normalization_Bin=='C')
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord2_tib={RET}"))
-if (opt$verbose>=4) print(new_ord2_tib)
-if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
-
-new_ord_tib <- dplyr::bind_rows(new_ord1_tib,new_ord2_tib) %>%
-  dplyr::arrange(Assay_Design_Id) %>%
-  dplyr::mutate(
-    AlleleB_Probe_Id=dplyr::case_when(
-      is.na(AlleleB_Probe_Id) ~ '',
-      TRUE ~ AlleleB_Probe_Id
-    ),
-    AlleleB_Probe_Sequence=dplyr::case_when(
-      is.na(AlleleB_Probe_Sequence) ~ '',
-      TRUE ~ AlleleB_Probe_Sequence
+if (par$isIMP) {
+  ord_out_dir <- file.path(opt$outDir, 'orders')
+  if (!dir.exists(ord_out_dir)) dir.create(ord_out_dir, recursive=TRUE)
+  
+  des_scr_tib <- des_tar_tib %>% dplyr::select(Seq_ID,!!opt$design_seq,Genome_Build,Chromosome,Coordinate,
+                                               UnMethyl_Probe_Sequence,Methyl_Probe_Sequence, Probe_Type,
+                                               UnMethyl_Final_Score,Methyl_Final_Score,Methyl_Underlying_CpG_Count,
+                                               Methyl_Allele_FR_Strand,Methyl_Allele_TB_Strand,Methyl_Allele_CO_Strand) %>% 
+    dplyr::rename(Prb_Seq_IU_IMP=UnMethyl_Probe_Sequence,Prb_Seq_IM_IMP=Methyl_Probe_Sequence,
+                  Prb_Scr_IU=UnMethyl_Final_Score,Prb_Scr_IM=Methyl_Final_Score,CpgCnt=Methyl_Underlying_CpG_Count,
+                  FR_Str=Methyl_Allele_FR_Strand,TB_Str=Methyl_Allele_TB_Strand,CO_Str=Methyl_Allele_CO_Strand) %>%
+    dplyr::mutate(TB_Str=stringr::str_sub(TB_Str,1,1), Probe_ID=paste(Seq_ID, FR_Str,TB_Str,CO_Str, sep='_'), Prb_Scr_Min=pmin(Prb_Scr_IU,Prb_Scr_IM)) %>%
+    dplyr::select(Seq_ID,Probe_ID,everything()) %>%
+    dplyr::filter(Prb_Scr_Min>=opt$minPrbScore) %>% 
+    dplyr::filter(CO_Str %in% strandCO_vec) %>% 
+    dplyr::filter(Prb_Scr_Min>=opt$minPrbScore) %>%
+    dplyr::mutate(Design_Type=dplyr::case_when(
+      CpgCnt==cpgRank_vec[1] & Prb_Scr_Min>=scrRank_vec[1] ~ 'II', # CpgCnt == 3 & Prb_Scr >= 0.6
+      CpgCnt==cpgRank_vec[2] & Prb_Scr_Min>=scrRank_vec[2] ~ 'II', # CpgCnt == 2 & Prb_Scr >= 0.5
+      CpgCnt==cpgRank_vec[3] & Prb_Scr_Min>=scrRank_vec[3] ~ 'II', # CpgCnt == 1 & Prb_Scr >= 0.4
+      CpgCnt==cpgRank_vec[4] & Prb_Scr_Min>=scrRank_vec[4] ~ 'II', # CpgCnt == 0 & Prb_Scr >= 0.3
+      TRUE ~ 'I'
+    )) %>% dplyr::arrange(-Prb_Scr_Min, CpgCnt) %>% dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  
+  des_scr_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: des_scr_tib={RET}"))
+  if (opt$verbose>=4) print(des_scr_tib)
+  if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+  
+  # des_fwd_tib <- des_scr_tib %>% dplyr::select(Seq_ID, !!opt$design_seq, Probe_Type) %>%
+  #   dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                  Match Probes by Strand to Top Picks::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  sel_prb_tib <- dplyr::inner_join(new_prb_tib,des_scr_tib, by=c(opt$design_key,"SR_Str"=paste(opt$design_srd,'Str',sep='_'),"CO_Str") )
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: sel_prb_tib={RET}"))
+  if (opt$verbose>=4) sel_prb_tib %>% print()
+  if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+  
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: summary(sel_prb_tib)={RET}"))
+  if (opt$verbose>=4) sel_prb_tib %>% dplyr::group_by(Design_Type) %>% dplyr::summarise(Count=n()) %>% print()
+  if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+  
+  sel_prb1_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='I')
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: summary(sel_prb_tib)={RET}"))
+  
+  sel_prb2_tib <- sel_prb_tib %>% dplyr::filter(Design_Type=='II')
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           Format Order File::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: Formating orders...{RET}{RET}"))
+  
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: sel_prb1_tib={RET}"))
+  if (opt$verbose>=4) print(sel_prb1_tib)
+  if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+  
+  new_ord1_tib <- prbs2order(sel_prb1_tib, verbose=opt$verbose) %>% 
+    dplyr::bind_rows() %>% 
+    dplyr::filter(Valid_Design_Bool) %>% 
+    dplyr::select(Assay_Design_Id:Normalization_Bin) %>% dplyr::filter(Normalization_Bin!='C')
+  
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord1_tib={RET}"))
+  if (opt$verbose>=4) print(new_ord1_tib)
+  if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+  
+  new_ord2_tib <- prbs2order(sel_prb2_tib, verbose=opt$verbose) %>% 
+    dplyr::bind_rows() %>% 
+    dplyr::filter(Valid_Design_Bool) %>% 
+    dplyr::select(Assay_Design_Id:Normalization_Bin) %>% dplyr::filter(Normalization_Bin=='C')
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord2_tib={RET}"))
+  if (opt$verbose>=4) print(new_ord2_tib)
+  if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+  
+  new_ord_tib <- dplyr::bind_rows(new_ord1_tib,new_ord2_tib) %>%
+    dplyr::arrange(Assay_Design_Id) %>%
+    dplyr::mutate(
+      AlleleB_Probe_Id=dplyr::case_when(
+        is.na(AlleleB_Probe_Id) ~ '',
+        TRUE ~ AlleleB_Probe_Id
+      ),
+      AlleleB_Probe_Sequence=dplyr::case_when(
+        is.na(AlleleB_Probe_Sequence) ~ '',
+        TRUE ~ AlleleB_Probe_Sequence
+      )
     )
-  )
-if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord_tib={RET}"))
-if (opt$verbose>=4) print(new_ord_tib)
-if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+  if (opt$verbose>=4) cat(glue::glue("[{par$prgmTag}]: new_ord_tib={RET}"))
+  if (opt$verbose>=4) print(new_ord_tib)
+  if (opt$verbose>=4) cat(glue::glue("{RET}{RET}"))
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                         Write Final Order File::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  new_ord_csv <- file.path(ord_out_dir, paste(opt$runName,'order.csv.gz', sep='.'))
+  readr::write_csv(new_ord_tib, new_ord_csv)
+} else {
+  prb_out_dir <- file.path(opt$outDir, 'probes')
+  if (!dir.exists(prb_out_dir)) dir.create(prb_out_dir, recursive=TRUE)
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                         Write Final Order File::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-new_ord_csv <- file.path(opt$outDir, paste(opt$runName,'order.csv.gz', sep='.'))
-readr::write_csv(new_ord_tib, new_ord_csv)
+  new_ord_csv <- file.path(prb_out_dir, paste(opt$runName,'probes.csv.gz', sep='.'))
+  readr::write_csv(new_prb_tib, new_ord_csv)
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
@@ -430,11 +545,11 @@ opt$time_csv <- file.path(opt$outDir, paste(par$prgmTag,'time-tracker.csv.gz', s
 
 opt_tib  <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
 par_tib  <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
-# time_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+time_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
 
 readr::write_csv(opt_tib, opt$opt_csv)
 readr::write_csv(par_tib, opt$par_csv)
-# readr::write_csv(time_tib, opt$time_csv)
+readr::write_csv(time_tib, opt$time_csv)
 
 sysTime <- Sys.time()
 cat(glue::glue("{RET}[{par$prgmTag}]: Finished(time={sysTime}){RET}{RET}"))

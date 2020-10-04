@@ -33,13 +33,17 @@ RET <- "\n"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Define Default Params and Options::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-par <- NULL
 opt <- NULL
+par <- NULL
 
+# Illumina based directories::
+par$date    <- Sys.Date() %>% as.character()
 par$runMode <- ''
-par$macDir1 <- NULL
-par$macDir2 <- NULL
-par$lixDir1 <- NULL
+par$maxTest <- NULL
+par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation'
+par$macDir2 <- '/Users/bretbarnes/Documents'
+par$lixDir1 <- '/illumina/scratch/darkmatter'
+par$lixDir  <- '/illumina/scratch/darkmatter'
 
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
@@ -91,24 +95,21 @@ opt$verbose <- 3
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
-  # Illumina based directories::
-  par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation/tools'
-  par$macDir2 <- '/Users/bretbarnes/Documents/tools'
-  par$lixDir1 <- '/illumina/scratch/darkmatter'
   
-  par$runMode    <- args.dat[1]
-  cat(glue::glue("[{par$prgmTag}]: Local Run args.dat[1]={args.dat[1]}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: Local Run     runMode={par$runMode}.{RET}"))
+  if (dir.exists(par$macDir1)) par$topDir <- par$macDir1
+  if (dir.exists(par$macDir2)) par$topDir <- par$macDir2
+  if (dir.exists(par$lixDir1)) par$topDir <- par$lixDir1
+  if (dir.exists(par$lixDir))  par$topDir <- par$lixDir
   
-  if (dir.exists(par$macDir1)) par$topDir <- '/Users/bbarnes/Documents/Projects/methylation'
-  if (dir.exists(par$macDir2)) par$topDir <- '/Users/bretbarnes/Documents'
   if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
   
-  if (dir.exists(par$macDir1)) par$macDir <- par$macDir1
-  if (dir.exists(par$macDir2)) par$macDir <- par$macDir2
+  par$runMode    <- args.dat[1]
+  cat(glue::glue("[{par$prgmTag}]: Local args.dat[1]={args.dat[1]}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local      runMode={par$runMode}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Local       topDir={par$topDir}.{RET}"))
   
   # Default Parameters for local Mac::
-  par$srcDir     <- file.path(par$macDir, par$codeDir)
+  par$srcDir     <- file.path(par$topDir, 'tools', par$codeDir)
   par$scrDir     <- file.path(par$srcDir, 'scripts')
   par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
   
@@ -118,11 +119,20 @@ if (args.dat[1]=='RStudio') {
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
-  opt$outDir <- file.path(par$topDir, 'scratch')
-  locIdatDir <- file.path(par$topDir, 'data/idats')
+  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
   
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/Anaconda2-2019.10-Linux-x86_64/bin/Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/Anaconda3-2019.10-Linux-x86_64/bin/Rscript'
+  if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/conda_4.6.8/bin/Rscript'
+  
+  #
+  # End of local parameter definitions::
+  #
+  
+  opt$outDir <- file.path(par$topDir, 'scratch')
+  locIdatDir <- file.path(par$topDir, 'data/idats')
   
   # Platform/Method Options::
   opt$genomeBuild <- 'mm10'
@@ -144,54 +154,52 @@ if (args.dat[1]=='RStudio') {
   opt$addControls <- TRUE
   opt$addManifest <- FALSE
   
-  opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
-
-  opt$ords <- paste(
-    file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP1.csv.gz'),
-    file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP2.csv.gz'),
-    file.path(opt$aqpDir, 'orders/mm10_LEGX_nonCpG_probes.Jan16-2020.order.csv.gz'),
-    file.path(opt$aqpDir, 'orders/LEGX_SpikeIn_Reorder-All-06052020.order.withHeader.csv.gz'),
-    sep=',')
-  
-  opt$mats <- paste(
-    file.path(opt$aqpDir, 'BP1/20420178_AQP1_LifeEpigen_BP1.txt.gz'),
-    file.path(opt$aqpDir, 'BP2/20420260_AQP1_LifeEpigen_BP2.txt.gz'),
-    file.path(opt$aqpDir, 'BP3/20420260_AQP2_LifeEpigen_BP2.txt.gz'),
-    file.path(opt$aqpDir, 'BP4/20455357_AQP1_LifeEpigen_BP4.txt.gz'),
-    sep=',')
-  
-  opt$aqps <- paste(
-    file.path(opt$aqpDir, 'AQP_Copy/BS0032527-AQP.txt.gz'),
-    file.path(opt$aqpDir, 'AQP_Copy/BS0032533-AQP.txt.gz'),
-    file.path(opt$aqpDir, 'AQP_Copy/BS0032545-AQP.txt.gz'),
-    file.path(opt$aqpDir, 'AQP_Copy/BS0032636-AQP.txt.gz'),
-    sep=',')
-  
-  opt$pqcs <- paste(
-    file.path(opt$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
-    sep=',')
-  
-  par$idatsTopDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
-  opt$idats <- paste(
-    file.path(par$idatsTopDir, '204637490002'),
-    sep=',')
-  
-  # ord_bp1_csv <- file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP1.csv.gz')
-  # ord_bp2_csv <- file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP2.csv.gz')
-  # ord_bp3_csv <- file.path(opt$aqpDir, 'orders/mm10_LEGX_nonCpG_probes.Jan16-2020.order.csv.gz')
-  # ord_bp4_csv <- file.path(opt$aqpDir, 'orders/LEGX_SpikeIn_Reorder-All-06052020.order.withHeader.csv.gz')
   #
-  # mat1_tsv <- file.path(opt$aqpDir, 'BP1/20420178_AQP1_LifeEpigen_BP1.txt.gz')
-  # mat2_tsv <- file.path(opt$aqpDir, 'BP2/20420260_AQP1_LifeEpigen_BP2.txt.gz')
-  # mat3_tsv <- file.path(opt$aqpDir, 'BP3/20420260_AQP2_LifeEpigen_BP2.txt.gz')
-  # mat4_tsv <- file.path(opt$aqpDir, 'BP4/20455357_AQP1_LifeEpigen_BP4.txt.gz')
+  # Pre-defined local options runTypes::
   #
-  # aqp1_tsv <- file.path(opt$aqpDir, 'AQP_Copy/BS0032527-AQP.txt.gz')
-  # aqp2_tsv <- file.path(opt$aqpDir, 'AQP_Copy/BS0032533-AQP.txt.gz')
-  # aqp3_tsv <- file.path(opt$aqpDir, 'AQP_Copy/BS0032545-AQP.txt.gz')
-  # aqp4_tsv <- file.path(opt$aqpDir, 'AQP_Copy/BS0032636-AQP.txt.gz')
-  #
-  # pqc_tsv <- file.path(opt$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz')
+  par$local_runType <- 'nzt'
+  par$local_runType <- 'covic'
+  par$local_runType <- 'mm10'
+  
+  if (par$local_runType=='mm10') {
+    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
+    
+    opt$ords <- paste(
+      file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP1.csv.gz'),
+      file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP2.csv.gz'),
+      file.path(opt$aqpDir, 'orders/mm10_LEGX_nonCpG_probes.Jan16-2020.order.csv.gz'),
+      file.path(opt$aqpDir, 'orders/LEGX_SpikeIn_Reorder-All-06052020.order.withHeader.csv.gz'),
+      sep=',')
+    
+    opt$mats <- paste(
+      file.path(opt$aqpDir, 'BP1/20420178_AQP1_LifeEpigen_BP1.txt.gz'),
+      file.path(opt$aqpDir, 'BP2/20420260_AQP1_LifeEpigen_BP2.txt.gz'),
+      file.path(opt$aqpDir, 'BP3/20420260_AQP2_LifeEpigen_BP2.txt.gz'),
+      file.path(opt$aqpDir, 'BP4/20455357_AQP1_LifeEpigen_BP4.txt.gz'),
+      sep=',')
+    
+    opt$aqps <- paste(
+      file.path(opt$aqpDir, 'AQP_Copy/BS0032527-AQP.txt.gz'),
+      file.path(opt$aqpDir, 'AQP_Copy/BS0032533-AQP.txt.gz'),
+      file.path(opt$aqpDir, 'AQP_Copy/BS0032545-AQP.txt.gz'),
+      file.path(opt$aqpDir, 'AQP_Copy/BS0032636-AQP.txt.gz'),
+      sep=',')
+    
+    opt$pqcs <- paste(
+      file.path(opt$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
+      sep=',')
+    
+    par$idatsTopDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
+    opt$idats <- paste(
+      file.path(par$idatsTopDir, '204637490002'),
+      sep=',')
+  } else if (par$local_runType=='covic') {
+    
+  } else if (par$local_runType=='nzt') {
+    
+  } else {
+    stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
+  }
   
   opt$runName <- paste(opt$genomeBuild,opt$platform,opt$version, sep='-')
   opt$outDir <- file.path(par$topDir, 'scratch')
@@ -525,24 +533,17 @@ if (FALSE) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 # TBD:: Not sure the difference between the first imp_unq_s48.tsv and the locMac one...
-#
 imp_unq_s48_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.tsv.gz')
 imp_unq_s48_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.locMac.tsv.gz')
 raw_int_s48_tsv <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.full-join.tsv.gz', sep='.') )
 raw_mat_s48_tsv <- file.path(opt$outDir, paste(opt$runName,'manifest.sesame-base.s48-sorted.tsv', sep='.') )
+
+# Write manifest unmethylated 48-mer sequences to file
+#
 readr::write_tsv(raw_man_tib, raw_mat_s48_tsv, col_names=FALSE)
 
-# Probe Info with Seq48U:
-#  gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz
+# Intersect manifest unmethylated 48-mer sequences with improbe design database seqU48-mers
 #
-# FULL JOIN COMMAND:: Single Line
-#  gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz | join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
-#
-# FULL JOIN COMMAND:: Split Line
-# gzip -dc /Users/bbarnes/Documents/Projects/methylation/NZT_Limitless/data/imDesignOutput/mm10/mm10.improbeDesignOutput.cgn-top-seqU-to-sequ48.sorted-sequ48.tsv.gz | \
-#  join -t $'\t' -14 -27 - /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.tsv | \
-#  gzip -c -> /Users/bbarnes/Documents/Projects/methylation/scratch/manifests/mm10-LEGX-cp/mm10_LEGX_cp.manifest.sesame-base.s48-sorted.full-join.tsv.gz
-
 run_join_cmd <- TRUE
 run_join_cmd <- FALSE
 if (!file.exists(raw_int_s48_tsv) || run_join_cmd) {
@@ -551,23 +552,168 @@ if (!file.exists(raw_int_s48_tsv) || run_join_cmd) {
   system(join_cmd)
 }
 
-# For completely missing ("off") source files::
-#
-#  unix: /illumina/scratch/darkmatter/Projects/LifeEpigenetics/data/designInputs/*
-#
-#  rs = /Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/Redesign/data/SNP/selected_SNP_probes.bed
+# Load intersection results::
 #
 raw_s48_int_col <- c("Mat_PrbA","Mat_CGN","Mat_TB","Mat_CO", names(dplyr::select(raw_man_tib,-Mat_PrbA)))
 raw_s48_int_tib <- readr::read_tsv(raw_int_s48_tsv, col_names=raw_s48_int_col, guess_max=100000) %>% 
   dplyr::mutate(Seq_CGN=stringr::str_remove(Seq_ID, '^[a-zA-Z]+') %>% stringr::str_remove('^0+') %>% as.double()) %>%
   add_count(Mat_CGN,Seq_CGN, name="Paired_Count")
 
-# Target Found Probes::
-raw_s48_int_tib %>% dplyr::select(Mat_PrbA,Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::distinct() %>% dplyr::arrange(Mat_CGN)
+#
+# Full improbe::
+#
+full_des_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz'
+# full_des_tib <- loadIMP(file=full_des_tsv,verbose=opt$verbose,vt=4,tc=0,tt=pTracker)
 
+# Write raw s48 matching CGN's to intersect with full improbe database::
+#
+cgn_imp_int_tsv <- file.path(opt$outDir, paste(opt$runName,'improbe-cgn.s48-sorted.full-join.tsv.gz', sep='.') )
+cgn_s48_tar_tsv <- file.path(opt$outDir, paste(opt$runName,'improbe-cgn.s48-sorted.tsv', sep='.') )
+cgn_s48_tar_tib <- raw_s48_int_tib %>% dplyr::mutate(Seq_ID_MAT=paste0('cg',stringr::str_pad(Mat_CGN,8,'left',pad='0')) ) %>% 
+  dplyr::distinct(Seq_ID_MAT) %>% dplyr::arrange(Seq_ID_MAT)
+readr::write_tsv(cgn_s48_tar_tib, cgn_s48_tar_tsv)
+
+# Intersect manifest unmethylated 48-mer matching CGN's with improbe design database::
+#
+run_sub_cmd <- TRUE
+run_sub_cmd <- FALSE
+if (!file.exists(cgn_imp_int_tsv) || run_sub_cmd) {
+  sub_exe <- '/Users/bretbarnes/Documents/scripts/subset/getSubset.simple.pl'
+  sub_cmd <- glue::glue("{sub_exe} -header -t {cgn_s48_tar_tsv} -d {full_des_tsv} | gzip -c -> {cgn_imp_int_tsv}")
+  cat(glue::glue("[{par$prgmTag}]: Running: cmd='{sub_cmd}'...{RET}{RET}") )
+  system(sub_cmd)
+}
+
+# Full Common::
+full_des_tib <- loadIMP(file=cgn_imp_int_tsv,verbose=opt$verbose,vt=4,tc=0,tt=pTracker)
+full_mat_tib <- full_des_tib %>%
+  dplyr::mutate(Mat_CGN=stringr::str_remove(Seq_ID,'^cg') %>% stringr::str_remove('^0+') %>% as.double(),
+                Mat_TB=stringr::str_sub(Methyl_Allele_TB_Strand, 1,1),
+                Mat_CO=Methyl_Allele_CO_Strand) %>% 
+  dplyr::select(Mat_CGN,Mat_TB,Mat_CO, everything())
+
+# Full Unique::
+top_unq_tib <- raw_man_tib %>% dplyr::distinct(Mat_PrbA,M,U,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
+
+# Join Data::
+full_int_tib <- full_mat_tib %>% dplyr::inner_join(raw_s48_int_tib, by=c("Mat_CGN","Mat_TB","Mat_CO"), suffix=c("_IMP","_DES"))
+
+full_int_tib %>% dplyr::filter(!is.na(Seq_ID_IMP)) %>% dplyr::filter(!is.na(Seq_ID_DES))
+full_int_tib %>% dplyr::filter(!is.na(Seq_ID_IMP)) %>% dplyr::filter(!is.na(Seq_ID_DES)) %>% dplyr::filter(Seq_ID_IMP == Seq_ID_DES) %>% dplyr::select(Seq_ID_IMP,Seq_ID_DES)
+full_int_tib %>% dplyr::filter(!is.na(Seq_ID_IMP)) %>% dplyr::filter(!is.na(Seq_ID_DES)) %>% dplyr::filter(Seq_ID_IMP != Seq_ID_DES) %>% dplyr::select(Seq_ID_IMP,Seq_ID_DES)
+
+full_int_rev_tib <- raw_s48_int_tib %>% dplyr::inner_join(full_mat_tib, by=c("Mat_CGN","Mat_TB","Mat_CO"), suffix=c("_DES","_IMP"))
+full_prb_inp_tib <- full_int_rev_tib %>% dplyr::select(Seq_ID_IMP,Top_Sequence) %>% dplyr::distinct() %>% 
+  dplyr::rename(Seq_ID=Seq_ID_IMP,Forward_Sequence=Top_Sequence) %>% dplyr::arrange(Seq_ID) %>% dplyr::mutate(Probe_Type='cg')
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Rebuild All Probes Designs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+opt$load_probes  <- FALSE
+opt$load_probes  <- TRUE
+full_prb_des_csv <- file.path(opt$outDir, paste(opt$runName,'full-all-strands-current-probes.csv.gz', sep='.') )
+if (opt$load_probes && file.exists(full_prb_des_csv)) {
+  full_prb_des_tib <- readr::read_csv(full_prb_des_csv)
+} else {
+  full_prb_des_tib <- tib2prbs(tib=full_prb_inp_tib, idsKey="Seq_ID", prbKey="Probe_Type", 
+                               seqKey="Forward_Sequence", verbose=opt$verbose+10)
+  
+  readr::write_csv(full_prb_des_tib,full_prb_des_csv)
+}
+raw_man_tib %>% dplyr::group_by(Probe_Type,Infinium_Design) %>% dplyr::summarise(Count=n())
+raw_man_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n())
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                Build Probe Matching Sequences for Comparison::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+full_prb_des_MAT_tib <- full_prb_des_tib %>% 
+  dplyr::mutate(PRB1_U_MAT=stringr::str_to_upper(PRB1_U),
+                PRB1_M_MAT=stringr::str_to_upper(PRB1_M),
+                PRB2_D_MAT=stringr::str_to_upper(PRB2_D),
+                TB_Str=dplyr::case_when(
+                  FR_Str=='F' ~ 'C', FR_Str=='R' ~ 'O', TRUE ~ NA_character_
+                )
+  )
+
+fin_inf1_tib <- dplyr::inner_join(raw_man_tib, full_prb_des_MAT_tib, 
+                                   by=c("AlleleA_Probe_Sequence"="PRB1_U_MAT","AlleleB_Probe_Sequence"="PRB1_M_MAT"),
+                                   suffix=c("_RAW","_DES"))
+fin_inf1_tib %>% dplyr::group_by(Probe_Type_RAW,Infinium_Design) %>% 
+  dplyr::summarise(Count=n(), .groups='drop') %>% print()
+
+fin_inf2_tib <- dplyr::inner_join(raw_man_tib,full_prb_des_MAT_tib, 
+                                  by=c("AlleleA_Probe_Sequence"="PRB2_D_MAT"), 
+                                  suffix=c("_RAW","_DES"))
+fin_inf2_tib %>% dplyr::group_by(Probe_Type_RAW,Infinium_Design) %>% 
+  dplyr::summarise(Count=n(), .groups='drop') %>% print()
+
+raw_man_tib %>% # dplyr::filter(Probe_Type=='cg') %>% 
+  dplyr::group_by(Probe_Type,Infinium_Design) %>% 
+  dplyr::summarise(Count=n(), .groups='drop') %>% print()
+
+fin_inf1_cnt <- fin_inf1_tib %>% base::nrow()
+fin_inf2_cnt <- fin_inf2_tib %>% base::nrow()
+raw_man_cnt  <- raw_man_tib  %>% base::nrow()
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Determine Matching and Mismatch Probes::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+mis_man_tib <- raw_man_tib %>% dplyr::anti_join(
+  dplyr::bind_rows(fin_inf1_tib,fin_inf2_tib),
+  by=c("M","U") )
+mis_sum_tib <- mis_man_tib %>% dplyr::group_by(Probe_Type) %>% 
+  dplyr::summarise(PT_Miss_Count=n(), .groups='drop')
+
+mat_man_tib <- raw_man_tib %>% dplyr::inner_join(
+  dplyr::bind_rows(fin_inf1_tib,fin_inf2_tib),
+  by=c("M","U") )
+mat_sum_tib <- mat_man_tib %>% dplyr::group_by(Probe_Type) %>% 
+  dplyr::summarise(PT_Miss_Count=n(), .groups='drop')
+
+
+
+#
+# TBD::
+#
+#   1. Modify improbe_main.R -> topSequence2probes.R
+#      - CGN -> TOP
+#      - Run on cluster...
+#
+#  2. Gather new databases
+#     - CHN -> TOP
+#     - RSN -> TOP
+#
+
+
+
+
+
+# For completely missing ("off") source files::
+#
+#  Source 1 : /Users/bretbarnes/Documents/tmp/LifeEpigentics/data/20190228_input_files
+#  Source 2 : /Users/bretbarnes/Documents/tmp/LifeEpigentics/Redesign/data/SNP/selected_SNP_probes.bed
+#  
+#
+#
+# Target Found Probes::
+#  raw_s48_int_tib %>% dplyr::select(Mat_PrbA,Mat_CGN,Mat_TB,Mat_CO) %>% dplyr::distinct() %>% dplyr::arrange(Mat_CGN)
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Format Probes::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+
+
+
+
+
+
+#
+# Most (Basic) Approach::
+#
 
 # Most Common::
-# most_des_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz'
 most_des_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.LEGX-core.tsv.gz'
 most_des_tib <- loadIMP(file=most_des_tsv,verbose=opt$verbose,vt=4,tc=0,tt=pTracker)
 
@@ -581,7 +727,7 @@ most_mat_tib <- most_des_tib %>%
 top_unq_tib <- raw_man_tib %>% dplyr::distinct(Mat_PrbA,M,U,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
 
 # Join Data::
-most_int_tib <-  most_mat_tib %>% dplyr::inner_join(raw_s48_int_tib, by=c("Mat_CGN","Mat_TB","Mat_CO"), suffix=c("_IMP","_DES"))
+most_int_tib <- most_mat_tib %>% dplyr::inner_join(raw_s48_int_tib, by=c("Mat_CGN","Mat_TB","Mat_CO"), suffix=c("_IMP","_DES"))
 
 most_int_tib %>% dplyr::filter(!is.na(Seq_ID_IMP)) %>% dplyr::filter(!is.na(Seq_ID_DES))
 most_int_tib %>% dplyr::filter(!is.na(Seq_ID_IMP)) %>% dplyr::filter(!is.na(Seq_ID_DES)) %>% dplyr::filter(Seq_ID_IMP == Seq_ID_DES) %>% dplyr::select(Seq_ID_IMP,Seq_ID_DES)
@@ -596,7 +742,7 @@ most_prb_inp_tib <- most_int_rev_tib %>% dplyr::select(Seq_ID_IMP,Top_Sequence) 
 #
 opt$load_probes  <- TRUE
 opt$load_probes  <- FALSE
-most_prb_des_csv <- file.path(opt$outDir, paste(opt$runName,'all-strands-current-probes.csv.gz', sep='.') )
+most_prb_des_csv <- file.path(opt$outDir, paste(opt$runName,'most-all-strands-current-probes.csv.gz', sep='.') )
 if (opt$load_probes && file.exists(most_prb_des_csv)) {
   most_prb_des_tib <- readr::read_csv(most_prb_des_csv)
 } else {
@@ -607,34 +753,61 @@ if (opt$load_probes && file.exists(most_prb_des_csv)) {
 }
 raw_man_tib %>% dplyr::group_by(Probe_Type,Infinium_Design) %>% dplyr::summarise(Count=n())
 
-
-# CURRENTLY HERE::
-
 #
 # Check if upper case makes a difference::
 #
 most_prb_des_MAT_tib <- most_prb_des_tib %>% 
   dplyr::mutate(PRB1_U_MAT=stringr::str_to_upper(PRB1_U),
                 PRB1_M_MAT=stringr::str_to_upper(PRB1_M),
-                PRB2_D_MAT=stringr::str_to_upper(PRB2_D))
+                PRB2_D_MAT=stringr::str_to_upper(PRB2_D),
+                TB_Str=dplyr::case_when(
+                  FR_Str=='F' ~ 'C', FR_Str=='R' ~ 'O', TRUE ~ NA_character_
+                )
+  )
 
-fin_inf1_tib <- raw_man_tib %>% 
-  dplyr::inner_join(most_prb_des_MAT_tib, by=c("AlleleA_Probe_Sequence"="PRB1_U_MAT","AlleleB_Probe_Sequence"="PRB1_M_MAT"),
-                    suffix=c("_RAW","_DES"))
+fin_inf1_tib <-  dplyr::inner_join(raw_man_tib, most_prb_des_MAT_tib, 
+                                   by=c("AlleleA_Probe_Sequence"="PRB1_U_MAT","AlleleB_Probe_Sequence"="PRB1_M_MAT"),
+                                   suffix=c("_RAW","_DES"))
 fin_inf1_tib %>% dplyr::group_by(Probe_Type_RAW,Infinium_Design) %>% 
   dplyr::summarise(Count=n(), .groups='drop') %>% print()
 
-fin_inf2_tib <- raw_man_tib %>% 
-  dplyr::inner_join(most_prb_des_MAT_tib, by=c("AlleleA_Probe_Sequence"="PRB2_D_MAT"), 
-                    suffix=c("_RAW","_DES"))
+fin_inf2_tib <- dplyr::inner_join(raw_man_tib,most_prb_des_MAT_tib, 
+                                  by=c("AlleleA_Probe_Sequence"="PRB2_D_MAT"), 
+                                  suffix=c("_RAW","_DES"))
 fin_inf2_tib %>% dplyr::group_by(Probe_Type_RAW,Infinium_Design) %>% 
   dplyr::summarise(Count=n(), .groups='drop') %>% print()
 
 raw_man_tib %>% dplyr::filter(Probe_Type=='cg') %>% dplyr::group_by(Probe_Type,Infinium_Design) %>% 
   dplyr::summarise(Count=n(), .groups='drop') %>% print()
 
+fin_inf1_cnt <- fin_inf1_tib %>% base::nrow()
+fin_inf2_cnt <- fin_inf2_tib %>% base::nrow()
+raw_man_cnt  <- raw_man_tib  %>% base::nrow()
+
+#
+# Determine non-matched probes
+#
+mis_man_tib <- raw_man_tib %>% dplyr::anti_join(
+  dplyr::bind_rows(fin_inf1_tib,fin_inf2_tib),
+  by=c("M","U") )
+mis_sum_tib <- mis_man_tib %>% dplyr::group_by(Probe_Type) %>% 
+  dplyr::summarise(PT_Miss_Count=n(), .groups='drop')
+
+mat_man_tib <- raw_man_tib %>% dplyr::inner_join(
+  dplyr::bind_rows(fin_inf1_tib,fin_inf2_tib),
+  by=c("M","U") )
+mat_sum_tib <- mat_man_tib %>% dplyr::group_by(Probe_Type) %>% 
+  dplyr::summarise(PT_Miss_Count=n(), .groups='drop')
+
+#
+# The two above should allow clear separation 
+#
 
 
+
+#
+# CURRENTLY HERE::
+#
 
 dplyr::filter(raw_man_tib, Probe_Type=='cg' & Infinium_Design==1) %>% 
   dplyr::anti_join(dplyr::filter(fin_inf1_tib, Probe_Type_DES=='cg' & Infinium_Design==1), 
