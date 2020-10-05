@@ -568,7 +568,7 @@ prbsToStrMUD = function(tib, mu='U', verbose=0,vt=5,tc=1,tt=NULL) {
 # Function to design all probes from a generic tibble
 tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
                     parallel=FALSE,del='_',
-                    verbose=0,vt=5,tc=1,tt=NULL) {
+                    verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'tib2prbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
