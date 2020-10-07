@@ -87,7 +87,7 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
       if (type=='cg' || type=='ch' || type=='rp') {
         cur_tib <- cur_tib %>% 
           dplyr::mutate(
-            Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_\\R1_N_\\$2') %>% stringr::str_remove_all('\\\\')
+            Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_\\$1_N_\\$2') %>% stringr::str_remove_all('\\\\')
           ) %>%
           tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE)
         

@@ -173,6 +173,9 @@ if (args.dat[1]=='RStudio') {
   opt$buildDbl    <- FALSE
   opt$buildModels <- FALSE
   
+  opt$buildDml    <- TRUE
+  opt$buildDbl    <- TRUE
+  
   opt$single   <- FALSE
   opt$cluster  <- FALSE
   opt$parallel <- FALSE
@@ -306,7 +309,8 @@ if (args.dat[1]=='RStudio') {
   }
   
   opt$single   <- TRUE
-
+  opt$single   <- FALSE
+  
   opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag, par$platform, par$version)
   opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
   
@@ -613,7 +617,7 @@ for (betaKey in lociBetaKey_vec) {
 #   }
 #   break
 # }
-      opt$clean <- FALSE
+      opt$clean <- TRUE
       
       betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
       pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
@@ -828,7 +832,7 @@ for (betaKey in lociBetaKey_vec) {
         }
       }
       
-      break
+      # break
       
       # To Do:: MVP
       #
@@ -867,23 +871,26 @@ for (betaKey in lociBetaKey_vec) {
       #
       # - What about beta values?
       #
-      dkfz_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/VA_MVP/analysis/DKFZ/swifthoof_DKFZ.AutoSampleSheet.csv.gz'
-      dkfz_ss_tib <- readr::read_csv(dkfz_ss_csv)
+      opt$isDKFZ <- FALSE
+      if (opt$isDKFZ) {
+        dkfz_ss_csv <- '/Users/bbarnes/Documents/Projects/methylation/VA_MVP/analysis/DKFZ/swifthoof_DKFZ.AutoSampleSheet.csv.gz'
+        dkfz_ss_tib <- readr::read_csv(dkfz_ss_csv)
+        
+        dkfz_ss_tib %>% dplyr::group_by(platformUsed,platVersUsed,Chip_Format,Bead_Pool) %>% 
+          dplyr::summarise(Total_Count=n(), 
+                           Pass_Negs_Cnt=count(Negs_Pass_0_Perc>=98, na.rm=TRUE),
+                           Pass_Poob_Cnt=count(Poob_Pass_0_Perc>=90, na.rm=TRUE),
+                           Pass_Negs_Per=round(100*Pass_Negs_Cnt/Total_Count,2),
+                           Pass_Poob_Per=round(100*Pass_Poob_Cnt/Total_Count,2) )
+        
+        sampleSheet_tib %>% dplyr::group_by(platformUsed,platVersUsed,Chip_Format,Bead_Pool,!!exp_sym) %>% 
+          dplyr::summarise(Total_Count=n(), 
+                           Pass_Negs_Cnt=count(Negs_Pass_0_Perc>=98, na.rm=TRUE),
+                           Pass_Poob_Cnt=count(Poob_Pass_0_Perc>=90, na.rm=TRUE),
+                           Pass_Negs_Per=round(100*Pass_Negs_Cnt/Total_Count,2),
+                           Pass_Poob_Per=round(100*Pass_Poob_Cnt/Total_Count,2) )
+      }
       
-      dkfz_ss_tib %>% dplyr::group_by(platformUsed,platVersUsed,Chip_Format,Bead_Pool) %>% 
-        dplyr::summarise(Total_Count=n(), 
-                         Pass_Negs_Cnt=count(Negs_Pass_0_Perc>=98, na.rm=TRUE),
-                         Pass_Poob_Cnt=count(Poob_Pass_0_Perc>=90, na.rm=TRUE),
-                         Pass_Negs_Per=round(100*Pass_Negs_Cnt/Total_Count,2),
-                         Pass_Poob_Per=round(100*Pass_Poob_Cnt/Total_Count,2) )
-
-      sampleSheet_tib %>% dplyr::group_by(platformUsed,platVersUsed,Chip_Format,Bead_Pool,!!exp_sym) %>% 
-        dplyr::summarise(Total_Count=n(), 
-                         Pass_Negs_Cnt=count(Negs_Pass_0_Perc>=98, na.rm=TRUE),
-                         Pass_Poob_Cnt=count(Poob_Pass_0_Perc>=90, na.rm=TRUE),
-                         Pass_Negs_Per=round(100*Pass_Negs_Cnt/Total_Count,2),
-                         Pass_Poob_Per=round(100*Pass_Poob_Cnt/Total_Count,2) )
-                         
       #
       # DKFZ has worse performance, but amazing actionablity
       #
@@ -953,7 +960,7 @@ for (betaKey in lociBetaKey_vec) {
         auto_ss_tib <- NULL
         for (merDir in mergeDirs_vec) {
           exp_source <- base::basename(merDir)
-          cur_ss_csv <- list.files(merDir, patter='_AutoSampleSheet.csv.gz', full.names=TRUE) %>% head(n=1)
+          cur_ss_csv <- list.files(merDir, pattern='_AutoSampleSheet.csv.gz', full.names=TRUE) %>% head(n=1)
           cur_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_ss_csv) )) %>% dplyr::mutate(!!exp_src_var:=exp_source)
           auto_ss_tib <- auto_ss_tib %>% dplyr::bind_rows(cur_ss_tib)
         }
