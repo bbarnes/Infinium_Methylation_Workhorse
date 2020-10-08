@@ -219,9 +219,9 @@ if (args.dat[1]=='RStudio') {
   # Pre-defined local options runTypes::
   #
   par$local_runType <- 'covic'
-  par$local_runType <- 'mm10'
   par$local_runType <- 'ctl_mvp'
-
+  par$local_runType <- 'mm10'
+  
   if (par$local_runType=='mm10') {
     par$runNameA  <- 'ILMN_mm10_betaTest_17082020'
     par$runNameB  <- 'VanAndel_mm10_betaTest_31082020'

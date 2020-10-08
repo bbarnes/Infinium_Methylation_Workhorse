@@ -134,6 +134,8 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating Sesame({method}){RET}"))
+  print(sset)
+  
   stime <- system.time({
     if (is.null(method)) stop(glue::glue("{RET}[{funcTag}]: ERROR: Missing method!!!{RET}{RET}"))
     else if (method=='open') sset <- sset %>% sesame::pOOBAH() %>% sesame::noob() %>% sesame::dyeBiasCorrTypeINorm()

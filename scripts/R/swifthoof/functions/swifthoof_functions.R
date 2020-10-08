@@ -210,7 +210,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ret$raw_sset <- raw_sset
       ret$raw_sset_tib <- raw_sset_tib
       ret$raw_call_tib <- raw_call_tib
-      # return(ret)
+      return(ret)
     }
     
     call_sum_tib <- callToSSheet(call=raw_call_tib, idx=0, key='raw', pre=call_sum_tib, 
@@ -228,7 +228,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ret$raw_call_tib <- raw_call_tib
       ret$call_sum_tib <- call_sum_tib
       ret$phen_sum_tib <- phen_sum_tib
-      # return(ret)
+      return(ret)
     }
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built RAW Data.{RET}"))
     

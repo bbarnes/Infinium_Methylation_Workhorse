@@ -235,7 +235,7 @@ if (args.dat[1]=='RStudio') {
   if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_'),  par$expChipNum)
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
-  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag, par$expRunStr)
+  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag, par$expRunStr, 'manifest-C1')
 
   par$retData  <- TRUE
   opt$single   <- TRUE
@@ -620,6 +620,9 @@ if (opt$cluster) {
     for (prefix in names(chipPrefixes)) {
       # par$retData <- TRUE
       # opt$verbose <- 30
+      
+      par$retData <- TRUE
+      opt$verbose <- opt$verbose+10
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=2)
 
