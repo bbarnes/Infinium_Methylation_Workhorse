@@ -726,21 +726,17 @@ mat_full_tib <- dplyr::bind_rows(mat_inf1_tib,mat_inf2_tib) %>%
                 Tango_CGN_Count,Tango_Count, dplyr::everything())
 
 # Summary Stats::
-#
 mat_full_tib %>% dplyr::group_by(Probe_Type,Tango_CGN_Count) %>% 
   dplyr::summarise(TC_Count=n(), .groups='drop') %>% print()
 
 unq_full_cnt <- mat_full_tib %>% dplyr::distinct(M,U) %>% base::nrow()
 
-fin_full_tib <- mat_full_tib %>% dplyr::arrange(-Tango_CGN_Count) %>% dplyr::distinct(M,U, .keep_all=TRUE) 
-fin_full_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(GCount=n(), .groups="drop")
+fin_full_tib <- mat_full_tib %>% 
+  dplyr::arrange(-Tango_CGN_Count) %>% dplyr::distinct(M,U, .keep_all=TRUE) 
 
-# Final version to start from here::
-#
-# fin_full_out_tib <- fin_full_tib %>%
-#   dplyr::select(Seq_ID, SR_Str,CO_Str,Infinium_Design, Rep_Num, Probe_Type, U,M,
-#                 AlleleA_Probe_Sequence, AlleleB_Probe_Sequence, NXB_D, Top_Sequence,
-#                 dplyr::everything()) %>% dplyr::arrange(Seq_ID)
+# Summary Stats::
+fin_full_tib %>% dplyr::group_by(Probe_Type) %>% 
+  dplyr::summarise(GCount=n(), .groups="drop") %>% print()
 
 if (FALSE) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
