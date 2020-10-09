@@ -25,11 +25,243 @@ RET <- "\n"
 #
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Standard Function Method::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+template_func = function(tib,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'template_func'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        AQP/PQC Workflow Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+reducedProbeMapping = function(man,
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'reducedProbeMapping'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
+                               platform, version, matFormat="new", sidx=2, plen=50,
+                               name=NULL, outDir=NULL, full=FALSE, trim=TRUE,
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'decodeAqpPqcWrapper'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    # Load PQC::
+    pqc_man_tib <- NULL
+    pqc_fix_tib <- NULL
+    if (!is.null(pqc_vec) && length(pqc_vec)!=0) {
+      pqc_man_tib <- decodeToManifestWrapper(
+        ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+        platform=platform, version=version,
+        matFormat=matFormat,
+        pqcFormat='pqc',
+        full=par$retData, trim=TRUE,
+        verbose=verbose,tc=0,tt=pTracker)
+      
+      # Add Probe Sequences for matching::
+      pqc_fix_tib <- 
+        fixOrderProbeIDs(pqc_man_tib, verbose=verbose,tc=0,tt=pTracker) %>%
+        addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,tc=0,tt=pTracker) %>%
+        dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+    }
+    
+    # Load AQP::
+    aqp_man_tib <- NULL
+    aqp_fix_tib <- NULL
+    if (!is.null(aqp_vec) && length(aqp_vec)!=0) {
+      aqp_man_tib <- decodeToManifestWrapper(
+        ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+        platform=platform, version=version, 
+        matFormat=matFormat,
+        pqcFormat='aqp',
+        full=par$retData, trim=TRUE,
+        verbose=verbose,tc=0,tt=pTracker)
+      
+      # Add Probe Sequences for matching::
+      aqp_fix_tib <- 
+        fixOrderProbeIDs(aqp_man_tib, verbose=verbose,tc=0,tt=pTracker) %>%
+        addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,tc=0,tt=pTracker) %>%
+        dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+    }
+    
+    # QC Sanity Checks for AQP/PQC if present::
+    qc_man_tib  <- NULL
+    if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
+      qc_man_tib <- AQP_PQC_QC(aqp=aqp_man_tib, pqc=pqc_man_tib, 
+                               aqp_vec=aqp_vec, pqc_vec=pqc_vec,
+                               aqp_fix=aqp_fix_tib, pqc_fix=pqc_fix_tib,
+                               name=name,outDir=outDir,
+                               verbose=verbose,tc=tc+1,tt=pTracker)
+    }
+    
+    # Use the PQC manifest if not use AQP::
+    ret_tib <- NULL
+    if (length(pqc_vec)!=0) {
+      ret_tib <- pqc_fix_tib
+    } else if (length(aqp_vec)!=0) {
+      ret_tib <- aqp_fix_tib
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
+      return(NULL)
+    }
+    ret_tib <- ret_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
+    ret_cnt <- ret_tib %>% base::nrow()
+    
+    if (!is.null(outDir) && !is.null(name)) {
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+      ret_csv <- file.path(outDir, paste(name,'manifest.raw.tsv.gz', sep='_') )
+      
+      cat(glue::glue("[{funcTag}]: Writing Raw Manifest(cnt={ret_cnt})={ret_csv}...{RET}") )
+      readr::write_csv(ret_tib,ret_csv)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Quality Control Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
+                      name=NULL, outDir=NULL,
+                      verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'AQP_PQC_QC'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    aqp_unq_man_tib <- aqp %>% dplyr::anti_join(pqc, by=c("M","U"))
+    pqc_unq_man_tib <- pqc %>% dplyr::anti_join(aqp, by=c("M","U"))
+    
+    aqp_list <- rev(aqp_vec)
+    names(aqp_list) <- base::basename(aqp_vec) %>% stringr::str_remove('.gz$') %>% stringr::str_remove('.txt$')
+    pqc_name <- base::basename(pqc_vec[1]) %>% stringr::str_remove('.gz$') %>% stringr::str_remove('.txt$')
+    
+    aqp_unq_tib <- lapply(aqp_list, loadPQC, format='aqp', trim=TRUE) %>% dplyr::bind_rows(.id="AQP_Name") %>%
+      dplyr::select(Address,Decode_Status,AQP_Name) %>% dplyr::distinct(Address, .keep_all=TRUE) %>% dplyr::arrange(Address)
+    pqc_unq_tib <- loadPQC(pqc_vec[1], format='pqc', trim=TRUE) %>% dplyr::mutate(AQP_Name=pqc_name) %>% 
+      dplyr::distinct(Address, .keep_all=TRUE) %>% dplyr::arrange(Address)
+    
+    # Conclusion:: All missing calls from PQC to AQP are 0 at the most recent AQP stage!!!
+    #  - This is what we want to see
+    pqc_unq_sum_tib <- dplyr::bind_rows(
+      pqc_unq_man_tib %>% dplyr::rename(Decode_Status_PQC=Decode_Status_A) %>%
+        dplyr::inner_join(aqp_unq_tib, by=c("U"="Address") ) %>% 
+        dplyr::select(Decode_Status_PQC,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
+        dplyr::summarise(Count=n(), .groups="drop") %>%
+        dplyr::mutate(Allele="U"),
+      pqc_unq_man_tib %>% dplyr::rename(Decode_Status_PQC=Decode_Status_A) %>%
+        dplyr::inner_join(aqp_unq_tib, by=c("M"="Address") ) %>% 
+        dplyr::select(Decode_Status_PQC,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
+        dplyr::summarise(Count=n(), .groups="drop") %>%
+        dplyr::mutate(Allele="M") )
+    
+    pqc_unq_mis_cnt <- pqc_unq_sum_tib %>% dplyr::filter(Decode_Status_PQC != 0 | Decode_Status != 0) %>% base::nrow()
+    if (pqc_unq_mis_cnt!=0) {
+      print(pqc_unq_sum_tib)
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed QC Sanity Check; pqc_unq_mis_cnt={pqc_unq_mis_cnt}"))
+      return(NULL)
+    }
+    
+    # Conclusion:: Need to investigate more; take away is that the AQP results will have failures
+    #  NOTE: its surprising how other tangos come up often... Implying Biziprobe has a ranked order of probes to use
+    aqp_unq_sum_tib <- aqp_unq_man_tib %>% 
+      dplyr::rename(Decode_Status_AQP=Decode_Status_A) %>%
+      dplyr::inner_join(pqc_unq_tib, by=c("U"="Address") ) %>% 
+      dplyr::select(Decode_Status_AQP,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
+      dplyr::summarise(Count=n(), .groups="drop")
+    
+    aqp_unq_mis_cnt <- aqp_unq_sum_tib %>% dplyr::filter(Decode_Status_AQP != 0 & Decode_Status != 0 & Decode_Status != 1 ) %>% base::nrow()
+    if (aqp_unq_mis_cnt!=0) {
+      print(pqc_unq_sum_tib)
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed QC Sanity Check; aqp_unq_mis_cnt={aqp_unq_mis_cnt}"))
+      return(NULL)
+    }
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]: Passed all AQP/PQC Sanity Validation; ",
+                                    "pqc_unq_mis_cnt={pqc_unq_mis_cnt}, aqp_unq_mis_cnt={aqp_unq_mis_cnt}.{RET}"))
+    
+    fix_man_sum_tib <- dplyr::full_join(
+      dplyr::group_by(pqc_fix,Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop"),
+      dplyr::group_by(aqp_fix,Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop"),
+      by="Probe_Type", suffix=c("_PQC","_AQP")) %>%
+      dplyr::mutate(Count_Dif=Count_AQP-Count_PQC)
+    fix_man_mis_cnt <- fix_man_sum_tib %>% dplyr::filter(Count_Dif<=0) %>% base::nrow()
+    
+    if (fix_man_mis_cnt>0) {
+      fix_man_sum_tib %>% print()
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed QC Sanity Check; PQC>AQP; fix_man_mis_cnt={fix_man_mis_cnt}"))
+      return(NULL)
+    }
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]: Passed all QC Sanity Check; PQC>AQP Validation; fix_man_mis_cnt={fix_man_mis_cnt}.{RET}"))
+    
+    ret_tib <- tibble::tibble(aqp_unq_mis_cnt=aqp_unq_mis_cnt,
+                              pqc_unq_mis_cnt=pqc_unq_mis_cnt,
+                              fix_man_mis_cnt=fix_man_mis_cnt )
+    if (!is.null(outDir) && !is.null(name)) {
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+      ret_csv <- file.path(outDir,paste(name,'AQP-PQC.quality-control.summary.csv.gz',sep='_') )
+      readr::write_csv(ret_tib,ret_csv)
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Wrote QC Summary={ret_csv}.{RET}"))
+    }
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Specialized Mouse Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# fixOrderProbeIDs(full_man_tib, verbose=opt$verbose)
-fixOrderProbeIDs = function(tib, field="Probe_Type",
+fixOrderProbeIDs = function(tib, field="Probe_Type", sidx=2,plen=50,
                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'fixOrderProbeIDs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -110,13 +342,13 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
           Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_NN_N_\\$1_N_\\$2') %>% stringr::str_remove_all('\\\\')
         ) %>% 
           tidyr::separate(Probe_ID, into=c('Seq_ID','Di','FN','FR','TB','CO','PD'), sep='_', remove=FALSE)
-      } else if (type=='BS') {
+      } else if (type=='BS' || type=='bs') {
         cur_tib <- cur_tib %>% dplyr::mutate(
           Di=stringr::str_replace(Probe_ID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% stringr::str_remove_all('\\\\')
         ) %>% 
           dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '^BSC_', 'bs-')) %>% 
           tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE) 
-      } else if (type=='NO') {
+      } else if (type=='NO' || type=='no') {
         cur_tib <- cur_tib %>% dplyr::mutate(
           Di=stringr::str_replace(Probe_ID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% stringr::str_remove_all('\\\\')
         ) %>% 
@@ -131,24 +363,64 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
         cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: Unsupported type={type}!{RET}{RET}"))
       }    
       ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
-      
     }
     
     # Add Probe Sequences for matching::
-    ret_tib <- ret_tib %>% dplyr::mutate(
-      Mat_Prb=dplyr::case_when(
-        Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,50),
-        Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
-        TRUE ~ NA_character_
-      ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
-      
+    # ret_tib <- addReducedMapProbe(tib=ret_tib,sidx=sidx, plen=plen) %>%
+    #   dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA,Mat_Prb, everything())
+    
+    # Add Probe Sequences for matching::
+    # ret_tib <- ret_tib %>% dplyr::mutate(
+    #   Mat_Prb=dplyr::case_when(
+    #     Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,50),
+    #     Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+    #     TRUE ~ NA_character_
+    #   ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+    #   
+    #   Mat_PrbA=dplyr::case_when(
+    #     Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
+    #     Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+    #     TRUE ~ NA_character_
+    #   ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
+    # ) %>% dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA,Mat_Prb, everything())
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+addReducedMapProbe = function(tib, sidx=2, plen=50,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'template_func'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Assumed Probe Length={plen}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
+    
+    ret_tib <- tib %>% dplyr::mutate(
       Mat_PrbA=dplyr::case_when(
-        Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,49),
-        Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,50),
+        Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx1,len1),
+        Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx2,len2),
         TRUE ~ NA_character_
       ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
-    ) %>% dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA,Mat_Prb, everything())
-    
+      # Mat_Prb=dplyr::case_when(
+      #   Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,plen),
+      #   Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,plen),
+      #   TRUE ~ NA_character_
+      # ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+    )
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
     if (verbose>=vt+4) print(ret_tib)
@@ -358,7 +630,7 @@ decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     pqc_tib <- loadPQC(file=pqc, format=pqcFormat, skip=pqcSkip, guess=pqcGuess, trim=trim,
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     if (full) {
       ret$ord <- ord_tib
       ret$mat <- mat_tib
@@ -390,9 +662,9 @@ decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
     ret_tib <- NULL
     ret_tib <- ord_tib %>%
       dplyr::left_join(exp_tib, by=c("AlleleA_Probe_Sequence"="Probe_Seq")) %>% 
-        dplyr::rename(U=Address, Decode_Status_A=Decode_Status, Address_Seq_A=Tango_Seq) %>%
+      dplyr::rename(U=Address, Decode_Status_A=Decode_Status, Address_Seq_A=Tango_Seq) %>%
       dplyr::left_join(exp_tib, by=c("AlleleB_Probe_Sequence"="Probe_Seq")) %>% 
-        dplyr::rename(M=Address, Decode_Status_B=Decode_Status, Address_Seq_B=Tango_Seq) %>%
+      dplyr::rename(M=Address, Decode_Status_B=Decode_Status, Address_Seq_B=Tango_Seq) %>%
       dplyr::filter(!is.na(Decode_Status_A)) %>%
       dplyr::filter(Decode_Status_A!=-1) %>% 
       dplyr::filter(is.na(Decode_Status_B) | Decode_Status_B!=-1) %>%
@@ -406,16 +678,16 @@ decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
-
+  
   ret_tib
 }
 
 decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, version,
-                            ordFormat='old', ordSkip=8,  ordGuess=50000,
-                            matFormat='new', matSkip=40, matGuess=1000,
-                            pqcFormat='pqc', pqcSkip=7,  pqcGuess=1000,
-                            full=FALSE, trim=TRUE,
-                            verbose=0,vt=4,tc=1,tt=NULL) {
+                                   ordFormat='old', ordSkip=8,  ordGuess=50000,
+                                   matFormat='new', matSkip=40, matGuess=1000,
+                                   pqcFormat='pqc', pqcSkip=7,  pqcGuess=1000,
+                                   full=FALSE, trim=TRUE,
+                                   verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'decodeToManifestWrapper'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
@@ -428,12 +700,12 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
   }
   
   stime <- system.time({
-
+    
     ord_cnt <- length(ords)
     for (idx in c(1:ord_cnt)) {
       pqc_file <- NULL
       if (pqcFormat=='pqc') {
-        pqc_file <- pqc_vec[1]
+        pqc_file <- pqcs[1]
       } else if (pqcFormat=='aqp') {
         pqc_file <- aqps[idx]
       } else {
@@ -462,7 +734,7 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
     ret_tib <- ret_tib %>% dplyr::arrange(-AQP) %>% dplyr::group_by(U) %>% dplyr::slice_head(n=1) %>% dplyr::ungroup()
     ret_cnt <- ret_tib %>% base::nrow()
     del_cnt <- pre_cnt - ret_cnt
-    cat(glue::glue("[{par$prgmTag}]: Full AQP History={pre_cnt}, AQP Ordered Unique={ret_cnt}, delta={del_cnt}.{RET}") )
+    cat(glue::glue("[{funcTag}]: Full AQP History={pre_cnt}, AQP Ordered Unique={ret_cnt}, delta={del_cnt}.{RET}") )
     
     # QC Sanity Checks below::
     #
@@ -480,8 +752,8 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Non-zero value for unique(U,M,PrbU,PrbM) tangos={non_unq_cnt}!!!{RET}{RET}"))
       return(NULL)
     }
-    if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: Valid QC Sanity; tan_mat_cnt={tan_mat_cnt}, non_unq_cnt={non_unq_cnt}.{RET}") )
-
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]: Valid QC Sanity; tan_mat_cnt={tan_mat_cnt}, non_unq_cnt={non_unq_cnt}.{RET}") )
+    
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -509,7 +781,7 @@ idat2manifest = function(sigs, mans, verbose=0,vt=4,tc=1,tt=NULL) {
     min_rec_per <- 0
     sigs_add_cnt <- sigs %>% dplyr::distinct(Address) %>% base::nrow()
     for (cur_man_key in names(mans)) {
-      # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_man_key={cur_man_key}.{RET}"))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_man_key={cur_man_key}.{RET}"))
       
       cur_key_tib <- stringr::str_split(cur_man_key, pattern='-', simplify=TRUE) %>% as.data.frame() %>% tibble::as_tibble() %>% 
         purrr::set_names(c('platform','manifest')) %>% dplyr::mutate(platform=as.character(platform), manifest=as.character(manifest))
@@ -564,7 +836,7 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
   funcTag <- 'getManifestList'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-
+  
   if ( is.null(path) && (is.null(platform) || is.null(manifest) || is.null(dir) ) ) {
     stop(glue::glue("[{funcTag}]: ERROR: Path, platform, manifest, dir can't all be null!{RET}{RET}"))
     return(NULL)
@@ -578,7 +850,7 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
       
     } else if (!is.null(platform) && !is.null(manifest) && !is.null(dir) ) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match 2.{RET}"))
-      fileName <- paste0(opt$platform,'-',opt$manifest,'.manifest.sesame-base.cpg-sorted.csv.gz')
+      fileName <- paste0(platform,'-',manifest,'.manifest.sesame-base.cpg-sorted.csv.gz')
       filePath <- file.path(dir, fileName)
       stopifnot(file.exists(filePath))
       paths <- list.files(dir, pattern=fileName, full.names=TRUE)
@@ -591,7 +863,7 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
       stop(glue::glue("[{funcTag}]: ERROR: Path, platform, manifest, dir FAILED CHECK!{RET}{RET}"))
       return(NULL)
     }
-
+    
     stopifnot(!is.null(paths))
     stopifnot(length(paths)>0)
     
@@ -630,7 +902,7 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
     tib <- NULL
     man_tib <- NULL
     ctl_tib <- NULL
-
+    
     src <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.csv$')
     cmd <- glue::glue("gzip -dc {file} | head -n 50 | grep -n '^IlmnID' ")
     cnt <- suppressMessages(suppressWarnings( system(as.character(cmd), intern=TRUE, ignore.stderr=TRUE) )) %>% 
@@ -648,7 +920,7 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
     man_tib <- tib %>% head(n=ctl_idx-1)
     if (ctl_idx>0)
       ctl_tib <- tib %>% tail(tib_len-ctl_idx) %>% dplyr::select(1:4) %>% purrr::set_names(ctl_cols)
-
+    
     man_tib <- man_tib %>% dplyr::mutate(
       Probe_Type=stringr::str_sub(IlmnID, 1,2),
       Strand_CO=case_when(
@@ -711,9 +983,9 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
       ret_dat$man <- man_tib
       ret_dat$ctl <- ctl_tib
     }
-    })
+  })
   if (verbose>vt+4) print(tib)
-
+  
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
@@ -752,7 +1024,7 @@ loadManifestSource = function(file,addSource=FALSE, verbose=0,vt=4,tc=1,tt=NULL)
     }
   })
   if (verbose>vt+4) print(tib)
-
+  
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))

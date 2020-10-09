@@ -51,8 +51,6 @@ par$prgmDir <- 'manifests'
 par$prgmTag <- 'aqp_to_manifest_mm10'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
-par$retData <- FALSE
-
 # Executables::
 opt$Rscript <- NULL
 
@@ -64,11 +62,8 @@ opt$ords <- NULL
 opt$mats <- NULL
 opt$aqps <- NULL
 opt$pqcs <- NULL
-
-opt$idats <- NULL
-
-# Pre-defined files (controls)
-opt$ctlCSV <- NULL
+opt$ctls <- NULL
+opt$idat <- NULL
 
 # Platform/Method Options::
 opt$genomeBuild <- NULL
@@ -77,10 +72,8 @@ opt$version     <- NULL
 
 # Run Options::
 opt$fresh <- FALSE
-
-opt$percisionSigs <- 1
-opt$percisionBeta <- 4
-opt$percisionPval <- 6
+par$retData <- FALSE
+opt$matFormat <- 'new'
 
 # Parallel/Cluster Options::
 opt$single   <- FALSE
@@ -139,6 +132,7 @@ if (args.dat[1]=='RStudio') {
   opt$platform    <- 'LEGX'
   opt$version     <- 'S6'
   opt$version     <- 'C0'
+  opt$version     <- 'C1'
   
   opt$frmt_original <- TRUE
   opt$frmt_original <- FALSE
@@ -187,7 +181,7 @@ if (args.dat[1]=='RStudio') {
       sep=',')
     
     par$idatsTopDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
-    opt$idats <- paste(
+    opt$idat <- paste(
       file.path(par$idatsTopDir, '204637490002'),
       sep=',')
   } else if (par$local_runType=='covic') {
@@ -215,6 +209,10 @@ if (args.dat[1]=='RStudio') {
   
   args.dat <- commandArgs(trailingOnly = TRUE)
   option_list = list(
+    # Executables::
+    make_option(c("--Rscript"), type="character", default=opt$Rscript, 
+                help="Rscript path [default= %default]", metavar="character"),
+    
     # Directories::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
@@ -228,13 +226,10 @@ if (args.dat[1]=='RStudio') {
                 help="AQP files (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--pqcs"), type="character", default=opt$pqcs, 
                 help="PQC files (comma seperated) [default= %default]", metavar="character"),
-    
-    make_option(c("-i", "--idats"), type="character", default=opt$idats, 
-                help="idats directory [default= %default]", metavar="character"),
-    
-    # Required Inputs::
-    make_option(c("--ctlCSV"), type="character", default=opt$ctlCSV, 
-                help="Standard Pre-Defined Infinium Methylation Controls CSV (no-header) [default= %default]", metavar="character"),
+    make_option(c("--ctls"), type="character", default=opt$ctls, 
+                help="Pre-Defined Infinium Methylation Controls (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--idat"), type="character", default=opt$idat, 
+                help="idat directories (comma seperated) [default= %default]", metavar="character"),
     
     # Platform/Method Options::
     make_option(c("--genomeBuild"), type="character", default=opt$genomeBuild, 
@@ -244,9 +239,13 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--version"), type="character", default=opt$version, 
                 help="Manifest Version (e.g. B0,B1,B2,B3,B4,C0) [default= %default]", metavar="character"),
     
-    # Executables::
-    make_option(c("--Rscript"), type="character", default=opt$Rscript, 
-                help="Rscript path [default= %default]", metavar="character"),
+    # Parallel/Cluster Parameters::
+    make_option(c("--single"), action="store_true", default=opt$single, 
+                help="Boolean variable to run a single sample on a single-core [default= %default]", metavar="boolean"),
+    make_option(c("--parallel"), action="store_true", default=opt$parallel, 
+                help="Boolean variable to run parallel on multi-core [default= %default]", metavar="boolean"),
+    make_option(c("--cluster"), action="store_true", default=opt$cluster,
+                help="Boolean variable to run jobs on cluster by chip [default= %default]", metavar="boolean"),
     
     # verbose::
     make_option(c("-v", "--verbose"), type="integer", default=opt$verbose, 
@@ -274,9 +273,6 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
 
 if (is.null(opt$outDir) || 
     is.null(opt$ords) || is.null(opt$mats) || 
-    # (is.null(opt$aqps) && is.null(opt$pqcs)) ||
-    # is.null(ctlCSV) || # Can be looked up via dat directory...
-    is.null(opt$idats) ||
     is.null(opt$genomeBuild) || is.null(opt$platform) || is.null(opt$version) ||
     is.null(opt$Rscript) ||
     is.null(opt$verbose)) {
@@ -289,11 +285,12 @@ if (is.null(opt$outDir) ||
   
   if (is.null(opt$outDir))    cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
   
-  if (is.null(opt$ords))   cat(glue::glue("[Usage]: ords is NULL!!!{RET}"))
-  if (is.null(opt$mats))   cat(glue::glue("[Usage]: mats is NULL!!!{RET}"))
-  if (is.null(opt$aqps))   cat(glue::glue("[Usage]: aqps is NULL [Not required if pqcs defined]!!!{RET}"))
-  if (is.null(opt$pqcs))   cat(glue::glue("[Usage]: pqcs is NULL [Not required if aqps defined]!!!{RET}"))
-  if (is.null(opt$idats))  cat(glue::glue("[Usage]: idats is NULL [Not Required]!!!{RET}"))
+  if (is.null(opt$ords)) cat(glue::glue("[Usage]: ords is NULL!!!{RET}"))
+  if (is.null(opt$mats)) cat(glue::glue("[Usage]: mats is NULL!!!{RET}"))
+  if (is.null(opt$aqps)) cat(glue::glue("[Usage]: aqps is NULL [Not required if pqcs defined]!!!{RET}"))
+  if (is.null(opt$pqcs)) cat(glue::glue("[Usage]: pqcs is NULL [Not required if aqps defined]!!!{RET}"))
+  if (is.null(opt$ctls)) cat(glue::glue("[Usage]: ctls is NULL [Not required]!!!{RET}"))
+  if (is.null(opt$idat)) cat(glue::glue("[Usage]: idat is NULL [Not Required]!!!{RET}"))
   
   if (is.null(opt$genomeBuild)) cat(glue::glue("[Usage]: genomeBuild is NULL!!!{RET}"))
   if (is.null(opt$platform))    cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
@@ -352,22 +349,22 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
-# Input Definitions::
-if (is.null(opt$ctlCSV))
-  opt$ctlCsv <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
+ords_vec <- NULL
+mats_vec <- NULL
+aqps_vec <- NULL
+pqcs_vec <- NULL
+ctls_vec <- NULL
+idat_vec <- NULL
+if (!is.null(opt$ords)) ords_vec <- opt$ords %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$mats)) mats_vec <- opt$mats %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$aqps)) aqps_vec <- opt$aqps %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$pqcs)) pqcs_vec <- opt$pqcs %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$ctls)) ctls_vec <- opt$ctls %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$idat)) idat_vec <- opt$idat %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
-ord_vec <- NULL
-mat_vec <- NULL
-aqp_vec <- NULL
-pqc_vec <- NULL
-if (!is.null(opt$ords)) ord_vec <- opt$ords %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-if (!is.null(opt$mats)) mat_vec <- opt$mats %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-if (!is.null(opt$aqps)) aqp_vec <- opt$aqps %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-if (!is.null(opt$pqcs)) pqc_vec <- opt$pqcs %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-
-stopifnot(length(ord_vec)>0)
-stopifnot(length(mat_vec)>0)
-stopifnot(length(mat_vec)==length(ord_vec))
+stopifnot(length(ords_vec)>0)
+stopifnot(length(mats_vec)>0)
+stopifnot(length(mats_vec)==length(ords_vec))
 
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
@@ -395,129 +392,14 @@ color_vec <- color_tib %>% dplyr::pull(Color) %>% as.vector()
 color_len <- length(color_vec)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             Build Manifest::
+#                          Process AQP/PQC Data::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-opt$matFormat <- 'new'
-
-pqc_man_tib <- NULL
-aqp_man_tib <- NULL
-
-fix_pqc_man_tib <- NULL
-fix_aqp_man_tib <- NULL
-
-# 296724 x 18 - without filtering
-# 295796 x 18 - with filtering
-if (length(pqc_vec)!=0) {
-  pqc_man_tib <- decodeToManifestWrapper(
-    ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
-    platform=opt$platform, version=opt$version,
-    matFormat=opt$matFormat,
-    pqcFormat='pqc',
-    full=par$retData, trim=TRUE,
-    verbose=opt$verbose,tc=0,tt=pTracker)
-  fix_pqc_man_tib <- fixOrderProbeIDs(pqc_man_tib, verbose=opt$verbose,tc=0,tt=pTracker)
-}
-
-# -329221 x 18 - without filtering
-# -296174 x 18 - with filtering
-if (length(aqp_vec)!=0) {
-  aqp_man_tib <- decodeToManifestWrapper(
-    ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
-    platform=opt$platform, version=opt$version, 
-    matFormat=opt$matFormat,
-    pqcFormat='aqp',
-    full=par$retData, trim=TRUE,
-    verbose=opt$verbose,tc=0,tt=pTracker)
-  fix_aqp_man_tib <- fixOrderProbeIDs(aqp_man_tib, verbose=opt$verbose,tc=0,tt=pTracker)
-}
-
-# QC Sanity Checks for AQP/PQC if present::
-#
-if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
-  aqp_unq_man_tib <- aqp_man_tib %>% dplyr::anti_join(pqc_man_tib, by=c("M","U"))
-  pqc_unq_man_tib <- pqc_man_tib %>% dplyr::anti_join(aqp_man_tib, by=c("M","U"))
-  
-  aqp_list <- rev(aqp_vec)
-  names(aqp_list) <- base::basename(aqp_vec) %>% stringr::str_remove('.gz$') %>% stringr::str_remove('.txt$')
-  pqc_name <- base::basename(pqc_vec[1]) %>% stringr::str_remove('.gz$') %>% stringr::str_remove('.txt$')
-  
-  aqp_unq_tib <- lapply(aqp_list, loadPQC, format='aqp', trim=TRUE) %>% dplyr::bind_rows(.id="AQP_Name") %>%
-    dplyr::select(Address,Decode_Status,AQP_Name) %>% dplyr::distinct(Address, .keep_all=TRUE) %>% dplyr::arrange(Address)
-  pqc_unq_tib <- loadPQC(pqc_vec[1], format='pqc', trim=TRUE) %>% dplyr::mutate(AQP_Name=pqc_name) %>% 
-    dplyr::distinct(Address, .keep_all=TRUE) %>% dplyr::arrange(Address)
-  
-  # Conclusion:: All missing calls from PQC to AQP are 0 at the most recent AQP stage!!!
-  #  - This is what we want to see
-  pqc_unq_sum_tib <- dplyr::bind_rows(
-    pqc_unq_man_tib %>% dplyr::rename(Decode_Status_PQC=Decode_Status_A) %>%
-      dplyr::inner_join(aqp_unq_tib, by=c("U"="Address") ) %>% 
-      dplyr::select(Decode_Status_PQC,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
-      dplyr::summarise(Count=n(), .groups="drop") %>%
-      dplyr::mutate(Allele="U"),
-    pqc_unq_man_tib %>% dplyr::rename(Decode_Status_PQC=Decode_Status_A) %>%
-      dplyr::inner_join(aqp_unq_tib, by=c("M"="Address") ) %>% 
-      dplyr::select(Decode_Status_PQC,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
-      dplyr::summarise(Count=n(), .groups="drop") %>%
-      dplyr::mutate(Allele="M") )
-  
-  pqc_unq_mis_cnt <- pqc_unq_sum_tib %>% dplyr::filter(Decode_Status_PQC != 0 | Decode_Status != 0) %>% base::nrow()
-  if (pqc_unq_mis_cnt!=0) {
-    print(pqc_unq_sum_tib)
-    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed QC Sanity Check; pqc_unq_mis_cnt={pqc_unq_mis_cnt}"))
-  }
-  
-  # Conclusion:: Need to investigate more; take away is that the AQP results will have failures
-  #  NOTE: its surprising how other tangos come up often... Implying Biziprobe has a ranked order of probes to use
-  aqp_unq_sum_tib <- aqp_unq_man_tib %>% 
-    dplyr::rename(Decode_Status_AQP=Decode_Status_A) %>%
-    dplyr::inner_join(pqc_unq_tib, by=c("U"="Address") ) %>% 
-    dplyr::select(Decode_Status_AQP,Decode_Status,AQP) %>% dplyr::group_by_all() %>% 
-    dplyr::summarise(Count=n(), .groups="drop")
-  
-  aqp_unq_mis_cnt <- aqp_unq_sum_tib %>% dplyr::filter(Decode_Status_AQP != 0 & Decode_Status != 0 & Decode_Status != 1 ) %>% base::nrow()
-  if (aqp_unq_mis_cnt!=0) {
-    print(pqc_unq_sum_tib)
-    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed QC Sanity Check; aqp_unq_mis_cnt={aqp_unq_mis_cnt}"))
-  }
-  cat(glue::glue("[{par$prgmTag}]: Passed all AQP/PQC Sanity Validation; ",
-                 "pqc_unq_mis_cnt={pqc_unq_mis_cnt}, aqp_unq_mis_cnt={aqp_unq_mis_cnt}.{RET}"))
-  
-  fix_man_sum_tib <- dplyr::full_join(
-    dplyr::group_by(fix_pqc_man_tib,Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop"),
-    dplyr::group_by(fix_aqp_man_tib,Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop"),
-    by="Probe_Type", suffix=c("_PQC","_AQP")) %>%
-    dplyr::mutate(Count_Dif=Count_AQP-Count_PQC)
-  fix_man_mis_cnt <- fix_man_sum_tib %>% dplyr::filter(Count_Dif<=0) %>% base::nrow()
-  
-  if (fix_man_mis_cnt>0) {
-    fix_man_sum_tib %>% print()
-    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Failed QC Sanity Check; PQC>AQP; fix_man_sum_tib={fix_man_sum_tib}"))
-  }
-  cat(glue::glue("[{par$prgmTag}]: Passed all QC Sanity Check; PQC>AQP Validation; ",
-                 "fix_man_sum_tib={fix_man_sum_tib}.{RET}{RET}"))
-}
-
-# Use the PQC manifest if not use AQP::
-#
-raw_man_tib <- NULL
-if (length(pqc_vec)!=0) {
-  raw_man_tib <- fix_pqc_man_tib
-} else if (length(aqp_vec)!=0) {
-  raw_man_tib <- fix_aqp_man_tib
-} else {
-  stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
-}
-raw_man_csv <- file.path(opt$manDir, paste(opt$runName,'manifest.raw.tsv.gz', sep='.') )
-raw_man_tib <- raw_man_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
-raw_mat_cnt <- raw_man_tib %>% base::nrow()
-
-cat(glue::glue("[{par$prgmTag}]: Writing Raw Manifest(cnt={raw_mat_cnt})={raw_man_csv}...{RET}") )
-readr::write_csv(raw_man_tib,raw_man_csv)
-
-
-
-
+raw_man_tib <- decodeAqpPqcWrapper(
+  ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec, 
+  platform=opt$platform,version=opt$version,matFormat=opt$matFormat,
+  name=opt$runName,outDir=opt$manDir,full=par$retData,trim=TRUE,
+  verbose=opt$verbose,tc=0,tt=pTracker)
 
 
 
@@ -546,15 +428,6 @@ readr::write_csv(raw_man_tib,raw_man_csv)
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Write manifest unmethylated 48-mer sequences to file
-raw_s48_tsv <- file.path(opt$intDir, paste(opt$runName,'raw-s48.tsv', sep='.') )
-raw_s48_tib <- raw_man_tib %>% dplyr::distinct(Mat_PrbA,M,U) %>% dplyr::arrange(Mat_PrbA)
-readr::write_tsv(raw_s48_tib, raw_s48_tsv, col_names=FALSE)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        2. Raw Manifest seq48U U::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
 # Unclear why these don't gzip correctly. 
 #  - May need to be sorted
 #  - Use locMac for now
@@ -562,8 +435,12 @@ readr::write_tsv(raw_s48_tib, raw_s48_tsv, col_names=FALSE)
 imp_s48_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.tsv.gz')
 imp_s48_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.locMac.tsv.gz')
 
+# Write manifest unmethylated 48-mer sequences to file
+raw_s48_tsv <- file.path(opt$intDir, paste(opt$runName,'raw-s48.tsv', sep='.') )
+raw_s48_tib <- dplyr::distinct(raw_man_tib,Mat_PrbA,M,U) %>% dplyr::arrange(Mat_PrbA)
+readr::write_tsv(raw_s48_tib, raw_s48_tsv, col_names=FALSE)
+
 # Intersect manifest unmethylated 48-mer sequences with improbe design database seqU48-mers
-#
 run_join_cmd <- TRUE
 run_join_cmd <- FALSE
 imp_int_raw_s48_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-s48.intersect.raw-s48.s48-sorted.tsv.gz', sep='.') )
@@ -589,9 +466,11 @@ imp_tar_s48_cgn_tib <-
   dplyr::select(Seq_CG,Mat_PrbA,Mat_CGN,Mat_TB,Mat_CO,M,U,everything() ) %>%
   dplyr::arrange(Seq_CG)
 
-# How to get the non-standard improbe CGN probes::
-#  - This will be used later. Just making a note...
-#    non_imp_man_tib <- raw_man_tib %>% dplyr::anti_join(imp_tar_s48_cgn_tib, by=c("M","U") )
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        2. Raw Manifest seq48U U::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             3. CGN to Top::
@@ -1026,10 +905,19 @@ raw_ctl_tib <- raw_man_tib %>%
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 std_ctl_tib <- NULL
-std_ctl_seq_tsv <- file.path(par$topDir,'tmp/Controls/01152015_DarkMatterControls.probe.match')
-if (!is.null(opt$ctlCsv) && file.exists(opt$ctlCsv) &&
+
+# Input Definitions::
+if (is.null(ctls_vec) || length(ctls_vec)==0) {
+  ctl_csv <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
+} else {
+  ctl_csv <- ctls_vec[1]
+}
+
+if (!is.null(ctl_csv) && file.exists(opt$ctlCsv) &&
     !is.null(std_ctl_seq_tsv) && file.exists(std_ctl_seq_tsv)) {
   
+  # TBD:: This should be transferred to 
+  std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
   std_ctl_seq_tib <- dplyr::inner_join(
     suppressMessages(suppressWarnings(readr::read_tsv(std_ctl_seq_tsv) )) %>% 
       dplyr::mutate(Address=stringr::str_remove(address_name, '^1') %>% as.integer()),
