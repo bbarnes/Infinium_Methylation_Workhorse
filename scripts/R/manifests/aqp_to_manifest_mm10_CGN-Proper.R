@@ -55,7 +55,8 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 opt$Rscript <- NULL
 
 # Directories::
-opt$outDir     <- NULL
+opt$outDir <- NULL
+opt$impDir <- NULL
 
 # Required Inputs::
 opt$ords <- NULL
@@ -196,6 +197,7 @@ if (args.dat[1]=='RStudio') {
   
   opt$runName <- paste(opt$genomeBuild,opt$platform,opt$version, sep='-')
   opt$outDir <- file.path(par$topDir, 'scratch')
+  opt$impDir <- file.path(par$topDir, 'data/improbe')
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -216,6 +218,8 @@ if (args.dat[1]=='RStudio') {
     # Directories::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
+    make_option(c("--impDir"), type="character", default=opt$impDir, 
+                help="improbe data directory [default= %default]", metavar="character"),
     
     # Pre-defined files (controls)
     make_option(c("--ords"), type="character", default=opt$ords, 
@@ -271,7 +275,7 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
   base::stop("Null Parameters!\n\n")
 }
 
-if (is.null(opt$outDir) || 
+if (is.null(opt$outDir) || is.null(opt$impDir) ||
     is.null(opt$ords) || is.null(opt$mats) || 
     is.null(opt$genomeBuild) || is.null(opt$platform) || is.null(opt$version) ||
     is.null(opt$Rscript) ||
@@ -284,6 +288,7 @@ if (is.null(opt$outDir) ||
   cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
   
   if (is.null(opt$outDir))    cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
+  if (is.null(opt$impDir))    cat(glue::glue("[Usage]: impDir is NULL!!!{RET}"))
   
   if (is.null(opt$ords)) cat(glue::glue("[Usage]: ords is NULL!!!{RET}"))
   if (is.null(opt$mats)) cat(glue::glue("[Usage]: mats is NULL!!!{RET}"))
@@ -348,6 +353,15 @@ cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
+
+opt$probe_type <- 'cg'
+opt$design_key <- 'Seq_ID'
+opt$design_seq <- 'Forward_Sequence'
+opt$design_seq <- 'Top_Sequence'
+opt$design_prb <- 'Probe_Type'
+opt$design_srd <- 'TB'
+
+design_prb_sym <- rlang::sym(opt$design_prb)
 
 ords_vec <- NULL
 mats_vec <- NULL
@@ -422,131 +436,42 @@ raw_man_tib <- decodeAqpPqcWrapper(
 #
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        1. Raw Manifest -> seq48U::
 #
-#  raw_man_tib[Mat_PrbA,M,U] -> raw_s48_tsv
+#                        1. RawMan -> seq48U::
+#                        2. seq48U -> CGN/TB/CO::
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Unclear why these don't gzip correctly. 
-#  - May need to be sorted
-#  - Use locMac for now
-#
-imp_s48_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.tsv.gz')
-imp_s48_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/prb48U/prb48U-GRCh36-38-10-21092020.noHeader.unique.prb48U-sorted.locMac.tsv.gz')
+imp_s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.csv.gz')
 
-# Write manifest unmethylated 48-mer sequences to file
-raw_s48_tsv <- file.path(opt$intDir, paste(opt$runName,'raw-s48.tsv', sep='.') )
-raw_s48_tib <- dplyr::distinct(raw_man_tib,Mat_PrbA,M,U) %>% dplyr::arrange(Mat_PrbA)
-readr::write_tsv(raw_s48_tib, raw_s48_tsv, col_names=FALSE)
-
-# Intersect manifest unmethylated 48-mer sequences with improbe design database seqU48-mers
-run_join_cmd <- TRUE
-run_join_cmd <- FALSE
-imp_int_raw_s48_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-s48.intersect.raw-s48.s48-sorted.tsv.gz', sep='.') )
-if (!file.exists(imp_int_raw_s48_tsv) || run_join_cmd) {
-  join_cmd <- glue::glue("gzip -dc {imp_s48_tsv} | join -t $'\\", "t' -14 -21 - {raw_s48_tsv} | gzip -c -> {imp_int_raw_s48_tsv}")
-  cat(glue::glue("[{par$prgmTag}]: Running: cmd='{join_cmd}'...{RET}{RET}") )
-  system(join_cmd)
-}
-
-# Load intersection results::
-#
-imp_int_raw_s48_col <- cols(Mat_PrbA = col_character(),
-                            Mat_CGN = col_double(),
-                            Mat_TB = col_character(),
-                            Mat_CO = col_character(),
-                            M = col_double(),
-                            U = col_double() )
-
-imp_tar_s48_cgn_tib <- 
-  readr::read_tsv(imp_int_raw_s48_tsv, col_names=names(imp_int_raw_s48_col$cols), col_types=imp_int_raw_s48_col) %>% 
-  dplyr::inner_join(raw_man_tib, by=c("Mat_PrbA","M","U")) %>%
-  dplyr::mutate(Seq_CG=paste0( 'cg',stringr::str_pad(Mat_CGN, width=8, side="left", pad="0") ) ) %>%
-  dplyr::select(Seq_CG,Mat_PrbA,Mat_CGN,Mat_TB,Mat_CO,M,U,everything() ) %>%
-  dplyr::arrange(Seq_CG)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        2. Raw Manifest seq48U U::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-
+imp_tar_s48_cgn_tib <- seq48U_to_CGN(tib=raw_man_tib, imp_tsv=imp_s48_tsv,
+                                     name=opt$runName,outDir=opt$intDir,
+                                     mat_key='Mat_PrbA', fresh=opt$fresh,
+                                     verbose=opt$verbose,tc=0,tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             3. CGN to Top::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Write improbe cgn's to match against top sequence database::
-#
-imp_tar_s48_cgn_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-s48.intersect.raw-s48.cgn-sorted.tsv', sep='.') )
-readr::write_tsv(dplyr::distinct(imp_tar_s48_cgn_tib,Seq_CG),imp_tar_s48_cgn_tsv, col_names=FALSE)
+imp_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz')
 
-imp_top_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz')
-
-run_join_cmd <- TRUE
-run_join_cmd <- FALSE
-top_int_raw_cgn_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-top.intersect.raw-cgn.cgn-sorted.tsv.gz', sep='.') )
-if (!file.exists(top_int_raw_cgn_tsv) || run_join_cmd) {
-  join_cmd <- glue::glue("gzip -dc {imp_top_tsv} | join -t $'\\", "t' -11 -21 - {imp_tar_s48_cgn_tsv} | gzip -c -> {top_int_raw_cgn_tsv}")
-  cat(glue::glue("[{par$prgmTag}]: Running: cmd='{join_cmd}'...{RET}{RET}") )
-  system(join_cmd)
-}
+top_int_raw_cgn_tib <- cgn_to_topSeq(tib=imp_tar_s48_cgn_tib, imp_tsv=imp_top_tsv,
+                                     name=opt$runName,outDir=opt$intDir,
+                                     mat_key='CGN_Imp', fresh=opt$fresh,
+                                     verbose=opt$verbose,tc=0,tt=pTracker) %>%
+  dplyr::mutate(!!design_prb_sym := opt$probe_type)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           4. Top to Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-opt$probe_type <- 'cg'
-opt$design_key <- 'Seq_ID'
-opt$design_seq <- 'Forward_Sequence'
-opt$design_seq <- 'Top_Sequence'
-opt$design_prb <- 'Probe_Type'
-opt$design_srd <- 'TB'
-
-# Load intersection results::
-#
-top_int_raw_cgn_col <- cols(Seq_ID = col_character(),
-                            Top_Sequence = col_character() )
-
-top_int_raw_cgn_tib <- 
-  readr::read_tsv(top_int_raw_cgn_tsv, col_names=names(top_int_raw_cgn_col$cols), 
-                  col_types=top_int_raw_cgn_col) %>% dplyr::mutate(Probe_Type=opt$probe_type)
-
-
-# full_prb_des_csv <- 
-#   file.path(opt$desDir, paste(opt$runName,opt$design_seq,opt$probe_type,'all-probes.csv.gz', sep='.') )
 full_prb_des_rds <-
   file.path(opt$desDir, paste(opt$runName,opt$design_seq,opt$probe_type,'all-probes.rds', sep='.') )
 
 full_prb_des_tib <- NULL
-opt$build_probes <- TRUE
-opt$build_probes <- FALSE
-if (!file.exists(full_prb_des_rds) || opt$build_probes) {
+if (!file.exists(full_prb_des_rds) || opt$fresh) {
   cat(glue::glue("[{par$prgmTag}]: Building Full Probe Design...{RET}"))
-  
-  if (FALSE) {
-    test_cnt <- 100000
-    test10_tib <- tib2prbs(tib=head(top_int_raw_cgn_tib,n=test_cnt), 
-                           idsKey=opt$design_key,
-                           seqKey=opt$design_seq,
-                           prbKey=opt$design_prb,
-                           srdStr=opt$design_srd, 
-                           parallel=opt$parallel,
-                           verbose=opt$verbose,tc=1,tt=pTracker)
-    
-    test10_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% dplyr::summarise(SRD_Cnt=n())
-    test10_csv <- file.path(opt$outDir, paste(opt$runName,opt$design_seq,opt$probe_type,'100000-probes.csv.gz', sep='.') )
-    readr::write_csv(test10_tib,test10_csv)
-    test10_rds <- file.path(opt$outDir, paste(opt$runName,opt$design_seq,opt$probe_type,'100000-probes.rds', sep='.') )
-    readr::write_rds(test10_tib,test10_rds)
-    
-    test11_tib <- readr::read_csv(test10_csv)
-    test11_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% dplyr::summarise(SRD_Cnt=n())
-    
-    test1r_tib <- readr::read_rds(test10_rds)
-    test1r_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% dplyr::summarise(SRD_Cnt=n())
-  }
-  
+
   full_prb_des_tib <- tib2prbs(tib=top_int_raw_cgn_tib, 
                                idsKey=opt$design_key,
                                seqKey=opt$design_seq,
@@ -556,8 +481,7 @@ if (!file.exists(full_prb_des_rds) || opt$build_probes) {
                                verbose=opt$verbose,tc=1,tt=pTracker)
   
   full_prb_des_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
-  # f2_tib <- readr::read_rds(full_prb_des_rds)
-  
+
   cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Design File: RDS={full_prb_des_rds}...{RET}"))
   readr::write_rds(full_prb_des_tib,full_prb_des_rds)
   cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design File.{RET}{RET}"))
@@ -567,6 +491,15 @@ if (!file.exists(full_prb_des_rds) || opt$build_probes) {
   full_prb_des_tib <- readr::read_rds(full_prb_des_rds)
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Full Probe Design.{RET}{RET}"))
 }
+
+
+
+
+
+
+
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   5. Match Exact Probe Sequences::
@@ -622,7 +555,7 @@ if (FALSE) {
   #                   6. Intersect Full Improbe Designs::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  full_des_tsv <- file.path(par$topDir, 'data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz')
+  full_des_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz')
   
   mat_uniq_ids_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-cgn-srd-uniq-mat.cgn-sorted.tsv.gz', sep='.') )
   mat_uniq_ids_tib <- dplyr::distinct(mat_full_tib,Seq_ID,SR_Str,CO_Str) %>% 
@@ -699,7 +632,7 @@ non_imp_man_tib <- raw_man_tib
 #                           2.1. Remainder:: SNP::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-snp_prb_des_csv <- file.path(par$topDir, 'data/improbe/cph-snp-designs/LEGX_SpikeIn_Reorder-SNP-Only.designs.csv.gz')
+snp_prb_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-SNP-Only.designs.csv.gz')
 snp_prb_des_tib <- readr::read_csv(snp_prb_des_csv) %>%
   dplyr::mutate(PRB1_U_MAT=stringr::str_to_upper(PRB1_U),
                 PRB1_M_MAT=stringr::str_to_upper(PRB1_M),
@@ -760,7 +693,7 @@ snp_mat_tib <- dplyr::bind_rows(snp_mat_inf1_tib,snp_mat_inf2_tib) %>%
 
 # NOTE:: May have to use rds files instead of csv for some weird reason...
 #
-cph_prb_des_csv <- file.path(par$topDir, 'data/improbe/cph-snp-designs/LEGX_SpikeIn_Reorder-CpH-Only.designs.csv.gz')
+cph_prb_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-CpH-Only.designs.csv.gz')
 cph_prb_des_tib <- readr::read_csv(cph_prb_des_csv) %>%
   dplyr::mutate(PRB1_U_MAT=stringr::str_to_upper(PRB1_U),
                 PRB1_M_MAT=stringr::str_to_upper(PRB1_M),

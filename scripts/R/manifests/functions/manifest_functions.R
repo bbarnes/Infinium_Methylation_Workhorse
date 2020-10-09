@@ -48,20 +48,57 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        AQP/PQC Workflow Functions::
+#                         Seq48U to CGN Mapping::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-reducedProbeMapping = function(man,
-                               verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'reducedProbeMapping'
+seq48U_to_CGN = function(tib, imp_tsv,name=NULL, outDir=NULL,
+                         mat_key='Mat_PrbA',fresh=TRUE,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'seq48U_to_CGN'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  # Intersection Results Header::
+  int_col <- cols(Mat_PrbA = col_character(),
+                  CGN_Imp = col_character(),
+                  TB_Imp = col_character(),
+                  CO_Imp = col_character(),
+                  M = col_double(),
+                  U = col_double() )
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
     
+    mat_col_idx <- NULL
+    mat_col_idx <- grep(mat_key, names(tib))
+    if (is.null(mat_col_idx) || length(mat_col_idx)==0) {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed to find mat_key={mat_key}!!!{RET}{RET}"))
+      return(NULL)
+    }
+    mat_sym <- rlang::sym(mat_key)
+    
+    raw_tsv <- file.path(outDir, paste(name,'manifest.raw-s48.tsv', sep='_') )
+    raw_tib <- dplyr::distinct(tib,!!mat_sym,M,U) %>% dplyr::arrange(!!mat_sym)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing raw_tsv={raw_tsv}...{RET}"))
+    readr::write_tsv(raw_tib, raw_tsv, col_names=FALSE)
+    
+    # Intersect manifest unmethylated 48-mer sequences with improbe design database seqU48-mers
+    int_tsv <- file.path(outDir, paste(name,'imp-s48.intersect.raw-s48.s48-sorted.tsv.gz', sep='.') )
+    if (!file.exists(int_tsv) || fresh) {
+      cmd <- glue::glue("gzip -dc {imp_tsv} | join -t $'\\", "t' -14 -21 - {raw_tsv} | gzip -c -> {int_tsv}")
+      if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Running: cmd='{cmd}'...{RET}{RET}") )
+      system(cmd)
+    }
+    
+    # Load intersection results::  619,316
+    if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading: int_tsv='{int_tsv}'...{RET}{RET}") )
+    ret_tib <- readr::read_tsv(int_tsv, col_names=names(int_col$cols), col_types=int_col) %>% 
+      dplyr::select(CGN_Imp,TB_Imp,CO_Imp,M,U) %>% dplyr::arrange(CGN_Imp)
+    
     ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -69,6 +106,62 @@ reducedProbeMapping = function(man,
   
   ret_tib
 }
+
+cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
+                         mat_key='CGN_Imp',fresh=TRUE,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'cgn_to_topSeq'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  # Intersection Results Header::
+  int_col <- cols(Seq_ID = col_character(),
+                  Top_Sequence = col_character() )
+
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    mat_col_idx <- NULL
+    mat_col_idx <- grep(mat_key, names(tib))
+    if (is.null(mat_col_idx) || length(mat_col_idx)==0) {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed to find mat_key={mat_key}!!!{RET}{RET}"))
+      return(NULL)
+    }
+    mat_sym <- rlang::sym(mat_key)
+    
+    raw_tsv <- file.path(outDir, paste(name,'manifest.mat-cgn.tsv', sep='_') )
+    raw_tib <- dplyr::distinct(tib,!!mat_sym) %>% dplyr::arrange(!!mat_sym)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing raw_tsv={raw_tsv}...{RET}"))
+    readr::write_tsv(raw_tib, raw_tsv, col_names=FALSE)
+    
+    # Intersect improbe cgn/top_sequences with target manifest cgn
+    int_tsv <- file.path(outDir, paste(name,'imp-top.intersect.raw-cgn.cgn-sorted.tsv.gz', sep='.') )
+    if (!file.exists(int_tsv) || fresh) {
+      cmd <- glue::glue("gzip -dc {imp_tsv} | join -t $'\\", "t' -11 -21 - {raw_tsv} | gzip -c -> {int_tsv}")
+      if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Running: cmd='{cmd}'...{RET}{RET}") )
+      system(cmd)
+    }
+    
+    # Load intersection results::  619,316
+    if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading: int_tsv='{int_tsv}'...{RET}{RET}") )
+    ret_tib <- readr::read_tsv(int_tsv, col_names=names(int_col$cols), col_types=int_col) %>% 
+      dplyr::select(dplyr::all_of(names(int_col$cols) )) %>% dplyr::arrange(int_col$cols[1])
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        AQP/PQC Workflow Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
                                platform, version, matFormat="new", sidx=2, plen=50,
@@ -397,7 +490,7 @@ fixOrderProbeIDs = function(tib, field="Probe_Type", sidx=2,plen=50,
 
 addReducedMapProbe = function(tib, sidx=2, plen=50,
                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'template_func'
+  funcTag <- 'addReducedMapProbe'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Assumed Probe Length={plen}...{RET}"))
   
