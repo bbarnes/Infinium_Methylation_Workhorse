@@ -363,6 +363,13 @@ opt$design_srd <- 'TB'
 
 design_prb_sym <- rlang::sym(opt$design_prb)
 
+
+# Input Definitions::
+if (is.null(opt$ctls)) {
+  opt$ctls <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
+}
+
+
 ords_vec <- NULL
 mats_vec <- NULL
 aqps_vec <- NULL
@@ -414,8 +421,6 @@ raw_man_tib <- decodeAqpPqcWrapper(
   platform=opt$platform,version=opt$version,matFormat=opt$matFormat,
   name=opt$runName,outDir=opt$manDir,full=par$retData,trim=TRUE,
   verbose=opt$verbose,tc=0,tt=pTracker)
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Get improbe intersection::
@@ -472,6 +477,7 @@ full_prb_des_tib <- NULL
 if (!file.exists(full_prb_des_rds) || opt$fresh) {
   cat(glue::glue("[{par$prgmTag}]: Building Full Probe Design...{RET}"))
 
+  # Renamed to desSeq_to_prbs()
   full_prb_des_tib <- tib2prbs(tib=top_int_raw_cgn_tib, 
                                idsKey=opt$design_key,
                                seqKey=opt$design_seq,
@@ -494,17 +500,17 @@ if (!file.exists(full_prb_des_rds) || opt$fresh) {
 
 
 
-
-
-
-
-
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   5. Match Exact Probe Sequences::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+#
+#
+# TBD:: Move to function...
+#
+#
+
+# add
 full_prb_des_MAT_tib <- full_prb_des_tib %>% 
   dplyr::mutate(PRB1_U_MAT=stringr::str_to_upper(PRB1_U),
                 PRB1_M_MAT=stringr::str_to_upper(PRB1_M),
@@ -541,69 +547,90 @@ mat_full_tib <- dplyr::bind_rows(mat_inf1_tib,mat_inf2_tib) %>%
 mat_full_tib %>% dplyr::group_by(Probe_Type,Tango_CGN_Count) %>% 
   dplyr::summarise(TC_Count=n(), .groups='drop') %>% print()
 
-unq_full_cnt <- mat_full_tib %>% dplyr::distinct(M,U) %>% base::nrow()
-
 fin_full_tib <- mat_full_tib %>% 
   dplyr::arrange(-Tango_CGN_Count) %>% dplyr::distinct(M,U, .keep_all=TRUE) 
+unq_full_cnt <- fin_full_tib %>% dplyr::distinct(M,U) %>% base::nrow()
 
 # Summary Stats::
 fin_full_tib %>% dplyr::group_by(Probe_Type) %>% 
   dplyr::summarise(GCount=n(), .groups="drop") %>% print()
 
-if (FALSE) {
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                   6. Intersect Full Improbe Designs::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  full_des_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz')
-  
-  mat_uniq_ids_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-cgn-srd-uniq-mat.cgn-sorted.tsv.gz', sep='.') )
-  mat_uniq_ids_tib <- dplyr::distinct(mat_full_tib,Seq_ID,SR_Str,CO_Str) %>% 
-    dplyr::mutate(Probe_ID=paste(Seq_ID,paste0(SR_Str,CO_Str), sep='_')) %>%
-    dplyr::select(Probe_ID) %>% dplyr::arrange(Probe_ID)
-  readr::write_tsv(mat_uniq_ids_tib,mat_uniq_ids_tsv)
-  
-  # Intersect manifest unmethylated 48-mer matching CGN's with improbe design database::
-  #
-  run_sub_cmd <- TRUE
-  run_sub_cmd <- FALSE
-  imp_int_mat_cgn_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-all.intersect.mat-cgn.gen-sorted.tsv.gz', sep='.') )
-  if (!file.exists(imp_int_mat_cgn_tsv) || run_sub_cmd) {
-    sub_exe <- '/Users/bretbarnes/Documents/scripts/subset/getSubset.improbe_TB-CO.pl'
-    sub_cmd <- glue::glue("{sub_exe} -header -t {mat_uniq_ids_tsv} -d {full_des_tsv} | gzip -c -> {imp_int_mat_cgn_tsv}")
-    cat(glue::glue("[{par$prgmTag}]: Running: cmd='{sub_cmd}'...{RET}{RET}") )
-    system(sub_cmd)
-  }
-  
-  # Load Matched improbe designs::
-  #
-  imp_int_mat_cgn_tib <- loadIMP(imp_int_mat_cgn_tsv, verbose=opt$verbose,tc=1,tt=pTracker) %>% 
-    dplyr::mutate(SR_Str=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
-                  CO_Str=Methyl_Allele_CO_Strand) %>%
-    dplyr::rename(Probe_Type_IMP=Probe_Type)
-  
-  imp_int_mat_cgn_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
-    dplyr::summarise(Count=n(), .groups='drop') %>% print()
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                            7. Format Output::
-  #
-  #  - Determine Canonical Sequence
-  #  - Split Manifest & Alignment
-  #
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  # mat_full_tib %>% dplyr::distinct(Seq_ID,SR_Str,CO_Str) %>% base::nrow()
-  # mat_full_tib %>% dplyr::distinct(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>% base::nrow()
-  # imp_int_mat_cgn_tib %>% dplyr::distinct(Seq_ID,Methyl_Allele_TB_Strand,Methyl_Allele_CO_Strand) %>% base::nrow()
-  
-  # Determine Missed Probes::
-  mat_full_imp_tib <- mat_full_tib %>% dplyr::inner_join(imp_int_mat_cgn_tib, by=c("Seq_ID","SR_Str","CO_Str"))
-  mis_full_imp_tib <- mat_full_tib %>% dplyr::anti_join(imp_int_mat_cgn_tib, by=c("Seq_ID","SR_Str","CO_Str"))
-  
-  mat_full_imp_tib %>% dplyr::arrange(-Tango_Count) %>% 
-    dplyr::distinct(U,M,SR_Str,CO_Str,Infinium_Design,Probe_Type, .keep_all=TRUE)
+mat_full_rds <- file.path(opt$desDir, paste(opt$runName,opt$design_seq,opt$probe_type,'mat-matched-probes.rds', sep='.') )
+cat(glue::glue("[{par$prgmTag}]: Writing Matched RDS={mat_full_rds}...{RET}"))
+readr::write_rds(mat_full_tib,mat_full_rds)
+
+fin_full_rds <- file.path(opt$desDir, paste(opt$runName,opt$design_seq,opt$probe_type,'fin-matched-probes.rds', sep='.') )
+cat(glue::glue("[{par$prgmTag}]: Writing Final Unique RDS={fin_full_rds}...{RET}"))
+readr::write_rds(fin_full_tib,fin_full_rds)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   6. Intersect Full Improbe Designs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+full_des_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz')
+
+mat_uniq_ids_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-cgn-srd-uniq-mat.cgn-sorted.tsv.gz', sep='.') )
+mat_uniq_ids_tib <- dplyr::distinct(mat_full_tib,Seq_ID,SR_Str,CO_Str) %>% 
+  dplyr::mutate(Probe_ID=paste(Seq_ID,paste0(SR_Str,CO_Str), sep='_')) %>%
+  dplyr::select(Probe_ID) %>% dplyr::arrange(Probe_ID)
+readr::write_tsv(mat_uniq_ids_tib,mat_uniq_ids_tsv)
+
+# Intersect manifest unmethylated 48-mer matching CGN's with improbe design database::
+#
+run_sub_cmd <- TRUE
+run_sub_cmd <- FALSE
+imp_int_mat_cgn_tsv <- file.path(opt$intDir, paste(opt$runName,'imp-all.intersect.mat-cgn-srd.cgn-srd-sorted.tsv.gz', sep='.') )
+if (!file.exists(imp_int_mat_cgn_tsv) || run_sub_cmd) {
+  sub_exe <- '/Users/bretbarnes/Documents/scripts/subset/getSubset.improbe_TB-CO.pl'
+  sub_cmd <- glue::glue("{sub_exe} -header -t {mat_uniq_ids_tsv} -d {full_des_tsv} | gzip -c -> {imp_int_mat_cgn_tsv}")
+  cat(glue::glue("[{par$prgmTag}]: Running: cmd='{sub_cmd}'...{RET}{RET}") )
+  system(sub_cmd)
 }
+
+# Load Matched improbe designs::
+#
+imp_int_mat_cgn_tib <- loadIMP(imp_int_mat_cgn_tsv, verbose=opt$verbose,tc=1,tt=pTracker) %>% 
+  dplyr::mutate(SR_Str=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
+                CO_Str=Methyl_Allele_CO_Strand) %>%
+  dplyr::rename(Probe_Type_IMP=Probe_Type)
+
+imp_int_mat_cgn_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
+  dplyr::summarise(Count=n(), .groups='drop') %>% print()
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                            7. Format Output::
+#
+#  - Determine Canonical Sequence
+#  - Split Manifest & Alignment
+#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Determine Matched Probes::
+mat_full_imp_tib <- mat_full_tib %>% 
+  dplyr::inner_join(imp_int_mat_cgn_tib, by=c("Seq_ID","SR_Str","CO_Str")) %>% 
+  dplyr::arrange(-Tango_Count) %>% 
+  dplyr::distinct(U,M,SR_Str,CO_Str,Infinium_Design,Probe_Type, .keep_all=TRUE)
+mat_full_imp_tib %>% dplyr::group_by(Probe_Type,AQP) %>% 
+  dplyr::summarise(Count=n(), .groups='drop')
+
+# Determine Missed Probes::
+mis_full_imp_tib <- mat_full_tib %>% dplyr::anti_join(imp_int_mat_cgn_tib, by=c("Seq_ID","SR_Str","CO_Str"))
+mis_full_imp_tib %>% dplyr::group_by(Probe_Type,AQP) %>% 
+  dplyr::summarise(Count=n(), .groups='drop')
+
+
+#
+#
+# TBD:: Need to join these two:: fin_full_tib & mat_full_imp_tib
+#   - Chromosome Positions...
+#
+
+# fin_full_tib
+# mat_full_imp_tib
+#
+# fin_full_tib %>% dplyr::inner_join(mat_full_imp_tib, by=c("M","U"), suffix=c("_Raw","_Des"))
+
+
 
 
 
@@ -612,16 +639,8 @@ if (FALSE) {
 #                          2.0. Remainder:: CpH/SNP/CTL::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# non_imp_man_tib <- raw_man_tib %>% dplyr::anti_join(imp_tar_s48_cgn_tib, by=c("M","U") )
-# non_imp_man_tib <- raw_man_tib %>% dplyr::anti_join(fin_full_tib, by=c("M","U"))
-
-# Summary Stats::
-# non_imp_man_tib %>% dplyr::group_by(Probe_Type,Infinium_Design,AQP) %>% 
-#   dplyr::summarise(Non_Count=n()) %>% print()
-
 # Instead Check ALL individually::
 non_imp_man_tib <- raw_man_tib
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Rebuilding Remainder with ALL:: SNP/CpH::
@@ -838,24 +857,18 @@ raw_ctl_tib <- raw_man_tib %>%
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 std_ctl_tib <- NULL
+ctl_csv <- ctls_vec[1]
+std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
 
-# Input Definitions::
-if (is.null(ctls_vec) || length(ctls_vec)==0) {
-  ctl_csv <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
-} else {
-  ctl_csv <- ctls_vec[1]
-}
-
-if (!is.null(ctl_csv) && file.exists(opt$ctlCsv) &&
+if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
     !is.null(std_ctl_seq_tsv) && file.exists(std_ctl_seq_tsv)) {
   
   # TBD:: This should be transferred to 
-  std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
   std_ctl_seq_tib <- dplyr::inner_join(
     suppressMessages(suppressWarnings(readr::read_tsv(std_ctl_seq_tsv) )) %>% 
       dplyr::mutate(Address=stringr::str_remove(address_name, '^1') %>% as.integer()),
     suppressMessages(suppressWarnings(
-      readr::read_csv(opt$ctlCsv, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID")) )),
+      readr::read_csv(ctl_csv, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID")) )),
     by="Address") %>%
     dplyr::select(Address,Probe_Type,COLOR_CHANNEL,Probe_ID,probe_id,sequence, everything()) %>%
     dplyr::rename(Design_ID=probe_id) %>% dplyr::distinct(Address, .keep_all=TRUE) %>%
@@ -1027,6 +1040,7 @@ fin_cpg_mat_tib <-
 
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#
 #                  3.1. Clean Up Remainder:: CTL/SNP/CpH/CpG::
 #
 #  - Make unique Tango Addresses (M,U)
@@ -1160,41 +1174,47 @@ fin_core_tag_tib %>% dplyr::group_by(Probe_Type,MFG_Change_Flagged) %>%
 #                     Write Genome Studio Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-gs_man_ver  <- 0
-gs_man_let  <- 'C'
-gs_swap_dir <- file.path(opt$outDir,  paste0('mm10-LEGX-',gs_man_let,gs_man_ver))
-gs_swap_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',gs_man_let,gs_man_ver,'.manifest.GenomeStudio.cpg-sorted.clean.csv') )
-gz_swap_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',gs_man_let,gs_man_ver,'.manifest.GenomeStudio.cpg-sorted.clean.csv.gz') )
-ses_man_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',gs_man_let,gs_man_ver,'.manifest.Sesame.cpg-sorted.clean.csv.gz') )
+# gs_man_ver  <- 0
+# gs_man_let  <- 'C'
+# gs_swap_dir <- file.path(opt$outDir,  paste0('mm10-LEGX-',gs_man_let,gs_man_ver))
+# gs_swap_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',gs_man_let,gs_man_ver,'.manifest.GenomeStudio.cpg-sorted.clean.csv') )
+# gz_swap_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',gs_man_let,gs_man_ver,'.manifest.GenomeStudio.cpg-sorted.clean.csv.gz') )
+# ses_man_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',gs_man_let,gs_man_ver,'.manifest.Sesame.cpg-sorted.clean.csv.gz') )
+
+opt$version
+gs_swap_dir <- file.path(opt$outDir,  paste0('mm10-LEGX-',opt$version))
+gs_swap_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',opt$version,'.manifest.GenomeStudio.cpg-sorted.clean.csv') )
+gz_swap_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',opt$version,'.manifest.GenomeStudio.cpg-sorted.clean.csv.gz') )
+ses_man_csv <- file.path(gs_swap_dir, paste0('mm10_LEGX_',opt$version,'.manifest.Sesame.cpg-sorted.clean.csv.gz') )
 
 if (!dir.exists(gs_swap_dir)) dir.create(gs_swap_dir, recursive=TRUE)
 
-man_gs_csv  <- file.path(par$topDir, 'tmp/LifeEpigentics/manifests/mm10-LEGX-B5/mm10_LEGX_B5.manifest.GenomeStudio.cpg-sorted.clean.csv.gz')
 man_gs_csv  <- file.path(par$topDir, 'data/manifests/tmp/mm10_LEGX_B13.manifest.GenomeStudio.cpg-sorted.clean.csv.gz')
 man_head_df <- readr::read_lines(man_gs_csv, n_max = 6) %>% as.data.frame()
 
-man_gs_list <- loadManifestGenomeStudio(file = man_gs_csv, addSource = TRUE, normalize = FALSE, verbose = 20)
+# man_gs_list <- loadManifestGenomeStudio(file = man_gs_csv, addSource = TRUE, normalize = FALSE, verbose = 20)
 ctl_head_df <- tibble::tibble(Head="[Controls]") %>% tibble::add_column(BL1='',BL2='',BL3='',BL4='') %>% as.data.frame()
 
-man_head_replace_str <- paste0('_B',gs_man_ver,'.csv.gz')
+# man_head_replace_str <- paste0('_B',gs_man_ver,'.csv.gz')
+man_head_replace_str <- paste0('_',opt$version,'.csv.gz')
 man_head_df <- man_head_df %>% as_tibble() %>% purrr::set_names(c("Head_Var")) %>% 
   dplyr::mutate(Head_Var=as.character(Head_Var),
                 Head_Var=stringr::str_replace(Head_Var, '_B[0-9]+.csv.gz$', man_head_replace_str) ) %>%
   as.data.frame()
 
-#
-# Write Sesame Manifest::
-#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Write Sesame Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 fin_ses_core_csv <- file.path(opt$outDir)
 fin_ses_core_tib <- fin_core_tag_tib %>% dplyr::arrange(Probe_ID) %>% 
   dplyr::distinct(M,U, .keep_all=TRUE) %>% 
   dplyr::select(Probe_ID:Top_Sequence,Assay_Class,MFG_Change_Flagged)
 readr::write_csv(fin_ses_core_tib,ses_man_csv)
 
-
-#
-# Write Genome Studio CSV::
-#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Write Genome Studio Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 fin_core_split <- fin_core_tag_tib %>% split(.$Assay_Class)
 
@@ -1228,10 +1248,16 @@ man_fin_tib <- fin_core_split[['Analytical']] %>% dplyr::arrange(Probe_ID) %>%
 ctl_fin_tib <- fin_core_split[['Control']] %>% dplyr::arrange(Probe_ID) %>%
   dplyr::distinct(M,U, .keep_all=TRUE) %>% dplyr::select(M,U,Control_Group,Probe_ID:Top_Sequence,Control_Group)
 
+#
+# TBD:: For Infinium I designs add appropriate U/C designation to the Probe_ID
+#
 ctl_gs_tib <- dplyr::bind_rows(
   ctl_fin_tib <- fin_core_split[['Control']] %>% dplyr::arrange(Probe_ID) %>%
-    dplyr::distinct(M,U, .keep_all=TRUE) %>% dplyr::select(U,Control_Group,Probe_ID) %>%
-    dplyr::filter(!is.na(U)) %>% dplyr::rename(Address=U),
+    dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+    dplyr::filter(is.na(M)) %>%
+    dplyr::select(U,Control_Group,Probe_ID) %>%
+    dplyr::filter(!is.na(U)) %>% 
+    dplyr::rename(Address=U),
   ctl_fin_tib <- fin_core_split[['Control']] %>% dplyr::arrange(Probe_ID) %>%
     dplyr::distinct(M,U, .keep_all=TRUE) %>% dplyr::select(M,Control_Group,Probe_ID) %>%
     dplyr::filter(!is.na(M)) %>% dplyr::rename(Address=M)

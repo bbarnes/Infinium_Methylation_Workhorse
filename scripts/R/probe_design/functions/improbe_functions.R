@@ -19,7 +19,7 @@ BNG <- "|"
 
 isTibIMP = function(tib,
                     verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'loadIMP'
+  funcTag <- 'isTibIMP'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
