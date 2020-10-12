@@ -1354,7 +1354,8 @@ fin_core_split <- fin_core_tag_tib %>% split(.$Assay_Class)
 #
 man_gs_col <- c("IlmnID","Name","AddressA_ID","AlleleA_ProbeSeq","AddressB_ID","AlleleB_ProbeSeq",
                 "Infinium_Design_Type","Next_Base","Color_Channel","Forward_Sequence","Top_Sequence",
-                "Genome_Build","Genome_Build_NCBI","CHR","MAPINFO","SourceSeq")
+                "Genome_Build","Genome_Build_NCBI","CHR","MAPINFO","SourceSeq",
+                "Strand,Strand_TB","Strand_CO")
 
 man_fin_tib <- fin_core_split[['Analytical']] %>% 
   dplyr::arrange(Probe_ID) %>%
@@ -1364,7 +1365,13 @@ man_fin_tib <- fin_core_split[['Analytical']] %>%
     # CHR='chr1',
     # MAPINFO=1,
     SourceSeq=PRB1_D, #paste0(rep('N',50), collapse=''),
-    Forward_Sequence=paste(paste0(rep('N',60), collapse=''),'[NN]',paste0(rep('N',60), collapse='')),
+    Forward_Sequence=dplyr::case_when(
+      FR=='F' & Strand_TB=="T" ~ Top_Sequence,
+      FR=='F' & Strand_TB=="B" ~ revCmp(Top_Sequence),
+      FR=='R' & Strand_TB=="B" ~ Top_Sequence,
+      FR=='R' & Strand_TB=="T" ~ revCmp(Top_Sequence),
+      TRUE ~ paste0(paste0(rep('N',60), collapse=''),'[NN]',paste0(rep('N',60), collapse=''))
+    ),
     Genome_Build="mm10",
     Genome_Build_NCBI="GRCm10"
   ) %>%
@@ -1374,7 +1381,8 @@ man_fin_tib <- fin_core_split[['Analytical']] %>%
                 Infinium_Design_Type=DESIGN,
                 Color_Channel=COLOR_CHANNEL,
                 CHR=Gen_Chr,
-                MAPINFO=Gen_Pos) %>%
+                MAPINFO=Gen_Pos,
+                Strand=FR) %>%
   dplyr::select(all_of(man_gs_col))
 
 
