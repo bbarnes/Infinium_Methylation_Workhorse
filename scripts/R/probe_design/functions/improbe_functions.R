@@ -566,21 +566,19 @@ prbsToStrMUD = function(tib, mu='U', verbose=0,vt=5,tc=1,tt=NULL) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 # Function to design all probes from a generic tibble
-tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
-                    parallel=FALSE,del='_',
-                    verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'tib2prbs'
+#  old name: tib2prbs
+desSeq_to_prbs = function(tib, idsKey,seqKey,prbKey, strsSR='FR', strsCO='CO',
+                          addMatSeq=TRUE, parallel=FALSE,del='_',max=0,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'desSeq_to_prbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; srd={srdStr}, ",
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; SR={strsSR}, CO={strsCO}, ",
                                   "idsKey={idsKey}, prbKey={prbKey}, seqKey={seqKey}.{RET}"))
   
   # Unambigous Source Design Sequence Strand
-  srd_vec <- stringr::str_split(srdStr, '', simplify=TRUE) %>% as.vector()
-  src_srd_str <- srd_vec[1]
-  src_srd_sym <- rlang::sym(src_srd_str)
-  cmp_srd_str <- srd_vec[2]
-  cmp_srd_sym <- rlang::sym(cmp_srd_str)
+  sr_vec <- stringr::str_split(strsSR, '', simplify=TRUE) %>% as.vector()
+  co_vec <- stringr::str_split(strsCO, '', simplify=TRUE) %>% as.vector()
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -589,13 +587,18 @@ tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
     prbKey <- rlang::sym(prbKey)
     seqKey <- rlang::sym(seqKey)
     
+    if (max>0) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will subset input to max={max}.{RET}"))
+      tib <- tib %>% head(n=max)
+    }
+    
     src_man_tib <- tib %>% dplyr::select(!!idsKey, !!prbKey, !!seqKey) %>% 
       dplyr::mutate(Seq_ID:=!!idsKey, PRB_DES:=!!prbKey)
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} src_man_tib(original)={RET}"))
     if (verbose>=vt+4) print(src_man_tib)
     
     # Ensure we have 122 mer format 60[NN]60
-    #  tib <- tib %>% 
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Validating design sequneces...{RET}"))
     src_man_tib <- src_man_tib %>%
       dplyr::mutate(!!seqKey := stringr::str_replace(!!seqKey, '\\[','_') %>% stringr::str_replace('\\]','_')
       ) %>%
@@ -612,6 +615,9 @@ tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                      Calcluate Probes on All Strands::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building forward & reverse design sequneces...{RET}"))
+    
     des_seq_F_C <- src_man_tib %>% 
       dplyr::mutate(SR=TRUE, CO=TRUE, DesSeqN=shearBrac(!!seqKey))
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_F_C={RET}"))
@@ -634,6 +640,8 @@ tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
       DesBscU = bscUs(DesSeqN),
       DesBscM = bscMs(DesSeqN),
       DesBscD = bscDs(DesSeqN) )
+    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(FC).{RET}{RET}"))
+    if (verbose>=vt+4) bsc_tibs$FC %>% head(n=3) %>% print()
     
     # BSC-Foward-Opposite::
     bsc_tibs$FO <- bsc_tibs$FC %>% dplyr::mutate(
@@ -641,12 +649,16 @@ tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
       DesBscU=revCmp(DesBscU),
       DesBscM=revCmp(DesBscM),
       DesBscD=revCmp(DesBscD) )
+    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(FO).{RET}{RET}"))
+    if (verbose>=vt+4) bsc_tibs$FO %>% head(n=3) %>% print()
     
     # BSC-Reverse-Converted::
     bsc_tibs$RC <- des_seq_R_C %>% dplyr::mutate(
       DesBscU = bscUs(DesSeqN),
       DesBscM = bscMs(DesSeqN),
       DesBscD = bscDs(DesSeqN) )
+    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(RC).{RET}{RET}"))
+    if (verbose>=vt+4) bsc_tibs$RC %>% head(n=3) %>% print()
     
     # BSC-Reverse-Opposite::
     bsc_tibs$RO <- bsc_tibs$RC %>% dplyr::mutate(
@@ -654,24 +666,28 @@ tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
       DesBscU=revCmp(DesBscU),
       DesBscM=revCmp(DesBscM),
       DesBscD=revCmp(DesBscD) )
+    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(RO).{RET}{RET}"))
+    if (verbose>=vt+4) bsc_tibs$RO %>% head(n=3) %>% print()
     
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite converted design strands.{RET}{RET}"))
     # return(bsc_tibs)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                    Build all Probes on Each Strand::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building probes for each strand...{RET}"))
     srd_names <- names(bsc_tibs)
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Strand Names={RET}"))
     if (verbose>=vt+4) print(srd_names)
     
     if (parallel) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Build probes for each strand (Parallel)...{RET}"))
       ret_tib <- foreach (srd=srd_names, .combine=rbind) %dopar% {
         lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
                verbose=verbose, vt=vt+1, tc=tc+1) %>% dplyr::bind_rows()
       }
     } else {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Build probes for each strand (Linear)...{RET}"))
       for (srd in srd_names) {
         ret_tib <- ret_tib %>% dplyr::bind_rows(
           lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
@@ -679,12 +695,22 @@ tib2prbs = function(tib, idsKey,seqKey,prbKey, srdStr='FR',
       }
     }
     
-    # Update Key::
+    # Update Keys::
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Updating keys and strands.{RET}"))
     ret_tib <- ret_tib %>% dplyr::mutate(
-      SR_Str=case_when(SR ~ src_srd_str, !SR ~ cmp_srd_str, TRUE ~ NA_character_),
-      CO_Str=case_when(CO ~ 'C', !CO ~ 'O', TRUE ~ NA_character_),
-      Seq_ID_Uniq=paste(Seq_ID,SR_Str,CO_Str, sep=del)
+      SR_Str=case_when(SR ~ sr_vec[1], !SR ~ sr_vec[2], TRUE ~ NA_character_),
+      CO_Str=case_when(CO ~ co_vec[1], !CO ~ co_vec[2], TRUE ~ NA_character_),
+      Seq_ID_Uniq=paste(Seq_ID,paste0(SR_Str,CO_Str), sep=del)
     )
+    
+    # Add match probe sequences
+    if (addMatSeq) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding match seqqunes.{RET}"))
+      ret_tib <- ret_tib %>% 
+        dplyr::mutate(PRB1_U_MAT=stringr::str_to_upper(PRB1_U),
+                      PRB1_M_MAT=stringr::str_to_upper(PRB1_M),
+                      PRB2_D_MAT=stringr::str_to_upper(PRB2_D) )
+    }
     
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))

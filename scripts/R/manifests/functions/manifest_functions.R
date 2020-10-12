@@ -48,15 +48,193 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Manifest Joining Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Outside inputs
+# full_des_tsv <-     file.path(opt$impDir, 'designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz')
+# imp_full_des_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz')
+#
+# sub_exe <- '/Users/bretbarnes/Documents/scripts/subset/getSubset.improbe_TB-CO.pl'
+# sub_exe <- file.path(par$srcDir, 'scripts/perl/improbe/getSubset.improbe_TB-CO.pl')
+# 
+# imp=imp_full_des_tsv
+# exe=sub_exe
+# name=opt$runName
+# outDir=opt$intDir
+man_join_improbe = function(man, prbs, imp_tsv, exe,
+                            name,outDir,fresh=TRUE,
+                            verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'man_join_improbe'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    # Write Target CGN ids::
+    ids_tsv <- file.path(outDir, paste(name,'imp-cgn-srd-uniq-mat.cgn-sorted.tsv.gz', sep='.') )
+    ids_tib <- dplyr::distinct(man,Seq_ID,SR_Str,CO_Str) %>% 
+      dplyr::mutate(Probe_ID=paste(Seq_ID,paste0(SR_Str,CO_Str), sep='_')) %>%
+      dplyr::select(Probe_ID) %>% dplyr::arrange(Probe_ID)
+    readr::write_tsv(ids_tib,ids_tsv)
+    
+    # Intersect manifest unmethylated 48-mer matching CGN's with improbe design database::
+    #
+    int_tsv <- file.path(outDir, paste(name,funcTag,'imp-all.intersect.mat-cgn-srd.cgn-srd-sorted.tsv.gz', sep='.') )
+    if (!file.exists(int_tsv) || fresh) {
+      sub_cmd <- glue::glue("{sub_exe} -header -t {ids_tsv} -d {full_des_tsv} | gzip -c -> {int_tsv}")
+      if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: Running: cmd='{sub_cmd}'...{RET}{RET}") )
+      system(sub_cmd)
+    }
+    
+    # Load Matched improbe designs::
+    ret_tib <- loadIMP(int_tsv, verbose=opt$verbose,tc=1,tt=pTracker) %>% 
+      dplyr::mutate(SR_Str=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
+                    CO_Str=Methyl_Allele_CO_Strand) %>%
+      dplyr::rename(Probe_Type_IMP=Probe_Type)
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loaded improbe designs.{RET}"))
+    if (verbose>=vt) int_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
+      dplyr::summarise(Count=n(), .groups='drop') %>% print()
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                            7. Format Output::
+    #
+    #  - Determine Canonical Sequence
+    #  - Split Manifest & Alignment
+    #
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (FALSE) {
+      # Determine Matched Probes::
+      # mat_full_imp_tib <- mat_full_tib %>% 
+      #   dplyr::inner_join(int_tib, by=c("Seq_ID","SR_Str","CO_Str")) %>% 
+      #   dplyr::arrange(-Tango_CGN_Count) %>% 
+      #   dplyr::distinct(U,M,SR_Str,CO_Str,Infinium_Design,Probe_Type, .keep_all=TRUE)
+      # mat_full_imp_tib %>% dplyr::group_by(Probe_Type,AQP) %>% 
+      #   dplyr::summarise(Count=n(), .groups='drop')
+      
+      # Determine Missed Probes::
+      # mis_full_imp_tib <- mat_full_tib %>% dplyr::anti_join(int_tib, by=c("Seq_ID","SR_Str","CO_Str"))
+      # mis_full_imp_tib %>% dplyr::group_by(Probe_Type,AQP) %>% 
+      #   dplyr::summarise(Count=n(), .groups='drop')
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+man_join_prbs = function(man, prbs,
+                         man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
+                         man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
+                         man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'man_join_prbs'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    # First check that man and prbs have correct matching fields
+    if (length(which(names(man) %in% c(man_mat1U_key,man_mat1M_key,man_mat2D_key)))==0) {
+      stop("{RET}[{funcTag}]:{tabsStr} ERROR: Failed to find match names in manifest!!!{RET}{RET}")
+      return(ret_tib)
+    }
+    if (length(which(names(prbs) %in% c(prb_mat1U_key,prb_mat1M_key,prb_mat2D_key)))==0) {
+      stop("{RET}[{funcTag}]:{tabsStr} ERROR: Failed to find match names in probe data!!!{RET}{RET}")
+      return(ret_tib)
+    }
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Found match column names.{RET}"))
+    
+    #
+    # Rename Probes to match manifest names
+    #
+    man_mat1U_sym <- rlang::sym(man_mat1U_key)
+    prb_mat1U_sym <- rlang::sym(prb_mat1U_key)
+    
+    man_mat1M_sym <- rlang::sym(man_mat1M_key)
+    prb_mat1M_sym <- rlang::sym(prb_mat1M_key)
+    
+    man_mat2D_sym <- rlang::sym(man_mat2D_key)
+    prb_mat2D_sym <- rlang::sym(prb_mat2D_key)
+    
+    man1_tib <- dplyr::filter(man, Infinium_Design==1)
+    man2_tib <- dplyr::filter(man, Infinium_Design==2)
+    
+    prb1_tib <- prbs %>% dplyr::mutate( 
+      !!man_mat1U_sym := !!prb_mat1U_sym,
+      !!man_mat1M_sym := !!prb_mat1M_sym )
+    prb2_tib <- prbs %>% dplyr::mutate( 
+      !!man_mat2D_sym := !!prb_mat2D_sym )
+    
+    # Match by Infinium I(1) & II(2) Separately::
+    mat1_tib <- man1_tib %>% dplyr::inner_join(
+      prb1_tib, by=c(man_mat1U_key, man_mat1M_key), suffix=c("_Man", "_Prb") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match Infinium 1 probes.{RET}"))
+    if (verbose>=vt+4) mat1_tib %>% print()
+    
+    # Match by Infinium I(1) & II(2) Separately::
+    mat2_tib <- man2_tib %>% dplyr::inner_join(
+      prb2_tib, by=man_mat2D_key, suffix=c("_Man", "_Prb") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match Infinium 2 probes.{RET}"))
+    if (verbose>=vt+4) mat2_tib %>% print()
+    
+    # Join and rename columns
+    ret_tib <- dplyr::bind_rows(mat1_tib,mat2_tib) %>%
+      dplyr::rename(Probe_Type=Probe_Type_Man, Seq_ID=Seq_ID_Prb) %>%
+      add_count(U,M,Seq_ID, name='Tango_CGN_Count') %>%
+      
+      dplyr::arrange(-Genomic_CGN_Count) %>% 
+      # dplyr::arrange(-Tango_CGN_Count) %>% 
+      
+      dplyr::distinct(M,U, .keep_all=TRUE) %>%
+      dplyr::select(Seq_ID,Probe_Type,SR_Str,CO_Str,Infinium_Design,
+                    Genomic_CGN_Count, Tango_CGN_Count, dplyr::everything())
+                    # Tango_CGN_Count, dplyr::everything())
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Joined all matching designs.{RET}"))
+    
+    # Summary Stats::
+    if (verbose>=vt+1) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Matching Probe Types.{RET}"))
+      ret_tib %>% dplyr::group_by(Probe_Type,Tango_CGN_Count) %>% 
+        dplyr::summarise(TC_Count=n(), .groups='drop') %>% print()
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr} Missing Probe Types.{RET}"))
+      man %>% dplyr::anti_join(ret_tib, by=c("M","U")) %>% 
+        dplyr::group_by(Probe_Type,AQP) %>% 
+        dplyr::summarise(Mis_Count=n(), .groups='drop') %>% print()
+    }
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Seq48U to CGN Mapping::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-seq48U_to_CGN = function(tib, imp_tsv,name=NULL, outDir=NULL,
-                         mat_key='Mat_PrbA',fresh=TRUE,
+seq48U_to_cgn = function(tib, imp_tsv,name=NULL, outDir=NULL,
+                         mat_key='Mat_PrbA',fresh=TRUE, colA=4,colB=1,
                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'seq48U_to_CGN'
+  funcTag <- 'seq48U_to_cgn'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; colA={colA}, colB={colB}...{RET}"))
   
   # Intersection Results Header::
   int_col <- cols(Mat_PrbA = col_character(),
@@ -70,6 +248,8 @@ seq48U_to_CGN = function(tib, imp_tsv,name=NULL, outDir=NULL,
   ret_tib <- NULL
   stime <- system.time({
     
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    
     mat_col_idx <- NULL
     mat_col_idx <- grep(mat_key, names(tib))
     if (is.null(mat_col_idx) || length(mat_col_idx)==0) {
@@ -78,15 +258,20 @@ seq48U_to_CGN = function(tib, imp_tsv,name=NULL, outDir=NULL,
     }
     mat_sym <- rlang::sym(mat_key)
     
-    raw_tsv <- file.path(outDir, paste(name,'manifest.raw-s48.tsv', sep='_') )
-    raw_tib <- dplyr::distinct(tib,!!mat_sym,M,U) %>% dplyr::arrange(!!mat_sym)
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing raw_tsv={raw_tsv}...{RET}"))
-    readr::write_tsv(raw_tib, raw_tsv, col_names=FALSE)
+    man_tsv <- file.path(outDir, paste(name,funcTag,'man',paste0(mat_key,'-sorted'),'tsv', sep='.') )
+    int_tsv <- file.path(outDir, paste(name,funcTag,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep='.') )
+    
+    man_tib <- dplyr::distinct(tib,!!mat_sym,M,U) %>% dplyr::arrange(!!mat_sym)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing man_tsv={man_tsv}...{RET}"))
+    readr::write_tsv(man_tib, man_tsv, col_names=FALSE)
     
     # Intersect manifest unmethylated 48-mer sequences with improbe design database seqU48-mers
-    int_tsv <- file.path(outDir, paste(name,'imp-s48.intersect.raw-s48.s48-sorted.tsv.gz', sep='.') )
     if (!file.exists(int_tsv) || fresh) {
-      cmd <- glue::glue("gzip -dc {imp_tsv} | join -t $'\\", "t' -14 -21 - {raw_tsv} | gzip -c -> {int_tsv}")
+      if (stringr::str_ends(imp_tsv,'.gz')) {
+        cmd <- glue::glue("gzip -dc {imp_tsv} | join -t $'\\", "t' -1{colA} -2{colB} - {man_tsv} | gzip -c -> {int_tsv}")
+      } else {
+        cmd <- glue::glue("join -t $'\\", "t' -1{colA} -2{colB} {imp_tsv} {man_tsv} | gzip -c -> {int_tsv}")
+      }
       if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Running: cmd='{cmd}'...{RET}{RET}") )
       system(cmd)
     }
@@ -108,20 +293,23 @@ seq48U_to_CGN = function(tib, imp_tsv,name=NULL, outDir=NULL,
 }
 
 cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
-                         mat_key='CGN_Imp',fresh=TRUE,
+                         mat_key='CGN_Imp',fresh=TRUE, colA=1,colB=1,
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'cgn_to_topSeq'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; colA={colA}, colB={colB}...{RET}"))
   
   # Intersection Results Header::
   int_col <- cols(Seq_ID = col_character(),
                   Top_Sequence = col_character() )
-
+  
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
     
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+
     mat_col_idx <- NULL
     mat_col_idx <- grep(mat_key, names(tib))
     if (is.null(mat_col_idx) || length(mat_col_idx)==0) {
@@ -130,15 +318,20 @@ cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
     }
     mat_sym <- rlang::sym(mat_key)
     
-    raw_tsv <- file.path(outDir, paste(name,'manifest.mat-cgn.tsv', sep='_') )
-    raw_tib <- dplyr::distinct(tib,!!mat_sym) %>% dplyr::arrange(!!mat_sym)
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing raw_tsv={raw_tsv}...{RET}"))
-    readr::write_tsv(raw_tib, raw_tsv, col_names=FALSE)
+    man_tsv <- file.path(outDir, paste(name,funcTag,'man',paste0(mat_key,'-sorted'),'tsv', sep='.') )
+    int_tsv <- file.path(outDir, paste(name,funcTag,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep='.') )
+    
+    man_tib <- dplyr::distinct(tib,!!mat_sym) %>% dplyr::arrange(!!mat_sym)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing man_tsv={man_tsv}...{RET}"))
+    readr::write_tsv(man_tib, man_tsv, col_names=FALSE)
     
     # Intersect improbe cgn/top_sequences with target manifest cgn
-    int_tsv <- file.path(outDir, paste(name,'imp-top.intersect.raw-cgn.cgn-sorted.tsv.gz', sep='.') )
     if (!file.exists(int_tsv) || fresh) {
-      cmd <- glue::glue("gzip -dc {imp_tsv} | join -t $'\\", "t' -11 -21 - {raw_tsv} | gzip -c -> {int_tsv}")
+      if (stringr::str_ends(imp_tsv,'.gz')) {
+        cmd <- glue::glue("gzip -dc {imp_tsv} | join -t $'\\", "t' -1{colA} -2{colB} - {man_tsv} | gzip -c -> {int_tsv}")
+      } else {
+        cmd <- glue::glue("join -t $'\\", "t' -1{colA} -2{colB} {imp_tsv} {man_tsv} | gzip -c -> {int_tsv}")
+      }
       if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Running: cmd='{cmd}'...{RET}{RET}") )
       system(cmd)
     }
@@ -159,15 +352,90 @@ cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
   ret_tib
 }
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        AQP/PQC Workflow Functions::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+intersect_tsv = function(man, man_tsv,imp_tsv,int_tsv,
+                         colA,colB=1,mat_vec,int_col,
+                         fresh=TRUE,max=0,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'intersect_tsv'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; colA={colA}, colB={colB}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    outDir <- base::dirname(int_tsv)
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    
+    # First check that man and prbs have correct matching fields
+    if (length(which(names(man) %in% mat_vec))==0) {
+      stop("{RET}[{funcTag}]:{tabsStr} ERROR: Failed to find match names in manifest!!!{RET}{RET}")
+      return(ret_tib)
+    }
+    
+    if (max>0) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will subset input to max={max}.{RET}"))
+      man <- man %>% head(n=max)
+    }
+    
+    if (verbose>=4) cat(glue::glue("[{funcTag}]:{tabsStr} mat_vec={RET}"))
+    if (verbose>=4) print(mat_vec)
+    
+    if (verbose>=4) cat(glue::glue("[{funcTag}]:{tabsStr} int_col={RET}"))
+    if (verbose>=4) print(int_col)
+    
+    mat_key <- mat_vec[1] %>% as.character()
+    mat_sym <- rlang::sym(mat_key)
+    
+    man_tib <- man %>% dplyr::select(dplyr::all_of(mat_vec)) %>% 
+      dplyr::distinct() %>% dplyr::arrange(!!mat_sym)
+      # dplyr::distinct() %>% dplyr::arrange(dplyr::all_of(mat_vec[1]))
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing man_tsv(sorted={mat_vec[1]})={man_tsv}...{RET}"))
+    print(man_tib)
+    readr::write_tsv(man_tib, man_tsv, col_names=FALSE)
+    
+    # Intersect manifest unmethylated 48-mer sequences with improbe design database seqU48-mers
+    if (!file.exists(int_tsv) || fresh) {
+      if (stringr::str_ends(imp_tsv,'.gz')) {
+        cmd <- glue::glue("gzip -dc {imp_tsv} | join -t $'\\", "t' -1{colA} -2{colB} - {man_tsv} | gzip -c -> {int_tsv}")
+      } else {
+        cmd <- glue::glue("join -t $'\\", "t' -1{colA} -2{colB} {imp_tsv} {man_tsv} | gzip -c -> {int_tsv}")
+      }
+      if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Running: cmd='{cmd}'...{RET}{RET}") )
+      system(cmd)
+    }
 
-decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
-                               platform, version, matFormat="new", sidx=2, plen=50,
-                               name=NULL, outDir=NULL, full=FALSE, trim=TRUE,
-                               verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'decodeAqpPqcWrapper'
+    # Load intersection results::
+    if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading: int_tsv='{int_tsv}'...{RET}{RET}") )
+    ret_tib <- readr::read_tsv(int_tsv, col_names=names(int_col$cols), col_types=int_col) %>% 
+      dplyr::select(dplyr::all_of(names(int_col$cols) )) %>% 
+      dplyr::arrange(int_col$cols[1])
+    # dplyr::select(CGN_Imp,TB_Imp,CO_Imp,M,U) %>% dplyr::arrange(dplyr::all_of(int_vec[1]))
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+#
+# NOT WORKING YET!!!
+#
+
+# s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.csv.gz')
+# top_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz')
+#
+broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
+                                   name=NULL, outDir=NULL,
+                                   mat_key='CGN_Imp',fresh=TRUE, max=0,
+                                   verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'seq48U_to_topSeq'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -175,73 +443,168 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
   ret_tib <- NULL
   stime <- system.time({
     
-    # Load PQC::
-    pqc_man_tib <- NULL
-    pqc_fix_tib <- NULL
-    if (!is.null(pqc_vec) && length(pqc_vec)!=0) {
-      pqc_man_tib <- decodeToManifestWrapper(
-        ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
-        platform=platform, version=version,
-        matFormat=matFormat,
-        pqcFormat='pqc',
-        full=par$retData, trim=TRUE,
-        verbose=verbose,tc=0,tt=pTracker)
-      
-      # Add Probe Sequences for matching::
-      pqc_fix_tib <- 
-        fixOrderProbeIDs(pqc_man_tib, verbose=verbose,tc=0,tt=pTracker) %>%
-        addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,tc=0,tt=pTracker) %>%
-        dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    
+    if (max>0) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will subset input to max={max}.{RET}"))
+      tib <- tib %>% head(n=max)
     }
     
-    # Load AQP::
-    aqp_man_tib <- NULL
-    aqp_fix_tib <- NULL
-    if (!is.null(aqp_vec) && length(aqp_vec)!=0) {
-      aqp_man_tib <- decodeToManifestWrapper(
-        ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
-        platform=platform, version=version, 
-        matFormat=matFormat,
-        pqcFormat='aqp',
-        full=par$retData, trim=TRUE,
-        verbose=verbose,tc=0,tt=pTracker)
-      
-      # Add Probe Sequences for matching::
-      aqp_fix_tib <- 
-        fixOrderProbeIDs(aqp_man_tib, verbose=verbose,tc=0,tt=pTracker) %>%
-        addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,tc=0,tt=pTracker) %>%
-        dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
-    }
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                             1. seq48U to CGN::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    rname <- 'seq48U_to_cgn'
+    colA <- 4
+    colB <- 1
+    mat_vec <- c(mat_key,'M','U')
+    int_col <- cols(Mat_PrbA = col_character(),
+                    CGN_Imp = col_character(),
+                    TB_Imp = col_character(),
+                    CO_Imp = col_character(),
+                    M = col_double(),
+                    U = col_double() )
     
-    # QC Sanity Checks for AQP/PQC if present::
-    qc_man_tib  <- NULL
-    if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
-      qc_man_tib <- AQP_PQC_QC(aqp=aqp_man_tib, pqc=pqc_man_tib, 
-                               aqp_vec=aqp_vec, pqc_vec=pqc_vec,
-                               aqp_fix=aqp_fix_tib, pqc_fix=pqc_fix_tib,
-                               name=name,outDir=outDir,
-                               verbose=verbose,tc=tc+1,tt=pTracker)
-    }
+    man_tsv <- file.path(outDir, paste(name,rname,'man',paste0(mat_key,'-sorted'),'tsv', sep='.') )
+    int_tsv <- file.path(outDir, paste(name,rname,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep='.') )
     
-    # Use the PQC manifest if not use AQP::
-    ret_tib <- NULL
-    if (length(pqc_vec)!=0) {
-      ret_tib <- pqc_fix_tib
-    } else if (length(aqp_vec)!=0) {
-      ret_tib <- aqp_fix_tib
-    } else {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
-      return(NULL)
-    }
-    ret_tib <- ret_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
+    int_tib <-intersect_tsv(
+      man=tib, man_tsv=man_tsv, imp_tsv=s48_tsv, int_tsv=int_tsv, 
+      colA=colA, colB=colB, mat_vec=mat_vec, int_col=int_col, fresh=fresh,
+      verbose=verbose,tc=tc+1,tt=tt)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                             2. CGN to topSeq::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    rname <- 'cgn_to_topSeq'
+    colA < -1
+    colB <- 1
+    mat_key <- as.character(names(int_col$cols)[2])
+    mat_vec <- c(mat_key)
+    int_col <- cols(Seq_ID = col_character(),
+                    Top_Sequence = col_character() )
+    
+    man_tsv <- file.path(outDir, paste(name,rname,'man',paste0(mat_key,'-sorted'),'tsv', sep='.') )
+    int_tsv <- file.path(outDir, paste(name,rname,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep='.') )
+    
+    ret_tib <-intersect_tsv(
+      man=int_tib, man_tsv=man_tsv, imp_tsv=top_tsv, int_tsv=int_tsv,
+      colA=colA, colB=colB, mat_vec=mat_vec, int_col=int_col, fresh=fresh,
+      verbose=verbose,tc=tc+1,tt=tt)
+    
     ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        AQP/PQC Workflow Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
+                               platform, version, matFormat="new", sidx=2, plen=50,
+                               name=NULL, outDir=NULL, fresh=FALSE, full=FALSE, trim=TRUE,
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'decodeAqpPqcWrapper'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_csv <- NULL
+  stime <- system.time({
     
     if (!is.null(outDir) && !is.null(name)) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will use outDir(name={name})={outDir}...{RET}") )
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
       ret_csv <- file.path(outDir, paste(name,'manifest.raw.tsv.gz', sep='_') )
+    }
+    
+    if (!fresh && !is.null(ret_csv) && file.exists(ret_csv)) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Loading Pre-existing Raw Manifest={ret_csv}...{RET}") )
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
+      ret_cnt <- ret_tib %>% base::nrow()
+    } else {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build clean manifest...{RET}") )
       
-      cat(glue::glue("[{funcTag}]: Writing Raw Manifest(cnt={ret_cnt})={ret_csv}...{RET}") )
-      readr::write_csv(ret_tib,ret_csv)
+      # Load PQC::
+      pqc_man_tib <- NULL
+      pqc_fix_tib <- NULL
+      if (!is.null(pqc_vec) && length(pqc_vec)!=0) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build PQC Results...{RET}") )
+        
+        pqc_man_tib <- decodeToManifestWrapper(
+          ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+          platform=platform, version=version,
+          matFormat=matFormat,
+          pqcFormat='pqc',
+          full=par$retData, trim=TRUE,
+          verbose=verbose,tc=0,tt=pTracker)
+        
+        # Add Probe Sequences for matching::
+        pqc_fix_tib <- 
+          fixOrderProbeIDs(pqc_man_tib, verbose=verbose,tc=0,tt=pTracker) %>%
+          addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,tc=0,tt=pTracker) %>%
+          dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+      }
+      
+      # Load AQP::
+      aqp_man_tib <- NULL
+      aqp_fix_tib <- NULL
+      if (!is.null(aqp_vec) && length(aqp_vec)!=0) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build AQP Results...{RET}") )
+        
+        aqp_man_tib <- decodeToManifestWrapper(
+          ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+          platform=platform, version=version, 
+          matFormat=matFormat,
+          pqcFormat='aqp',
+          full=par$retData, trim=TRUE,
+          verbose=verbose,tc=0,tt=pTracker)
+        
+        # Add Probe Sequences for matching::
+        aqp_fix_tib <- 
+          fixOrderProbeIDs(aqp_man_tib, verbose=verbose,tc=0,tt=pTracker) %>%
+          addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,tc=0,tt=pTracker) %>%
+          dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+      }
+      
+      # QC Sanity Checks for AQP/PQC if present::
+      qc_man_tib  <- NULL
+      if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will Validate AQP & PQC Resuls...{RET}") )
+        
+        qc_man_tib <- AQP_PQC_QC(aqp=aqp_man_tib, pqc=pqc_man_tib, 
+                                 aqp_vec=aqp_vec, pqc_vec=pqc_vec,
+                                 aqp_fix=aqp_fix_tib, pqc_fix=pqc_fix_tib,
+                                 name=name,outDir=outDir,
+                                 verbose=verbose,tc=tc+1,tt=pTracker)
+      }
+      
+      # Use the PQC manifest if not use AQP::
+      ret_tib <- NULL
+      if (length(pqc_vec)!=0) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will return PQC Results.{RET}") )
+        ret_tib <- pqc_fix_tib
+      } else if (length(aqp_vec)!=0) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will return AQP Results.{RET}") )
+        ret_tib <- aqp_fix_tib
+      } else {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
+        return(NULL)
+      }
+      ret_tib <- ret_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
+      ret_cnt <- ret_tib %>% base::nrow()
+      
+      if (!is.null(ret_csv)) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Raw Manifest(cnt={ret_cnt})={ret_csv}...{RET}") )
+        readr::write_csv(ret_tib,ret_csv)
+      }
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -489,7 +852,7 @@ fixOrderProbeIDs = function(tib, field="Probe_Type", sidx=2,plen=50,
 }
 
 addReducedMapProbe = function(tib, sidx=2, plen=50,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                              verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'addReducedMapProbe'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Assumed Probe Length={plen}...{RET}"))

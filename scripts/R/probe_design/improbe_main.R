@@ -412,13 +412,13 @@ des_tar_tib <-
 seq_tar_tib <- dplyr::select(des_tar_tib, opt$design_key, opt$design_seq) %>% 
   dplyr::distinct() %>% dplyr::mutate(!!des_prb_sym := opt$probe_type)
 
-new_prb_tib <- tib2prbs(tib=seq_tar_tib,
-                        idsKey=opt$design_key,
-                        seqKey=opt$design_seq,
-                        prbKey=opt$design_prb,
-                        srdStr=opt$design_srd, 
-                        parallel=opt$parallel,
-                        verbose=opt$verbose,tc=1,tt=pTracker)
+new_prb_tib <- desSeq_to_prbs(tib=seq_tar_tib,
+                              idsKey=opt$design_key,
+                              seqKey=opt$design_seq,
+                              prbKey=opt$design_prb,
+                              srdStr=opt$design_srd, 
+                              parallel=opt$parallel,
+                              verbose=opt$verbose,tc=1,tt=pTracker)
 
 new_prb_tib %>% dplyr::group_by(SR,CO,SR_Str,CO_Str) %>% 
   dplyr::summarise(Count=n(), .groups='drop') %>% print()
