@@ -136,6 +136,8 @@ if (args.dat[1]=='RStudio') {
   opt$version     <- 'C1'
   opt$version     <- 'C2'
   opt$version     <- 'C4'
+  opt$version     <- 'C5'
+  opt$version     <- 'C6'
   
   opt$frmt_original <- TRUE
   opt$frmt_original <- FALSE
@@ -422,11 +424,19 @@ color_len <- length(color_vec)
 #                          Process AQP/PQC Data::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+aqps_vec <- NULL
+
+opt$fresh <- TRUE
+opt$verbose <- 4
+
 man_raw_tib <- decodeAqpPqcWrapper(
   ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec, 
   platform=opt$platform,version=opt$version,matFormat=opt$matFormat,
   name=opt$runName,outDir=opt$manDir,fresh=opt$fresh,full=par$retData,trim=TRUE,
-  verbose=opt$verbose,tc=0,tt=pTracker)
+  verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
+
+man_raw_tib %>% dplyr::filter(U==59792834) %>% as.data.frame()
+man_raw_tib %>% dplyr::filter(M==59792834) %>% as.data.frame()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Get improbe intersection::
@@ -1355,16 +1365,13 @@ fin_core_split <- fin_core_tag_tib %>% split(.$Assay_Class)
 man_gs_col <- c("IlmnID","Name","AddressA_ID","AlleleA_ProbeSeq","AddressB_ID","AlleleB_ProbeSeq",
                 "Infinium_Design_Type","Next_Base","Color_Channel","Forward_Sequence","Top_Sequence",
                 "Genome_Build","Genome_Build_NCBI","CHR","MAPINFO","SourceSeq",
-                "Strand,Strand_TB","Strand_CO")
+                "Strand","Strand_TB","Strand_CO")
 
 man_fin_tib <- fin_core_split[['Analytical']] %>% 
   dplyr::arrange(Probe_ID) %>%
   dplyr::distinct(M,U, .keep_all=TRUE) %>% 
-  # dplyr::select(Probe_ID:Top_Sequence,Gen_Chr,Gen_Pos) %>% 
   dplyr::mutate(
-    # CHR='chr1',
-    # MAPINFO=1,
-    SourceSeq=PRB1_D, #paste0(rep('N',50), collapse=''),
+    SourceSeq=PRB1_D,
     Forward_Sequence=dplyr::case_when(
       FR=='F' & Strand_TB=="T" ~ Top_Sequence,
       FR=='F' & Strand_TB=="B" ~ revCmp(Top_Sequence),
@@ -1384,7 +1391,6 @@ man_fin_tib <- fin_core_split[['Analytical']] %>%
                 MAPINFO=Gen_Pos,
                 Strand=FR) %>%
   dplyr::select(all_of(man_gs_col))
-
 
 #
 # Format Genome Studio Controls
@@ -1435,7 +1441,7 @@ write_delim(x=man_fin_tib, path=gs_swap_csv, delim=',', col_names=TRUE,  quote_e
 write_delim(x=ctl_head_df, path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
 write_delim(x=ctl_gs_tib,  path=gs_swap_csv, delim=',', col_names=FALSE, quote_escape=FALSE, na='', append=TRUE)
 
-cmd <- glue::glue("cat {gs_swap_csv} | perl -pe 's/\"//gi' | gzip -c - > {gz_swap_csv}")
+cmd <- glue::glue("cat {gs_swap_csv} | perl -pe 's/\"//gi; s/\n/,,,,,\n/;' | gzip -c - > {gz_swap_csv}")
 system(cmd)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
