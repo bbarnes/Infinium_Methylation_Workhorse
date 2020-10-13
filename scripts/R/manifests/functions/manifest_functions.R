@@ -560,8 +560,6 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           full=par$retData, trim=TRUE,
           verbose=verbose,vt=vt+1,tc=0,tt=tt)
         
-        return(pqc_man_tib)
-        
         # Add Probe Sequences for matching::
         pqc_fix_tib <- 
           fixOrderProbeIDs(pqc_man_tib, verbose=verbose,tc=0,tt=tt) %>%
