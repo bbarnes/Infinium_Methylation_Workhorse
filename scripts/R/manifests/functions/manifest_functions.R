@@ -188,19 +188,20 @@ man_join_prbs = function(man, prbs,
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match Infinium 2 probes.{RET}"))
     if (verbose>=vt+4) mat2_tib %>% print()
     
+    # ret <- NULL
+    # ret$int1 <- mat1_tib
+    # ret$int2 <- mat2_tib
+    # return(ret)
+    
     # Join and rename columns
     ret_tib <- dplyr::bind_rows(mat1_tib,mat2_tib) %>%
       dplyr::rename(Probe_Type=Probe_Type_Man, Seq_ID=Seq_ID_Prb) %>%
       add_count(U,M,Seq_ID, name='Tango_CGN_Count') %>%
-      
-      dplyr::arrange(-Genomic_CGN_Count) %>% 
-      # dplyr::arrange(-Tango_CGN_Count) %>% 
-      
+      dplyr::arrange(-Tango_CGN_Count) %>% 
       dplyr::distinct(M,U, .keep_all=TRUE) %>%
       dplyr::select(Seq_ID,Probe_Type,SR_Str,CO_Str,Infinium_Design,
-                    Genomic_CGN_Count, Tango_CGN_Count, dplyr::everything())
-                    # Tango_CGN_Count, dplyr::everything())
-    
+                    Tango_CGN_Count, dplyr::everything())
+
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Joined all matching designs.{RET}"))
     
     # Summary Stats::

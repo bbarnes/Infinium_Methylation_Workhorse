@@ -424,8 +424,6 @@ color_len <- length(color_vec)
 #                          Process AQP/PQC Data::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-aqps_vec <- NULL
-
 opt$fresh <- TRUE
 opt$verbose <- 4
 
@@ -435,8 +433,29 @@ man_raw_tib <- decodeAqpPqcWrapper(
   name=opt$runName,outDir=opt$manDir,fresh=opt$fresh,full=par$retData,trim=TRUE,
   verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
 
-man_raw_tib %>% dplyr::filter(U==59792834) %>% as.data.frame()
-man_raw_tib %>% dplyr::filter(M==59792834) %>% as.data.frame()
+if (FALSE) {
+  man_raw_tib %>% dplyr::filter(U==59792834) %>% as.data.frame()
+  man_raw_tib %>% dplyr::filter(M==59792834) %>% as.data.frame()
+  
+  man_raw_tib %>% base::nrow()
+  man_raw_tib %>% dplyr::group_by(U,M) %>% base::nrow()
+  man_raw_tib %>% dplyr::group_by(U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
+  
+  add_cnt_tib <- dplyr::bind_rows(
+    dplyr::select(man_raw_tib, U) %>% dplyr::rename(Address=U) %>% dplyr::filter(!is.na(Address)),
+    dplyr::select(man_raw_tib, M) %>% dplyr::rename(Address=M) %>% dplyr::filter(!is.na(Address))
+  ) %>% dplyr::add_count(Address, name="Address_Count")
+  
+  add_fail_cnt <- add_cnt_tib %>% dplyr::filter(Address_Count!=1)
+  
+  man_raw_tib %>% dplyr::filter(U %in% add_fail_cnt$Address) %>% dplyr::group_by(Rep_Max) %>% dplyr::summarise(Rep_Count=n(), .groups='drop')
+  man_raw_tib %>% dplyr::filter(M %in% add_fail_cnt$Address) %>% dplyr::group_by(Rep_Max) %>% dplyr::summarise(Rep_Count=n(), .groups='drop')
+  
+  man_raw_tib %>% dplyr::filter(U %in% add_fail_cnt$Address)
+  man_raw_tib %>% dplyr::filter(M %in% add_fail_cnt$Address) %>% dplyr::filter(Rep_Max==1)
+}
+
+opt$fresh <- FALSE
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Get improbe intersection::
@@ -523,7 +542,9 @@ if (!file.exists(man_prb_rds) || opt$fresh) {
     dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
   
   # Remove:: only supports intermediates...
-  #  readr::write_rds(full_prb_des_tib,man_full_rds)
+  cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design File: RDS={man_full_rds}...{RET}"))
+  readr::write_rds(full_prb_des_tib,man_full_rds)
+  cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design File.{RET}{RET}"))
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                        5. Match to Manifest Probes::
@@ -534,19 +555,38 @@ if (!file.exists(man_prb_rds) || opt$fresh) {
                   man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
                   man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
                   man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-                  verbose=opt$verbose,tc=1,tt=pTracker)
+                  verbose=opt$verbose+10,tc=1,tt=pTracker)
   
-  cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design File: RDS={man_prb_rds}...{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Writing Join Probe Match Design File: RDS={man_prb_rds}...{RET}"))
   readr::write_rds(man_prb_tib,man_prb_rds)
-  cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design File.{RET}{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Done. Writing Join Probe Design File.{RET}{RET}"))
 } else {
   cat(glue::glue("[{par$prgmTag}]: Loading Full Match Probe Design; RDS={man_prb_rds}...{RET}"))
   man_prb_tib <- readr::read_rds(man_prb_rds)
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Full Probe Design.{RET}{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Done. Loading Join Probe Design.{RET}{RET}"))
 }
 
-
-
+if (FALSE) {
+  man_prb_tib %>% dplyr::filter(U==59792834) %>% as.data.frame()
+  man_prb_tib %>% dplyr::filter(M==59792834) %>% as.data.frame()
+  
+  man_prb_tib %>% base::nrow()
+  man_prb_tib %>% dplyr::group_by(U,M) %>% base::nrow()
+  man_prb_tib %>% dplyr::group_by(U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
+  
+  add_cnt_tib <- dplyr::bind_rows(
+    dplyr::select(man_prb_tib, U) %>% dplyr::rename(Address=U) %>% dplyr::filter(!is.na(Address)),
+    dplyr::select(man_prb_tib, M) %>% dplyr::rename(Address=M) %>% dplyr::filter(!is.na(Address))
+  ) %>% dplyr::add_count(Address, name="Address_Count")
+  
+  add_fail_cnt <- add_cnt_tib %>% dplyr::filter(Address_Count!=1)
+  
+  man_prb_tib %>% dplyr::filter(U %in% add_fail_cnt$Address) %>% dplyr::group_by(Rep_Max) %>% dplyr::summarise(Rep_Count=n(), .groups='drop')
+  man_prb_tib %>% dplyr::filter(M %in% add_fail_cnt$Address) %>% dplyr::group_by(Rep_Max) %>% dplyr::summarise(Rep_Count=n(), .groups='drop')
+  
+  man_prb_tib %>% dplyr::filter(U %in% add_fail_cnt$Address)
+  man_prb_tib %>% dplyr::filter(M %in% add_fail_cnt$Address) %>% dplyr::filter(Rep_Max==1)
+}
 
 
 
@@ -698,6 +738,8 @@ if (FALSE) {
     dplyr::summarise(Count=n(), .groups='drop')
   
 }
+
+
 
 #
 #
