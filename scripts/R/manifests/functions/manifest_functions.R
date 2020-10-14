@@ -537,7 +537,8 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
     if (!is.null(outDir) && !is.null(name)) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will use outDir(name={name})={outDir}...{RET}{RET}") )
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      ret_csv <- file.path(outDir, paste(name,'manifest.raw.csv.gz', sep='_') )
+      ret_csv <- file.path(outDir, paste(name,'manifest.raw.csv.gz', sep='.') )
+      rep_csv <- file.path(outDir, paste(name,'manifest.sum.csv.gz', sep='.') )
     }
     
     if (!fresh && !is.null(ret_csv) && file.exists(ret_csv)) {
@@ -614,9 +615,13 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
         return(NULL)
       }
       ret_tib <- ret_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
+      rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       ret_cnt <- ret_tib %>% base::nrow()
-      
+
       if (!is.null(ret_csv)) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Rep Summary Manifest={rep_csv}...{RET}") )
+        readr::write_csv(rep_tib,rep_csv)
+        
         if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Raw Manifest(cnt={ret_cnt})={ret_csv}...{RET}") )
         readr::write_csv(ret_tib,ret_csv)
       }
@@ -715,7 +720,7 @@ AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
                               fix_man_mis_cnt=fix_man_mis_cnt )
     if (!is.null(outDir) && !is.null(name)) {
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      ret_csv <- file.path(outDir,paste(name,'AQP-PQC.quality-control.summary.csv.gz',sep='_') )
+      ret_csv <- file.path(outDir,paste(name,funcTag,'summary.csv.gz',sep='.') )
       readr::write_csv(ret_tib,ret_csv)
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Wrote QC Summary={ret_csv}.{RET}"))
     }
@@ -922,6 +927,76 @@ addReducedMapProbe = function(tib, sidx=2, plen=50,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Manifest Stats Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+
+manifestCheckSummary = function(tib,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'manifestCheckSummary'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    test_fail_cnt <- tib %>% dplyr::filter(U==59792834) %>% 
+      dplyr::filter(Rep_Max==1) %>% base::nrow()
+    test_pass_cnt <- tib %>% dplyr::filter(M==59792834) %>% 
+      dplyr::filter(Rep_Max==1) %>% base::nrow()
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: test_fail_cnt={test_fail_cnt}, test_pass_cnt={test_pass_cnt}.{RET}"))
+    
+    tot_val_cnt <- tib %>% base::nrow()
+    add_unq_cnt <- tib %>% dplyr::group_by(U,M) %>% base::nrow()
+    seq_unq_cnt <- tib %>% 
+      dplyr::group_by(U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% base::nrow()
+    add_dif_cnt <- tot_val_cnt - add_unq_cnt
+    add_seq_cnt <- tot_val_cnt - seq_unq_cnt
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:   tot_val_cnt={tot_val_cnt}.{RET}"))
+      cat(glue::glue("[{funcTag}]:   add_unq_cnt={add_unq_cnt}, delta={add_dif_cnt}.{RET}"))
+      cat(glue::glue("[{funcTag}]:   seq_unq_cnt={seq_unq_cnt}, delta={add_seq_cnt}.{RET}"))
+    }
+    
+    ret_tib <- dplyr::bind_rows(
+      dplyr::select(tib, U) %>% dplyr::rename(Address=U) %>% 
+        dplyr::filter(!is.na(Address)),
+      dplyr::select(tib, M) %>% dplyr::rename(Address=M) %>% 
+        dplyr::filter(!is.na(Address))
+    ) %>% 
+      dplyr::add_count(Address, name="Address_Count") %>% 
+      dplyr::filter(Address_Count!=1) 
+    
+    add_fail_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:  add_fail_cnt={add_fail_cnt}.{RET}"))
+    
+    repU_fail_cnt <- tib %>% 
+      dplyr::filter(U %in% ret_tib$Address) %>% 
+      dplyr::filter(Rep_Max==1) %>% base::nrow()
+    repM_fail_cnt <- tib %>% 
+      dplyr::filter(M %in% ret_tib$Address) %>% 
+      dplyr::filter(Rep_Max==1) %>% base::nrow()
+    
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]: repU_fail_cnt={repU_fail_cnt}.{RET}"))
+      cat(glue::glue("[{funcTag}]: repM_fail_cnt={repM_fail_cnt}.{RET}"))
+    }
+    
+    tib %>% dplyr::filter(U %in% ret_tib$Address) %>% 
+      dplyr::group_by(Probe_Type,Rep_Max) %>% 
+      dplyr::summarise(Rep_Count=n(), .groups='drop') %>% print()
+    tib %>% dplyr::filter(M %in% ret_tib$Address) %>%
+      dplyr::group_by(Probe_Type,Rep_Max) %>% 
+      dplyr::summarise(Rep_Count=n(), .groups='drop') %>% print()
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
 
 manToBeadSummary = function(man, field="Infinium_Design",
                             verbose=0,vt=3,tc=1,tt=NULL) {
