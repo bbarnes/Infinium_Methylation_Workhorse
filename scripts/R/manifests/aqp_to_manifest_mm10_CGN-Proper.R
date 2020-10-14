@@ -424,7 +424,6 @@ color_len <- length(color_vec)
 #                          Process AQP/PQC Data::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-opt$fresh <- TRUE
 opt$verbose <- 4
 
 man_raw_tib <- decodeAqpPqcWrapper(
@@ -454,8 +453,6 @@ if (FALSE) {
   man_raw_tib %>% dplyr::filter(U %in% add_fail_cnt$Address)
   man_raw_tib %>% dplyr::filter(M %in% add_fail_cnt$Address) %>% dplyr::filter(Rep_Max==1)
 }
-
-opt$fresh <- FALSE
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Get improbe intersection::
