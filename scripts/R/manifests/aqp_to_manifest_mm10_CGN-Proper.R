@@ -168,9 +168,10 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'A1'
     
     opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCh38-21092020.cgnTop.sorted.tsv')
-
-    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/Genknowme/LS_Epiprofile')
+    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCh37.improbeDesignInput.cgn-sorted.tsv.gz')
+    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCh38.improbeDesignInput.cgn-sorted.tsv.gz')
     
+    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/Genknowme/LS_Epiprofile')
     opt$ords <- paste(
       file.path(opt$aqpDir, 'AQP1_NAremoved_GenKnowme_CpG_SNP_order.07082020.csv'),
       file.path(opt$aqpDir, 'AQP2_AP_Genknowme_AQP2_replicate_design_file2.csv'),
@@ -211,9 +212,9 @@ if (args.dat[1]=='RStudio') {
     
     opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv.gz')
     opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv')
-
-    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
+    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCm10.improbeDesignInput.cgn-sorted.tsv.gz')
     
+    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
     opt$ords <- paste(
       file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP1.csv.gz'),
       file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP2.csv.gz'),
@@ -505,16 +506,14 @@ opt$verbose <- 4
 man_raw_tib <- decodeAqpPqcWrapper(
   ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec, 
   platform=opt$platform,version=opt$version,
-  
   matFormat=opt$matFormat,matSkip=opt$matSkip,
   ordFormat=opt$ordFormat,ordSkip=opt$ordSkip,
   pqcSkip=opt$pqcSkip,
-  
   name=opt$runName,outDir=opt$manDir,fresh=opt$fresh,full=par$retData,trim=TRUE,
   verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
 
-# raw_rep_tib <- manifestCheckSummary(man_raw_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-
+raw_rep_tib <- manifestCheckSummary(man_raw_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+# man_raw_tib %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n(), .groups='drop')
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -595,7 +594,11 @@ if (!file.exists(man_join_rds) || opt$fresh) {
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Join Probe Design.{RET}{RET}"))
 }
 cpg_add_rep_tib <- manifestCheckSummary(man_cpg_prb_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-man_cpg_prb_tib <- man_cpg_prb_tib %>% dplyr::rename(CO=CO_Prb)
+
+#
+# TBD:: Not sure if this is actually needed:: It may be causing problems later...
+#
+# man_cpg_prb_tib <- man_cpg_prb_tib %>% dplyr::rename(CO=CO_Prb)
 
 
 
@@ -739,6 +742,7 @@ man_snp_pos_tib %>% dplyr::select(Gen_Chr:Genomic_CGN_Count) %>%
 man_snp_pos_tib %>% dplyr::group_by(Probe_Type,Genomic_CGN_Count) %>% 
   dplyr::summarise(Count=n(), .groups='drop')
 
+snp_add_gen_tib <- manifestCheckSummary(man_snp_pos_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               3.2 Intersect improbe Genomic Coordinates:: CpH
@@ -765,17 +769,18 @@ man_cph_pos_tib %>% dplyr::select(Gen_Chr:Genomic_CGN_Count) %>%
 man_cph_pos_tib %>% dplyr::group_by(Probe_Type,Genomic_CGN_Count) %>% 
   dplyr::summarise(Count=n(), .groups='drop')
 
+cph_add_gen_tib <- manifestCheckSummary(man_cph_pos_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               3.3 Intersect improbe Genomic Coordinates:: CpG
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCm10.improbeDesignInput.cgn-sorted.tsv.gz')
 cpg_pos_col <- cols(Seq_ID  = col_character(),
                     Gen_Chr = col_character(),
                     Gen_Pos = col_double() )
 
 cpg_pos_tib <- suppressMessages(suppressWarnings(
-  readr::read_tsv(cpg_pos_tsv, col_names=names(cpg_pos_col$cols), col_types=cpg_pos_col) )) %>%
+  readr::read_tsv(opt$cpg_pos_tsv, col_names=names(cpg_pos_col$cols), col_types=cpg_pos_col) )) %>%
   dplyr::filter(Seq_ID %in% man_cpg_prb_tib$Seq_ID) %>%
   dplyr::add_count(Seq_ID, name='Genomic_CGN_Count')
 
@@ -789,25 +794,6 @@ man_cpg_pos_tib %>% dplyr::select(Gen_Chr:Genomic_CGN_Count) %>%
 man_cpg_pos_tib %>% dplyr::group_by(Probe_Type,Genomic_CGN_Count) %>% 
   dplyr::summarise(Count=n(), .groups='drop')
 
-# OLD CODE:: To be deleted...
-#
-if (FALSE) {
-  # Matched::
-  man_gen_tib <- man_cpg_prb_tib %>% dplyr::inner_join(
-    dplyr::distinct(cpg_pos_tib, Seq_ID, .keep_all=TRUE), by="Seq_ID")
-  
-  man_gen_tib %>% 
-    dplyr::group_by(Probe_Type,Genomic_CGN_Count,HS) %>% 
-    dplyr::summarise(Count=n(), .groups='drop') %>% print()
-  
-  # Unmatched::
-  man_nog_tib <- man_cpg_prb_tib %>% dplyr::anti_join(
-    dplyr::distinct(cpg_pos_tib, Seq_ID, .keep_all=TRUE), by="Seq_ID")
-  
-  man_nog_tib %>%
-    dplyr::group_by(Probe_Type,AQP) %>% 
-    dplyr::summarise(Count=n(), .groups='drop') %>% print()
-}
 cpg_add_gen_tib <- manifestCheckSummary(man_cpg_pos_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
