@@ -4,8 +4,15 @@
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+
+# Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
 COM <- ","
 TAB <- "\t"
@@ -48,24 +55,21 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                         Manifest Joining Functions::
+#                Join Manifest Probes with Design Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Outside inputs
-# full_des_tsv <-     file.path(opt$impDir, 'designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz')
-# imp_full_des_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCm10-21092020_improbe-designOutput.tsv.gz')
-#
-# sub_exe <- '/Users/bretbarnes/Documents/scripts/subset/getSubset.improbe_TB-CO.pl'
-# sub_exe <- file.path(par$srcDir, 'scripts/perl/improbe/getSubset.improbe_TB-CO.pl')
-# 
-# imp=imp_full_des_tsv
-# exe=sub_exe
+# s48_tsv=opt$s48_tsv
+# top_tsv=opt$top_tsv
 # name=opt$runName
-# outDir=opt$intDir
-man_join_improbe = function(man, prbs, imp_tsv, exe,
-                            name,outDir,fresh=TRUE,
-                            verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'man_join_improbe'
+# outDir=opt$outDir
+clean_manifest_probes = function(tib, s48_tsv, top_tsv,
+                                 name, outDir,
+                                 design_key='Seq_ID',design_seq='Top_Sequence',
+                                 design_prb='Probe_Type',probe_type='cg',
+                                 design_srs='TB',design_cos='CO',
+                                 parallel=TRUE,fresh=TRUE,
+                                 verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'clean_manifest_probes'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -73,54 +77,93 @@ man_join_improbe = function(man, prbs, imp_tsv, exe,
   ret_tib <- NULL
   stime <- system.time({
     
-    # Write Target CGN ids::
-    ids_tsv <- file.path(outDir, paste(name,'imp-cgn-srd-uniq-mat.cgn-sorted.tsv.gz', sep='.') )
-    ids_tib <- dplyr::distinct(man,Seq_ID,SR_Str,CO_Str) %>% 
-      dplyr::mutate(Probe_ID=paste(Seq_ID,paste0(SR_Str,CO_Str), sep='_')) %>%
-      dplyr::select(Probe_ID) %>% dplyr::arrange(Probe_ID)
-    readr::write_tsv(ids_tib,ids_tsv)
+    # Build output directories::
+    intDir <- file.path(outDir, 'intersection')
+    if (!dir.exists(intDir)) dir.create(intDir, recursive=TRUE)
     
-    # Intersect manifest unmethylated 48-mer matching CGN's with improbe design database::
-    #
-    int_tsv <- file.path(outDir, paste(name,funcTag,'imp-all.intersect.mat-cgn-srd.cgn-srd-sorted.tsv.gz', sep='.') )
-    if (!file.exists(int_tsv) || fresh) {
-      sub_cmd <- glue::glue("{sub_exe} -header -t {ids_tsv} -d {full_des_tsv} | gzip -c -> {int_tsv}")
-      if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: Running: cmd='{sub_cmd}'...{RET}{RET}") )
-      system(sub_cmd)
-    }
-    
-    # Load Matched improbe designs::
-    ret_tib <- loadIMP(int_tsv, verbose=opt$verbose,tc=1,tt=tt) %>% 
-      dplyr::mutate(SR_Str=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
-                    CO_Str=Methyl_Allele_CO_Strand) %>%
-      dplyr::rename(Probe_Type_IMP=Probe_Type)
-    
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loaded improbe designs.{RET}"))
-    if (verbose>=vt) int_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
-      dplyr::summarise(Count=n(), .groups='drop') %>% print()
+    desDir <- file.path(outDir, 'design')
+    if (!dir.exists(desDir)) dir.create(desDir, recursive=TRUE)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                            7. Format Output::
     #
-    #  - Determine Canonical Sequence
-    #  - Split Manifest & Alignment
+    #                        1. RawMan -> seq48U::
+    #                        2. seq48U -> CGN/TB/CO::
     #
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    imp_s48_tib <- seq48U_to_cgn(tib=man_raw_tib, imp_tsv=s48_tsv,
+                                 name=name,outDir=intDir,
+                                 mat_key='Mat_PrbA', fresh=fresh,
+                                 colA=4,colB=1,
+                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
-    if (FALSE) {
-      # Determine Matched Probes::
-      # mat_full_imp_tib <- mat_full_tib %>% 
-      #   dplyr::inner_join(int_tib, by=c("Seq_ID","SR_Str","CO_Str")) %>% 
-      #   dplyr::arrange(-Tango_CGN_Count) %>% 
-      #   dplyr::distinct(U,M,SR_Str,CO_Str,Infinium_Design,Probe_Type, .keep_all=TRUE)
-      # mat_full_imp_tib %>% dplyr::group_by(Probe_Type,AQP) %>% 
-      #   dplyr::summarise(Count=n(), .groups='drop')
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                             3. CGN to Top::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    imp_top_tib <- cgn_to_topSeq(tib=imp_s48_tib, imp_tsv=top_tsv,
+                                 name=name,outDir=intDir,
+                                 mat_key='CGN_Imp', fresh=fresh,
+                                 colA=1,colB=1,
+                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+      dplyr::mutate(!!design_prb_sym := probe_type)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                           4. Top to Probes::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    man_join_rds <-
+      file.path(desDir, paste(name,design_seq,probe_type,'mat-probes.rds', sep='.') )
+    man_full_rds <-
+      file.path(desDir, paste(name,design_seq,probe_type,'all-probes.rds', sep='.') )
+    
+    ret_tib <- NULL
+    if (!file.exists(man_join_rds) || fresh) {
+      cat(glue::glue("[{par$prgmTag}]: Building Full Probe Design...{RET}"))
       
-      # Determine Missed Probes::
-      # mis_full_imp_tib <- mat_full_tib %>% dplyr::anti_join(int_tib, by=c("Seq_ID","SR_Str","CO_Str"))
-      # mis_full_imp_tib %>% dplyr::group_by(Probe_Type,AQP) %>% 
-      #   dplyr::summarise(Count=n(), .groups='drop')
+      test_max <- 0
+      cpg_prb_des_tib <- NULL
+      if (!file.exists(man_full_rds) || fresh) {
+        cpg_prb_des_tib <- 
+          desSeq_to_prbs(tib=imp_top_tib, 
+                         idsKey=design_key,
+                         seqKey=design_seq,prbKey=design_prb,
+                         strsSR=design_srs,strsCO=design_cos,
+                         parallel=parallel, max=test_max,
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        
+        cpg_prb_des_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
+          dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
+        
+        # Remove:: only supports intermediates...
+        cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design File: RDS={man_full_rds}...{RET}"))
+        readr::write_rds(cpg_prb_des_tib,man_full_rds)
+        cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design File.{RET}{RET}"))
+      } else {
+        cat(glue::glue("[{par$prgmTag}]: Loading Full Match Probe Design; RDS={man_full_rds}...{RET}"))
+        cpg_prb_des_tib <- readr::read_rds(man_full_rds)
+        cat(glue::glue("[{par$prgmTag}]: Done. Loading Full Probe Design.{RET}{RET}"))
+      }
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                        5. Match to Manifest Probes::
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      ret_tib <- man_join_prbs(
+        man_raw_tib,cpg_prb_des_tib,
+        man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
+        man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
+        man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      cat(glue::glue("[{par$prgmTag}]: Writing Join Probe Match Design File: RDS={man_join_rds}...{RET}"))
+      readr::write_rds(ret_tib,man_join_rds)
+      cat(glue::glue("[{par$prgmTag}]: Done. Writing Join Probe Design File.{RET}{RET}"))
+    } else {
+      cat(glue::glue("[{par$prgmTag}]: Loading Join Match Probe Design; RDS={man_join_rds}...{RET}"))
+      ret_tib <- readr::read_rds(man_join_rds) 
+      cat(glue::glue("[{par$prgmTag}]: Done. Loading Join Probe Design.{RET}{RET}"))
     }
+    cpg_add_rep_tib <- 
+      manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     ret_cnt <- ret_tib %>% base::nrow()
   })
@@ -130,6 +173,10 @@ man_join_improbe = function(man, prbs, imp_tsv, exe,
   
   ret_tib
 }
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                Join Manifest Probes with Design Probes::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 man_join_prbs = function(man, prbs,
                          man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
@@ -224,7 +271,6 @@ man_join_prbs = function(man, prbs,
   ret_tib
 }
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Seq48U to CGN Mapping::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -292,6 +338,10 @@ seq48U_to_cgn = function(tib, imp_tsv,name=NULL, outDir=NULL,
   
   ret_tib
 }
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           CGN to TopSeq Mapping::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
                          mat_key='CGN_Imp',fresh=TRUE, colA=1,colB=1,
@@ -429,8 +479,8 @@ intersect_tsv = function(man, man_tsv,imp_tsv,int_tsv,
 # NOT WORKING YET!!!
 #
 
-# s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.csv.gz')
-# top_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz')
+# s48_tsv <- file.path(impDir, 'designOutput_21092020/seq48U/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.csv.gz')
+# top_tsv <- file.path(impDir, 'designOutput_21092020/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz')
 #
 broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
                                    name=NULL, outDir=NULL,
@@ -471,7 +521,7 @@ broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
     int_tib <-intersect_tsv(
       man=tib, man_tsv=man_tsv, imp_tsv=s48_tsv, int_tsv=int_tsv, 
       colA=colA, colB=colB, mat_vec=mat_vec, int_col=int_col, fresh=fresh,
-      verbose=verbose,tc=tc+1,tt=tt)
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                             2. CGN to topSeq::
@@ -490,7 +540,7 @@ broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
     ret_tib <-intersect_tsv(
       man=int_tib, man_tsv=man_tsv, imp_tsv=top_tsv, int_tsv=int_tsv,
       colA=colA, colB=colB, mat_vec=mat_vec, int_col=int_col, fresh=fresh,
-      verbose=verbose,tc=tc+1,tt=tt)
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
@@ -538,7 +588,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
       ret_csv <- file.path(outDir, paste(name,'manifest.raw.csv.gz', sep='.') )
       rep_csv <- file.path(outDir, paste(name,'manifest.sum.csv.gz', sep='.') )
       
-      if (opt$fresh) {
+      if (fresh) {
         if (verbose>=vt) cat(glue::glue("[{funcTag}]: Cleaning outDir(name={name})={outDir}...{RET}") )
         list.files(outDir, full.names=TRUE) %>% base::unlink()
       }
@@ -553,7 +603,8 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
     if (verbose>=vt) cat(glue::glue("[{funcTag}]: Joining Match TSVs(cnt={mat_len})...{RET}") )
     mat_all_tsv <- file.path(outDir, paste(name,'unqiue-match.sorted.tsv.gz', sep='.') )
     mat_all_tib <- lapply(mat_vec, loadMAT, format=matFormat,skip=matSkip,
-                          verbose=opt$verbose,vt=vt+100) %>% dplyr::bind_rows(.id="AQP") %>% 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+      dplyr::bind_rows(.id="AQP") %>% 
       dplyr::mutate(AQP=as.integer(AQP)) %>% dplyr::arrange(-AQP) %>% dplyr::distinct(Address,.keep_all=TRUE)
     readr::write_tsv(mat_all_tib,mat_all_tsv)
     mat_vec   <- c(mat_all_tsv)
@@ -584,12 +635,12 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
           matCols=mat_col,
           full=par$retData, trim=TRUE,
-          verbose=verbose,vt=vt+1,tc=0,tt=tt)
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         
         # Add Probe Sequences for matching::
         pqc_fix_tib <- 
-          fixOrderProbeIDs(pqc_man_tib, verbose=verbose,tc=0,tt=tt) %>%
-          addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,tc=0,tt=tt) %>%
+          fixOrderProbeIDs(pqc_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+          addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
           dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
       }
       
@@ -608,12 +659,12 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
           matCols=mat_col,
           full=par$retData, trim=TRUE,
-          verbose=verbose,vt=vt+1,tc=0,tt=tt)
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         
         # Add Probe Sequences for matching::
         aqp_fix_tib <- 
-          fixOrderProbeIDs(aqp_man_tib, verbose=verbose,tc=0,tt=tt) %>%
-          addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,tc=0,tt=tt) %>%
+          fixOrderProbeIDs(aqp_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+          addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
           dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
       }
       
@@ -626,9 +677,9 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
                                  aqp_vec=aqp_vec, pqc_vec=pqc_vec,
                                  aqp_fix=aqp_fix_tib, pqc_fix=pqc_fix_tib,
                                  name=name,outDir=outDir,
-                                 verbose=verbose,tc=tc+1,tt=tt)
+                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       }
-      
+
       # Use the PQC manifest if not use AQP::
       ret_tib <- NULL
       if (length(pqc_vec)!=0) {
@@ -1348,7 +1399,7 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
                          matCols=matCols,
                          full=full, trim=trim,
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      )
+        )
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:Done.{RET}{RET}"))
     }
     pre_cnt <- ret_tib %>% base::nrow()

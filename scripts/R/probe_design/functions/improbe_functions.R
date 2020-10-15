@@ -1,4 +1,8 @@
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   improbe (Infinium Methylation) Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 suppressWarnings(suppressPackageStartupMessages(require("tidyverse")) )
 suppressWarnings(suppressPackageStartupMessages(require("stringr")) )
 suppressWarnings(suppressPackageStartupMessages(require("glue")) )
@@ -6,7 +10,6 @@ suppressWarnings(suppressPackageStartupMessages(require("scales")) )
 suppressWarnings(suppressPackageStartupMessages(require("matrixStats")) )
 
 suppressWarnings(suppressPackageStartupMessages(require("Biostrings")) )
-
 
 COM <- ","
 TAB <- "\t"
