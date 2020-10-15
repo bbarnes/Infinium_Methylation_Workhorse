@@ -69,6 +69,9 @@ opt$pqcs <- NULL
 opt$ctls <- NULL
 opt$idat <- NULL
 
+opt$s48_tsv <- NULL
+opt$top_tsv <- NULL
+
 # Platform/Method Options::
 opt$genomeBuild <- NULL
 opt$platform    <- NULL
@@ -77,7 +80,13 @@ opt$version     <- NULL
 # Run Options::
 opt$fresh <- FALSE
 par$retData <- FALSE
+
 opt$matFormat <- 'new'
+opt$ordFormat <- 'old'
+
+opt$matSkip <- 40
+opt$ordSkip <- 8
+opt$pqcSkip <- 7
 
 # Parallel/Cluster Options::
 opt$single   <- FALSE
@@ -128,32 +137,15 @@ if (args.dat[1]=='RStudio') {
   # End of local parameter definitions::
   #
   
-  opt$outDir <- file.path(par$topDir, 'scratch')
   locIdatDir <- file.path(par$topDir, 'data/idats')
+  opt$outDir <- file.path(par$topDir, 'scratch')
+  opt$impDir <- file.path(par$topDir, 'data/improbe')
   
-  # Platform/Method Options::
-  opt$genomeBuild <- 'mm10'
-  opt$platform    <- 'LEGX'
-  opt$version     <- 'S6'
-  opt$version     <- 'C0'
-  opt$version     <- 'C1'
-  opt$version     <- 'C2'
-  opt$version     <- 'C4'
-  opt$version     <- 'C5'
-  opt$version     <- 'C6'
-  opt$version     <- 'C7'
-  opt$version     <- 'C8'
-  
-  opt$frmt_original <- TRUE
-  opt$frmt_original <- FALSE
+  # opt$s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.csv.gz')
+  opt$s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/un/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.tsv')
   
   opt$write_full <- FALSE
   opt$write_base <- FALSE
-  
-  opt$make_addresss <- FALSE
-  
-  opt$addControls <- TRUE
-  opt$addManifest <- FALSE
   
   #
   # Pre-defined local options runTypes::
@@ -161,8 +153,65 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'nzt'
   par$local_runType <- 'covic'
   par$local_runType <- 'mm10'
+  par$local_runType <- 'GENK'
   
-  if (par$local_runType=='mm10') {
+  if (par$local_runType=='GENK') {
+    opt$fresh <- TRUE
+    opt$matFormat <- 'old'
+    opt$ordFormat <- 'old'
+    opt$matSkip <- 0
+    opt$ordSkip <- 0
+    
+    # Platform/Method Options::
+    opt$genomeBuild <- 'hg38'
+    opt$platform    <- 'GENK'
+    opt$version     <- 'A1'
+    
+    opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCh38-21092020.cgnTop.sorted.tsv')
+
+    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/Genknowme/LS_Epiprofile')
+    
+    opt$ords <- paste(
+      file.path(opt$aqpDir, 'AQP1_NAremoved_GenKnowme_CpG_SNP_order.07082020.csv'),
+      file.path(opt$aqpDir, 'AQP2_AP_Genknowme_AQP2_replicate_design_file2.csv'),
+      sep=',')
+    
+    opt$mats <- paste(
+      file.path(opt$aqpDir, '20468029_AQP1_probes.match'),
+      file.path(opt$aqpDir, '20468029_AQP2_probes.match'),
+      sep=',')
+    
+    opt$aqps <- paste(
+      file.path(opt$aqpDir, 'BS0032678_AQP1-AQP.txt'),
+      file.path(opt$aqpDir, 'BS0032779_AQP2-AQP.txt'),
+      sep=',')
+    
+    opt$pqcs <- paste(
+      file.path(opt$aqpDir, '20042793X371678_A_ProductQC_AP.txt'),
+      sep=',')
+    
+    par$idatsTopDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
+    opt$idat <- paste(
+      file.path(par$idatsTopDir, '204637490002'),
+      sep=',')
+  } else if (par$local_runType=='mm10') {
+    # Platform/Method Options::
+    opt$genomeBuild <- 'mm10'
+    opt$platform    <- 'LEGX'
+    
+    opt$version     <- 'S6'
+    opt$version     <- 'C0'
+    opt$version     <- 'C1'
+    opt$version     <- 'C2'
+    opt$version     <- 'C4'
+    opt$version     <- 'C5'
+    opt$version     <- 'C6'
+    opt$version     <- 'C7'
+    opt$version     <- 'C8'
+    
+    opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv.gz')
+    opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv')
+
     opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
     
     opt$ords <- paste(
@@ -205,9 +254,7 @@ if (args.dat[1]=='RStudio') {
   opt$parallel <- TRUE
   
   opt$runName <- paste(opt$genomeBuild,opt$platform,opt$version, sep='-')
-  opt$outDir <- file.path(par$topDir, 'scratch')
-  opt$impDir <- file.path(par$topDir, 'data/improbe')
-  
+
 } else {
   par$runMode    <- 'CommandLine'
   par$exePath <- base::substring(args.dat[grep("--file=", args.dat)], 8)
@@ -243,6 +290,11 @@ if (args.dat[1]=='RStudio') {
                 help="Pre-Defined Infinium Methylation Controls (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--idat"), type="character", default=opt$idat, 
                 help="idat directories (comma seperated) [default= %default]", metavar="character"),
+
+    make_option(c("--s48_tsv"), type="character", default=opt$s48_tsv, 
+                help="Seq48U Match file(s) (tab seperated) [default= %default]", metavar="character"),
+    make_option(c("--top_tsv"), type="character", default=opt$top_tsv, 
+                help="Top Sequence CGN Match file(s) (tab seperated) [default= %default]", metavar="character"),
     
     # Platform/Method Options::
     make_option(c("--genomeBuild"), type="character", default=opt$genomeBuild, 
@@ -251,6 +303,20 @@ if (args.dat[1]=='RStudio') {
                 help="Platform (e.g. HM450, EPIC, LEGX, NZT, COVIC) [default= %default]", metavar="character"),
     make_option(c("--version"), type="character", default=opt$version, 
                 help="Manifest Version (e.g. B0,B1,B2,B3,B4,C0) [default= %default]", metavar="character"),
+    
+    # File formats
+    make_option(c("--ordFormat"), type="character", default=opt$ordFormat, 
+                help="Order File Format [default= %default]", metavar="character"),
+    make_option(c("--matFormat"), type="character", default=opt$matFormat, 
+                help="Match File Format [default= %default]", metavar="character"),
+
+    # Skip Lines
+    make_option(c("--matSkip"), type="integer", default=opt$matSkip, 
+                help="Match Skip Lines Count [default= %default]", metavar="integer"),
+    make_option(c("--ordSkip"), type="integer", default=opt$ordSkip, 
+                help="Order Skip Lines Count [default= %default]", metavar="integer"),
+    make_option(c("--pqcSkip"), type="integer", default=opt$pqcSkip, 
+                help="AQP/PQC Skip Lines Count [default= %default]", metavar="integer"),
     
     # Parallel/Cluster Parameters::
     make_option(c("--single"), action="store_true", default=opt$single, 
@@ -286,6 +352,7 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
 
 if (is.null(opt$outDir) || is.null(opt$impDir) ||
     is.null(opt$ords) || is.null(opt$mats) || 
+    is.null(opt$s48_tsv) || is.null(opt$top_tsv) ||
     is.null(opt$genomeBuild) || is.null(opt$platform) || is.null(opt$version) ||
     is.null(opt$Rscript) ||
     is.null(opt$verbose)) {
@@ -305,6 +372,9 @@ if (is.null(opt$outDir) || is.null(opt$impDir) ||
   if (is.null(opt$pqcs)) cat(glue::glue("[Usage]: pqcs is NULL [Not required if aqps defined]!!!{RET}"))
   if (is.null(opt$ctls)) cat(glue::glue("[Usage]: ctls is NULL [Not required]!!!{RET}"))
   if (is.null(opt$idat)) cat(glue::glue("[Usage]: idat is NULL [Not Required]!!!{RET}"))
+
+  if (is.null(opt$s48_tsv)) cat(glue::glue("[Usage]: s48_tsv is NULL!!!{RET}"))
+  if (is.null(opt$top_tsv)) cat(glue::glue("[Usage]: top_tsv is NULL!!!{RET}"))
   
   if (is.null(opt$genomeBuild)) cat(glue::glue("[Usage]: genomeBuild is NULL!!!{RET}"))
   if (is.null(opt$platform))    cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
@@ -429,33 +499,22 @@ color_len <- length(color_vec)
 #                          Process AQP/PQC Data::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+opt$verbose <- 40
 opt$verbose <- 4
 
 man_raw_tib <- decodeAqpPqcWrapper(
   ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec, 
-  platform=opt$platform,version=opt$version,matFormat=opt$matFormat,
+  platform=opt$platform,version=opt$version,
+  
+  matFormat=opt$matFormat,matSkip=opt$matSkip,
+  ordFormat=opt$ordFormat,ordSkip=opt$ordSkip,
+  pqcSkip=opt$pqcSkip,
+  
   name=opt$runName,outDir=opt$manDir,fresh=opt$fresh,full=par$retData,trim=TRUE,
-  verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
+  verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
 
 # raw_rep_tib <- manifestCheckSummary(man_raw_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                         Get improbe intersection::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-#
-# 1. raw_man -> seq48U
-# 2. seq48U -> cgn
-# 3. cgn -> top
-# 4. top -> prb
-# 
-# 5. raw_man U prb -> prb_man
-# 6. prb_man U imp_des
-#
-# Remainder (CHN, SNP)
-#
-# Remainder (BS,NO,neg,ct)
-#
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -463,11 +522,7 @@ man_raw_tib <- decodeAqpPqcWrapper(
 #                        2. seq48U -> CGN/TB/CO::
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-imp_s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.csv.gz')
-imp_s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/un/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.tsv')
-
-imp_s48_tib <- seq48U_to_cgn(tib=man_raw_tib, imp_tsv=imp_s48_tsv,
+imp_s48_tib <- seq48U_to_cgn(tib=man_raw_tib, imp_tsv=opt$s48_tsv,
                              name=opt$runName,outDir=opt$intDir,
                              mat_key='Mat_PrbA', fresh=opt$fresh,
                              colA=4,colB=1,
@@ -476,22 +531,7 @@ imp_s48_tib <- seq48U_to_cgn(tib=man_raw_tib, imp_tsv=imp_s48_tsv,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             3. CGN to Top::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# This is for all species::
-if (FALSE) {
-  imp_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz')
-  imp_top_tib <- cgn_to_topSeq(tib=imp_s48_tib, imp_tsv=imp_top_tsv,
-                               name=opt$runName,outDir=opt$intDir,
-                               mat_key='CGN_Imp', fresh=opt$fresh,
-                               colA=1,colB=1,
-                               verbose=opt$verbose,tc=0,tt=pTracker) %>%
-    dplyr::mutate(!!design_prb_sym := opt$probe_type)
-}
-
-# Best to use species specific::
-imp_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv.gz')
-imp_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv')
-imp_top_tib <- cgn_to_topSeq(tib=imp_s48_tib, imp_tsv=imp_top_tsv,
+imp_top_tib <- cgn_to_topSeq(tib=imp_s48_tib, imp_tsv=opt$top_tsv,
                              name=opt$runName,outDir=opt$intDir,
                              mat_key='CGN_Imp', fresh=opt$fresh,
                              colA=1,colB=1,

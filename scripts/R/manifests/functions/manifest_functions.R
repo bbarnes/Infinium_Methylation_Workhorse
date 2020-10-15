@@ -508,7 +508,11 @@ broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
-                               platform, version, matFormat="new", sidx=2, plen=50,
+                               platform, version, 
+                               ordFormat='old', ordSkip=8,  ordGuess=50000,
+                               matFormat='new', matSkip=40, matGuess=1000,
+                               pqcSkip=7,  pqcGuess=1000,
+                               sidx=2, plen=50,
                                name=NULL, outDir=NULL, fresh=FALSE, full=FALSE, trim=TRUE,
                                verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'decodeAqpPqcWrapper'
@@ -519,28 +523,45 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
   ret_tib <- NULL
   ret_csv <- NULL
   stime <- system.time({
+    ord_len <- length(ord_vec)
+    mat_len <- length(mat_vec)
+    aqp_len <- length(aqp_vec)
+    pqc_len <- length(pqc_vec)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:  Orders={ord_len}.{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]: Matches={mat_len}.{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:    AQPs={aqp_len}.{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:    PQCs={pqc_len}.{RET}") )
+    
+    if (!is.null(outDir) && !is.null(name)) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will use outDir(name={name})={outDir}.{RET}") )
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+      ret_csv <- file.path(outDir, paste(name,'manifest.raw.csv.gz', sep='.') )
+      rep_csv <- file.path(outDir, paste(name,'manifest.sum.csv.gz', sep='.') )
+      
+      if (opt$fresh) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Cleaning outDir(name={name})={outDir}...{RET}") )
+        list.files(outDir, full.names=TRUE) %>% base::unlink()
+      }
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: {RET}") )
+    }
     
     #
     # TBD:: Make function:: mergeMatchFiles()
     #
     # Generate single Match file based on order in::
     #
-    mat_all_tsv <- file.path(outDir, paste(name,'unqiue-match.sorted.tsv.gz', sep='_') )
-    mat_all_tib <- lapply(mat_vec, loadMAT, format=matFormat,skip=40,
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]: Joining Match TSVs(cnt={mat_len})...{RET}") )
+    mat_all_tsv <- file.path(outDir, paste(name,'unqiue-match.sorted.tsv.gz', sep='.') )
+    mat_all_tib <- lapply(mat_vec, loadMAT, format=matFormat,skip=matSkip,
                           verbose=opt$verbose,vt=vt+100) %>% dplyr::bind_rows(.id="AQP") %>% 
       dplyr::mutate(AQP=as.integer(AQP)) %>% dplyr::arrange(-AQP) %>% dplyr::distinct(Address,.keep_all=TRUE)
     readr::write_tsv(mat_all_tib,mat_all_tsv)
-    mat_vec <- c(mat_all_tsv)
-    mat_col <- names(mat_all_tib)
+    mat_vec   <- c(mat_all_tsv)
+    mat_col   <- names(mat_all_tib)
+    matSkip   <- 0
+    matFormat <- 'new'
     if (verbose>=vt) cat(glue::glue("[{funcTag}]: Wrote Ordered Full Match TSV={mat_all_tsv}.{RET}{RET}") )
 
-    if (!is.null(outDir) && !is.null(name)) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will use outDir(name={name})={outDir}...{RET}{RET}") )
-      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      ret_csv <- file.path(outDir, paste(name,'manifest.raw.csv.gz', sep='.') )
-      rep_csv <- file.path(outDir, paste(name,'manifest.sum.csv.gz', sep='.') )
-    }
-    
     if (!fresh && !is.null(ret_csv) && file.exists(ret_csv)) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]: Loading Pre-existing Raw Manifest={ret_csv}...{RET}") )
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
@@ -554,11 +575,14 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
       if (!is.null(pqc_vec) && length(pqc_vec)!=0) {
         if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build PQC Results...{RET}{RET}") )
         
+        pqcFormat <- 'pqc'
         pqc_man_tib <- decodeToManifestWrapper(
           ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
           platform=platform, version=version,
-          matFormat=matFormat,matSkip=0,
-          pqcFormat='pqc',matCols=mat_col,
+          matFormat=matFormat,matSkip=matSkip,matGuess=matGuess,
+          ordFormat=ordFormat,ordSkip=ordSkip,ordGuess=ordGuess,
+          pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
+          matCols=mat_col,
           full=par$retData, trim=TRUE,
           verbose=verbose,vt=vt+1,tc=0,tt=tt)
         
@@ -575,11 +599,14 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
       if (!is.null(aqp_vec) && length(aqp_vec)!=0) {
         if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build AQP Results...{RET}{RET}") )
         
+        pqcFormat <- 'aqp'
         aqp_man_tib <- decodeToManifestWrapper(
           ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
           platform=platform, version=version, 
-          matFormat=matFormat,matSkip=0,
-          pqcFormat='aqp',matCols=mat_col,
+          matFormat=matFormat,matSkip=matSkip,matGuess=matGuess,
+          ordFormat=ordFormat,ordSkip=ordSkip,ordGuess=ordGuess,
+          pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
+          matCols=mat_col,
           full=par$retData, trim=TRUE,
           verbose=verbose,vt=vt+1,tc=0,tt=tt)
         
@@ -1309,7 +1336,6 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
         mat_file <- mats[1]
       }
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Round={idx}, mat({mat_len})={mat_file}.{RET}"))
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{RET}{RET}{RET}"))
       
       ret_tib <- ret_tib %>% dplyr::bind_rows(
         decodeToManifest(ord=ord_file, mat=mat_file, pqc=pqc_file,
@@ -1323,6 +1349,7 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
                          full=full, trim=trim,
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       )
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:Done.{RET}{RET}"))
     }
     pre_cnt <- ret_tib %>% base::nrow()
     # ret_tib <- ret_tib %>% dplyr::arrange(-AQP) %>% dplyr::distinct(U,AQP, .keep_all=TRUE)
