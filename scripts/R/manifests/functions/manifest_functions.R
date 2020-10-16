@@ -59,7 +59,7 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
-                           name=NULL,outDir=NULL,
+                           name=NULL,outDir=NULL,retList=FALSE,
                            verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'addGenomicToMAN'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -112,6 +112,14 @@ addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
       manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     ret_cnt <- ret_tib %>% base::nrow()
+    
+    if (retList) {
+      ret_lst <- NULL
+      ret_lst$man <- ret_tib
+      ret_lst$pos <- pos_tib
+      
+      ret_tib <- ret_lst
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
