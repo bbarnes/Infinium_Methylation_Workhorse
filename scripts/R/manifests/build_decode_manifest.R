@@ -156,8 +156,8 @@ if (args.dat[1]=='RStudio') {
   #
   par$local_runType <- 'GENK'
   par$local_runType <- 'GRCm38'
-  par$local_runType <- 'COVIC'
   par$local_runType <- 'NZT'
+  par$local_runType <- 'COVIC'
   
   if (par$local_runType=='GENK') {
     opt$fresh <- TRUE
@@ -573,11 +573,14 @@ cat(glue::glue("[{par$prgmTag}]: Done. Building Output Directories.{RET}{RET}"))
 #                      Define Manifest Output Files::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 man_out_key <- paste(opt$genomeBuild,opt$platform,opt$version, sep='_')
-gs_swap_csv <- file.path(opt$prdDir, paste(man_out_key,'.manifest.GenomeStudio.cpg-sorted.csv', sep='.') )
-gz_swap_csv <- file.path(opt$prdDir, paste(man_out_key,'.manifest.GenomeStudio.cpg-sorted.csv.gz', sep='.') )
+gs_swap_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.GenomeStudio.cpg-sorted.csv', sep='.') )
+gz_swap_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.GenomeStudio.cpg-sorted.csv.gz', sep='.') )
 
-ses_base_csv <- file.path(opt$prdDir, paste(man_out_key,'.manifest.sesame-base.cpg-sorted.csv.gz', sep='.') )
-ses_mach_csv <- file.path(opt$prdDir, paste(man_out_key,'.manifest.sesame-mach.cpg-sorted.csv.gz', sep='.') )
+ses_base_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.sesame-base.cpg-sorted.csv.gz', sep='.') )
+pos_base_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.sesame-base.pos-sorted.csv.gz', sep='.') )
+ses_mach_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.sesame-mach.cpg-sorted.csv.gz', sep='.') )
+ses_epic_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.sesame-base.cpg-sorted.csv.gz', sep='.') )
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Genome Studio Color Codes::
@@ -655,7 +658,7 @@ man_prb_tib <- dplyr::bind_rows(
     ) %>% 
     dplyr::ungroup() %>% 
     dplyr::select(IlmnID, dplyr::everything()),
-  man_unk_tib,
+  # man_unk_tib,
   NULL
 ) %>% dplyr::arrange(IlmnID) %>%
   dplyr::select(IlmnID,ValidID,dplyr::everything())
@@ -845,6 +848,7 @@ man_cpg_pos_tib <- NULL
 cpg_pos_col <- 
   cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
 pos_out_name <- paste(opt$runName,'cpg', sep='.')
+
 if (opt$platform=='NZT' || opt$platform=='COVIC') {
   man_cpg_pos_lst <- 
     addGenomicToMAN(man=man_prb_tib, pos_tsv=opt$cpg_pos_tsv, 
@@ -879,6 +883,116 @@ if (opt$platform=='NZT' || opt$platform=='COVIC') {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Output Sesame Only For COVIC/NZT::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (opt$platform=='NZT' || opt$platform=='COVIC') {
+  
+  if (base::nrow(man_unk_tib)==0) man_unk_tib <- NULL
+  
+  ses_all_ann_tib <- 
+    dplyr::bind_rows(man_cpg_pos_tib,man_unk_tib) %>% 
+    dplyr::rename(Probe_ID2=Probe_ID) %>% 
+    dplyr::mutate(
+      Probe_ID=IlmnID,
+      DESIGN=dplyr::case_when(
+        Infinium_Design==1 ~ 'I',
+        Infinium_Design==2 ~ 'II',
+        TRUE ~ NA_character_),
+      COLOR_CHANNEL=dplyr::case_when(
+        Infinium_Design==2 ~ 'Both',
+        stringr::str_to_upper(NXB_D)=='A' ~ 'Red',
+        stringr::str_to_upper(NXB_D)=='T' ~ 'Red',
+        stringr::str_to_upper(NXB_D)=='C' ~ 'Grn',
+        stringr::str_to_upper(NXB_D)=='G' ~ 'Grn',
+        TRUE ~ NA_character_),
+      col=dplyr::case_when(
+        Infinium_Design==2 ~ NA_character_,
+        stringr::str_to_upper(NXB_D)=='A' ~ 'R',
+        stringr::str_to_upper(NXB_D)=='T' ~ 'R',
+        stringr::str_to_upper(NXB_D)=='C' ~ 'G',
+        stringr::str_to_upper(NXB_D)=='G' ~ 'G',
+        TRUE ~ NA_character_),
+      Next_Base=dplyr::case_when(
+        Infinium_Design==2 ~ NA_character_,
+        Infinium_Design==1 ~ stringr::str_to_upper(NXB_D),
+        TRUE ~ NA_character_
+      ),
+      MFG_Change_Flagged=dplyr::case_when(
+        ValidID ~ 'FALSE',
+        TRUE ~ 'TRUE'
+      ),
+      Probe_Source=opt$platform
+    ) %>%
+    dplyr::rename(Strand_TB=SR_Str,Strand_CO=CO_Str,
+                  Chrom=Gen_Chr,Position=Gen_Pos) %>%
+    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type, Probe_Source,Next_Base,
+                  Seq_ID,Strand_TB,Strand_CO,Infinium_Design,Rep_Num,
+                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,Top_Sequence, everything()) %>%
+    dplyr::arrange(Probe_ID)
+  
+  ses_base_tib <- ses_all_ann_tib %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID:Top_Sequence) %>%
+    dplyr::arrange(Probe_ID)
+  
+  pos_base_tib <- ses_all_ann_tib %>% 
+    dplyr::select(Probe_ID:Top_Sequence,Chrom,Position,
+                  Genomic_CGN_Count,MFG_Change_Flagged) %>%
+    dplyr::arrange(Chrom, Position)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Write Sesame Manifest:: Standard-Only
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  readr::write_csv(ses_base_tib,ses_base_csv)
+  readr::write_csv(pos_base_tib,pos_base_csv)
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Write Sesame Manifest:: Standard+EPIC
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  if ( opt$platform=='COVIC') {
+    org_covic_csv <- file.path(par$datDir, 'manifest/base/EPIC-C0.manifest.sesame-base.cpg-sorted.csv.gz')
+    org_covic_tib <- suppressMessages(suppressWarnings( readr::read_csv(org_covic_csv) ))
+    
+    readr::write_csv(ses_base_tib,ses_epic_csv)
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                 Write Sesame Manifest:: Machine Learning
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  #
+  # TBD:: Make all mu and rp probes Infinium I::
+  #
+  fin_ses_mach_tib <- fin_core_ann_tib %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+    dplyr::select(Probe_ID:Top_Sequence,Assay_Class,MFG_Change_Flagged)
+  readr::write_csv(fin_ses_core_tib,ses_mach_csv)
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   3.4. Collect Remainder:: SNP/CpH/CpG
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -910,44 +1024,6 @@ unq_ids_fail_cnt <- man_all_pos_tib %>%
   dplyr::filter(ID_Count!=1)
 
 
-#
-#
-#
-#
-# Left off here::
-#
-#
-#
-#
-
-if (opt$platform=='NZT' || opt$platform=='COVIC') {
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     Write Sesame Manifest:: Standard
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  fin_ses_base_tib <- fin_core_ann_tib %>% 
-    dplyr::mutate(Probe_ID=IlmnID) %>%
-    dplyr::arrange(Probe_ID) %>% 
-    dplyr::distinct(M,U, .keep_all=TRUE) %>% 
-    dplyr::select(Probe_ID:Top_Sequence,Assay_Class,MFG_Change_Flagged)
-  readr::write_csv(fin_ses_base_tib,ses_base_csv)
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                 Write Sesame Manifest:: Machine Learning
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  #
-  # TBD:: Make all mu and rp probes Infinium I::
-  #
-  fin_ses_mach_tib <- fin_core_ann_tib %>% 
-    dplyr::mutate(Probe_ID=IlmnID) %>%
-    dplyr::arrange(Probe_ID) %>% 
-    dplyr::distinct(M,U, .keep_all=TRUE) %>% 
-    dplyr::select(Probe_ID:Top_Sequence,Assay_Class,MFG_Change_Flagged)
-  readr::write_csv(fin_ses_core_tib,ses_mach_csv)
-  
-}
 
 
 
