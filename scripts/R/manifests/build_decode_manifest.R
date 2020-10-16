@@ -150,11 +150,10 @@ if (args.dat[1]=='RStudio') {
   #
   # Pre-defined local options runTypes::
   #
-  par$local_runType <- 'nzt'
-  par$local_runType <- 'covic'
-  
+  par$local_runType <- 'NZT'
   par$local_runType <- 'GENK'
   par$local_runType <- 'mm10'
+  par$local_runType <- 'COVIC'
   
   if (par$local_runType=='GENK') {
     opt$fresh <- TRUE
@@ -163,7 +162,6 @@ if (args.dat[1]=='RStudio') {
     opt$matSkip <- 0
     opt$ordSkip <- 0
     
-    # Platform/Method Options::
     opt$genomeBuild <- 'hg38'
     opt$platform    <- 'GENK'
     opt$version     <- 'A1'
@@ -198,7 +196,6 @@ if (args.dat[1]=='RStudio') {
       file.path(par$idatsTopDir, '204637490002'),
       sep=',')
   } else if (par$local_runType=='mm10') {
-    # Platform/Method Options::
     opt$genomeBuild <- 'mm10'
     opt$platform    <- 'LEGX'
     
@@ -206,7 +203,7 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C8'
     opt$version     <- 'C9'
     
-    opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv.gz')
+    # opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv.gz')
     opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv')
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCm10.improbeDesignInput.cgn-sorted.tsv.gz')
     
@@ -240,9 +237,41 @@ if (args.dat[1]=='RStudio') {
     opt$idat <- paste(
       file.path(par$idatsTopDir, '204637490002'),
       sep=',')
-  } else if (par$local_runType=='covic') {
+  } else if (par$local_runType=='COVIC') {
+    opt$fresh <- TRUE
+    opt$matFormat <- 'old'
+    opt$ordFormat <- 'old'
+    opt$matSkip <- 0
+    opt$ordSkip <- 8
     
-  } else if (par$local_runType=='nzt') {
+    opt$genomeBuild <- 'hg38'
+    opt$platform    <- 'COVIC'
+    opt$version     <- 'C0'
+
+    opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCh38-21092020.cgnTop.sorted.tsv')
+    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCh37.improbeDesignInput.cgn-sorted.tsv.gz')
+    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCh38.improbeDesignInput.cgn-sorted.tsv.gz')
+    
+    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP')
+    opt$ords <- paste(
+      file.path(opt$aqpDir, 'COVID_EPIC_Round1.03172020.unique.order_AP.csv.gz'),
+      sep=',')
+    
+    opt$mats <- paste(
+      file.path(opt$aqpDir, '20447043_probes.match.gz'),
+      sep=',')
+    
+    opt$aqps <- paste(
+      file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
+      sep=',')
+    
+    opt$pqcs <- NULL
+    # opt$pqcs <- paste(
+    #   file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
+    #   sep=',')
+    
+    par$idatsTopDir <- NULL
+  } else if (par$local_runType=='NZT') {
     
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
@@ -496,8 +525,8 @@ opt$verbose <- 4
 man_raw_tib <- decodeAqpPqcWrapper(
   ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec, 
   platform=opt$platform,version=opt$version,
-  matFormat=opt$matFormat,matSkip=opt$matSkip,
   ordFormat=opt$ordFormat,ordSkip=opt$ordSkip,
+  matFormat=opt$matFormat,matSkip=opt$matSkip,
   pqcSkip=opt$pqcSkip,
   name=opt$runName,outDir=opt$manDir,fresh=opt$fresh,full=par$retData,trim=TRUE,
   verbose=opt$verbose,vt=1,tc=0,tt=pTracker)

@@ -1209,11 +1209,12 @@ loadPQC = function(file, format='pqc', skip=7, guess=1000, trim=FALSE,
   ret_tib <- NULL
   
   stime <- system.time({
+    ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, skip=skip, guess_max=guess) ))
+
     if (format=='aqp') {
-      ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, skip=skip, guess_max=guess) )) %>%
-        dplyr::select(Address, Decode_Status)
+      ret_tib <- ret_tib %>% dplyr::select(Address, Decode_Status)
     } else if (format=='pqc') {
-      ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, skip=skip, guess_max=guess) )) %>% 
+      ret_tib <- ret_tib %>% 
         purrr::set_names(stringr::str_replace_all(names(.),' ','_')) %>%
         dplyr::rename(Decode_Status=Status) %>%
         dplyr::select(Address, Decode_Status)
@@ -1221,6 +1222,7 @@ loadPQC = function(file, format='pqc', skip=7, guess=1000, trim=FALSE,
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported format={format}!!!{RET}{RET}"))
       return(NULL)
     }
+
     ret_tib <- ret_tib %>% dplyr::filter(!is.na(Address)) %>% dplyr::filter(!is.na(Decode_Status)) %>%
       dplyr::ungroup()
     if (trim) {
