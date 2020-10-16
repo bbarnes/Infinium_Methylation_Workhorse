@@ -58,10 +58,72 @@ template_func = function(tib,
 #                Join Manifest Probes with Design Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# s48_tsv=opt$s48_tsv
-# top_tsv=opt$top_tsv
-# name=opt$runName
-# outDir=opt$outDir
+addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
+                           name=NULL,outDir=NULL,
+                           verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'addGenomicToMAN'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; pos_tsv={pos_tsv}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  pos_csv <- NULL
+  stime <- system.time({
+    
+    if (!is.null(name) && !is.null(outDir)) {
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+      pos_csv <- file.path(outDir, paste(name,'genomic.csv.gz', sep='.'))
+    }
+    if (is.null(pos_col)) {
+      pos_col <- cols(Seq_ID  = col_character(),
+                      Gen_Chr = col_character(),
+                      Gen_Pos = col_double() )
+    }
+    
+    pos_tib <- suppressMessages(suppressWarnings(
+      readr::read_tsv(pos_tsv, col_names=names(pos_col$cols), col_types=pos_col) )) %>%
+      dplyr::filter(Seq_ID %in% man$Seq_ID) %>%
+      dplyr::add_count(Seq_ID, name='Genomic_CGN_Count') %>%
+      dplyr::arrange(Seq_ID)
+    
+    # Summary Genomic CGN Match Counts::
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Position Summary={RET}"))
+      pos_tib %>% dplyr::group_by(Genomic_CGN_Count) %>% 
+        dplyr::summarise(Count=n(), .groups='drop')
+    }
+    if (!is.null(pos_csv)) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing Position CSV={pos_csv}...{RET}"))
+      readr::write_csv(pos_tib,pos_csv)
+    }
+    
+    # Join Coordinates to Manifest::
+    ret_tib <- man %>% dplyr::left_join(
+      dplyr::distinct(pos_tib, Seq_ID, .keep_all=TRUE), by="Seq_ID")
+    
+    # Summary Coordinate Manifest::
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Manifest Summary={RET}"))
+      ret_tib %>% dplyr::group_by(Probe_Type,Genomic_CGN_Count) %>% 
+        dplyr::summarise(Count=n(), .groups='drop') %>% print()
+    }
+    sum_tib <- 
+      manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                Join Manifest Probes with Design Probes::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 clean_manifest_probes = function(tib, s48_tsv, top_tsv,
                                  name, outDir,
                                  design_key='Seq_ID',design_seq='Top_Sequence',
@@ -248,7 +310,7 @@ man_join_prbs = function(man, prbs,
       dplyr::distinct(M,U, .keep_all=TRUE) %>%
       dplyr::select(Seq_ID,Probe_Type,SR_Str,CO_Str,Infinium_Design,
                     Tango_CGN_Count, dplyr::everything())
-
+    
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Joined all matching designs.{RET}"))
     
     # Summary Stats::
@@ -360,7 +422,7 @@ cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
   stime <- system.time({
     
     if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-
+    
     mat_col_idx <- NULL
     mat_col_idx <- grep(mat_key, names(tib))
     if (is.null(mat_col_idx) || length(mat_col_idx)==0) {
@@ -441,7 +503,7 @@ intersect_tsv = function(man, man_tsv,imp_tsv,int_tsv,
     
     man_tib <- man %>% dplyr::select(dplyr::all_of(mat_vec)) %>% 
       dplyr::distinct() %>% dplyr::arrange(!!mat_sym)
-      # dplyr::distinct() %>% dplyr::arrange(dplyr::all_of(mat_vec[1]))
+    # dplyr::distinct() %>% dplyr::arrange(dplyr::all_of(mat_vec[1]))
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing man_tsv(sorted={mat_vec[1]})={man_tsv}...{RET}"))
     print(man_tib)
     readr::write_tsv(man_tib, man_tsv, col_names=FALSE)
@@ -456,7 +518,7 @@ intersect_tsv = function(man, man_tsv,imp_tsv,int_tsv,
       if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Running: cmd='{cmd}'...{RET}{RET}") )
       system(cmd)
     }
-
+    
     # Load intersection results::
     if(verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading: int_tsv='{int_tsv}'...{RET}{RET}") )
     ret_tib <- readr::read_tsv(int_tsv, col_names=names(int_col$cols), col_types=int_col) %>% 
@@ -568,7 +630,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
   funcTag <- 'decodeAqpPqcWrapper'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-
+  
   ret_cnt <- 0
   ret_tib <- NULL
   ret_csv <- NULL
@@ -612,7 +674,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
     matSkip   <- 0
     matFormat <- 'new'
     if (verbose>=vt) cat(glue::glue("[{funcTag}]: Wrote Ordered Full Match TSV={mat_all_tsv}.{RET}{RET}") )
-
+    
     if (!fresh && !is.null(ret_csv) && file.exists(ret_csv)) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]: Loading Pre-existing Raw Manifest={ret_csv}...{RET}") )
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
@@ -679,7 +741,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
                                  name=name,outDir=outDir,
                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       }
-
+      
       # Use the PQC manifest if not use AQP::
       ret_tib <- NULL
       if (length(pqc_vec)!=0) {
@@ -695,7 +757,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
       ret_tib <- ret_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
       rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       ret_cnt <- ret_tib %>% base::nrow()
-
+      
       if (!is.null(ret_csv)) {
         if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Rep Summary Manifest={rep_csv}...{RET}") )
         readr::write_csv(rep_tib,rep_csv)
@@ -815,7 +877,7 @@ AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
 #                       Specialized Mouse Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-fixOrderProbeIDs = function(tib, field="Probe_Type", sidx=2,plen=50,
+fixOrderProbeIDs = function(tib, field="Probe_Type",
                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'fixOrderProbeIDs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -849,7 +911,7 @@ fixOrderProbeIDs = function(tib, field="Probe_Type", sidx=2,plen=50,
       dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2))
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} tib(with Rep, Old-ID, Len)=.{RET}"))
     if (verbose>=vt+4) print(tib)
-
+    
     # Probe_Type Group_Count
     # <chr>            <int>
     # 2 cg              278216  cg36638866_F_T_C_II
@@ -953,7 +1015,7 @@ fixOrderProbeIDs = function(tib, field="Probe_Type", sidx=2,plen=50,
       
       ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
     }
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
     if (verbose>=vt+4) print(ret_tib)
@@ -1008,7 +1070,7 @@ addReducedMapProbe = function(tib, sidx=2, plen=50,
 
 
 manifestCheckSummary = function(tib,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                                verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'manifestCheckSummary'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -1017,10 +1079,9 @@ manifestCheckSummary = function(tib,
   ret_tib <- NULL
   stime <- system.time({
     
-    test_fail_cnt <- tib %>% dplyr::filter(U==59792834) %>% 
-      dplyr::filter(Rep_Max==1) %>% base::nrow()
-    test_pass_cnt <- tib %>% dplyr::filter(M==59792834) %>% 
-      dplyr::filter(Rep_Max==1) %>% base::nrow()
+    test_fail_cnt <- tib %>% dplyr::filter(Rep_Max==1) %>% base::nrow()
+    test_pass_cnt <- tib %>% dplyr::filter(Rep_Max==1) %>% base::nrow()
+    
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]: test_fail_cnt={test_fail_cnt}, test_pass_cnt={test_pass_cnt}.{RET}"))
     
@@ -1210,7 +1271,7 @@ loadPQC = function(file, format='pqc', skip=7, guess=1000, trim=FALSE,
   
   stime <- system.time({
     ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file, skip=skip, guess_max=guess) ))
-
+    
     if (format=='aqp') {
       ret_tib <- ret_tib %>% dplyr::select(Address, Decode_Status)
     } else if (format=='pqc') {
@@ -1222,7 +1283,7 @@ loadPQC = function(file, format='pqc', skip=7, guess=1000, trim=FALSE,
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported format={format}!!!{RET}{RET}"))
       return(NULL)
     }
-
+    
     ret_tib <- ret_tib %>% dplyr::filter(!is.na(Address)) %>% dplyr::filter(!is.na(Decode_Status)) %>%
       dplyr::ungroup()
     if (trim) {
@@ -1359,7 +1420,7 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
   # match_sig_cnames <- c("AQP","Plate", "Row", "Col", "Address", "Mod5", "Full_Seq", "Mod3", "Comment", "Tango_Seq", "Probe_Seq")
   
   stime <- system.time({
-
+    
     ord_cnt <- length(ords)
     for (idx in c(1:ord_cnt)) {
       ord_file <- ords[idx]
@@ -1401,7 +1462,7 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
                          matCols=matCols,
                          full=full, trim=trim,
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        )
+      )
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:Done.{RET}{RET}"))
     }
     pre_cnt <- ret_tib %>% base::nrow()

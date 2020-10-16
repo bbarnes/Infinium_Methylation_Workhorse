@@ -69,8 +69,12 @@ opt$pqcs <- NULL
 opt$ctls <- NULL
 opt$idat <- NULL
 
-opt$s48_tsv <- NULL
-opt$top_tsv <- NULL
+opt$cpg_s48_tsv <- NULL
+opt$cpg_top_tsv <- NULL
+
+opt$cpg_pos_tsv <- NULL
+opt$cph_pos_tsv <- NULL
+opt$snp_pos_tsv <- NULL
 
 # Platform/Method Options::
 opt$genomeBuild <- NULL
@@ -141,8 +145,8 @@ if (args.dat[1]=='RStudio') {
   opt$outDir <- file.path(par$topDir, 'scratch')
   opt$impDir <- file.path(par$topDir, 'data/improbe')
   
-  # opt$s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.csv.gz')
-  opt$s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/un/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.tsv')
+  opt$cpg_s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/gz/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.tsv.gz')
+  opt$cpg_s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/un/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.tsv')
   
   opt$write_full <- FALSE
   opt$write_base <- FALSE
@@ -152,7 +156,7 @@ if (args.dat[1]=='RStudio') {
   #
   par$local_runType <- 'NZT'
   par$local_runType <- 'GENK'
-  par$local_runType <- 'mm10'
+  par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVIC'
   
   if (par$local_runType=='GENK') {
@@ -162,14 +166,15 @@ if (args.dat[1]=='RStudio') {
     opt$matSkip <- 0
     opt$ordSkip <- 0
     
-    opt$genomeBuild <- 'hg38'
+    opt$genomeBuild <- 'GRCh38'
     opt$platform    <- 'GENK'
     opt$version     <- 'A1'
     opt$version     <- 'A2'
     
-    opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCh38-21092020.cgnTop.sorted.tsv')
-    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCh37.improbeDesignInput.cgn-sorted.tsv.gz')
-    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCh38.improbeDesignInput.cgn-sorted.tsv.gz')
+    opt$cpg_top_tsv <- 
+      file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
+    opt$cpg_pos_tsv <- 
+      file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     
     opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/Genknowme/LS_Epiprofile')
     opt$ords <- paste(
@@ -191,21 +196,23 @@ if (args.dat[1]=='RStudio') {
       file.path(opt$aqpDir, '20042793X371678_A_ProductQC_AP.txt'),
       sep=',')
     
-    par$idatsTopDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
-    opt$idat <- paste(
-      file.path(par$idatsTopDir, '204637490002'),
-      sep=',')
-  } else if (par$local_runType=='mm10') {
-    opt$genomeBuild <- 'mm10'
+    opt$idat <- NULL
+  } else if (par$local_runType=='GRCm38') {
+    opt$genomeBuild <- 'GRCm38'
     opt$platform    <- 'LEGX'
     
     opt$version     <- 'C0'
     opt$version     <- 'C8'
     opt$version     <- 'C9'
     
-    # opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv.gz')
-    opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCm10-21092020.cgnTop.sorted.tsv')
-    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCm10.improbeDesignInput.cgn-sorted.tsv.gz')
+    opt$cpg_top_tsv <- 
+      file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
+    opt$cpg_pos_tsv <- 
+      file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
+    opt$cph_pos_tsv <- 
+      file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.chn-sorted.tsv.gz') )
+    opt$snp_pos_tsv <- 
+      file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.snp-sorted.tsv.gz') )
     
     opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
     opt$ords <- paste(
@@ -233,9 +240,9 @@ if (args.dat[1]=='RStudio') {
       file.path(opt$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
       sep=',')
     
-    par$idatsTopDir <- '/Users/bbarnes/Documents/Projects/methylation/LifeEpigentics/idats/ILMN_mm10_betaTest_17082020'
+    par$idatsTopDir <- file.path(locIdatDir,'idats_ILMN_mm10_betaTest_17082020')
     opt$idat <- paste(
-      file.path(par$idatsTopDir, '204637490002'),
+      file.path(par$idatsTopDir, '204637490025'),
       sep=',')
   } else if (par$local_runType=='COVIC') {
     opt$fresh <- TRUE
@@ -244,13 +251,16 @@ if (args.dat[1]=='RStudio') {
     opt$matSkip <- 0
     opt$ordSkip <- 8
     
-    opt$genomeBuild <- 'hg38'
+    opt$genomeBuild <- 'GRCh36'
+    opt$genomeBuild <- 'GRCh37'
+    opt$genomeBuild <- 'GRCh38'
     opt$platform    <- 'COVIC'
     opt$version     <- 'C0'
 
-    opt$top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCh38-21092020.cgnTop.sorted.tsv')
-    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCh37.improbeDesignInput.cgn-sorted.tsv.gz')
-    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic/GRCh38.improbeDesignInput.cgn-sorted.tsv.gz')
+    opt$cpg_top_tsv <- 
+      file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
+    opt$cpg_pos_tsv <- 
+      file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     
     opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP')
     opt$ords <- paste(
@@ -270,7 +280,10 @@ if (args.dat[1]=='RStudio') {
     #   file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
     #   sep=',')
     
-    par$idatsTopDir <- NULL
+    par$idatsTopDir <- file.path(locIdatDir,'idats_COVIC-Set1-15052020')
+    opt$idat <- paste(
+      file.path(par$idatsTopDir, '204500250013'),
+      sep=',')
   } else if (par$local_runType=='NZT') {
     
   } else {
@@ -278,7 +291,6 @@ if (args.dat[1]=='RStudio') {
   }
   
   opt$parallel <- TRUE
-  
   opt$runName <- paste(opt$genomeBuild,opt$platform,opt$version, sep='-')
 
 } else {
@@ -317,14 +329,21 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--idat"), type="character", default=opt$idat, 
                 help="idat directories (comma seperated) [default= %default]", metavar="character"),
 
-    make_option(c("--s48_tsv"), type="character", default=opt$s48_tsv, 
+    make_option(c("--cpg_s48_tsv"), type="character", default=opt$cpg_s48_tsv, 
                 help="Seq48U Match file(s) (tab seperated) [default= %default]", metavar="character"),
-    make_option(c("--top_tsv"), type="character", default=opt$top_tsv, 
+    make_option(c("--cpg_top_tsv"), type="character", default=opt$cpg_top_tsv, 
                 help="Top Sequence CGN Match file(s) (tab seperated) [default= %default]", metavar="character"),
+    
+    make_option(c("--cpg_pos_tsv"), type="character", default=opt$cpg_pos_tsv, 
+                help="CpG Position TSV File [default= %default]", metavar="character"),
+    make_option(c("--cph_pos_tsv"), type="character", default=opt$cph_pos_tsv, 
+                help="CpH Position TSV File [default= %default]", metavar="character"),
+    make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv, 
+                help="SNP Position TSV File [default= %default]", metavar="character"),
     
     # Platform/Method Options::
     make_option(c("--genomeBuild"), type="character", default=opt$genomeBuild, 
-                help="Genome Build (e.g. hg18, hg36, hg19, hg37, hg38, mm10) [default= %default]", metavar="character"),
+                help="Genome Build (e.g. GRCh36, GRCh37, GRCh38, GRCm38) [default= %default]", metavar="character"),
     make_option(c("--platform"), type="character", default=opt$platform, 
                 help="Platform (e.g. HM450, EPIC, LEGX, NZT, COVIC) [default= %default]", metavar="character"),
     make_option(c("--version"), type="character", default=opt$version, 
@@ -378,7 +397,7 @@ if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.nu
 
 if (is.null(opt$outDir) || is.null(opt$impDir) ||
     is.null(opt$ords) || is.null(opt$mats) || 
-    is.null(opt$s48_tsv) || is.null(opt$top_tsv) ||
+    is.null(opt$cpg_s48_tsv) || is.null(opt$cpg_top_tsv) ||
     is.null(opt$genomeBuild) || is.null(opt$platform) || is.null(opt$version) ||
     is.null(opt$Rscript) ||
     is.null(opt$verbose)) {
@@ -399,8 +418,8 @@ if (is.null(opt$outDir) || is.null(opt$impDir) ||
   if (is.null(opt$ctls)) cat(glue::glue("[Usage]: ctls is NULL [Not required]!!!{RET}"))
   if (is.null(opt$idat)) cat(glue::glue("[Usage]: idat is NULL [Not Required]!!!{RET}"))
 
-  if (is.null(opt$s48_tsv)) cat(glue::glue("[Usage]: s48_tsv is NULL!!!{RET}"))
-  if (is.null(opt$top_tsv)) cat(glue::glue("[Usage]: top_tsv is NULL!!!{RET}"))
+  if (is.null(opt$cpg_s48_tsv)) cat(glue::glue("[Usage]: cpg_s48_tsv is NULL!!!{RET}"))
+  if (is.null(opt$cpg_top_tsv)) cat(glue::glue("[Usage]: cpg_top_tsv is NULL!!!{RET}"))
   
   if (is.null(opt$genomeBuild)) cat(glue::glue("[Usage]: genomeBuild is NULL!!!{RET}"))
   if (is.null(opt$platform))    cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
@@ -447,6 +466,11 @@ for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, r
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
 
 par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
+if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
+for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
+
+par$anl_src_dir <- file.path(par$scrDir, 'annotation/functions')
 if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
 for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
@@ -505,6 +529,9 @@ if (!dir.exists(opt$manDir)) dir.create(opt$manDir, recursive=TRUE)
 opt$prdDir <- file.path(opt$outDir, 'product')
 if (!dir.exists(opt$prdDir)) dir.create(opt$prdDir, recursive=TRUE)
 
+opt$genDir <- file.path(opt$outDir, 'genomic')
+if (!dir.exists(opt$genDir)) dir.create(opt$genDir, recursive=TRUE)
+
 cat(glue::glue("[{par$prgmTag}]: Done. Building Output Directories.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -540,7 +567,7 @@ raw_rep_tib <- manifestCheckSummary(man_raw_tib, verbose=opt$verbose,vt=1,tc=1,t
 
 man_cpg_prb_tib <- clean_manifest_probes(
   tib=man_raw_tib,
-  s48_tsv=opt$s48_tsv,top_tsv=opt$top_tsv,
+  s48_tsv=opt$cpg_s48_tsv,top_tsv=opt$cpg_top_tsv,
   name=opt$runName,outDir=opt$outDir,
   
   design_key=opt$design_key,
@@ -554,458 +581,272 @@ man_cpg_prb_tib <- clean_manifest_probes(
   verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
 
 
-
-
-
-
-
-
-
-
 #
-# For deletion: Wrapped up in function above
 #
-if (FALSE) {
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #
-  #                        1. RawMan -> seq48U::
-  #                        2. seq48U -> CGN/TB/CO::
-  #
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#
+# TBD:: What do we really need from the manifest (man_raw_cpg)
+#
+# TBD:: 
+#
+#
+#
+
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Check against old manifests::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (par$local_runType=='COVIC') {
   
-  opt$intDir <- file.path(opt$outDir, 'intersection')
-  if (!dir.exists(opt$intDir)) dir.create(opt$intDir, recursive=TRUE)
-  opt$desDir <- file.path(opt$outDir, 'design')
-  if (!dir.exists(opt$desDir)) dir.create(opt$desDir, recursive=TRUE)
+  man_val_ses_csv <- file.path(par$datDir, 'manifest/base/EPIC-C0.manifest.sesame-base.cpg-sorted.csv.gz')
+  man_val_ses_tib <- suppressMessages(suppressWarnings( readr::read_csv(man_val_ses_csv) )) %>% 
+    dplyr::filter(Probe_Source=="EPIC-C0") %>% 
+    tidyr::separate(Probe_ID, into=c("Seq_ID","FR","TB","CO","DT","HitCnt","RepStr"), sep="_", remove=FALSE)
   
-  imp_s48_tib <- seq48U_to_cgn(tib=man_raw_tib, imp_tsv=opt$s48_tsv,
-                               name=opt$runName,outDir=opt$intDir,
-                               mat_key='Mat_PrbA', fresh=opt$fresh,
-                               colA=4,colB=1,
-                               verbose=opt$verbose,tc=0,tt=pTracker)
+  # Summary::
+  #  man_val_ses_tib %>% dplyr::distinct(Seq_ID)
   
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                             3. CGN to Top::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  imp_top_tib <- cgn_to_topSeq(tib=imp_s48_tib, imp_tsv=opt$top_tsv,
-                               name=opt$runName,outDir=opt$intDir,
-                               mat_key='CGN_Imp', fresh=opt$fresh,
-                               colA=1,colB=1,
-                               verbose=opt$verbose,tc=0,tt=pTracker) %>%
-    dplyr::mutate(!!design_prb_sym := opt$probe_type)
+  man_val_ses_tib %>% dplyr::group_by(TB,CO,DT,HitCnt) %>% dplyr::summarise(Count=n(), .groups='drop')
   
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                           4. Top to Probes::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  man_join_rds <-
-    file.path(opt$desDir, paste(opt$runName,opt$design_seq,opt$probe_type,'mat-probes.rds', sep='.') )
-  man_full_rds <-
-    file.path(opt$desDir, paste(opt$runName,opt$design_seq,opt$probe_type,'all-probes.rds', sep='.') )
-  
-  man_cpg_prb_tib <- NULL
-  cpg_prb_des_tib <- NULL
-  if (!file.exists(man_join_rds) || opt$fresh) {
-    cat(glue::glue("[{par$prgmTag}]: Building Full Probe Design...{RET}"))
-    
-    test_max <- 0
-    if (!file.exists(man_full_rds) || opt$fresh) {
-      cpg_prb_des_tib <- 
-        desSeq_to_prbs(tib=imp_top_tib, 
-                       idsKey=opt$design_key,
-                       seqKey=opt$design_seq,prbKey=opt$design_prb,
-                       strsSR=opt$design_srs,strsCO=opt$design_cos,
-                       parallel=opt$parallel, max=test_max,
-                       verbose=opt$verbose,tc=1,tt=pTracker)
-      
-      cpg_prb_des_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
-        dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
-      
-      # Remove:: only supports intermediates...
-      cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design File: RDS={man_full_rds}...{RET}"))
-      readr::write_rds(cpg_prb_des_tib,man_full_rds)
-      cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design File.{RET}{RET}"))
-    } else {
-      cat(glue::glue("[{par$prgmTag}]: Loading Full Match Probe Design; RDS={man_full_rds}...{RET}"))
-      cpg_prb_des_tib <- readr::read_rds(man_full_rds)
-      cat(glue::glue("[{par$prgmTag}]: Done. Loading Full Probe Design.{RET}{RET}"))
-    }
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                        5. Match to Manifest Probes::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    man_cpg_prb_tib <- 
-      man_join_prbs(man_raw_tib,cpg_prb_des_tib,
-                    man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
-                    man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
-                    man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-                    verbose=opt$verbose+10,tc=1,tt=pTracker)
-    
-    cat(glue::glue("[{par$prgmTag}]: Writing Join Probe Match Design File: RDS={man_join_rds}...{RET}"))
-    readr::write_rds(man_cpg_prb_tib,man_join_rds)
-    cat(glue::glue("[{par$prgmTag}]: Done. Writing Join Probe Design File.{RET}{RET}"))
-  } else {
-    cat(glue::glue("[{par$prgmTag}]: Loading Join Match Probe Design; RDS={man_join_rds}...{RET}"))
-    man_cpg_prb_tib <- readr::read_rds(man_join_rds) 
-    cat(glue::glue("[{par$prgmTag}]: Done. Loading Join Probe Design.{RET}{RET}"))
-  }
-  cpg_add_rep_tib <- manifestCheckSummary(man_cpg_prb_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-  
-  #
-  # TBD:: Not sure if this is actually needed:: It may be causing problems later...
-  #
-  # man_cpg_prb_tib <- man_cpg_prb_tib %>% dplyr::rename(CO=CO_Prb)
+  man_cpg_prb_tib %>% dplyr::inner_join(man_val_ses_tib, by=c("M","U"), suffix=c("_Prb", "_Org"))
 }
 
 
 
 
+if (par$local_runType=='GRCm38') {
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                          2.0. Remainder:: CpH/SNP/CTL::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           2.1. Remainder:: SNP::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  #
+  # TBD:: Functionize the cph code below and apply to SNPs...
+  #
+  
+  #
+  # TBD:: Important NOTE; using dplyr::filter(Probe_Type=='ch') with the snp des
+  #  file produces non-zero result!!! 132 chrZ:cords to be exact!!!
+  #
+  
+  snp_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-SNP-Only.designs.csv.gz')
+  man_snp_tib <- man_raw_tib %>%
+    dplyr::filter(Probe_Type=='rs') %>%
+    dplyr::inner_join(
+      suppressMessages(suppressWarnings(readr::read_csv(snp_des_csv))), 
+      by="Seq_ID", suffix=c("_Man","_Des")) %>% 
+    dplyr::rename(Probe_Type=Probe_Type_Man,
+                  Top_Sequence=IUPAC_Forward_Sequence ) %>% 
+    dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
+                    AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% 
+    dplyr::mutate(M=as.double(M),U=as.double(U),Probe_ID=Seq_ID) %>%
+    fixOrderProbeIDs(verbose=opt$verbose+4,vt=1,tc=1,tt=pTracker)
+  
+  # Summary Stats::
+  man_snp_tib %>%
+    dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
+    dplyr::summarise(Count=n(), .groups='drop')
+  
+  # Top Tib::
+  top_snp_tib <- man_snp_tib %>%
+    dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
+    dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
+  
+  # Design Probes::
+  test_max <- 0
+  full_snp_des_tib <- 
+    desSeq_to_prbs(
+      tib=top_snp_tib, 
+      idsKey=opt$design_key,
+      seqKey=opt$design_seq,prbKey=opt$design_prb,
+      strsSR=opt$design_srs,strsCO=opt$design_cos,
+      parallel=opt$parallel, max=test_max,
+      verbose=opt$verbose,tc=1,tt=pTracker)
+  
+  man_snp_prb_tib <- 
+    man_join_prbs(man_snp_tib,full_snp_des_tib,
+                  man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
+                  man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
+                  man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
+                  verbose=opt$verbose+10,tc=1,tt=pTracker) %>% 
+    dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
+    dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
+    dplyr::select(-Top_Sequence_Prb)
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           2.2. Remainder:: CpH::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  cph_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-CpH-Only.designs.csv.gz')
+  man_cph_tib <- man_raw_tib %>% 
+    dplyr::filter(Probe_Type=='ch') %>%
+    dplyr::inner_join(
+      suppressMessages(suppressWarnings(readr::read_csv(cph_des_csv))), 
+      by="Seq_ID", suffix=c("_Man","_Des")) %>% 
+    dplyr::rename(Probe_Type=Probe_Type_Man,
+                  Top_Sequence=IUPAC_Forward_Sequence ) %>% 
+    dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
+                    AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% 
+    dplyr::mutate(M=as.double(M),U=as.double(U),Probe_ID=Seq_ID) %>%
+    fixOrderProbeIDs(verbose=opt$verbose+4,vt=1,tc=1,tt=pTracker)
 
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                          2.0. Remainder:: CpH/SNP/CTL::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                           2.1. Remainder:: SNP::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-#
-# TBD:: Functionize the cph code below and apply to SNPs...
-#
-
-#
-# TBD:: Important NOTE; using dplyr::filter(Probe_Type=='ch') with the snp des
-#  file produces non-zero result!!! 132 chrZ:cords to be exact!!!
-#
-
-snp_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-SNP-Only.designs.csv.gz')
-man_snp_tib <- man_raw_tib %>% 
-  dplyr::filter(Probe_Type=='rs') %>%
-  dplyr::inner_join(
-    suppressMessages(suppressWarnings(readr::read_csv(snp_des_csv))), 
-    by="Seq_ID", suffix=c("_Man","_Des")) %>% 
-  dplyr::rename(Probe_Type=Probe_Type_Man,
-                Top_Sequence=IUPAC_Forward_Sequence ) %>% 
-  dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
-                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
-
-# Summary Stats::
-man_snp_tib %>%
-  dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
-  dplyr::summarise(Count=n(), .groups='drop')
-
-# Top Tib::
-top_snp_tib <- man_snp_tib %>%
-  dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
-  dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
-
-# Design Probes::
-test_max <- 0
-full_snp_des_tib <- 
-  desSeq_to_prbs(
-    tib=top_snp_tib, 
-    idsKey=opt$design_key,
-    seqKey=opt$design_seq,prbKey=opt$design_prb,
-    strsSR=opt$design_srs,strsCO=opt$design_cos,
-    parallel=opt$parallel, max=test_max,
-    verbose=opt$verbose,tc=1,tt=pTracker)
-
-man_snp_prb_tib <- 
-  man_join_prbs(man_snp_tib,full_snp_des_tib,
-                man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
-                man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
-                man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-                verbose=opt$verbose+10,tc=1,tt=pTracker) %>% 
-  dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
-  dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
-  dplyr::select(-Top_Sequence_Prb)
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                           2.2. Remainder:: CpH::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-cph_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-CpH-Only.designs.csv.gz')
-man_cph_tib <- man_raw_tib %>% 
-  dplyr::filter(Probe_Type=='ch') %>%
-  dplyr::inner_join(
-    suppressMessages(suppressWarnings(readr::read_csv(cph_des_csv))), 
-    by="Seq_ID", suffix=c("_Man","_Des")) %>% 
-  dplyr::rename(Probe_Type=Probe_Type_Man,
-                Top_Sequence=IUPAC_Forward_Sequence ) %>% 
-  dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
-                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence)
-
-# Summary Stats::
-man_cph_tib %>%
-  dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
-  dplyr::summarise(Count=n(), .groups='drop')
-
-# Top Tib::
-top_cph_tib <- man_cph_tib %>%
-  dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
-  dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
-
-# Design Probes::
-test_max <- 0
-full_cph_des_tib <- 
-  desSeq_to_prbs(
-    tib=top_cph_tib, 
-    idsKey=opt$design_key,
-    seqKey=opt$design_seq,prbKey=opt$design_prb,
-    strsSR=opt$design_srs,strsCO=opt$design_cos,
-    parallel=opt$parallel, max=test_max,
-    verbose=opt$verbose,tc=1,tt=pTracker)
-
-man_cph_prb_tib <- 
-  man_join_prbs(man_cph_tib,full_cph_des_tib,
-                man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
-                man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
-                man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-                verbose=opt$verbose+10,tc=1,tt=pTracker) %>% 
-  dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
-  dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
-  dplyr::select(-Top_Sequence_Prb)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     3.0. Add Coordinates:: SNP/CpH/CpG
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#               3.1 Intersect improbe Genomic Coordinates:: SNP
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-snp_pos_tsv <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/Redesign2/data/manifest1a_SNP.pos.tsv.gz')
-snp_pos_col <- cols(Gen_Chr = col_character(),
-                    Gen_Pos = col_double(),
-                    Seq_ID  = col_character() )
-
-snp_pos_tib <- suppressMessages(suppressWarnings(
-  readr::read_tsv(snp_pos_tsv, col_names=names(snp_pos_col$cols), col_types=snp_pos_col) )) %>%
-  dplyr::filter(Seq_ID %in% man_snp_prb_tib$Seq_ID) %>%
-  dplyr::mutate(Gen_Chr=stringr::str_remove(Gen_Chr,'^chr')) %>%
-  dplyr::add_count(Seq_ID, name='Genomic_CGN_Count')
-
-man_snp_pos_tib <- man_snp_prb_tib %>% dplyr::left_join(
-  dplyr::distinct(snp_pos_tib, Seq_ID, .keep_all=TRUE), by="Seq_ID")
-
-# Summary::
-man_snp_pos_tib %>% dplyr::select(Gen_Chr:Genomic_CGN_Count) %>% 
-  dplyr::arrange(-Genomic_CGN_Count)
-
-man_snp_pos_tib %>% dplyr::group_by(Probe_Type,Genomic_CGN_Count) %>% 
-  dplyr::summarise(Count=n(), .groups='drop')
-
-snp_add_gen_tib <- manifestCheckSummary(man_snp_pos_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#               3.2 Intersect improbe Genomic Coordinates:: CpH
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-cph_pos_tsv <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/Redesign2/data/manifest1a_CpH.pos.tsv.gz')
-cph_pos_col <- cols(Gen_Chr = col_character(),
-                    Gen_Pos = col_double(),
-                    Seq_ID  = col_character() )
-
-cph_pos_tib <- suppressMessages(suppressWarnings(
-  readr::read_tsv(cph_pos_tsv, col_names=names(cph_pos_col$cols), col_types=cph_pos_col) )) %>%
-  dplyr::filter(Seq_ID %in% man_cph_prb_tib$Seq_ID) %>%
-  dplyr::mutate(Gen_Chr=stringr::str_remove(Gen_Chr,'^chr')) %>%
-  dplyr::add_count(Seq_ID, name='Genomic_CGN_Count')
-
-man_cph_pos_tib <- man_cph_prb_tib %>% dplyr::left_join(
-  dplyr::distinct(cph_pos_tib, Seq_ID, .keep_all=TRUE), by="Seq_ID")
-
-# Summary::
-man_cph_pos_tib %>% dplyr::select(Gen_Chr:Genomic_CGN_Count) %>% 
-  dplyr::arrange(-Genomic_CGN_Count)
-
-man_cph_pos_tib %>% dplyr::group_by(Probe_Type,Genomic_CGN_Count) %>% 
-  dplyr::summarise(Count=n(), .groups='drop')
-
-cph_add_gen_tib <- manifestCheckSummary(man_cph_pos_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+  # Summary Stats::
+  man_cph_tib %>%
+    dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
+    dplyr::summarise(Count=n(), .groups='drop')
+  
+  # Top Tib::
+  top_cph_tib <- man_cph_tib %>%
+    dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
+    dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
+  
+  # Design Probes::
+  test_max <- 0
+  full_cph_des_tib <- 
+    desSeq_to_prbs(
+      tib=top_cph_tib, 
+      idsKey=opt$design_key,
+      seqKey=opt$design_seq,prbKey=opt$design_prb,
+      strsSR=opt$design_srs,strsCO=opt$design_cos,
+      parallel=opt$parallel, max=test_max,
+      verbose=opt$verbose,tc=1,tt=pTracker)
+  
+  man_cph_prb_tib <- 
+    man_join_prbs(man_cph_tib,full_cph_des_tib,
+                  man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
+                  man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
+                  man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
+                  verbose=opt$verbose+10,tc=1,tt=pTracker) %>% 
+    dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
+    dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
+    dplyr::select(-Top_Sequence_Prb)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     3.0. Add Coordinates:: SNP/CpH/CpG
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #               3.1 Intersect improbe Genomic Coordinates:: SNP
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  snp_pos_col <- 
+    cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
+  pos_out_name <- paste(opt$runName,'snp', sep='.')
+  man_snp_pos_tib <- 
+    addGenomicToMAN(man=man_snp_prb_tib, pos_tsv=opt$snp_pos_tsv, 
+                    pos_col=snp_pos_col,name=pos_out_name, outDir=opt$genDir,
+                    verbose=opt$verbose+4,vt=1,tc=1,tt=pTracker)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #               3.2 Intersect improbe Genomic Coordinates:: CpH
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  cph_pos_col <- 
+    cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
+  pos_out_name <- paste(opt$runName,'cph', sep='.')
+  man_cph_pos_tib <- 
+    addGenomicToMAN(man=man_cph_prb_tib, pos_tsv=opt$cph_pos_tsv, 
+                    pos_col=cph_pos_col,name=pos_out_name, outDir=opt$genDir,
+                    verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               3.3 Intersect improbe Genomic Coordinates:: CpG
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-cpg_pos_col <- cols(Seq_ID  = col_character(),
-                    Gen_Chr = col_character(),
-                    Gen_Pos = col_double() )
-
-cpg_pos_tib <- suppressMessages(suppressWarnings(
-  readr::read_tsv(opt$cpg_pos_tsv, col_names=names(cpg_pos_col$cols), col_types=cpg_pos_col) )) %>%
-  dplyr::filter(Seq_ID %in% man_cpg_prb_tib$Seq_ID) %>%
-  dplyr::add_count(Seq_ID, name='Genomic_CGN_Count')
-
-man_cpg_pos_tib <- man_cpg_prb_tib %>% dplyr::left_join(
-  dplyr::distinct(cpg_pos_tib, Seq_ID, .keep_all=TRUE), by="Seq_ID")
-
-# Summary::
-man_cpg_pos_tib %>% dplyr::select(Gen_Chr:Genomic_CGN_Count) %>% 
-  dplyr::arrange(-Genomic_CGN_Count)
-
-man_cpg_pos_tib %>% dplyr::group_by(Probe_Type,Genomic_CGN_Count) %>% 
-  dplyr::summarise(Count=n(), .groups='drop')
-
-cpg_add_gen_tib <- manifestCheckSummary(man_cpg_pos_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+cpg_pos_col <- 
+  cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
+pos_out_name <- paste(opt$runName,'cpg', sep='.')
+man_cpg_pos_tib <- 
+  addGenomicToMAN(man=man_cpg_prb_tib, pos_tsv=opt$cpg_pos_tsv, 
+                  pos_col=cpg_pos_col,name=pos_out_name, outDir=opt$genDir,
+                  verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   3.4. Collect Remainder:: SNP/CpH/CpG
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Join should be done later...
-man_ana_prb_tib <- dplyr::bind_rows(
-  man_snp_pos_tib,
-  man_cph_pos_tib,
-  man_cpg_pos_tib %>% 
-    dplyr::select(dplyr::all_of(names(man_cph_pos_tib)), everything() )
-) %>% 
-  dplyr::distinct(M,U, .keep_all=TRUE) %>%
-  dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
-  dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
-  dplyr::mutate(
-    Rep_Cnt=dplyr::row_number(),
-    Chrom=dplyr::case_when(!is.na(Gen_Chr) ~ paste0('chr',Gen_Chr), 
-                           TRUE ~ NA_character_),
-    Gen_End=Gen_Pos+1,
-    IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt)
-  ) %>% dplyr::ungroup() %>% 
-  dplyr::select(IlmnID, dplyr::everything()) %>% dplyr::arrange(IlmnID)
-
-man_pos_prb_tib <- man_ana_prb_tib %>% dplyr::filter(!is.na(Gen_Pos)) %>%
-  dplyr::arrange(Chrom,Gen_Pos)
-
-# This better be zero below::
-unq_ids_fail_cnt <- man_pos_prb_tib %>% dplyr::add_count(IlmnID, name="ID_Count") %>% dplyr::filter(ID_Count!=1)
-
-# man_ana_prb_tib %>% dplyr::add_count(M,U, name="Tango_Count") %>% dplyr::filter(Tango_Count > 1) %>% dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n())  
-# man_ana_prb_tib %>% dplyr::add_count(M,U, name="Tango_Count") %>% dplyr::filter(Tango_Count > 1) %>% dplyr::arrange(U) %>% as.data.frame()
-
-all_add_rep_tib <- manifestCheckSummary(man_ana_prb_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-
-if (FALSE) {
+if (par$local_runType=='GRCm38') {
+  # Join should be done later...
   man_ana_prb_tib <- dplyr::bind_rows(
-    man_snp_prb_tib,
-    man_cph_prb_tib,
-    man_cpg_prb_tib %>% 
-      dplyr::select(dplyr::all_of(names(man_cph_prb_tib)), everything() )
-  )
-  all_add_rep_tib <- manifestCheckSummary(man_ana_prb_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+    man_snp_pos_tib,
+    man_cph_pos_tib,
+    man_cpg_pos_tib %>% 
+      dplyr::select(dplyr::all_of(names(man_cph_pos_tib)), everything() )
+  ) %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
+    dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
+    dplyr::mutate(
+      Rep_Cnt=dplyr::row_number(),
+      Chrom=dplyr::case_when(!is.na(Gen_Chr) ~ paste0('chr',Gen_Chr), 
+                             TRUE ~ NA_character_),
+      Gen_End=Gen_Pos+1,
+      IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt)
+    ) %>% dplyr::ungroup() %>% 
+    dplyr::select(IlmnID, dplyr::everything()) %>% dplyr::arrange(IlmnID)
+  
+  man_pos_prb_tib <- man_ana_prb_tib %>% dplyr::filter(!is.na(Gen_Pos)) %>%
+    dplyr::arrange(Chrom,Gen_Pos)
+  
+  # This better be zero below::
+  unq_ids_fail_cnt <- man_pos_prb_tib %>% 
+    dplyr::add_count(IlmnID, name="ID_Count") %>% 
+    dplyr::filter(ID_Count!=1)
+  
+  all_add_rep_tib <- 
+    manifestCheckSummary(man_ana_prb_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+  
+} else {
+  #
+  # TBD:: Add the above as a function...
+  #
 }
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               5.0 Intersect with Annotation:: Gene/Islands
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-gene_ann_tsv <- file.path(par$topDir, 'data/annotation/mm10/mm10_ucsc.knownGene.tsv.gz')
-cpgs_ann_tsv <- file.path(par$topDir, 'data/annotation/mm10/mm10_ucsc.CpG-Islands.tsv.gz')
+gene_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ucsc.knownGene.tsv.gz', sep='.') )
+cpgs_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ucsc.CpG-Islands.tsv.gz', sep='.') )
 
-gene_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(gene_ann_tsv) ))
-cpgs_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(cpgs_ann_tsv) ))
+gene_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(gene_ann_tsv) )) %>% dplyr::select(-1)
+cpgs_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(cpgs_ann_tsv) )) %>% dplyr::select(-1)
 
-#
-# Build GRange Data Structures:: CpG Islands
-#
-island_ann_gr <- GRanges(seqnames = Rle(cpgs_ann_tib$chrom), 
-                         IRanges(start=cpgs_ann_tib$chromStart, end=cpgs_ann_tib$chromEnd, names= cpgs_ann_tib$name) )
+island_gr <- loadUcscIslandGR(file=cpgs_ann_tsv, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 
-nshore_ann_gr <- GRanges(seqnames = Rle(cpgs_ann_tib$chrom), 
-                         IRanges(start=cpgs_ann_tib$chromStart-2000, end=cpgs_ann_tib$chromStart, names= cpgs_ann_tib$name) )
-
-nshelf_ann_gr <- GRanges(seqnames = Rle(cpgs_ann_tib$chrom), 
-                         IRanges(start=cpgs_ann_tib$chromStart-4000, end=cpgs_ann_tib$chromStart-2000, names= cpgs_ann_tib$name) )
-
-sshore_ann_gr <- GRanges(seqnames = Rle(cpgs_ann_tib$chrom), 
-                         IRanges(start=cpgs_ann_tib$chromEnd, end=cpgs_ann_tib$chromEnd+2000, names= cpgs_ann_tib$name) )
-
-sshelf_ann_gr <- GRanges(seqnames = Rle(cpgs_ann_tib$chrom), 
-                         IRanges(start=cpgs_ann_tib$chromEnd+2000, end=cpgs_ann_tib$chromEnd+4000, names= cpgs_ann_tib$name) )
-
-#
 # Build manifest Genomic Regions::
-#
 man_prb_gr <- GRanges(seqnames = Rle(man_pos_prb_tib$Chrom), 
-                      IRanges(start=man_pos_prb_tib$Gen_Pos, end=man_pos_prb_tib$Gen_End, names= man_pos_prb_tib$IlmnID) )
+                      IRanges(start=man_pos_prb_tib$Gen_Pos, 
+                              end=man_pos_prb_tib$Gen_End, 
+                              names= man_pos_prb_tib$IlmnID) )
 
-#
-# Intersect Islands::
-#
-int_island_map <- GenomicRanges::findOverlaps(man_prb_gr,island_ann_gr, ignore.strand=TRUE) %>%
-  as.data.frame() %>% tibble::as_tibble()
-
-int_island_tib <- dplyr::bind_cols(
-  man_pos_prb_tib[int_island_map$queryHits, ] %>% dplyr::select(IlmnID),
-  cpgs_ann_tib[int_island_map$subjectHits,] %>% 
-    dplyr::mutate(CpG_Island=paste0(chrom,':',chromStart,'-',chromEnd)) %>%
-    dplyr::select(CpG_Island,chrom:chromEnd,length:obsExp) %>%
-    purrr::set_names(paste('CpG_Island',names(.), sep='_') ) %>%
-    dplyr::rename(CpG_Island=CpG_Island_CpG_Island)
-)
-
-# N.Shore::
-int_nshore_map <- GenomicRanges::findOverlaps(man_prb_gr,nshore_ann_gr, ignore.strand=TRUE) %>%
-  as.data.frame() %>% tibble::as_tibble()
-
-int_nshore_tib <- dplyr::bind_cols(
-  man_pos_prb_tib[int_nshore_map$queryHits, ] %>% dplyr::select(IlmnID),
-  cpgs_ann_tib[int_nshore_map$subjectHits,] %>% 
-    dplyr::mutate(N_Shore=paste0(chrom,':',chromStart,'-',chromEnd)) %>%
-    dplyr::select(N_Shore)
-)
-
-# S.Shore::
-int_sshore_map <- GenomicRanges::findOverlaps(man_prb_gr,sshore_ann_gr, ignore.strand=TRUE) %>%
-  as.data.frame() %>% tibble::as_tibble()
-
-int_sshore_tib <- dplyr::bind_cols(
-  man_pos_prb_tib[int_sshore_map$queryHits, ] %>% dplyr::select(IlmnID),
-  cpgs_ann_tib[int_sshore_map$subjectHits,] %>% 
-    dplyr::mutate(S_Shore=paste0(chrom,':',chromStart,'-',chromEnd)) %>%
-    dplyr::select(S_Shore)
-)
-
-# N.Shelf::
-int_nshelf_map <- GenomicRanges::findOverlaps(man_prb_gr,nshelf_ann_gr, ignore.strand=TRUE) %>%
-  as.data.frame() %>% tibble::as_tibble()
-
-int_nshelf_tib <- dplyr::bind_cols(
-  man_pos_prb_tib[int_nshelf_map$queryHits, ] %>% dplyr::select(IlmnID),
-  cpgs_ann_tib[int_nshelf_map$subjectHits,] %>% 
-    dplyr::mutate(N_Shelf=paste0(chrom,':',chromStart,'-',chromEnd)) %>%
-    dplyr::select(N_Shelf)
-)
-
-# S.Shelf::
-int_sshelf_map <- GenomicRanges::findOverlaps(man_prb_gr,sshelf_ann_gr, ignore.strand=TRUE) %>%
-  as.data.frame() %>% tibble::as_tibble()
-
-int_sshelf_tib <- dplyr::bind_cols(
-  man_pos_prb_tib[int_sshelf_map$queryHits, ] %>% dplyr::select(IlmnID),
-  cpgs_ann_tib[int_sshelf_map$subjectHits,] %>% 
-    dplyr::mutate(S_Shelf=paste0(chrom,':',chromStart,'-',chromEnd)) %>%
-    dplyr::select(S_Shelf)
-)
-
-
-# Order of annotation joining::
-#  int_nshelf_tib,int_nshore_tib,int_island_tib,int_sshore_tib,int_sshelf_tib
-
-man_ana_fin_tib <- man_ana_prb_tib %>% 
-  dplyr::select(IlmnID) %>%
-  dplyr::left_join(int_nshelf_tib, by="IlmnID") %>%
-  dplyr::left_join(int_nshore_tib, by="IlmnID") %>%
-  dplyr::left_join(int_island_tib, by="IlmnID") %>%
-  dplyr::left_join(int_sshore_tib, by="IlmnID") %>%
-  dplyr::left_join(int_sshelf_tib, by="IlmnID")
-
-# GenomicRanges::findOverlaps(man_prb_gr,cpgs_ann_gr, select="first", ignore.strand=TRUE) %>% length()
-# GenomicRanges::findOverlaps(cpgs_ann_gr,man_prb_gr, select="first", ignore.strand=TRUE) %>% length()
-
+int_tib <- man_pos_prb_tib %>% dplyr::select(IlmnID) %>% dplyr::arrange(IlmnID)
+for (feat_key in names(island_gr)) {
+  
+  map_gr <- GenomicRanges::findOverlaps(man_prb_gr,island_gr[[feat_key]], ignore.strand=TRUE) %>%
+    as.data.frame() %>% tibble::as_tibble()
+  
+  cur_tib <- dplyr::bind_cols(
+    man_pos_prb_tib[map_gr$queryHits, ] %>% dplyr::select(IlmnID),
+    cpgs_ann_tib[map_gr$subjectHits,] %>% 
+      dplyr::mutate(Name=paste0(chrom,':',chromStart,'-',chromEnd)) %>%
+      dplyr::select(Name,chrom:chromEnd,length:obsExp) %>%
+      purrr::set_names(paste(feat_key,names(.), sep='_') )  )
+  
+  if (feat_key != 'Island')
+    cur_tib <- cur_tib %>% dplyr::select(1,ends_with('_Name'))
+    
+  int_tib <- int_tib %>% dplyr::left_join(cur_tib, by="IlmnID")
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               4.1 Intersect improbe Probe Thermo Stats::
@@ -1324,17 +1165,6 @@ fin_ant_mat_tib <-
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-
-#
-#
-#
-#
-# LEFT OFF HERE::
-#
-#
-#
-#
-
 fin_ctl_col_tib <- fin_ctl_mat_tib %>%
   dplyr::mutate(Infinium_Design=as.integer(Infinium_Design),
                 M=as.integer(M), U=as.integer(U),
@@ -1370,50 +1200,6 @@ fin_core_all_tib %>%
 
 fin_core_mis_cnt <- fin_core_all_tib %>% 
   dplyr::filter(Tango_Pair_Count!=1) %>% base::nrow()
-
-
-
-# fin_core_unq_tib <- fin_core_all_tib %>% 
-#   dplyr::distinct(U,M, .keep_all=TRUE) %>%
-#   dplyr::add_count(M,U, name='Tango_Pair_Count')
-# fin_core_unq_tib %>% 
-#   dplyr::group_by(Probe_Type,Infinium_Design,AQP) %>% 
-#   dplyr::summarise(Count=n(), .groups='drop') %>% as.data.frame()
-# 
-# fin_core_mis_cnt <- fin_core_unq_tib %>% 
-#   dplyr::filter(Tango_Pair_Count!=1) %>% base::nrow()
-
-
-# opt$skip_controls <- FALSE
-# if (opt$skip_controls) {
-#   prb_core_all_tib <-
-#     dplyr::bind_rows(fin_snp_mat_tib,fin_cph_mat_tib,fin_cpg_mat_tib)
-#   prb_core_unq_tib <- prb_core_all_tib %>% 
-#     dplyr::distinct(M,U, .keep_all=TRUE) %>%
-#     dplyr::add_count(M,U, name='Tango_Pair_Count')
-#   
-#   prb_core_unq_tib %>% dplyr::group_by(Probe_Type,Infinium_Design,AQP) %>%
-#     dplyr::summarise(Count=n(), .groups='drop') %>% as.data.frame()
-#   prb_core_unq_tib %>% dplyr::filter(Tango_Pair_Count!=1) %>% dplyr::arrange(U)
-#   man_raw_tib %>% 
-#     dplyr::anti_join(prb_core_unq_tib, by=c("M","U")) %>% 
-#     dplyr::anti_join(fin_ctl_mat_tib,  by=c("M","U")) %>%
-#     dplyr::group_by(Probe_Type,AQP) %>% dplyr::summarise(Mis_Count=n())
-# } else {
-#   fin_core_all_tib <-
-#     dplyr::bind_rows(fin_ctl_mat_tib,fin_snp_mat_tib,fin_cph_mat_tib, 
-#                      dplyr::select(fin_cpg_mat_tib,1:34,37:82))
-#   
-#   fin_core_unq_tib <- fin_core_all_tib %>% 
-#     dplyr::distinct(U,M, .keep_all=TRUE) %>%
-#     dplyr::add_count(M,U, name='Tango_Pair_Count')
-#   fin_core_unq_tib %>% 
-#     dplyr::group_by(Probe_Type,Infinium_Design,AQP) %>% 
-#     dplyr::summarise(Count=n(), .groups='drop') %>% as.data.frame()
-#   
-#   fin_core_mis_cnt <- fin_core_unq_tib %>% 
-#     dplyr::filter(Tango_Pair_Count!=1) %>% base::nrow()
-# }
 
 #
 # Clean Up Fields to match Sesame::
@@ -1573,13 +1359,19 @@ fin_core_split <- fin_core_ann_tib %>% split(.$Assay_Class)
 #
 man_gs_col <- c("IlmnID","Name","AddressA_ID","AlleleA_ProbeSeq","AddressB_ID","AlleleB_ProbeSeq",
                 "Infinium_Design_Type","Next_Base","Color_Channel","Forward_Sequence","Top_Sequence",
-                "Genome_Build","Genome_Build_NCBI","CHR","MAPINFO","SourceSeq",
-                "Strand","Strand_TB","Strand_CO",
+                "Genome_Build","Genome_Build_UCSC","CHR","MAPINFO","SourceSeq",
+                "Probe_Type","Strand","Strand_TB","Strand_CO","MFG_Change_Flagged",
                 
                 "N_Shelf","N_Shore","CpG_Island","CpG_Island_chrom","CpG_Island_chromStart",
                 "CpG_Island_chromEnd","CpG_Island_length","CpG_Island_cpgNum","CpG_Island_gcNum","CpG_Island_perCpg",
                 "CpG_Island_perGc","CpG_Island_obsExp","S_Shore","S_Shelf")
-                
+
+gb_ucsc <- NA_character_
+if (opt$genomeBuild=='GRCm38') gb_ucsc <- 'mm10'
+if (opt$genomeBuild=='GRCh38') gb_ucsc <- 'hg38'
+if (opt$genomeBuild=='GRCh37') gb_ucsc <- 'hg19'
+if (opt$genomeBuild=='GRCh36') gb_ucsc <- 'hg18'
+
 man_fin_tib <- fin_core_split[['Analytical']] %>% 
   dplyr::arrange(IlmnID) %>%
   dplyr::distinct(M,U, .keep_all=TRUE) %>% 
@@ -1593,8 +1385,8 @@ man_fin_tib <- fin_core_split[['Analytical']] %>%
       FR=='R' & Strand_TB=="T" ~ revCmp(Top_Sequence),
       TRUE ~ paste0(paste0(rep('N',60), collapse=''),'[NN]',paste0(rep('N',60), collapse=''))
     ),
-    Genome_Build="mm10",
-    Genome_Build_NCBI="GRCm10"
+    Genome_Build=opt$genomeBuild,
+    Genome_Build_UCSC=gb_ucsc
   ) %>%
   # dplyr::rename(IlmnID=Probe_ID, Name=Seq_ID, 
   dplyr::rename(Name=Seq_ID, 
