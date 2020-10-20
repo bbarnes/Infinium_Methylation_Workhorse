@@ -55,9 +55,80 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Adhoc CpH/SNP/Ctl Method::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+adhoc_desToMAN = function(des_csv, ptype,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'adhoc_desToMAN'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    man_tib <- man_raw_tib %>%
+      dplyr::filter(Probe_Type==ptype) %>%
+      dplyr::inner_join(
+        suppressMessages(suppressWarnings(readr::read_csv(des_csv))), 
+        by="Seq_ID", suffix=c("_Man","_Des")) %>% 
+      dplyr::rename(Probe_Type=Probe_Type_Man,
+                    Top_Sequence=IUPAC_Forward_Sequence ) %>% 
+      dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
+                      AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% 
+      dplyr::mutate(M=as.double(M),U=as.double(U),Probe_ID=Seq_ID) %>%
+      fixOrderProbeIDs(verbose=opt$verbose+4,vt=1,tc=1,tt=pTracker)
+    
+    # Summary Stats::
+    man_tib %>%
+      dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
+      dplyr::summarise(Count=n(), .groups='drop')
+    
+    # Top Tib::
+    top_snp_tib <- man_tib %>%
+      dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
+      dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
+    
+    # Design Probes::
+    test_max <- 0
+    full_snp_des_tib <- 
+      desSeq_to_prbs(
+        tib=top_snp_tib, 
+        idsKey=opt$design_key,
+        seqKey=opt$design_seq,prbKey=opt$design_prb,
+        strsSR=opt$design_srs,strsCO=opt$design_cos,
+        parallel=opt$parallel, max=test_max,
+        verbose=opt$verbose,tc=1,tt=pTracker)
+    
+    ret_tib <- 
+      man_join_prbs(man_tib,full_snp_des_tib,
+                    man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
+                    man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
+                    man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
+                    verbose=opt$verbose+10,tc=1,tt=pTracker) %>% 
+      dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
+      dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
+      dplyr::select(-Top_Sequence_Prb)
+
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                Join Manifest Probes with Design Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+#
+# TBD:: Split function addGenomicToMAN() into
+#       - loadAllGenomicForMAN()
+#       - addUniqGenomicToMAN()
+#
 addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
                            name=NULL,outDir=NULL,retList=FALSE,
                            verbose=0,vt=3,tc=1,tt=NULL) {
@@ -148,11 +219,13 @@ clean_manifest_probes = function(tib, s48_tsv, top_tsv,
   stime <- system.time({
     
     # Build output directories::
-    intDir <- file.path(outDir, 'intersection')
+    intDir <- file.path(outDir, 'intersection', probe_type)
     if (!dir.exists(intDir)) dir.create(intDir, recursive=TRUE)
     
-    desDir <- file.path(outDir, 'design')
+    desDir <- file.path(outDir, 'design', probe_type)
     if (!dir.exists(desDir)) dir.create(desDir, recursive=TRUE)
+    
+    design_prb_sym <- rlang::sym(design_prb)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #
@@ -160,7 +233,7 @@ clean_manifest_probes = function(tib, s48_tsv, top_tsv,
     #                        2. seq48U -> CGN/TB/CO::
     #
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    imp_s48_tib <- seq48U_to_cgn(tib=man_raw_tib, imp_tsv=s48_tsv,
+    imp_s48_tib <- seq48U_to_cgn(tib=tib, imp_tsv=s48_tsv,
                                  name=name,outDir=intDir,
                                  mat_key='Mat_PrbA', fresh=fresh,
                                  colA=4,colB=1,
@@ -218,7 +291,7 @@ clean_manifest_probes = function(tib, s48_tsv, top_tsv,
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
       ret_tib <- man_join_prbs(
-        man_raw_tib,cpg_prb_des_tib,
+        tib,cpg_prb_des_tib,
         man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
         man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
         man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",

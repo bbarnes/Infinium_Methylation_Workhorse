@@ -17,6 +17,61 @@ RET <- "\n"
 BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Docker improbe Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# image=par$docker_image
+# shell=par$docker_shell
+# file=snp_inp_fon
+# name=opt$genomeBuild
+improbe_docker = function(dir, file, name, image, shell, 
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'improbe_docker'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; name={name}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_log <- 
+      file.path(dir, paste(name,'improbe-designOutput.log', sep='.'))
+    ret_tsv <- 
+      file.path(dir, paste(name,'improbe-designOutput.tsv.gz', sep='.'))
+    
+    if (file.exists(ret_log)) unlink(ret_log)
+    if (file.exists(ret_tsv)) unlink(ret_tsv)
+    
+    system(glue::glue("touch {ret_log}"))
+    system(glue::glue("touch {ret_tsv}"))
+    
+    imp_doc_cmd <- glue::glue("docker run -il -rm ",
+                              "-v {dir}:/work -v {dir}:/output ",
+                              "{image} {shell} {file} {name}")
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: Running improbe cmd='{imp_doc_cmd}'...{RET}"))
+    system(imp_doc_cmd)
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: Done.{RET}{RET}"))
+    
+    ret_tib <- 
+      suppressMessages(suppressWarnings( readr::read_tsv(ret_tsv) ))
+    if (verbose>=vt+4) print(ret_tib)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Modern improbe IO Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -590,6 +645,15 @@ desSeq_to_prbs = function(tib, idsKey,seqKey,prbKey, strsSR='FR', strsCO='CO',
     prbKey <- rlang::sym(prbKey)
     seqKey <- rlang::sym(seqKey)
     
+    if (typeof(tib)=='character') {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading from file={tib}...{RET}"))
+      if (stringr::str_ends(tib,'.tsv.gz') || stringr::str_ends(tib,'.tsv')) {
+        tib <- suppressMessages(suppressWarnings( readr::read_tsv(tib) ))
+      } else {
+        tib <- suppressMessages(suppressWarnings( readr::read_csv(tib) ))
+      }
+    }
+    
     if (max>0) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will subset input to max={max}.{RET}"))
       tib <- tib %>% head(n=max)
@@ -704,7 +768,7 @@ desSeq_to_prbs = function(tib, idsKey,seqKey,prbKey, strsSR='FR', strsCO='CO',
       SR_Str=case_when(SR ~ sr_vec[1], !SR ~ sr_vec[2], TRUE ~ NA_character_),
       CO_Str=case_when(CO ~ co_vec[1], !CO ~ co_vec[2], TRUE ~ NA_character_),
       Seq_ID_Uniq=paste(Seq_ID,paste0(SR_Str,CO_Str), sep=del)
-    )
+    ) %>% dplyr::arrange(Seq_ID_Uniq)
     
     # Add match probe sequences
     if (addMatSeq) {
