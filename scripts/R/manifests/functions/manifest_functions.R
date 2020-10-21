@@ -58,7 +58,7 @@ template_func = function(tib,
 #                          Adhoc CpH/SNP/Ctl Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-adhoc_desToMAN = function(des_csv, ptype,
+adhoc_desToMAN = function(des_csv, probe_type,
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'adhoc_desToMAN'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -69,7 +69,7 @@ adhoc_desToMAN = function(des_csv, ptype,
   stime <- system.time({
     
     man_tib <- man_raw_tib %>%
-      dplyr::filter(Probe_Type==ptype) %>%
+      dplyr::filter(Probe_Type==probe_type) %>%
       dplyr::inner_join(
         suppressMessages(suppressWarnings(readr::read_csv(des_csv))), 
         by="Seq_ID", suffix=c("_Man","_Des")) %>% 
@@ -129,6 +129,60 @@ adhoc_desToMAN = function(des_csv, ptype,
 #       - loadAllGenomicForMAN()
 #       - addUniqGenomicToMAN()
 #
+loadAllGenomicByMAN = function(man, pos_tsv, pos_col=NULL,
+                               name=NULL,outDir=NULL,retList=FALSE,
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'loadAllGenomicByMAN'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; pos_tsv={pos_tsv}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  pos_csv <- NULL
+  stime <- system.time({
+    
+    if (!is.null(name) && !is.null(outDir)) {
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+      pos_csv <- file.path(outDir, paste(name,'genomic.csv.gz', sep='.'))
+    }
+    if (is.null(pos_col)) {
+      pos_col <- cols(Seq_ID  = col_character(),
+                      Gen_Chr = col_character(),
+                      Gen_Pos = col_double() )
+    }
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Position Columns={RET}"))
+    if (verbose>=vt+4) print(pos_col)
+    
+    pos_tib <- NULL
+    ret_tib <- suppressMessages(suppressWarnings(
+      readr::read_tsv(pos_tsv, col_names=names(pos_col$cols), col_types=pos_col) )) %>%
+      dplyr::filter(Seq_ID %in% man$Seq_ID) %>%
+      dplyr::add_count(Seq_ID, name='Genomic_CGN_Count') %>%
+      dplyr::arrange(Seq_ID)
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Position Tibble={RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+    
+    # Summary Genomic CGN Match Counts::
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Position Summary={RET}"))
+      ret_tib %>% dplyr::group_by(Genomic_CGN_Count) %>% 
+        dplyr::summarise(Count=n(), .groups='drop') %>% print()
+    }
+    if (!is.null(pos_csv)) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing Position CSV={pos_csv}...{RET}"))
+      readr::write_csv(ret_tib,pos_csv)
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
 addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
                            name=NULL,outDir=NULL,retList=FALSE,
                            verbose=0,vt=3,tc=1,tt=NULL) {

@@ -794,6 +794,299 @@ if (FALSE) {
 }
 
 
+if (FALSE) {
+  #
+  # TBD:: Functionize the cph code below and apply to SNPs...
+  #
+  
+  #
+  # TBD:: Important NOTE; using dplyr::filter(Probe_Type=='ch') with the snp des
+  #  file produces non-zero result!!! 132 chrZ:cords to be exact!!!
+  #
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           2.1. Remainder:: SNP::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  man_snp_pos_tib <- NULL
+  if (!is.null(opt$snp_des_csv) && file.exists(opt$snp_des_csv) &&
+      !is.null(opt$snp_pos_tsv) && file.exists(opt$snp_pos_tsv)) {
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                         2.1.1 Build Probes:: SNP
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    man_snp_tib <- adhoc_desToMAN(des_csv=opt$snp_des_csv, probe_type='rs',
+                                  verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #             2.1.2 Intersect improbe Genomic Coordinates:: SNP
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    snp_pos_col <- 
+      cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
+    pos_out_name <- paste(opt$runName,'snp', sep='.')
+    
+    man_snp_pos_tib <- 
+      addGenomicToMAN(man=man_snp_tib, pos_tsv=opt$snp_pos_tsv, 
+                      pos_col=snp_pos_col,name=pos_out_name, outDir=opt$genDir,
+                      verbose=opt$verbose+4,vt=1,tc=1,tt=pTracker) %>%
+      dplyr::distinct(M,U, .keep_all=TRUE) %>%
+      dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
+      dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
+      dplyr::mutate(
+        Rep_Cnt=dplyr::row_number(),
+        IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
+        ValidID=TRUE
+      ) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::select(IlmnID, dplyr::everything())
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           2.2. Remainder:: CpH::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  man_cph_pos_tib <- NULL
+  if (!is.null(opt$cph_des_csv) && file.exists(opt$cph_des_csv) &&
+      !is.null(opt$cph_pos_tsv) && file.exists(opt$cph_pos_tsv)) {
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                         2.2.1 Build Probes:: CpH
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    man_cph_tib <- adhoc_desToMAN(des_csv=opt$cph_des_csv, ptype='ch',
+                                  verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #             2.2.2 Intersect improbe Genomic Coordinates:: CpH
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    cph_pos_col <- 
+      cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
+    pos_out_name <- paste(opt$runName,'cph', sep='.')
+    
+    man_cph_pos_tib <- 
+      addGenomicToMAN(man=man_cph_prb_tib, pos_tsv=opt$cph_pos_tsv, 
+                      pos_col=cph_pos_col,name=pos_out_name, outDir=opt$genDir,
+                      verbose=opt$verbose,vt=1,tc=1,tt=pTracker) %>%
+      dplyr::distinct(M,U, .keep_all=TRUE) %>%
+      dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
+      dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
+      dplyr::mutate(
+        Rep_Cnt=dplyr::row_number(),
+        IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
+        ValidID=TRUE
+      ) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::select(IlmnID, dplyr::everything())
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #               3.3 Intersect improbe Genomic Coordinates:: CpG
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  man_cpg_pos_tib <- NULL
+  cpg_pos_col <- 
+    cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
+  pos_out_name <- paste(opt$runName,'cpg', sep='.')
+  
+  if (opt$platform=='NZT' || opt$platform=='COVIC') {
+    man_cpg_pos_lst <- 
+      addGenomicToMAN(man=man_prb_tib, pos_tsv=opt$cpg_pos_tsv, 
+                      pos_col=cpg_pos_col,name=pos_out_name, outDir=opt$genDir,
+                      retList=TRUE,
+                      verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+    
+    #
+    # Important:: Below captures the whole multi-unique part based on CGN dB::
+    #
+    man_cpg_pos_tib <- man_prb_tib %>% 
+      dplyr::inner_join(man_cpg_pos_lst$pos, by="Seq_ID")
+    
+    man_cpg_pos_tib %>% dplyr::add_count(M,U, name="Tango_Count") %>% 
+      dplyr::group_by(Probe_Type,Tango_Count) %>% dplyr::summarise(Count=n(), .groups='drop')
+    
+    # Missing Tango Pairs::
+    man_raw_tib %>% # dplyr::filter(Probe_Type!='rs') %>% 
+      dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+      dplyr::anti_join(man_cpg_pos_tib, by=c("M","U")) %>% 
+      dplyr::group_by(Probe_Type) %>% 
+      dplyr::summarise(Count=n(), .groups='drop')
+    
+  } else {
+    man_cpg_pos_tib <- 
+      addGenomicToMAN(man=man_prb_tib, pos_tsv=opt$cpg_pos_tsv, 
+                      pos_col=cpg_pos_col,name=pos_out_name, outDir=opt$genDir,
+                      verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+    
+    man_cpg_pos_tib %>% dplyr::add_count(M,U, name="Tango_Count") %>% 
+      dplyr::group_by(Probe_Type,Tango_Count) %>% dplyr::summarise(Count=n(), .groups='drop')
+  }
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Output Sesame Only For COVIC/NZT::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (opt$platform=='NZT' || opt$platform=='COVIC') {
+  
+  if (base::nrow(man_unk_tib)==0) man_unk_tib <- NULL
+  
+  ses_all_ann_tib <- 
+    dplyr::bind_rows(man_cpg_pos_tib,man_unk_tib) %>% 
+    dplyr::rename(Probe_ID2=Probe_ID) %>% 
+    dplyr::mutate(
+      Probe_ID=IlmnID,
+      DESIGN=dplyr::case_when(
+        Infinium_Design==1 ~ 'I',
+        Infinium_Design==2 ~ 'II',
+        TRUE ~ NA_character_),
+      COLOR_CHANNEL=dplyr::case_when(
+        Infinium_Design==2 ~ 'Both',
+        stringr::str_to_upper(NXB_D)=='A' ~ 'Red',
+        stringr::str_to_upper(NXB_D)=='T' ~ 'Red',
+        stringr::str_to_upper(NXB_D)=='C' ~ 'Grn',
+        stringr::str_to_upper(NXB_D)=='G' ~ 'Grn',
+        TRUE ~ NA_character_),
+      col=dplyr::case_when(
+        Infinium_Design==2 ~ NA_character_,
+        stringr::str_to_upper(NXB_D)=='A' ~ 'R',
+        stringr::str_to_upper(NXB_D)=='T' ~ 'R',
+        stringr::str_to_upper(NXB_D)=='C' ~ 'G',
+        stringr::str_to_upper(NXB_D)=='G' ~ 'G',
+        TRUE ~ NA_character_),
+      Next_Base=dplyr::case_when(
+        Infinium_Design==2 ~ NA_character_,
+        Infinium_Design==1 ~ stringr::str_to_upper(NXB_D),
+        TRUE ~ NA_character_
+      ),
+      MFG_Change_Flagged=dplyr::case_when(
+        ValidID ~ 'FALSE',
+        TRUE ~ 'TRUE'
+      ),
+      Probe_Source=opt$platform,
+      Version=opt$version
+    ) %>%
+    dplyr::rename(Strand_TB=SR_Str,Strand_CO=CO_Str,
+                  Chrom=Gen_Chr,Position=Gen_Pos) %>%
+    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,
+                  Seq_ID,Probe_Type,Probe_Source,Version,
+                  Strand_TB,Strand_CO,Infinium_Design,Rep_Num,
+                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                  Top_Sequence, everything()) %>%
+    dplyr::arrange(Probe_ID)
+  
+  ses_base_tib <- ses_all_ann_tib %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID:Top_Sequence) %>%
+    dplyr::arrange(Probe_ID)
+  
+  pos_base_tib <- ses_all_ann_tib %>% 
+    dplyr::select(Probe_ID:Top_Sequence,Chrom,Position,
+                  Genomic_CGN_Count,MFG_Change_Flagged) %>%
+    dplyr::arrange(Chrom, Position)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Write Sesame Manifest:: Standard-Only
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  readr::write_csv(ses_base_tib,ses_base_csv)
+  readr::write_csv(pos_base_tib,pos_base_csv)
+  cat(glue::glue("[{par$prgmTag}]: Writing; pos_base_csv={pos_base_csv}.{RET}{RET}"))
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Write Sesame Manifest:: Standard+EPIC
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  if ( opt$platform=='COVIC' ) {
+    org_covic_csv <- file.path(par$datDir, 'manifest/base/EPIC-C0.manifest.sesame-base.cpg-sorted.csv.gz')
+    org_covic_tib <- suppressMessages(suppressWarnings( readr::read_csv(org_covic_csv) ))
+    
+    ses_base_tib <- dplyr::bind_rows(
+      dplyr::select(ses_base_tib, all_of(names(org_covic_tib))),org_covic_tib
+    ) %>% dplyr::distinct(M,U, .keep_all=TRUE)
+    
+    readr::write_csv(ses_base_tib,ses_epic_csv)
+    cat(glue::glue("[{par$prgmTag}]: Writing; ses_epic_csv={ses_epic_csv}.{RET}{RET}"))
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                 Write Sesame Manifest:: Machine Learning
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  #
+  # TBD:: Make all mu and rp probes Infinium I::
+  #
+  # fin_ses_mach_tib <- fin_core_ann_tib %>% 
+  #   dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+  #   dplyr::select(Probe_ID:Top_Sequence,Assay_Class,MFG_Change_Flagged)
+  # readr::write_csv(fin_ses_core_tib,ses_mach_csv)
+  
+}
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   3.4. Collect Remainder:: SNP/CpH/CpG
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# OLD CODE: Below
+#
+# if (par$local_runType=='GRCm38') {
+#   man_all_pos_tib <- dplyr::bind_rows(
+#     man_snp_pos_tib,
+#     man_cph_pos_tib,
+#     man_cpg_pos_tib %>% 
+#       dplyr::select(dplyr::all_of(names(man_cph_pos_tib)), everything() )
+#   )  
+# } else {
+#   man_all_pos_tib <- man_cpg_pos_tib
+# }
+
+if (FALSE) {
+  man_all_pos_tib <- dplyr::bind_rows(
+    man_snp_pos_tib,
+    man_cph_pos_tib,
+    man_cpg_pos_tib) %>% 
+    dplyr::arrange(IlmnID)
+  
+  man_all_pos_tib <- man_all_pos_tib %>% 
+    dplyr::mutate(
+      Chrom=dplyr::case_when(!is.na(Gen_Chr) ~ paste0('chr',Gen_Chr), 
+                             TRUE ~ NA_character_),
+      Gen_End=Gen_Pos+1,
+    )
+  
+  man_all_pos_tib %>% 
+    dplyr::filter(!is.na(Gen_Pos)) %>%
+    dplyr::arrange(Chrom,Gen_Pos)
+  
+  # This better be zero below::
+  unq_ids_fail_cnt <- man_all_pos_tib %>% 
+    dplyr::add_count(IlmnID, name="ID_Count") %>% 
+    dplyr::filter(ID_Count!=1)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                   5.0 Pre-Annotation:: Gene/Islands
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  man_pos_prb_tib <- man_ana_prb_tib %>% 
+    dplyr::filter(!is.na(Gen_Pos)) %>%
+    dplyr::arrange(Chrom,Gen_Pos)
+  
+  # This better be zero below::
+  unq_ids_fail_cnt <- man_pos_prb_tib %>% 
+    dplyr::add_count(IlmnID, name="ID_Count") %>% 
+    dplyr::filter(ID_Count!=1)
+  
+  all_add_rep_tib <- 
+    manifestCheckSummary(man_pos_prb_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+}
+
+
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
