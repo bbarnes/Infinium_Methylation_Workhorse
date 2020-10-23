@@ -218,11 +218,61 @@ if (args.dat[1]=='RStudio') {
   #
   # Pre-defined local options runTypes::
   #
-  par$local_runType <- 'covic'
-  par$local_runType <- 'ctl_mvp'
-  par$local_runType <- 'mm10'
+  par$local_runType <- 'qcMVP'
+  par$local_runType <- 'CORE'
+  par$local_runType <- 'EXCBR'
+  par$local_runType <- 'NZT'
+  par$local_runType <- 'COVIC'
+  par$local_runType <- 'GENK'
+  par$local_runType <- 'GRCm38'
+  par$local_runType <- 'COVID'
   
-  if (par$local_runType=='mm10') {
+  if (par$local_runType=='COVID') {
+    opt$single <- TRUE
+    
+    opt$lociBetaKey <- "i_beta,d_beta,dn_beta,dni_beta,ind_beta"
+    # opt$lociBetaKey <- "d_beta"
+    
+    opt$lociPvalKey <- "i_poob,d_poob,dn_poob,dni_poob,ind_poob"
+    # opt$lociPvalKey <- "d_poob"
+    
+    opt$lociPvalMin <- "1.0"
+    opt$samplePvalPerc <- 0
+
+    opt$runName  <- 'COVID-Direct-Set1'
+    opt$classVar <- 'Sample_Class'
+    par$platform <- 'COVID'
+    par$version  <- 'C1'
+    
+    opt$mergeDir  <- paste(
+      # 'scratch/merge_builds/COVID/C1/Sample_Class/COVID-Direct-Set1'
+      file.path(par$topDir, 'scratch/merge_builds', par$platform,par$version,opt$classVar, opt$runName),
+      sep=',')
+    
+    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+    
+  } else if (par$local_runType=='COVIC') {
+    opt$runName  <- 'COVIC-Set7-06082020'
+    opt$runName  <- 'COVIC-Set5-10062020'
+    opt$runName  <- 'COVIC-Set1-15052020'
+    
+    par$version  <- 'C0'
+    
+    opt$mergeDir  <- paste(
+      file.path(par$topDir, 'scratch/merge_builds', par$platform,par$version,opt$classVar, opt$runName),
+      sep=',')
+    
+    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+    
+    # Loci (Feature) Selection Parameters::
+    #
+    # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
+    #                           file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
+    #                           file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
+    #                           sep=',')
+    # opt$featuresDml <- "100"
+    
+  } else if (par$local_runType=='GRCm38') {
     par$runNameA  <- 'ILMN_mm10_betaTest_17082020'
     par$runNameB  <- 'VanAndel_mm10_betaTest_31082020'
     par$runNameC  <- 'MURMETVEP_mm10_betaTest_06082020'
@@ -252,28 +302,7 @@ if (args.dat[1]=='RStudio') {
       file.path(par$topDir,'merge_builds/LEGX/S1/Sample_Name',opt$runName),
       sep=',')
     
-  } else if (par$local_runType=='covic') {
-    opt$runName  <- 'COVIC-Set7-06082020'
-    opt$runName  <- 'COVIC-Set5-10062020'
-    opt$runName  <- 'COVIC-Set1-15052020'
-    
-    par$version  <- 'C0'
-    
-    opt$mergeDir  <- paste(
-      file.path(par$topDir, 'scratch/merge_builds', par$platform,par$version,opt$classVar, opt$runName),
-      sep=',')
-    
-    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
-    
-    # Loci (Feature) Selection Parameters::
-    #
-    # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
-    #                           file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
-    #                           file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
-    #                           sep=',')
-    # opt$featuresDml <- "100"
-    
-  } else if (par$local_runType=='ctl_mvp') {
+  } else if (par$local_runType=='qcMVP') {
     opt$classVar <- 'AutoSample_dB_Key'
     par$platform <- 'EPIC'
     par$version  <- 'B4'
@@ -696,6 +725,8 @@ for (betaKey in lociBetaKey_vec) {
       #  4. Load signal sets
       #  5. Plot signal sets
       #
+      opt$plot_pairs <- TRUE
+      opt$plot_pairs <- FALSE
       if (opt$plot_pairs) {
         sam_pval_name_sym <- rlang::sym(opt$samplePvalName)
         
@@ -740,7 +771,10 @@ for (betaKey in lociBetaKey_vec) {
           dplyr::ungroup() %>%
           dplyr::select(Sentrix_Name, Class_Name, !!class_idx, !!exp_sym, Class_Int, !!sam_pval_name_sym, Rank_Idx,Rank_Chr,Plot_Name, everything())
         
-        ss_class_list <- plotSheet_tib %>% split(.$Class_Name)
+        plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name=Class_Name)
+        
+        # ss_class_list <- plotSheet_tib %>% split(.$Class_Name)
+        ss_class_list <- plotSheet_tib %>% split(.$Amp_Incubation)
         ss_class_keys <- names(ss_class_list)
         
         for (cIdx in c(1:length(ss_class_keys))) {
@@ -782,7 +816,9 @@ for (betaKey in lociBetaKey_vec) {
           #
           # Run Plot Pairs for each Experiment pairwise-combination::
           #
-          ss_exp_list <- ss_class_list[[class_key]] %>% split(.$Experiment_Key)
+          # ss_exp_list <- ss_class_list[[class_key]] %>% split(.$Experiment_Key)
+          
+          ss_exp_list <- ss_class_list[[class_key]] %>% split(.$Class_Name)
           ss_exp_keys <- names(ss_exp_list)
           
           for (idxA in c(1:length(ss_exp_keys))) {
@@ -802,7 +838,7 @@ for (betaKey in lociBetaKey_vec) {
 
                 # Reduce to 3 max for plotting::
                 red_ss_tibA <- reduceSortedTib(cur_ss_tibA)
-                red_ss_tibB <- reduceSortedTib(cur_ss_tibB)
+                red_ss_tibB <- reduceSortedTib(cur_ss_tibB) %>% dplyr::mutate(Plot_Name=stringr::str_replace(Plot_Name,'^A_', 'B_'))
                 
                 beta_tibA <- beta_masked_mat[ ,red_ss_tibA$Sentrix_Name ] %>% as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
                   tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
@@ -831,6 +867,8 @@ for (betaKey in lociBetaKey_vec) {
           }
         }
       }
+      
+      if (!opt$buildDbl && !opt$buildDml) next
       
       # break
       
@@ -987,8 +1025,14 @@ for (betaKey in lociBetaKey_vec) {
         # Only pick two classes::
         picked_sentrix <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::pull(Sentrix_Name)
         
-        picked_sam_vec <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::group_by(Sample_Name) %>% 
-          dplyr::mutate(Rep_Num=row_number(), Rep_Name=paste0(Sample_Name,'_Rep',Rep_Num)) %>% dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
+        useSampleName <- FALSE
+        if (useSampleName) {
+          picked_sam_vec <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::group_by(Sample_Name) %>%
+            dplyr::mutate(Rep_Num=row_number(), Rep_Name=paste0(Sample_Name,'_Rep',Rep_Num)) %>% dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
+        } else {
+          picked_sam_vec <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::group_by(Sample_Class) %>% 
+            dplyr::mutate(Rep_Num=row_number(), Rep_Name=paste0(Sample_Class,'_Rep',Rep_Num)) %>% dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
+        }
         
         beta_masked_tib <- beta_masked_mat[,picked_sentrix] %>% as.data.frame() %>% purrr::set_names(picked_sam_vec) %>% 
           tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble() %>%
@@ -1003,11 +1047,26 @@ for (betaKey in lociBetaKey_vec) {
         beta_masked_tib$Design_Type <- 'I'
         
         plotDir <- file.path(opt$outDir,'plots')
-        gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
-                            probeType='cg', field='Beta', field_str='ind_beta', detp='i_poob', minPval=pvalMin,
-                            format='pdf',
-                            verbose=opt$verbose+3)
-        
+        if (useSampleName) {
+          gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
+                              probeType='cg', field='Beta', field_str='ind_beta', detp='i_poob', minPval=pvalMin,
+                              format='pdf',
+                              verbose=opt$verbose+3)
+        } else {
+          beta_masked_tib2 <- beta_masked_tib %>% dplyr::mutate(
+            Design_Type=stringr::str_remove(Probe_ID,'^[^_]*_[A-Z][A-Z]') %>% stringr::str_remove('[0-9]$'),
+            Design_Type=dplyr::case_when(
+              Design_Type=='1' ~ 'I',
+              Design_Type=='2' ~ 'II',
+              TRUE ~ NA_character_
+            ) )
+
+          gg <- plotPairsBeta(beta_masked_tib2, sample='NEGvsPOS', nameA='nSARSCov2', nameB='pSARSCov2', outDir=plotDir,
+                              probeType='cg', field='Beta', field_str=betaKey, detp=pvalKey, minPval=pvalMin,
+                              format='pdf',
+                              verbose=opt$verbose+30)
+        }
+
         # gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
         #                 probeType='cg', field='Beta', field_str='ind_beta', detp='i_poob', # maxCnt = , minPval=minPval,
         #                 spread=spread, outType=outType, dpi=dpi, format=format,
@@ -1101,7 +1160,7 @@ for (betaKey in lociBetaKey_vec) {
               }
             }
             
-            if (FALSE) {
+            if (TRUE) {
               # Name by Real Classes::
               #
               sample_cnt_tib <- sampleSheet_tib %>% 
