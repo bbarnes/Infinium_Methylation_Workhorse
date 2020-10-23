@@ -90,15 +90,31 @@ initSesameRaw = function(prefix, platform, manifest, load=FALSE, save=FALSE, rds
 # Predefined SSET to Calls by Order of Operations Workflows::
 mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL, 
                                verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'mutateSSET'
+  funcTag <- 'mutateSSET_workflow'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; workflow={workflow}.{RET}"))
   
   stime <- system.time({
-    if (workflow=='din') {
+    
+    #
+    # TBD:: This could be parsed into individual letters and then processed in that order...
+    #
+    if (workflow=='i') {
+      sset <- sset %>% 
+        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    } else if (workflow=='n') {
+      sset <- sset %>% 
+        mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    } else if (workflow=='d') {
+      sset <- sset %>% 
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    } else if (workflow=='nd') {
+      sset <- sset %>% 
+        mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    } else if (workflow=='dn') {
       sset <- sset %>% 
         mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='ind') {
       sset <- sset %>% 
@@ -110,9 +126,11 @@ mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL,
         mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    } else if (workflow=='i') {
+    } else if (workflow=='din') {
       sset <- sset %>% 
-        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else {
       stop(glue::glue("[{funcTag}]: ERROR: Unsupported workflow={workflow}!{RET}{RET}"))
     }

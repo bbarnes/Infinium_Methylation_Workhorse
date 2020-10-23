@@ -77,6 +77,85 @@ intersectGranges = function(man,ref,
 #                       Standard UCSC Loading Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+loadNcbiGeneGR = function(file,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'loadUcscGeneGR'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_grs <- NULL
+  stime <- system.time({
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
+    
+    dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
+    colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
+    dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE) # %>% dplyr::mutate(transcript=name, name=name2)
+    print(dat_tib)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
+    if (verbose>=vt+4) print(dat_tib)
+    
+    dat_tib <- dat_tib %>% 
+      dplyr::mutate(
+        gene_tss=dplyr::case_when(
+          strand=='+' ~ txStart,
+          strand=='-' ~ txEnd,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_200_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss,
+          TRUE ~ NA_real_
+        ),
+        tss_200_end=dplyr::case_when(
+          strand=='+' ~ gene_tss,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_1500_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-1500,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_
+        ),
+        tss_1500_end=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss+1500,
+          TRUE ~ NA_real_
+        ),
+      )
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
+    ret_grs$tss_1500 <- 
+      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+              IRanges(start=dat_tib$tss_1500_beg, end=dat_tib$tss_1500_end, names=dat_tib$name) )
+    ret_grs$tss_200 <- 
+      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+              IRanges(start=dat_tib$tss_200_beg, end=dat_tib$tss_200_end, names=dat_tib$name) )
+    ret_grs$tss_body <- 
+      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+              IRanges(start=dat_tib$txStart, end=dat_tib$txEnd, names=dat_tib$name) )
+    
+    ret_cnt <- ret_grs %>% names %>% length()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_grs
+}
+
+
+
+
+
+
+
+
 loadUcscGeneGR = function(file,
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'loadUcscGeneGR'
@@ -87,9 +166,14 @@ loadUcscGeneGR = function(file,
   ret_grs <- NULL
   stime <- system.time({
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
+    
     dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
     colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
+    dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE)
+    print(dat_tib)
+    
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
     if (verbose>=vt+4) print(dat_tib)
     

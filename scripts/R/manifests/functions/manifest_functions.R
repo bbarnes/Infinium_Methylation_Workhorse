@@ -32,7 +32,7 @@ RET <- "\n"
 #
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                          Standard Function Method::
+#                          Standard Function Template::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 template_func = function(tib,
@@ -58,59 +58,107 @@ template_func = function(tib,
 #                          Adhoc CpH/SNP/Ctl Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-adhoc_desToMAN = function(des_csv, probe_type,
+adhoc_desToMAN = function(man, des_csv, probe_type,
+                          name=NULL,outDir=NULL,origin=NULL,
+                          fresh=FALSE,fix=FALSE, del='.',
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'adhoc_desToMAN'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting (fresh={fresh})...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
+  ret_csv <- NULL
+  stp_tib <- NULL
   stime <- system.time({
     
-    man_tib <- man_raw_tib %>%
-      dplyr::filter(Probe_Type==probe_type) %>%
-      dplyr::inner_join(
-        suppressMessages(suppressWarnings(readr::read_csv(des_csv))), 
-        by="Seq_ID", suffix=c("_Man","_Des")) %>% 
-      dplyr::rename(Probe_Type=Probe_Type_Man,
-                    Top_Sequence=IUPAC_Forward_Sequence ) %>% 
-      dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
-                      AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% 
-      dplyr::mutate(M=as.double(M),U=as.double(U),Probe_ID=Seq_ID) %>%
-      fixOrderProbeIDs(verbose=opt$verbose+4,vt=1,tc=1,tt=pTracker)
+    if (!is.null(name) && !is.null(outDir)) {
+      outDir <- file.path(outDir,probe_type)
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+      out_name <- paste(name,funcTag,probe_type, sep=del)
+      ret_csv <- file.path(outDir,paste(out_name,'csv.gz', sep=del) )
+      csv_vec <- c(ret_csv)
+      stp_tib <- check_timeStamps(name=out_name,outDir=outDir,origin=origin,files=csv_vec,
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    }
     
-    # Summary Stats::
-    man_tib %>%
-      dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
-      dplyr::summarise(Count=n(), .groups='drop')
-    
-    # Top Tib::
-    top_snp_tib <- man_tib %>%
-      dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
-      dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
-    
-    # Design Probes::
-    test_max <- 0
-    full_snp_des_tib <- 
-      desSeq_to_prbs(
-        tib=top_snp_tib, 
-        idsKey=opt$design_key,
-        seqKey=opt$design_seq,prbKey=opt$design_prb,
-        strsSR=opt$design_srs,strsCO=opt$design_cos,
-        parallel=opt$parallel, max=test_max,
-        verbose=opt$verbose,tc=1,tt=pTracker)
-    
-    ret_tib <- 
-      man_join_prbs(man_tib,full_snp_des_tib,
-                    man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
-                    man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
-                    man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-                    verbose=opt$verbose+10,tc=1,tt=pTracker) %>% 
-      dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
-      dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
-      dplyr::select(-Top_Sequence_Prb)
+    if (!fresh && !is.null(stp_tib) && stp_tib$isValid[1]) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
+    } else {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh data from={des_csv}...{RET}"))
+      des_tib <- suppressMessages(suppressWarnings(readr::read_csv(des_csv)))
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_tib={RET}"))
+      if (verbose>=vt+4) print(des_tib)
 
+      man_tib <- man %>% dplyr::filter(Probe_Type==probe_type)
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib={RET}"))
+      if (verbose>=vt+4) print(man_tib)
+      
+      man_tib <- dplyr::inner_join(man_tib,des_tib, by="Seq_ID", suffix=c("_Man","_Des"))
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib+des_tib={RET}"))
+      if (verbose>=vt+4) print(man_tib)
+      
+      man_tib <- man_tib %>%
+        dplyr::rename(Probe_Type=Probe_Type_Man,
+                      Top_Sequence=IUPAC_Forward_Sequence ) %>% 
+        dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
+                        AlleleA_Probe_Sequence,AlleleB_Probe_Sequence) %>% 
+        dplyr::mutate(M=as.double(M),U=as.double(U),Probe_ID=Seq_ID)
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(clean)={RET}"))
+      if (verbose>=vt+4) print(man_tib)
+      
+      if (fix) {
+        man_tib <- man_tib %>%
+          fixOrderProbeIDs(verbose=opt$verbose+4,vt=1,tc=1,tt=tt)
+        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(fixed)={RET}"))
+        if (verbose>=vt+4) print(man_tib)
+      }
+      
+      # Summary Stats::
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(clean)={RET}"))
+        man_tib %>% 
+          dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
+          dplyr::summarise(Count=n(), .groups='drop') %>% print()
+      }
+      
+      # Top Tib::
+      top_snp_tib <- man_tib %>%
+        dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
+        dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
+      
+      # Design Probes::
+      test_max <- 0
+      full_des_tib <- 
+        desSeq_to_prbs(
+          tib=top_snp_tib, 
+          idsKey=opt$design_key,
+          seqKey=opt$design_seq,prbKey=opt$design_prb,
+          strsSR=opt$design_srs,strsCO=opt$design_cos,
+          parallel=opt$parallel, max=test_max,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      ret_tib <- 
+        man_join_prbs(man_tib,full_des_tib,
+                      man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
+                      man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
+                      man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
+                      verbose=opt$verbose,tc=1,tt=tt) %>% 
+        dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
+        dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
+        dplyr::select(-Top_Sequence_Prb)
+      
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing data={ret_csv}...{RET}"))
+      if (!is.null(ret_csv)) readr::write_csv(ret_tib,ret_csv)
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Writing.{RET}{RET}"))
+      
+      readr::write_lines(x=date(),file=stp_tib$end[1],sep='\n',append=FALSE)
+    }
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib(final)={RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+    
     ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -130,7 +178,7 @@ adhoc_desToMAN = function(des_csv, probe_type,
 #       - addUniqGenomicToMAN()
 #
 loadAllGenomicByMAN = function(man, pos_tsv, pos_col=NULL,
-                               name=NULL,outDir=NULL,retList=FALSE,
+                               name=NULL,outDir=NULL,retList=FALSE,del='.',
                                verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'loadAllGenomicByMAN'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -143,7 +191,7 @@ loadAllGenomicByMAN = function(man, pos_tsv, pos_col=NULL,
     
     if (!is.null(name) && !is.null(outDir)) {
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      pos_csv <- file.path(outDir, paste(name,'genomic.csv.gz', sep='.'))
+      pos_csv <- file.path(outDir, paste(name,funcTag,'genomic.csv.gz', sep=del))
     }
     if (is.null(pos_col)) {
       pos_col <- cols(Seq_ID  = col_character(),
@@ -184,7 +232,7 @@ loadAllGenomicByMAN = function(man, pos_tsv, pos_col=NULL,
 }
 
 addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
-                           name=NULL,outDir=NULL,retList=FALSE,
+                           name=NULL,outDir=NULL,retList=FALSE,del='.',
                            verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'addGenomicToMAN'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -197,7 +245,7 @@ addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
     
     if (!is.null(name) && !is.null(outDir)) {
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      pos_csv <- file.path(outDir, paste(name,'genomic.csv.gz', sep='.'))
+      pos_csv <- file.path(outDir, paste(name,'genomic.csv.gz', sep=del))
     }
     if (is.null(pos_col)) {
       pos_col <- cols(Seq_ID  = col_character(),
@@ -257,12 +305,12 @@ addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
 #                Join Manifest Probes with Design Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-clean_manifest_probes = function(tib, s48_tsv, top_tsv,
-                                 name, outDir,
+clean_manifest_probes = function(tib,s48_tsv,top_tsv,
+                                 name,outDir,origin=NULL,
                                  design_key='Seq_ID',design_seq='Top_Sequence',
                                  design_prb='Probe_Type',probe_type='cg',
                                  design_srs='TB',design_cos='CO',
-                                 parallel=TRUE,fresh=TRUE,
+                                 parallel=TRUE,fresh=TRUE,del='.',
                                  verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'clean_manifest_probes'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -272,6 +320,8 @@ clean_manifest_probes = function(tib, s48_tsv, top_tsv,
   ret_tib <- NULL
   stime <- system.time({
     
+    design_prb_sym <- rlang::sym(design_prb)
+    
     # Build output directories::
     intDir <- file.path(outDir, 'intersection', probe_type)
     if (!dir.exists(intDir)) dir.create(intDir, recursive=TRUE)
@@ -279,88 +329,104 @@ clean_manifest_probes = function(tib, s48_tsv, top_tsv,
     desDir <- file.path(outDir, 'design', probe_type)
     if (!dir.exists(desDir)) dir.create(desDir, recursive=TRUE)
     
-    design_prb_sym <- rlang::sym(design_prb)
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #
-    #                        1. RawMan -> seq48U::
-    #                        2. seq48U -> CGN/TB/CO::
-    #
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    imp_s48_tib <- seq48U_to_cgn(tib=tib, imp_tsv=s48_tsv,
-                                 name=name,outDir=intDir,
-                                 mat_key='Mat_PrbA', fresh=fresh,
-                                 colA=4,colB=1,
-                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                             3. CGN to Top::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    imp_top_tib <- cgn_to_topSeq(tib=imp_s48_tib, imp_tsv=top_tsv,
-                                 name=name,outDir=intDir,
-                                 mat_key='CGN_Imp', fresh=fresh,
-                                 colA=1,colB=1,
-                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-      dplyr::mutate(!!design_prb_sym := probe_type)
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                           4. Top to Probes::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    man_join_rds <-
-      file.path(desDir, paste(name,design_seq,probe_type,'mat-probes.rds', sep='.') )
-    man_full_rds <-
-      file.path(desDir, paste(name,design_seq,probe_type,'all-probes.rds', sep='.') )
-    
-    ret_tib <- NULL
-    if (!file.exists(man_join_rds) || fresh) {
-      cat(glue::glue("[{par$prgmTag}]: Building Full Probe Design...{RET}"))
+    if (!is.null(name) && !is.null(outDir)) {
+      outDir <- file.path(outDir,probe_type)
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+      out_name <- paste(name,funcTag,probe_type, sep=del)
       
-      test_max <- 0
-      cpg_prb_des_tib <- NULL
-      if (!file.exists(man_full_rds) || fresh) {
-        cpg_prb_des_tib <- 
-          desSeq_to_prbs(tib=imp_top_tib, 
-                         idsKey=design_key,
-                         seqKey=design_seq,prbKey=design_prb,
-                         strsSR=design_srs,strsCO=design_cos,
-                         parallel=parallel, max=test_max,
-                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        
-        cpg_prb_des_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
-          dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
-        
-        # Remove:: only supports intermediates...
-        cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design File: RDS={man_full_rds}...{RET}"))
-        readr::write_rds(cpg_prb_des_tib,man_full_rds)
-        cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design File.{RET}{RET}"))
-      } else {
-        cat(glue::glue("[{par$prgmTag}]: Loading Full Match Probe Design; RDS={man_full_rds}...{RET}"))
-        cpg_prb_des_tib <- readr::read_rds(man_full_rds)
-        cat(glue::glue("[{par$prgmTag}]: Done. Loading Full Probe Design.{RET}{RET}"))
-      }
+      man_join_rds <-
+        file.path(desDir, paste(out_name,design_seq,'mat-probes.rds', sep=del) )
+      man_full_rds <-
+        file.path(desDir, paste(out_name,design_seq,'all-probes.rds', sep=del) )
       
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                        5. Match to Manifest Probes::
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      ret_tib <- man_join_prbs(
-        tib,cpg_prb_des_tib,
-        man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
-        man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
-        man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      
-      cat(glue::glue("[{par$prgmTag}]: Writing Join Probe Match Design File: RDS={man_join_rds}...{RET}"))
-      readr::write_rds(ret_tib,man_join_rds)
-      cat(glue::glue("[{par$prgmTag}]: Done. Writing Join Probe Design File.{RET}{RET}"))
-    } else {
-      cat(glue::glue("[{par$prgmTag}]: Loading Join Match Probe Design; RDS={man_join_rds}...{RET}"))
-      ret_tib <- readr::read_rds(man_join_rds) 
-      cat(glue::glue("[{par$prgmTag}]: Done. Loading Join Probe Design.{RET}{RET}"))
+      csv_vec <- c(man_join_rds,man_full_rds)
+      stp_tib <- check_timeStamps(name=out_name,outDir=outDir,origin=origin,files=csv_vec,
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
-    cpg_add_rep_tib <- 
-      manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    if (!fresh && !is.null(stp_tib) && stp_tib$isValid[1]) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
+    } else {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh data from={s48_tsv}...{RET}"))
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #
+      #                        1. RawMan -> seq48U::
+      #                        2. seq48U -> CGN/TB/CO::
+      #
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      imp_s48_tib <- seq48U_to_cgn(tib=tib, imp_tsv=s48_tsv,
+                                   name=name,outDir=intDir,
+                                   mat_key='Mat_PrbA', fresh=fresh,
+                                   colA=4,colB=1,
+                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                             3. CGN to Top::
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      imp_top_tib <- cgn_to_topSeq(tib=imp_s48_tib, imp_tsv=top_tsv,
+                                   name=name,outDir=intDir,
+                                   mat_key='CGN_Imp', fresh=fresh,
+                                   colA=1,colB=1,
+                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        dplyr::mutate(!!design_prb_sym := probe_type)
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                           4. Top to Probes::
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      ret_tib <- NULL
+      if (!file.exists(man_join_rds) || fresh) {
+        cat(glue::glue("[{par$prgmTag}]: Building Full Probe Design...{RET}"))
+        
+        test_max <- 0
+        cpg_prb_des_tib <- NULL
+        if (!file.exists(man_full_rds) || fresh) {
+          cpg_prb_des_tib <- 
+            desSeq_to_prbs(tib=imp_top_tib, 
+                           idsKey=design_key,
+                           seqKey=design_seq,prbKey=design_prb,
+                           strsSR=design_srs,strsCO=design_cos,
+                           parallel=parallel, max=test_max,
+                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          
+          cpg_prb_des_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
+            dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
+          
+          # Remove:: only supports intermediates...
+          cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design File: RDS={man_full_rds}...{RET}"))
+          readr::write_rds(cpg_prb_des_tib,man_full_rds)
+          cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design File.{RET}{RET}"))
+        } else {
+          cat(glue::glue("[{par$prgmTag}]: Loading Full Match Probe Design; RDS={man_full_rds}...{RET}"))
+          cpg_prb_des_tib <- readr::read_rds(man_full_rds)
+          cat(glue::glue("[{par$prgmTag}]: Done. Loading Full Probe Design.{RET}{RET}"))
+        }
+        
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        #                        5. Match to Manifest Probes::
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        ret_tib <- man_join_prbs(
+          tib,cpg_prb_des_tib,
+          man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
+          man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
+          man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        
+        cat(glue::glue("[{par$prgmTag}]: Writing Join Probe Match Design File: RDS={man_join_rds}...{RET}"))
+        readr::write_rds(ret_tib,man_join_rds)
+        cat(glue::glue("[{par$prgmTag}]: Done. Writing Join Probe Design File.{RET}{RET}"))
+      } else {
+        cat(glue::glue("[{par$prgmTag}]: Loading Join Match Probe Design; RDS={man_join_rds}...{RET}"))
+        ret_tib <- readr::read_rds(man_join_rds) 
+        cat(glue::glue("[{par$prgmTag}]: Done. Loading Join Probe Design.{RET}{RET}"))
+      }
+      cpg_add_rep_tib <- 
+        manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    }
     
     ret_cnt <- ret_tib %>% base::nrow()
   })
@@ -449,7 +515,7 @@ man_join_prbs = function(man, prbs,
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Joined all matching designs.{RET}"))
     
     # Summary Stats::
-    if (verbose>=vt+1) {
+    if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Matching Probe Types.{RET}"))
       ret_tib %>% dplyr::group_by(Probe_Type,Tango_CGN_Count) %>% 
         dplyr::summarise(TC_Count=n(), .groups='drop') %>% print()
@@ -473,7 +539,7 @@ man_join_prbs = function(man, prbs,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 seq48U_to_cgn = function(tib, imp_tsv,name=NULL, outDir=NULL,
-                         mat_key='Mat_PrbA',fresh=TRUE, colA=4,colB=1,
+                         mat_key='Mat_PrbA',fresh=TRUE, colA=4,colB=1,del='.',
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'seq48U_to_cgn'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -502,8 +568,8 @@ seq48U_to_cgn = function(tib, imp_tsv,name=NULL, outDir=NULL,
     }
     mat_sym <- rlang::sym(mat_key)
     
-    man_tsv <- file.path(outDir, paste(name,funcTag,'man',paste0(mat_key,'-sorted'),'tsv', sep='.') )
-    int_tsv <- file.path(outDir, paste(name,funcTag,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep='.') )
+    man_tsv <- file.path(outDir, paste(name,funcTag,'man',paste0(mat_key,'-sorted'),'tsv', sep=del) )
+    int_tsv <- file.path(outDir, paste(name,funcTag,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep=del) )
     
     man_tib <- dplyr::distinct(tib,!!mat_sym,M,U) %>% dplyr::arrange(!!mat_sym)
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing man_tsv={man_tsv}...{RET}"))
@@ -541,7 +607,7 @@ seq48U_to_cgn = function(tib, imp_tsv,name=NULL, outDir=NULL,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
-                         mat_key='CGN_Imp',fresh=TRUE, colA=1,colB=1,
+                         mat_key='CGN_Imp',fresh=TRUE, colA=1,colB=1,del='.',
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'cgn_to_topSeq'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -566,8 +632,8 @@ cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
     }
     mat_sym <- rlang::sym(mat_key)
     
-    man_tsv <- file.path(outDir, paste(name,funcTag,'man',paste0(mat_key,'-sorted'),'tsv', sep='.') )
-    int_tsv <- file.path(outDir, paste(name,funcTag,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep='.') )
+    man_tsv <- file.path(outDir, paste(name,funcTag,'man',paste0(mat_key,'-sorted'),'tsv', sep=del) )
+    int_tsv <- file.path(outDir, paste(name,funcTag,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep=del) )
     
     man_tib <- dplyr::distinct(tib,!!mat_sym) %>% dplyr::arrange(!!mat_sym)
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing man_tsv={man_tsv}...{RET}"))
@@ -681,7 +747,7 @@ intersect_tsv = function(man, man_tsv,imp_tsv,int_tsv,
 #
 broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
                                    name=NULL, outDir=NULL,
-                                   mat_key='CGN_Imp',fresh=TRUE, max=0,
+                                   mat_key='CGN_Imp',fresh=TRUE, max=0,del='.',
                                    verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'seq48U_to_topSeq'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -712,8 +778,8 @@ broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
                     M = col_double(),
                     U = col_double() )
     
-    man_tsv <- file.path(outDir, paste(name,rname,'man',paste0(mat_key,'-sorted'),'tsv', sep='.') )
-    int_tsv <- file.path(outDir, paste(name,rname,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep='.') )
+    man_tsv <- file.path(outDir, paste(name,rname,'man',paste0(mat_key,'-sorted'),'tsv', sep=del) )
+    int_tsv <- file.path(outDir, paste(name,rname,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep=del) )
     
     int_tib <-intersect_tsv(
       man=tib, man_tsv=man_tsv, imp_tsv=s48_tsv, int_tsv=int_tsv, 
@@ -731,8 +797,8 @@ broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
     int_col <- cols(Seq_ID = col_character(),
                     Top_Sequence = col_character() )
     
-    man_tsv <- file.path(outDir, paste(name,rname,'man',paste0(mat_key,'-sorted'),'tsv', sep='.') )
-    int_tsv <- file.path(outDir, paste(name,rname,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep='.') )
+    man_tsv <- file.path(outDir, paste(name,rname,'man',paste0(mat_key,'-sorted'),'tsv', sep=del) )
+    int_tsv <- file.path(outDir, paste(name,rname,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep=del) )
     
     ret_tib <-intersect_tsv(
       man=int_tib, man_tsv=man_tsv, imp_tsv=top_tsv, int_tsv=int_tsv,
@@ -760,7 +826,8 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
                                matFormat='new', matSkip=40, matGuess=1000,
                                pqcSkip=7,  pqcGuess=1000,
                                sidx=2, plen=50,
-                               name=NULL, outDir=NULL, fresh=FALSE, full=FALSE, trim=TRUE,
+                               name=NULL, outDir=NULL,origin=NULL,
+                               fresh=FALSE, full=FALSE, trim=TRUE,del='.',
                                verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'decodeAqpPqcWrapper'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -769,6 +836,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
   ret_cnt <- 0
   ret_tib <- NULL
   ret_csv <- NULL
+  stp_tib <- NULL
   stime <- system.time({
     ord_len <- length(ord_vec)
     mat_len <- length(mat_vec)
@@ -778,128 +846,144 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
     if (verbose>=vt) cat(glue::glue("[{funcTag}]: Matches={mat_len}.{RET}") )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:    AQPs={aqp_len}.{RET}") )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:    PQCs={pqc_len}.{RET}") )
-    
-    if (!is.null(outDir) && !is.null(name)) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will use outDir(name={name})={outDir}.{RET}") )
+
+    if (!is.null(name) && !is.null(outDir)) {
+      out_name <- paste(name,funcTag, sep=del)
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will use outDir(name={out_name})={outDir}.{RET}") )
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      ret_csv <- file.path(outDir, paste(name,'manifest.raw.csv.gz', sep='.') )
-      rep_csv <- file.path(outDir, paste(name,'manifest.sum.csv.gz', sep='.') )
+      mat_csv <- file.path(outDir, paste(out_name,'unqiue-match.sorted.tsv.gz', sep=del) )
+      rep_csv <- file.path(outDir, paste(out_name,'manifest.sum.csv.gz', sep=del) )
+      ret_csv <- file.path(outDir, paste(out_name,'manifest.raw.csv.gz', sep=del) )
       
       if (fresh) {
         if (verbose>=vt) cat(glue::glue("[{funcTag}]: Cleaning outDir(name={name})={outDir}...{RET}") )
         list.files(outDir, full.names=TRUE) %>% base::unlink()
       }
       if (verbose>=vt) cat(glue::glue("[{funcTag}]: {RET}") )
+      
+      ret_csv <- file.path(outDir,paste(out_name,'csv.gz', sep=del) )
+      csv_vec <- c(mat_csv,rep_csv,ret_csv)
+      stp_tib <- check_timeStamps(name=out_name,outDir=outDir,origin=origin,files=csv_vec,
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
     
-    #
-    # TBD:: Make function:: mergeMatchFiles()
-    #
-    # Generate single Match file based on order in::
-    #
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]: Joining Match TSVs(cnt={mat_len})...{RET}") )
-    mat_all_tsv <- file.path(outDir, paste(name,'unqiue-match.sorted.tsv.gz', sep='.') )
-    mat_all_tib <- lapply(mat_vec, loadMAT, format=matFormat,skip=matSkip,
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-      dplyr::bind_rows(.id="AQP") %>% 
-      dplyr::mutate(AQP=as.integer(AQP)) %>% dplyr::arrange(-AQP) %>% dplyr::distinct(Address,.keep_all=TRUE)
-    readr::write_tsv(mat_all_tib,mat_all_tsv)
-    mat_vec   <- c(mat_all_tsv)
-    mat_col   <- names(mat_all_tib)
-    matSkip   <- 0
-    matFormat <- 'new'
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]: Wrote Ordered Full Match TSV={mat_all_tsv}.{RET}{RET}") )
-    
-    if (!fresh && !is.null(ret_csv) && file.exists(ret_csv)) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Loading Pre-existing Raw Manifest={ret_csv}...{RET}") )
+    if (!fresh && !is.null(stp_tib) && stp_tib$isValid[1]) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
-      ret_cnt <- ret_tib %>% base::nrow()
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
     } else {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build clean manifest...{RET}") )
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh data...{RET}"))
       
-      # Load PQC::
-      pqc_man_tib <- NULL
-      pqc_fix_tib <- NULL
-      if (!is.null(pqc_vec) && length(pqc_vec)!=0) {
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build PQC Results...{RET}{RET}") )
-        
-        pqcFormat <- 'pqc'
-        pqc_man_tib <- decodeToManifestWrapper(
-          ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
-          platform=platform, version=version,
-          matFormat=matFormat,matSkip=matSkip,matGuess=matGuess,
-          ordFormat=ordFormat,ordSkip=ordSkip,ordGuess=ordGuess,
-          pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
-          matCols=mat_col,
-          full=par$retData, trim=TRUE,
-          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        
-        # Add Probe Sequences for matching::
-        pqc_fix_tib <- 
-          fixOrderProbeIDs(pqc_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-          addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-          dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
-      }
+      #
+      # TBD:: Make function:: mergeMatchFiles()
+      #
+      # Generate single Match file based on order in::
+      #
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Joining Match TSVs(cnt={mat_len})...{RET}") )
+      mat_tib <- lapply(mat_vec, loadMAT, format=matFormat,skip=matSkip,
+                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        dplyr::bind_rows(.id="AQP") %>% 
+        dplyr::mutate(AQP=as.integer(AQP)) %>% dplyr::arrange(-AQP) %>% dplyr::distinct(Address,.keep_all=TRUE)
+      readr::write_tsv(mat_tib,mat_csv)
+      mat_vec   <- c(mat_csv)
+      mat_col   <- names(mat_tib)
+      matSkip   <- 0
+      matFormat <- 'new'
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Wrote Ordered Full Match TSV={mat_csv}.{RET}{RET}") )
       
-      # Load AQP::
-      aqp_man_tib <- NULL
-      aqp_fix_tib <- NULL
-      if (!is.null(aqp_vec) && length(aqp_vec)!=0) {
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build AQP Results...{RET}{RET}") )
-        
-        pqcFormat <- 'aqp'
-        aqp_man_tib <- decodeToManifestWrapper(
-          ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
-          platform=platform, version=version, 
-          matFormat=matFormat,matSkip=matSkip,matGuess=matGuess,
-          ordFormat=ordFormat,ordSkip=ordSkip,ordGuess=ordGuess,
-          pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
-          matCols=mat_col,
-          full=par$retData, trim=TRUE,
-          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        
-        # Add Probe Sequences for matching::
-        aqp_fix_tib <- 
-          fixOrderProbeIDs(aqp_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-          addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-          dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
-      }
-      
-      # QC Sanity Checks for AQP/PQC if present::
-      qc_man_tib  <- NULL
-      if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will Validate AQP & PQC Resuls...{RET}") )
-        
-        qc_man_tib <- AQP_PQC_QC(aqp=aqp_man_tib, pqc=pqc_man_tib, 
-                                 aqp_vec=aqp_vec, pqc_vec=pqc_vec,
-                                 aqp_fix=aqp_fix_tib, pqc_fix=pqc_fix_tib,
-                                 name=name,outDir=outDir,
-                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      }
-      
-      # Use the PQC manifest if not use AQP::
-      ret_tib <- NULL
-      if (length(pqc_vec)!=0) {
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will return PQC Results.{RET}") )
-        ret_tib <- pqc_fix_tib
-      } else if (length(aqp_vec)!=0) {
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will return AQP Results.{RET}") )
-        ret_tib <- aqp_fix_tib
+      if (!fresh && !is.null(ret_csv) && file.exists(ret_csv)) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Loading Pre-existing Raw Manifest={ret_csv}...{RET}") )
+        ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
+        ret_cnt <- ret_tib %>% base::nrow()
       } else {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
-        return(NULL)
-      }
-      ret_tib <- ret_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
-      rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      ret_cnt <- ret_tib %>% base::nrow()
-      
-      if (!is.null(ret_csv)) {
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Rep Summary Manifest={rep_csv}...{RET}") )
-        readr::write_csv(rep_tib,rep_csv)
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build clean manifest...{RET}") )
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Raw Manifest(cnt={ret_cnt})={ret_csv}...{RET}") )
-        readr::write_csv(ret_tib,ret_csv)
+        # Load PQC::
+        pqc_man_tib <- NULL
+        pqc_fix_tib <- NULL
+        if (!is.null(pqc_vec) && length(pqc_vec)!=0) {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build PQC Results...{RET}{RET}") )
+          
+          pqcFormat <- 'pqc'
+          pqc_man_tib <- decodeToManifestWrapper(
+            ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+            platform=platform, version=version,
+            matFormat=matFormat,matSkip=matSkip,matGuess=matGuess,
+            ordFormat=ordFormat,ordSkip=ordSkip,ordGuess=ordGuess,
+            pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
+            matCols=mat_col,
+            full=par$retData, trim=TRUE,
+            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          
+          # Add Probe Sequences for matching::
+          pqc_fix_tib <- 
+            fixOrderProbeIDs(pqc_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+            addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+            dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+        }
+        
+        # Load AQP::
+        aqp_man_tib <- NULL
+        aqp_fix_tib <- NULL
+        if (!is.null(aqp_vec) && length(aqp_vec)!=0) {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will build AQP Results...{RET}{RET}") )
+          
+          pqcFormat <- 'aqp'
+          aqp_man_tib <- decodeToManifestWrapper(
+            ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
+            platform=platform, version=version, 
+            matFormat=matFormat,matSkip=matSkip,matGuess=matGuess,
+            ordFormat=ordFormat,ordSkip=ordSkip,ordGuess=ordGuess,
+            pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
+            matCols=mat_col,
+            full=par$retData, trim=TRUE,
+            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          
+          # Add Probe Sequences for matching::
+          aqp_fix_tib <- 
+            fixOrderProbeIDs(aqp_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+            addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+            dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+        }
+        
+        # QC Sanity Checks for AQP/PQC if present::
+        qc_man_tib  <- NULL
+        if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will Validate AQP & PQC Resuls...{RET}") )
+          
+          qc_man_tib <- AQP_PQC_QC(aqp=aqp_man_tib, pqc=pqc_man_tib, 
+                                   aqp_vec=aqp_vec, pqc_vec=pqc_vec,
+                                   aqp_fix=aqp_fix_tib, pqc_fix=pqc_fix_tib,
+                                   name=paste(name,funcTag, sep='.'),outDir=outDir,
+                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        }
+        
+        # Use the PQC manifest if not use AQP::
+        ret_tib <- NULL
+        if (length(pqc_vec)!=0) {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will return PQC Results.{RET}") )
+          ret_tib <- pqc_fix_tib
+        } else if (length(aqp_vec)!=0) {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will return AQP Results.{RET}") )
+          ret_tib <- aqp_fix_tib
+        } else {
+          stop(glue::glue("{RET}[{funcTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
+          return(NULL)
+        }
+        ret_tib <- ret_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
+        rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        ret_cnt <- ret_tib %>% base::nrow()
+        
+        if (!is.null(ret_csv)) {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Rep Summary Manifest={rep_csv}...{RET}") )
+          readr::write_csv(rep_tib,rep_csv)
+          
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Raw Manifest(cnt={ret_cnt})={ret_csv}...{RET}") )
+          readr::write_csv(ret_tib,ret_csv)
+          readr::write_lines(x=date(),file=stp_tib$end[1],sep='\n',append=FALSE)
+        }
       }
+      ret_cnt <- ret_tib %>% base::nrow()
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -914,7 +998,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
-                      name=NULL, outDir=NULL,
+                      name=NULL, outDir=NULL,del='.',
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'AQP_PQC_QC'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -995,7 +1079,7 @@ AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
                               fix_man_mis_cnt=fix_man_mis_cnt )
     if (!is.null(outDir) && !is.null(name)) {
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      ret_csv <- file.path(outDir,paste(name,funcTag,'summary.csv.gz',sep='.') )
+      ret_csv <- file.path(outDir,paste(name,funcTag,'summary.csv.gz',sep=del) )
       readr::write_csv(ret_tib,ret_csv)
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Wrote QC Summary={ret_csv}.{RET}"))
     }
