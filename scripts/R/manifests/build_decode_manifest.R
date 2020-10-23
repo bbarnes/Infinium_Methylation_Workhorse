@@ -173,8 +173,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVID'
   
   if (par$local_runType=='COVID') {
-    opt$fresh <- TRUE
-    opt$fixIds  <- FALSE
+    opt$fresh  <- TRUE
+    opt$fixIds <- FALSE
     
     opt$matFormat <- 'old'
     opt$ordFormat <- 'gta'
@@ -603,6 +603,88 @@ if (opt$verbose>=1) {
     dplyr::summarise(Count=n(), .groups='drop') %>% print()
 }
 
+
+if (par$local_runType=='COVID') {
+  
+  man_prb_tib <- man_raw_tib %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::add_count(Seq_ID,Strand_TB,Strand_CO,Infinium_Design, name='Rep_Max2') %>%
+    dplyr::group_by(Seq_ID,Strand_TB,Strand_CO,Infinium_Design) %>%
+    dplyr::mutate(
+      Rep_Cnt=dplyr::row_number(),
+      IlmnID=paste0(Seq_ID,'_',Strand_TB,Strand_CO,Infinium_Design,Rep_Cnt),
+      ValidID=TRUE
+    ) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::distinct(IlmnID,M,U, .keep_all=TRUE) %>% 
+    # dplyr::rename(Probe_ID_Org=Probe_ID) %>% 
+    dplyr::mutate(
+      Probe_ID=stringr::str_replace(IlmnID,'^gt','cg'),
+      Probe_Class=Probe_Type,
+      Top_Sequence=NA_character_,
+      Next_Base=dplyr::case_when(
+        Infinium_Design==2 ~ NA_character_,
+        col=='R' ~ 'A',
+        col=='G' ~ 'C',
+        TRUE ~ NA_character_
+      ),
+      MFG_Change_Flagged=dplyr::case_when(
+        ValidID ~ 'FALSE',
+        TRUE ~ 'TRUE'
+      ),
+      Probe_Source=opt$platform,
+      Version=opt$version
+    ) %>%
+    # dplyr::rename(Strand_TB=Strand_TB,Strand_CO=Strand_CO) %>%
+    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,
+                  Seq_ID,Probe_Type,Probe_Source,Version,
+                  Strand_TB,Strand_CO,Infinium_Design,Rep_Num,
+                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                  Top_Sequence, everything()) %>%
+    dplyr::arrange(IlmnID) %>%
+    dplyr::select(IlmnID,Probe_Class,Probe_Type,dplyr::everything())
+  
+  # Matched Group Summary::
+  man_prb_tib %>% dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
+    dplyr::summarise(Count=n(), .groups='drop')
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Write Sesame Manifest:: Standard
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  ctl_only_csv <- '/Users/bretbarnes/Documents/data/CustomContent/Genknowme/manifest/GKME_Sesame_EPIC-Controls-Only.csv'
+  ctl_only_tib <- readr::read_csv(ctl_only_csv, col_names=c('Probe_ID','M','U','DESIGN')) %>%
+    dplyr::mutate(Probe_Class='ctl',Probe_Type=Probe_Class,IlmnID=Probe_ID,
+                  COLOR_CHANNEL='Both',col=NA_character_,Next_Base=NA_character_,
+                  Infinium_Design=2,Rep_Num=1)
+  
+  out_ses_tib <- dplyr::bind_rows(man_prb_tib,ctl_only_tib) %>%
+    dplyr::arrange(Probe_ID) %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID:Next_Base,Seq_ID,Probe_Type,Strand_TB,Strand_CO,
+                  Infinium_Design,Rep_Num,AlleleA_Probe_Sequence,
+                  AlleleB_Probe_Sequence,Top_Sequence)
+  
+  readr::write_csv(out_ses_tib,ses_base_csv)
+  
+  #
+  # May Want to look into using all controls, but we'll fix this properly later...
+  #
+  # std_ctl_tib <- NULL
+  # ctl_csv <- ctls_vec[1]
+  # std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
+  # std_ctl_seq_tib <- dplyr::inner_join(
+  #   suppressMessages(suppressWarnings(readr::read_tsv(std_ctl_seq_tsv) )) %>% 
+  #     dplyr::mutate(Address=stringr::str_remove(address_name, '^1') %>% as.integer()),
+  #   suppressMessages(suppressWarnings(
+  #     readr::read_csv(ctl_csv, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID")) )),
+  #   by="Address") %>%
+  #   dplyr::select(Address,Probe_Type,COLOR_CHANNEL,Probe_ID,probe_id,sequence, everything()) %>%
+  #   dplyr::rename(Design_ID=probe_id) %>% dplyr::distinct(Address, .keep_all=TRUE) %>%
+  #   dplyr::select(-type_b,-bo_seq,-address_name)
+}
+
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           2.1 Build Probes:: SNP
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -716,7 +798,6 @@ man_prb_tib <-
                 Strand_TB,Strand_CO,Infinium_Design,Rep_Num,
                 AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
                 Top_Sequence, everything()) %>%
-  
   dplyr::arrange(IlmnID) %>%
   dplyr::select(IlmnID,Probe_Class,Probe_Type,dplyr::everything())
 
@@ -1426,6 +1507,9 @@ if (FALSE) {
 #                     Write Sesame Manifest:: Standard
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+#
+# Super Quick Fix::
+#
 ctl_only_csv <- '/Users/bretbarnes/Documents/data/CustomContent/Genknowme/manifest/GKME_Sesame_EPIC-Controls-Only.csv'
 ctl_only_tib <- readr::read_csv(ctl_only_csv, col_names=c('Probe_ID','M','U','Infinium_Design'))
 
@@ -1438,7 +1522,6 @@ out_ses_tib <- dplyr::bind_rows(
   dplyr::select(Probe_ID:Next_Base,Seq_ID,Probe_Type,Strand_TB,Strand_CO,
                 Infinium_Design,Rep_Num,AlleleA_Probe_Sequence,
                 AlleleB_Probe_Sequence,Top_Sequence)
-
 
 readr::write_csv(out_ses_tib,ses_base_csv)
 
