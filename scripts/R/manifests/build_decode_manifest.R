@@ -83,7 +83,8 @@ opt$platform    <- NULL
 opt$version     <- NULL
 
 # Run Options::
-opt$fresh <- FALSE
+opt$fresh   <- FALSE
+opt$fixIds  <- FALSE
 par$retData <- FALSE
 
 opt$matFormat <- 'new'
@@ -91,6 +92,7 @@ opt$ordFormat <- 'old'
 
 opt$matSkip <- 40
 opt$ordSkip <- 8
+opt$aqpSkip <- 7
 opt$pqcSkip <- 7
 
 # Parallel/Cluster Options::
@@ -156,6 +158,8 @@ if (args.dat[1]=='RStudio') {
   # opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz')
   # opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv')
   
+  opt$fixIds  <- TRUE
+  
   opt$write_full <- FALSE
   opt$write_base <- FALSE
   
@@ -166,8 +170,89 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GENK'
   par$local_runType <- 'GRCm38'
+  par$local_runType <- 'COVID'
   
-  if (par$local_runType=='GENK') {
+  if (par$local_runType=='COVID') {
+    opt$fresh <- TRUE
+    opt$fixIds  <- FALSE
+    
+    opt$matFormat <- 'old'
+    opt$ordFormat <- 'gta'
+    opt$matSkip <- 0
+    opt$ordSkip <- 15
+    
+    opt$genomeBuild <- 'COVID'
+    opt$platform    <- 'COVID'
+    opt$version     <- 'C0'
+    
+    #
+    # TBD:: Add genomic coordinates for virus::
+    #
+    opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
+    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
+    
+    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP/COVID-Direct-Detection')
+    opt$ords <- paste(
+      file.path(opt$aqpDir, '371328_CoV_1K_HTS_FinalDesign.design.csv.gz'),
+      sep=',')
+    
+    opt$mats <- paste(
+      file.path(opt$aqpDir, '20474076_probes.match.gz'),
+      sep=',')
+    
+    opt$aqps <- paste(
+      file.path(opt$aqpDir, 'BS0032777-AQP.txt.gz'),
+      sep=',')
+    
+    opt$pqcs <- NULL
+    opt$pqcs <- paste(
+      file.path(opt$aqpDir, '329922X371395_A_ProductQC.txt.gz'),
+      sep=',')
+    
+    par$idatsTopDir <- file.path(locIdatDir,'idats_COVID-Direct-Set1')
+    opt$idat <- paste(
+      file.path(par$idatsTopDir, '204756130014'),
+      sep=',')
+    
+  } else if (par$local_runType=='COVIC') {
+    opt$matFormat <- 'old'
+    opt$ordFormat <- 'old'
+    opt$matSkip <- 0
+    opt$ordSkip <- 8
+    
+    opt$genomeBuild <- 'GRCh36'
+    opt$genomeBuild <- 'GRCh37'
+    opt$genomeBuild <- 'GRCh38'
+    opt$platform    <- 'COVIC'
+    opt$version     <- 'C0'
+    
+    opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
+    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
+    
+    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP/COVIC-Host-Immune-Detection')
+    opt$ords <- paste(
+      file.path(opt$aqpDir, 'COVID_EPIC_Round1.03172020.unique.order_AP.csv.gz'),
+      sep=',')
+    
+    opt$mats <- paste(
+      file.path(opt$aqpDir, '20447043_probes.match.gz'),
+      sep=',')
+    
+    opt$aqps <- paste(
+      file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
+      sep=',')
+    
+    opt$pqcs <- NULL
+    # opt$pqcs <- paste(
+    #   file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
+    #   sep=',')
+    
+    par$idatsTopDir <- file.path(locIdatDir,'idats_COVIC-Set1-15052020')
+    opt$idat <- paste(
+      file.path(par$idatsTopDir, '204500250013'),
+      sep=',')
+    
+  } else if (par$local_runType=='GENK') {
     opt$fresh <- TRUE
     opt$matFormat <- 'old'
     opt$ordFormat <- 'old'
@@ -210,6 +295,7 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C0'
     opt$version     <- 'C8'
     opt$version     <- 'C11'
+    opt$version     <- 'C10'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -249,44 +335,7 @@ if (args.dat[1]=='RStudio') {
     opt$idat <- paste(
       file.path(par$idatsTopDir, '204637490025'),
       sep=',')
-  } else if (par$local_runType=='COVIC') {
-    # opt$fresh <- TRUE
-    opt$matFormat <- 'old'
-    opt$ordFormat <- 'old'
-    opt$matSkip <- 0
-    opt$ordSkip <- 8
-    
-    opt$genomeBuild <- 'GRCh36'
-    opt$genomeBuild <- 'GRCh37'
-    opt$genomeBuild <- 'GRCh38'
-    opt$platform    <- 'COVIC'
-    opt$version     <- 'C0'
-    
-    opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
-    opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
-    
-    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP')
-    opt$ords <- paste(
-      file.path(opt$aqpDir, 'COVID_EPIC_Round1.03172020.unique.order_AP.csv.gz'),
-      sep=',')
-    
-    opt$mats <- paste(
-      file.path(opt$aqpDir, '20447043_probes.match.gz'),
-      sep=',')
-    
-    opt$aqps <- paste(
-      file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
-      sep=',')
-    
-    opt$pqcs <- NULL
-    # opt$pqcs <- paste(
-    #   file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
-    #   sep=',')
-    
-    par$idatsTopDir <- file.path(locIdatDir,'idats_COVIC-Set1-15052020')
-    opt$idat <- paste(
-      file.path(par$idatsTopDir, '204500250013'),
-      sep=',')
+
   } else if (par$local_runType=='NZT') {
     # opt$fresh <- TRUE
     opt$matFormat <- 'old'
@@ -396,8 +445,18 @@ if (args.dat[1]=='RStudio') {
                 help="Match Skip Lines Count [default= %default]", metavar="integer"),
     make_option(c("--ordSkip"), type="integer", default=opt$ordSkip, 
                 help="Order Skip Lines Count [default= %default]", metavar="integer"),
+    make_option(c("--aqpSkip"), type="integer", default=opt$aqpSkip, 
+                help="AQP Skip Lines Count [default= %default]", metavar="integer"),
     make_option(c("--pqcSkip"), type="integer", default=opt$pqcSkip, 
-                help="AQP/PQC Skip Lines Count [default= %default]", metavar="integer"),
+                help="PQC Skip Lines Count [default= %default]", metavar="integer"),
+    
+    # Run Options::
+    make_option(c("--fresh"), action="store_true", default=opt$fresh, 
+                help="Boolean variable to run a fresh build [default= %default]", metavar="boolean"),
+    make_option(c("--fixIds"), action="store_true", default=opt$fixIds, 
+                help="Boolean variable to fix original order ids [default= %default]", metavar="boolean"),
+    make_option(c("--retData"), action="store_true", default=opt$retData, 
+                help="Developement ONLY Boolean variable to return data for testing [default= %default]", metavar="boolean"),
     
     # Parallel/Cluster Parameters::
     make_option(c("--single"), action="store_true", default=opt$single, 
@@ -416,7 +475,7 @@ if (args.dat[1]=='RStudio') {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                            Validate Options::
+#                         Program Initialization::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
@@ -522,21 +581,27 @@ color_len <- length(color_vec)
 opt$verbose <- 40
 opt$verbose <- 3
 
+#
+# TBD:: Add fixOrder to loadOrd...
+#   - Default Color_Channel, col, Next_Base to Normalization_Bin
+#
+
 man_raw_tib <- decodeAqpPqcWrapper(
   ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec,
   platform=opt$platform,version=opt$version,
   ordFormat=opt$ordFormat,ordSkip=opt$ordSkip,
   matFormat=opt$matFormat,matSkip=opt$matSkip,
+  aqpSkip=opt$aqpSkip,
   pqcSkip=opt$pqcSkip,
   name=opt$runName,outDir=opt$manDir,origin=opt$org_txt,
-  fresh=opt$fresh,full=par$retData,trim=TRUE,
+  fresh=opt$fresh,fixIds=opt$fixIds,full=par$retData,trim=TRUE,
   verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
 
 # Summary Data::
-raw_rep_tib <- 
-  manifestCheckSummary(man_raw_tib, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-man_raw_tib %>% dplyr::group_by(Probe_Type) %>% 
-  dplyr::summarise(Count=n(), .groups='drop') %>% print()
+if (opt$verbose>=1) {
+  man_raw_tib %>% dplyr::group_by(Probe_Type) %>% 
+    dplyr::summarise(Count=n(), .groups='drop') %>% print()
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           2.1 Build Probes:: SNP
@@ -550,7 +615,7 @@ if (!is.null(opt$snp_des_csv) && file.exists(opt$snp_des_csv) ) {
   man_prb_list[[probe_type]] = 
     adhoc_desToMAN(man=man_raw_tib, des_csv=opt$snp_des_csv, probe_type=probe_type,
                    name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
-                   fresh=opt$fresh,fix=FALSE,
+                   fresh=opt$fresh,fixIds=FALSE,
                    verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
 }
 
@@ -564,7 +629,7 @@ if (!is.null(opt$cph_des_csv) && file.exists(opt$cph_des_csv) ) {
   man_prb_list[[probe_type]] =
     adhoc_desToMAN(man=man_raw_tib, des_csv=opt$cph_des_csv, probe_type=probe_type,
                    name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
-                   fresh=opt$fresh,fix=FALSE,
+                   fresh=opt$fresh,fixIds=FALSE,
                    verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
 }
 
