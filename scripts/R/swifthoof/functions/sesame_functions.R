@@ -131,6 +131,11 @@ mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL,
         mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    } else if (workflow=='dni') {
+      sset <- sset %>% 
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else {
       stop(glue::glue("[{funcTag}]: ERROR: Unsupported workflow={workflow}!{RET}{RET}"))
     }
@@ -151,10 +156,20 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'mutateSesame'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating Sesame({method}){RET}"))
-  print(sset)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Mutate Sesame({method})...{RET}"))
+  
+  ctl_cnt <- sset@ctl %>% base::nrow()
+  if (ctl_cnt==0 && method=='detectionPnegEcdf') {
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Unable to mutate ctl_cnt={ctl_cnt} ",
+                     "for method={method}. Returning original sset...{RET}"))
+    return(sset)
+  }
   
   stime <- system.time({
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt})={RET}"))
+    if (verbose>=vt+4) print(sset)
+    
     if (is.null(method)) stop(glue::glue("{RET}[{funcTag}]: ERROR: Missing method!!!{RET}{RET}"))
     else if (method=='open') sset <- sset %>% sesame::pOOBAH() %>% sesame::noob() %>% sesame::dyeBiasCorrTypeINorm()
     else if (method=='dyeBiasCorrTypeINorm') sset <- sset %>% sesame::dyeBiasCorrTypeINorm()
@@ -166,9 +181,13 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
     # else if (method=='inferTypeIChannel') sset <- sset %>% sesame::inferTypeIChannel(switch_failed=TRUE, verbose=FALSE)
     else if (method=='raw') { } # sset <- sset
     else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported method={method}!!!{RET}{RET}"))
+    
+    ret_cnt <- sset@pval[['pOOBAH']] %>% names() %>% length()
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
   
   sset
 }
@@ -351,10 +370,13 @@ sset2calls = function(sset, workflow, percisionBeta=0, percisionPval=0,
     #
     name <- paste(workflow,'negs', sep='_')
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
-    sset <- mutateSesame(sset=sset, method='detectionPnegEcdf', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    sset <- mutateSesame(sset=sset, method='detectionPnegEcdf', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (verbose>=vt+4) print(sset)
     
-    pval <- ssetToPvalTib(sset=sset, method='PnegEcdf', name=name, percision=percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    pval <- ssetToPvalTib(sset=sset, method='PnegEcdf', name=name, 
+                          percision=percisionPval, 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (verbose>=vt+4) print(pval)
     tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
     
@@ -362,10 +384,13 @@ sset2calls = function(sset, workflow, percisionBeta=0, percisionPval=0,
     #
     name <- paste(workflow,'poob', sep='_')
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
-    sset <- mutateSesame(sset=sset, method='pOOBAH', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    sset <- mutateSesame(sset=sset, method='pOOBAH', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (verbose>=vt+4) print(sset)
     
-    pval <- ssetToPvalTib(sset=sset, method='pOOBAH', name=name, percision=percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    pval <- ssetToPvalTib(sset=sset, method='pOOBAH', name=name, 
+                          percision=percisionPval, 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (verbose>=vt+4) print(pval)
     
     tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
@@ -458,10 +483,9 @@ callToSSheet = function(call, idx, key, pre=NULL, minNegPval, minOobPval,
     id <- id %>% rlang::sym()
     if (onlyCG) call <- call %>% dplyr::filter(stringr::str_starts(!!id, 'cg'))
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} call={RET}"))
-    print(call)
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} call=done.{RET}{RET}"))
-    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} call={RET}"))
+    if (verbose>=vt+4) print(call)
+
     beta_tib <- NULL
     beta_key_str <- paste('Beta',idx,'Method', sep=del)
     beta_val_str <- paste('Beta',idx,'Mean', sep=del)
@@ -790,11 +814,23 @@ safePhenoAge = function(beta, verbose=0,vt=3,tc=1,tt=NULL) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Sesame SSET to Tibs Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-ssetToPvalTib = function(sset, method, name, percision=0, verbose=0,vt=3,tc=1,tt=NULL) {
+ssetToPvalTib = function(sset, method, name, percision=0, 
+                         verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'ssetToPvalTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; method={method}, name={name}.{RET}"))
+  
+  pval_cnt <- sset@pval[[method]] %>% names() %>% length()
+  if (pval_cnt==0) {
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Warning; pval_cnt={pval_cnt}!!!{RET}"))
+    
+    name_sym <- rlang::sym(name)
+    ret_dat  <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Warning; returning; pval=1.0.{RET}"))
+    if (verbose>=vt+4) ret_dat %>% print()
+    return(ret_dat)
+  }
   
   stime <- system.time({
     dat <- sset@pval[[method]] %>% tibble::enframe(name='Probe_ID', value=name)

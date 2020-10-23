@@ -188,38 +188,47 @@ if (args.dat[1]=='RStudio') {
   par$expRunStr  <- NULL
   par$expChipNum <- NULL
   
-  par$locRunStr <- 'covic'
-  par$locRunStr <- 'core'
-  par$locRunStr <- 'excb'
-  par$locRunStr <- 'mm10'
+  par$local_runType <- 'GRCm38'
+  par$local_runType <- 'CORE'
+  par$local_runType <- 'EXCBR'
+  par$local_runType <- 'qcMVP'
+  par$local_runType <- 'COVIC'
+  par$local_runType <- 'COVID'
   
-  if (par$locRunStr=='mm10') {
+  if (par$local_runType=='COVID') {
+    par$expRunStr  <- 'COVID-Direct-Set1'
+    par$expChipNum <- '204756130014'
+    opt$autoDetect <- FALSE
+    
+    opt$workflows <- 'i,nd,ndi,ind'
+    
+  } else if (par$local_runType=='COVIC') {
+    par$expRunStr  <- 'COVIC-Set1-15052020'
+    par$expChipNum <- '204500250013'
+    opt$autoDetect <- TRUE
+  } else if (par$local_runType=='GRCm38') {
     par$expRunStr <- 'MURMETVEP_mm10_betaTest_06082020'
     par$expRunStr <- 'VanAndel_mm10_betaTest_31082020'
     par$expRunStr <- 'ILMN_mm10_betaTest_17082020'
     opt$autoDetect <- FALSE
-  } else if (par$isMVP) {
+  } else if (par$local_runType=='qcMVP') {
     par$expRunStr  <- 'CNTL-Samples_VendA_10092020'
     opt$autoDetect <- TRUE
     opt$dpi <- 72
-  } else if (par$locRunStr=='covic') {
-    par$expRunStr  <- 'idats_COVIC-Set1-15052020'
-    par$expChipNum <- '204500250013'
-    opt$autoDetect <- TRUE
-  } else if (par$locRunStr=='core') {
-    par$expRunStr  <- 'idats_BETA-8x1-EPIC-Core'
+  } else if (par$local_runType=='CORE') {
+    par$expRunStr  <- 'BETA-8x1-EPIC-Core'
     par$expChipNum <- '202761400007'
 
-    par$expRunStr  <- 'idats_ADRN-blood-nonAtopic_EPIC'
+    par$expRunStr  <- 'ADRN-blood-nonAtopic_EPIC'
     par$expChipNum <- '201125090068'
 
-    par$expRunStr  <- 'idats_GSE122126_EPIC'
+    par$expRunStr  <- 'GSE122126_EPIC'
     par$expChipNum <- '202410280180'
 
-    par$expRunStr  <- 'idats_EPIC-BETA-8x1-CoreCancer'
+    par$expRunStr  <- 'EPIC-BETA-8x1-CoreCancer'
     par$expChipNum <- '201502830033'
     opt$autoDetect <- TRUE
-  } else if (par$locRunStr=='excb') {
+  } else if (par$local_runType=='EXCBR') {
     par$expRunStr  <- 'Excalibur-Old-1609202'
     par$expChipNum <- '204076530053'
     par$expChipNum <- '204076530110'
@@ -228,7 +237,7 @@ if (args.dat[1]=='RStudio') {
     par$expChipNum <- '202915460071'
     opt$autoDetect <- TRUE
   } else {
-    stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized locRunStr={par$locRunStr}.{RET}{RET}"))
+    stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
 
   opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_') )
@@ -526,14 +535,14 @@ if (opt$cluster) {
       dplyr::pull() %>% paste(collapse=" ")
     
     cmd_full <- paste(opt$Rscript, par$exePath, cmd_bool, cmd_strs,"\n", sep=' ')
-    readr::write_file(cmd_full, path=runShell)
+    readr::write_file(cmd_full, file=runShell)
     Sys.chmod(runShell, mode="0777")
     
     # Add cluster execute if avialbel (i.e. linux)
     cmd_lan <- paste0(runShell,RET, sep='')
     if (par$isLinux)
       cmd_lan <- paste(par$lan_exe, paste('imWH',chipName, sep='_'), runShell,RET, sep=' ')
-    readr::write_file(cmd_lan, path=lanShell)
+    readr::write_file(cmd_lan, file=lanShell)
     Sys.chmod(lanShell, mode="0777")
     
     # Launch Script
@@ -618,14 +627,14 @@ if (opt$cluster) {
     
     rdat <- NULL
     for (prefix in names(chipPrefixes)) {
+      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
+      
       # par$retData <- TRUE
       # opt$verbose <- 30
       
-      par$retData <- TRUE
-      opt$verbose <- opt$verbose+10
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=2)
-
+      
       if (FALSE) {
         sset <- sesame::readIDATpair(rdat$prefix, platform=rdat$platform, manifest=rdat$sman)
         

@@ -187,11 +187,12 @@ getIdatFormatTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
   
   stime <- system.time({
     chipType <- idat$ChipType
-    if (chipType=='BeadChip 8x5') chipFormat         <- '8x1'
-    else if (chipType=='BeadChip 12x8') chipFormat   <- '12x1'
-    else if (chipType=='BeadChip 24x1x4') chipFormat <- '24x1'
-    else if (chipType=='BeadChip 24x1x2') chipFormat <- '24x1'
-    else if (chipType=='Beadchip 24x1x2') chipFormat <- '24x1'
+    if (chipType=='SLIDE.15028542.24X1X1') chipFormat <- '24x1'
+    else if (chipType=='BeadChip 8x5') chipFormat     <- '8x1'
+    else if (chipType=='BeadChip 12x8') chipFormat    <- '12x1'
+    else if (chipType=='BeadChip 24x1x4') chipFormat  <- '24x1'
+    else if (chipType=='BeadChip 24x1x2') chipFormat  <- '24x1'
+    else if (chipType=='Beadchip 24x1x2') chipFormat  <- '24x1'
     else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unrecognized ChipType={chipType}!{RET}{RET}"))
     tib <- tibble::tibble('Chip_Type'=chipType,'Chip_Format'=chipFormat)
   })

@@ -29,7 +29,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
                                 flagDetectPval=FALSE, flagSampleDetect=FALSE, flagRefMatch=FALSE,
                                 pvalDetectMinKey=NULL, pvalDetectMinVal=0,
                                 
-                                dbMin=90, r2Min=0.9,
+                                dbMin=90, r2Min=0.9,clean_gta=FALSE,
                                 dbKey='AutoSample_dB_Key', r2Key='AutoSample_R2_Key',
                                 dbVal='AutoSample_dB_Val', r2Val='AutoSample_R2_Val',
                                 verbose=0,vt=3,tc=1,tt=NULL) {
@@ -57,6 +57,13 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
     #  Load Samples::
     auto_ss_tibs <- suppressMessages(suppressWarnings(lapply(auto_ss_list, readr::read_csv) )) %>% 
       dplyr::bind_rows()
+    
+    if (clean_gta) {
+      auto_ss_tibs <- auto_ss_tibs %>% dplyr::mutate(
+        Sentrix_Name=stringr::str_remove(Sentrix_Name,'_[0-9]+$'),
+        Sentrix_Poscode=stringr::str_remove(Sentrix_Poscode,'_[0-9]+$')
+      )
+    }
     
     auto_ss_tlen <- base::nrow(auto_ss_tibs)
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(bPool)={auto_ss_tlen}{RET}"))
@@ -127,24 +134,35 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #  Add Paths::
     if (addPathsCall) {
-      auto_ss_tibs <- auto_ss_tibs %>%
-        addPathsToSampleSheet(dir=dir, platform=platform, manifest=manifest, del='_',
-                              field='Calls_Path', suffix='calls.csv.gz$', verbose=verbose)
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Adding Calls Paths...{RET}"))
       
+      auto_ss_tibs <- 
+        addPathsToSampleSheet(ss=auto_ss_tibs, dir=dir, platform=platform, manifest=manifest, 
+                              del='_',field='Calls_Path', suffix='calls.csv.gz$',
+                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
       auto_ss_tlen <- base::nrow(auto_ss_tibs)
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(paths)={auto_ss_tlen}{RET}"))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(calls)={auto_ss_tlen}.{RET}{RET}"))
     }
+    
+    cat("\n\n\n\n\n\n")
+    print(auto_ss_tibs)
+    cat("\n\n\n\n\n\n")
+    
     if (addPathsSset) {
-      auto_ss_tibs <- auto_ss_tibs %>%
-        addPathsToSampleSheet(dir=dir, platform=platform, manifest=manifest, del='_',
-                              field='Ssets_Path', suffix='ind-sset.csv.gz$', verbose=verbose)
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Adding SSETs Paths...{RET}"))
+      
+      auto_ss_tibs <- 
+        addPathsToSampleSheet(ss=auto_ss_tibs, dir=dir, platform=platform, manifest=manifest, 
+                              del='_',field='Ssets_Path', suffix='ind-sset.csv.gz$', 
+                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       #  addPathsToSampleSheet(dir=dir, platform=platform, manifest=manifest, del='_',
       #                        field='Sigs_Path', suffix='sset.csv.gz$', verbose=verbose)
       #                      field='Sigs_Path', suffix='sigs.csv.gz$', verbose=verbose)
       
       auto_ss_tlen <- base::nrow(auto_ss_tibs)
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(paths)={auto_ss_tlen}{RET}"))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(ssets)={auto_ss_tlen}.{RET}{RET}"))
     }
     
     dat <- auto_ss_tibs
@@ -191,7 +209,7 @@ getUniqueFields = function(ss, keys, verbose=0,vt=1,tc=1) {
 }
 
 addPathsToSampleSheet = function(ss, dir, platform=NULL, manifest=NULL, field, suffix, del='.',
-                                 verbose=0,vt=4,tc=1) {
+                                 verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'addPathsToSampleSheet'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; suffix={suffix}.{RET}"))
@@ -212,9 +230,11 @@ addPathsToSampleSheet = function(ss, dir, platform=NULL, manifest=NULL, field, s
                                    stringr::str_remove_all('\\\\'),
                                  !!field := file_list)
   ss_path_cnts <- ss_path_tibs %>% base::nrow()
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Foubd; ss_path_cnts={ss_path_cnts}.{RET}"))
-  if (verbose>=vt+3) print(ss_path_tibs)
-  if (verbose>=vt+3) print(ss)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Found; ss_path_cnts={ss_path_cnts}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ss_path_tibs={RET}"))
+  if (verbose>=vt+4) print(ss_path_tibs)
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ss={RET}"))
+  if (verbose>=vt+4) print(ss)
   
   tib <- ss_path_tibs %>%
     dplyr::distinct(Sentrix_Name, .keep_all=TRUE) %>% 

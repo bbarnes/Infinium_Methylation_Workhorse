@@ -166,6 +166,7 @@ if (args.dat[1]=='RStudio') {
   #
   # Pre-defined local options runTypes::
   #
+  par$local_runType <- 'qcMVP'
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GENK'
@@ -183,7 +184,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$genomeBuild <- 'COVID'
     opt$platform    <- 'COVID'
-    opt$version     <- 'C0'
+    opt$version     <- 'C1'
     
     #
     # TBD:: Add genomic coordinates for virus::
@@ -557,7 +558,8 @@ cat(glue::glue("[{par$prgmTag}]: Done. Building Output Directories.{RET}{RET}"))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Define Manifest Output Files::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-man_out_key <- paste(opt$genomeBuild,opt$platform,opt$version, sep='_')
+# man_out_key <- paste(opt$genomeBuild,opt$platform,opt$version, sep='-')
+man_out_key <- paste(opt$platform,opt$version, sep='-')
 gs_swap_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.GenomeStudio.cpg-sorted.csv', sep='.') )
 gz_swap_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.GenomeStudio.cpg-sorted.csv.gz', sep='.') )
 
@@ -620,6 +622,7 @@ if (par$local_runType=='COVID') {
     # dplyr::rename(Probe_ID_Org=Probe_ID) %>% 
     dplyr::mutate(
       Probe_ID=stringr::str_replace(IlmnID,'^gt','cg'),
+      Probe_Type=stringr::str_sub(Probe_ID,1,2),
       Probe_Class=Probe_Type,
       Top_Sequence=NA_character_,
       Next_Base=dplyr::case_when(
@@ -657,6 +660,7 @@ if (par$local_runType=='COVID') {
     dplyr::mutate(Probe_Class='ctl',Probe_Type=Probe_Class,IlmnID=Probe_ID,
                   COLOR_CHANNEL='Both',col=NA_character_,Next_Base=NA_character_,
                   Infinium_Design=2,Rep_Num=1)
+  ctl_only_tib <- NULL
   
   out_ses_tib <- dplyr::bind_rows(man_prb_tib,ctl_only_tib) %>%
     dplyr::arrange(Probe_ID) %>% 

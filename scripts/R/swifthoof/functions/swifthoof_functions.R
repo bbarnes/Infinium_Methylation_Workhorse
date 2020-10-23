@@ -111,7 +111,10 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     bead_sum_tib <- ses_add_tib %>% dplyr::filter(Probe_Type=='cg') %>% 
       dplyr::select(Address) %>% dplyr::left_join(idat_list$sig, by="Address") %>% 
-      dplyr::summarise(CG_Bead_Count=n(), CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), CG_Bead_AvgRep=CG_Bead_Total/CG_Bead_Count/2)
+      dplyr::summarise(CG_Bead_Count=n(), 
+                       CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), 
+                       CG_Bead_AvgRep=round(CG_Bead_Total/CG_Bead_Count/2),1,
+                       .groups='drop')
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bead_sum_tib built.{RET}"))
     if (verbose>=vt+10) print(bead_sum_tib)
     
@@ -199,10 +202,12 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     opt$writeSsetRaw <- FALSE
     if (!is.null(opt$skipSwap) && !opt$skipSwap) {
       raw_sset_tib <- sset2tib(sset=raw_sset, by="Probe_ID", des="Probe_Design",  
-                               percision=opt$percisionSigs, sort=FALSE, save=opt$writeSsetRaw, csv=raw_sset_csv, 
+                               percision=opt$percisionSigs, sort=FALSE, 
+                               save=opt$writeSsetRaw, csv=raw_sset_csv, 
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     }
-    raw_call_tib <- sset2calls(sset=raw_sset, workflow='raw', percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
+    raw_call_tib <- sset2calls(sset=raw_sset, workflow='raw', 
+                               percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     cat("Running: callToSSheet\n\n:")
@@ -210,7 +215,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ret$raw_sset <- raw_sset
       ret$raw_sset_tib <- raw_sset_tib
       ret$raw_call_tib <- raw_call_tib
-      return(ret)
+      # return(ret)
     }
     
     call_sum_tib <- callToSSheet(call=raw_call_tib, idx=0, key='raw', pre=call_sum_tib, 
@@ -228,10 +233,10 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ret$raw_call_tib <- raw_call_tib
       ret$call_sum_tib <- call_sum_tib
       ret$phen_sum_tib <- phen_sum_tib
-      return(ret)
+      # return(ret)
     }
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built RAW Data.{RET}"))
-    
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -255,7 +260,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         cur_sset <- readr::read_rds(cur_sset_rds)
       } else {
         stopifnot(!is.null(raw_sset))
-        cur_sset <- mutateSSET_workflow(sset=raw_sset, workflow=cur_workflow, save=opt$saveSsets, rds=cur_sset_rds,
+        cur_sset <- mutateSSET_workflow(sset=raw_sset, workflow=cur_workflow, 
+                                        save=opt$saveSsets, rds=cur_sset_rds,
                                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       }
       stopifnot(!is.null(cur_sset))

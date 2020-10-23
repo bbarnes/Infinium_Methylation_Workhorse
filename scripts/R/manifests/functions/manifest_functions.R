@@ -1945,8 +1945,7 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
     paths <- NULL
     if (!is.null(path) && file.exists(path)) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match 1; path={path}.{RET}"))
-      paths <- list.files(dirname(path), pattern=basename(path), full.names=TRUE)
-      
+      paths <- list.files(base::dirname(path), pattern=base::basename(path), full.names=TRUE)
     } else if (!is.null(platform) && !is.null(manifest) && !is.null(dir) ) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match 2.{RET}"))
       fileName <- paste0(platform,'-',manifest,'.manifest.sesame-base.cpg-sorted.csv.gz')
@@ -1955,20 +1954,26 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
       paths <- list.files(dir, pattern=fileName, full.names=TRUE)
       
     } else if ( !is.null(path) && !is.null(dir) && path=='auto' ) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match 3.{RET}"))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} path={path}; dir={dir}.{RET}"))
       paths <- list.files( file.path(dir), pattern=paste0('.manifest.sesame-base.cpg-sorted.csv.gz'), full.names=TRUE )
       
     } else {
       stop(glue::glue("[{funcTag}]: ERROR: Path, platform, manifest, dir FAILED CHECK!{RET}{RET}"))
       return(NULL)
     }
-    
     stopifnot(!is.null(paths))
     stopifnot(length(paths)>0)
     
+    paths_len <- length(paths)
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} paths({paths_len})={RET}"))
+    if (verbose>=vt+4) print(paths)
+    
     man_tibs <- NULL
-    for (ii in c(1:length(paths))) {
-      cur_key_tib <- paths[ii] %>% basename() %>% stringr::str_remove('\\.manifest.*$') %>% 
+    for (ii in c(1:paths_len)) {
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading manifest={paths[ii]}...{RET}"))
+      
+      cur_key_tib <- paths[ii] %>% base::basename() %>% 
+        stringr::str_remove('\\.manifest.*$') %>% 
         stringr::str_split(pattern='-', simplify=TRUE) %>% as.data.frame() %>% 
         purrr::set_names(c('platform', 'manifest'))
       
@@ -1978,6 +1983,9 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
       
       man_tibs[[cur_key]] <- suppressMessages(suppressWarnings( readr::read_csv(paths[ii]) )) %>%
         dplyr::mutate(M=as.integer(M), U=as.integer(U))
+      
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done; Loading manifest.{RET}{RET}"))
+      if (verbose>=vt+4) print(man_tibs[[cur_key]])
     }
   })
   if (verbose>vt+4) print(man_tibs)
