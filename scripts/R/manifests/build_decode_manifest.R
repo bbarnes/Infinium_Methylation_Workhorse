@@ -54,8 +54,13 @@ par$prgmDir <- 'manifests'
 par$prgmTag <- 'build_decode_manifest'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
+par$local_runType <- NULL
+
 # Executables::
 opt$Rscript <- NULL
+
+# Run Parameters::
+opt$runName   <- NULL
 
 # Directories::
 opt$outDir <- NULL
@@ -76,6 +81,10 @@ opt$cpg_top_tsv <- NULL
 opt$cpg_pos_tsv <- NULL
 opt$cph_pos_tsv <- NULL
 opt$snp_pos_tsv <- NULL
+
+# opt$cpg_des_csv <- NULL
+opt$cph_des_csv <- NULL
+opt$snp_des_csv <- NULL
 
 # Platform/Method Options::
 opt$genomeBuild <- NULL
@@ -170,8 +179,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GENK'
-  par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
+  par$local_runType <- 'GRCm38'
   
   if (par$local_runType=='COVID') {
     opt$fresh  <- TRUE
@@ -184,7 +193,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$genomeBuild <- 'COVID'
     opt$platform    <- 'COVID'
-    opt$version     <- 'C1'
+    opt$version     <- 'C2'
     
     #
     # TBD:: Add genomic coordinates for virus::
@@ -192,22 +201,22 @@ if (args.dat[1]=='RStudio') {
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     
-    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP/COVID-Direct-Detection')
+    par$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP/COVID-Direct-Detection')
     opt$ords <- paste(
-      file.path(opt$aqpDir, '371328_CoV_1K_HTS_FinalDesign.design.csv.gz'),
+      file.path(par$aqpDir, '371328_CoV_1K_HTS_FinalDesign.design.csv.gz'),
       sep=',')
     
     opt$mats <- paste(
-      file.path(opt$aqpDir, '20474076_probes.match.gz'),
+      file.path(par$aqpDir, '20474076_probes.match.gz'),
       sep=',')
     
     opt$aqps <- paste(
-      file.path(opt$aqpDir, 'BS0032777-AQP.txt.gz'),
+      file.path(par$aqpDir, 'BS0032777-AQP.txt.gz'),
       sep=',')
     
     opt$pqcs <- NULL
     opt$pqcs <- paste(
-      file.path(opt$aqpDir, '329922X371395_A_ProductQC.txt.gz'),
+      file.path(par$aqpDir, '329922X371395_A_ProductQC.txt.gz'),
       sep=',')
     
     par$idatsTopDir <- file.path(locIdatDir,'idats_COVID-Direct-Set1')
@@ -230,22 +239,22 @@ if (args.dat[1]=='RStudio') {
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     
-    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP/COVIC-Host-Immune-Detection')
+    par$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP/COVIC-Host-Immune-Detection')
     opt$ords <- paste(
-      file.path(opt$aqpDir, 'COVID_EPIC_Round1.03172020.unique.order_AP.csv.gz'),
+      file.path(par$aqpDir, 'COVID_EPIC_Round1.03172020.unique.order_AP.csv.gz'),
       sep=',')
     
     opt$mats <- paste(
-      file.path(opt$aqpDir, '20447043_probes.match.gz'),
+      file.path(par$aqpDir, '20447043_probes.match.gz'),
       sep=',')
     
     opt$aqps <- paste(
-      file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
+      file.path(par$aqpDir, 'BS0032581-AQP.txt.gz'),
       sep=',')
     
     opt$pqcs <- NULL
     # opt$pqcs <- paste(
-    #   file.path(opt$aqpDir, 'BS0032581-AQP.txt.gz'),
+    #   file.path(par$aqpDir, 'BS0032581-AQP.txt.gz'),
     #   sep=',')
     
     par$idatsTopDir <- file.path(locIdatDir,'idats_COVIC-Set1-15052020')
@@ -268,24 +277,24 @@ if (args.dat[1]=='RStudio') {
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     
-    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/Genknowme/LS_Epiprofile')
+    par$aqpDir <- file.path(par$topDir, 'data/CustomContent/Genknowme/LS_Epiprofile')
     opt$ords <- paste(
-      file.path(opt$aqpDir, 'AQP1_NAremoved_GenKnowme_CpG_SNP_order.07082020.csv'),
-      file.path(opt$aqpDir, 'AQP2_AP_Genknowme_AQP2_replicate_design_file2.csv'),
+      file.path(par$aqpDir, 'AQP1_NAremoved_GenKnowme_CpG_SNP_order.07082020.csv'),
+      file.path(par$aqpDir, 'AQP2_AP_Genknowme_AQP2_replicate_design_file2.csv'),
       sep=',')
     
     opt$mats <- paste(
-      file.path(opt$aqpDir, '20468029_AQP1_probes.match'),
-      file.path(opt$aqpDir, '20468029_AQP2_probes.match'),
+      file.path(par$aqpDir, '20468029_AQP1_probes.match'),
+      file.path(par$aqpDir, '20468029_AQP2_probes.match'),
       sep=',')
     
     opt$aqps <- paste(
-      file.path(opt$aqpDir, 'BS0032678_AQP1-AQP.txt'),
-      file.path(opt$aqpDir, 'BS0032779_AQP2-AQP.txt'),
+      file.path(par$aqpDir, 'BS0032678_AQP1-AQP.txt'),
+      file.path(par$aqpDir, 'BS0032779_AQP2-AQP.txt'),
       sep=',')
     
     opt$pqcs <- paste(
-      file.path(opt$aqpDir, '20042793X371678_A_ProductQC_AP.txt'),
+      file.path(par$aqpDir, '20042793X371678_A_ProductQC_AP.txt'),
       sep=',')
     
     opt$idat <- NULL
@@ -306,30 +315,30 @@ if (args.dat[1]=='RStudio') {
     opt$snp_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-SNP-Only.designs.csv.gz')
     opt$cph_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-CpH-Only.designs.csv.gz')
     
-    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
+    par$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
     opt$ords <- paste(
-      file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP1.csv.gz'),
-      file.path(opt$aqpDir, 'orders/Mus_musculus.order_BP2.csv.gz'),
-      file.path(opt$aqpDir, 'orders/mm10_LEGX_nonCpG_probes.Jan16-2020.order.csv.gz'),
-      file.path(opt$aqpDir, 'orders/LEGX_SpikeIn_Reorder-All-06052020.order.withHeader.csv.gz'),
+      file.path(par$aqpDir, 'orders/Mus_musculus.order_BP1.csv.gz'),
+      file.path(par$aqpDir, 'orders/Mus_musculus.order_BP2.csv.gz'),
+      file.path(par$aqpDir, 'orders/mm10_LEGX_nonCpG_probes.Jan16-2020.order.csv.gz'),
+      file.path(par$aqpDir, 'orders/LEGX_SpikeIn_Reorder-All-06052020.order.withHeader.csv.gz'),
       sep=',')
     
     opt$mats <- paste(
-      file.path(opt$aqpDir, 'BP1/20420178_AQP1_LifeEpigen_BP1.txt.gz'),
-      file.path(opt$aqpDir, 'BP2/20420260_AQP1_LifeEpigen_BP2.txt.gz'),
-      file.path(opt$aqpDir, 'BP3/20420260_AQP2_LifeEpigen_BP2.txt.gz'),
-      file.path(opt$aqpDir, 'BP4/20455357_AQP1_LifeEpigen_BP4.txt.gz'),
+      file.path(par$aqpDir, 'BP1/20420178_AQP1_LifeEpigen_BP1.txt.gz'),
+      file.path(par$aqpDir, 'BP2/20420260_AQP1_LifeEpigen_BP2.txt.gz'),
+      file.path(par$aqpDir, 'BP3/20420260_AQP2_LifeEpigen_BP2.txt.gz'),
+      file.path(par$aqpDir, 'BP4/20455357_AQP1_LifeEpigen_BP4.txt.gz'),
       sep=',')
     
     opt$aqps <- paste(
-      file.path(opt$aqpDir, 'AQP_Copy/BS0032527-AQP.txt.gz'),
-      file.path(opt$aqpDir, 'AQP_Copy/BS0032533-AQP.txt.gz'),
-      file.path(opt$aqpDir, 'AQP_Copy/BS0032545-AQP.txt.gz'),
-      file.path(opt$aqpDir, 'AQP_Copy/BS0032636-AQP.txt.gz'),
+      file.path(par$aqpDir, 'AQP_Copy/BS0032527-AQP.txt.gz'),
+      file.path(par$aqpDir, 'AQP_Copy/BS0032533-AQP.txt.gz'),
+      file.path(par$aqpDir, 'AQP_Copy/BS0032545-AQP.txt.gz'),
+      file.path(par$aqpDir, 'AQP_Copy/BS0032636-AQP.txt.gz'),
       sep=',')
     
     opt$pqcs <- paste(
-      file.path(opt$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
+      file.path(par$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
       sep=',')
     
     par$idatsTopDir <- file.path(locIdatDir,'idats_ILMN_mm10_betaTest_17082020')
@@ -354,20 +363,20 @@ if (args.dat[1]=='RStudio') {
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     
-    opt$aqpDir <- file.path(par$topDir, 'data/CustomContent/NZT/decode')
+    par$aqpDir <- file.path(par$topDir, 'data/CustomContent/NZT/decode')
     opt$ords <- paste(
-      file.path(opt$aqpDir, 'selected.order1.csv.gz'),
-      file.path(opt$aqpDir, 'selected.order2.csv.gz'),
+      file.path(par$aqpDir, 'selected.order1.csv.gz'),
+      file.path(par$aqpDir, 'selected.order2.csv.gz'),
       sep=',')
     
     opt$mats <- paste(
-      file.path(opt$aqpDir, '20297484_probes.match1.tsv.gz'),
-      file.path(opt$aqpDir, '20297484_probes.match2.tsv.gz'),
+      file.path(par$aqpDir, '20297484_probes.match1.tsv.gz'),
+      file.path(par$aqpDir, '20297484_probes.match2.tsv.gz'),
       sep=',')
     
     opt$aqps <- paste(
-      file.path(opt$aqpDir, 'BS0031918-AQP1.txt.gz'),
-      file.path(opt$aqpDir, 'BS0032272-AQP2.txt.gz'),
+      file.path(par$aqpDir, 'BS0031918-AQP1.txt.gz'),
+      file.path(par$aqpDir, 'BS0032272-AQP2.txt.gz'),
       sep=',')
     
     opt$pqcs <- NULL
@@ -395,11 +404,17 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--Rscript"), type="character", default=opt$Rscript, 
                 help="Rscript path [default= %default]", metavar="character"),
     
+    # Run Parameters::
+    make_option(c("--runName"), type="character", default=opt$runName, 
+                help="Run Name [default= %default]", metavar="character"),
+    
     # Directories::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
     make_option(c("--impDir"), type="character", default=opt$impDir, 
                 help="improbe data directory [default= %default]", metavar="character"),
+    make_option(c("--annDir"), type="character", default=opt$iannDir, 
+                help="Annotation data directory [default= %default]", metavar="character"),
     
     # Pre-defined files (controls)
     make_option(c("--ords"), type="character", default=opt$ords, 
@@ -425,6 +440,13 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--cph_pos_tsv"), type="character", default=opt$cph_pos_tsv, 
                 help="CpH Position TSV File [default= %default]", metavar="character"),
     make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv, 
+                help="SNP Position TSV File [default= %default]", metavar="character"),
+
+    # make_option(c("--cpg_des_csv"), type="character", default=opt$cpg_des_csv, 
+    #             help="CpG Position TSV File [default= %default]", metavar="character"),
+    make_option(c("--cph_des_csv"), type="character", default=opt$cph_des_csv, 
+                help="CpH Position TSV File [default= %default]", metavar="character"),
+    make_option(c("--snp_des_csv"), type="character", default=opt$snp_des_csv, 
                 help="SNP Position TSV File [default= %default]", metavar="character"),
     
     # Platform/Method Options::
@@ -488,6 +510,7 @@ if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Sour
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
 
+# opt <- program_done()
 opt <- program_init(name=opt$runName,
                     opts=opt, opt_reqs=opt_reqs, 
                     pars=par, par_reqs=par_reqs,
@@ -605,8 +628,7 @@ if (opt$verbose>=1) {
     dplyr::summarise(Count=n(), .groups='drop') %>% print()
 }
 
-
-if (par$local_runType=='COVID') {
+if (!is.null(par$local_runType) && par$local_runType=='COVID') {
   
   man_prb_tib <- man_raw_tib %>% 
     dplyr::distinct(M,U, .keep_all=TRUE) %>%
@@ -661,7 +683,11 @@ if (par$local_runType=='COVID') {
                   COLOR_CHANNEL='Both',col=NA_character_,Next_Base=NA_character_,
                   Infinium_Design=2,Rep_Num=1)
   ctl_only_tib <- NULL
-  
+
+  #
+  # TBD:: Make Infinium II probes Negative probes
+  #
+    
   out_ses_tib <- dplyr::bind_rows(man_prb_tib,ctl_only_tib) %>%
     dplyr::arrange(Probe_ID) %>% 
     dplyr::distinct(M,U, .keep_all=TRUE) %>%
@@ -743,6 +769,11 @@ if (!is.null(opt$cpg_s48_tsv) && file.exists(opt$cpg_s48_tsv) &&
       
       verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
 }
+
+program_done(opts=opt, pars=par, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+
+q()
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.0 Join All Detected Probes:: SNP/CpH/CpG

@@ -117,6 +117,27 @@ program_init = function(name,opts,opt_reqs=NULL,pars,par_reqs=NULL,
   opts
 }
 
+# program_done(name=)
+program_done = function(opts,pars,
+                        verbose=0,vt=3,tc=1,tt) {
+  funcTag <- 'program_done'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  opts_tib  <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
+  pars_tib  <- dplyr::bind_rows(pars) %>% tidyr::gather("Params", "Value")
+  time_tib <- tt$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+  
+  readr::write_csv(opts_tib, opts$opt_csv)
+  readr::write_csv(pars_tib, opts$par_csv)
+  readr::write_csv(time_tib, opts$time_csv)
+  
+  sysTime <- Sys.time()
+  cat(glue::glue("{RET}[{pars$prgmTag}]: Finished(time={sysTime}){RET}{RET}"))
+  
+  return(0)
+}
+
 load_libraries = function(opts, pars, rcpp=FALSE,
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'load_libraries'
