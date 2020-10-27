@@ -322,17 +322,16 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
     
     design_prb_sym <- rlang::sym(design_prb)
     
-    # Build output directories::
-    intDir <- file.path(outDir, 'intersection', probe_type)
-    if (!dir.exists(intDir)) dir.create(intDir, recursive=TRUE)
-    
-    desDir <- file.path(outDir, 'design', probe_type)
-    if (!dir.exists(desDir)) dir.create(desDir, recursive=TRUE)
-    
     if (!is.null(name) && !is.null(outDir)) {
-      outDir <- file.path(outDir,probe_type)
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
       out_name <- paste(name,funcTag,probe_type, sep=del)
+      
+      # Build output directories::
+      intDir <- file.path(outDir, 'intersection', probe_type)
+      if (!dir.exists(intDir)) dir.create(intDir, recursive=TRUE)
+      
+      desDir <- file.path(outDir, 'design', probe_type)
+      if (!dir.exists(desDir)) dir.create(desDir, recursive=TRUE)
       
       man_join_rds <-
         file.path(desDir, paste(out_name,design_seq,'mat-probes.rds', sep=del) )
@@ -871,6 +870,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
     if (!fresh && !is.null(stp_tib) && stp_tib$isValid[1]) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
+      rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
     } else {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh data...{RET}"))
@@ -1410,12 +1410,16 @@ manifestCheckSummary = function(tib,
       cat(glue::glue("[{funcTag}]: repM_fail_cnt={repM_fail_cnt}.{RET}"))
     }
     
-    tib %>% dplyr::filter(U %in% ret_tib$Address) %>% 
-      dplyr::group_by(Probe_Type,Rep_Max) %>% 
-      dplyr::summarise(Rep_Count=n(), .groups='drop') %>% print()
-    tib %>% dplyr::filter(M %in% ret_tib$Address) %>%
-      dplyr::group_by(Probe_Type,Rep_Max) %>% 
-      dplyr::summarise(Rep_Count=n(), .groups='drop') %>% print()
+    if (verbose>=vt+4) {
+      tib %>% dplyr::filter(U %in% ret_tib$Address) %>% 
+        dplyr::group_by(Probe_Type,Rep_Max) %>% 
+        dplyr::summarise(Rep_Count=n(), .groups='drop') %>% print()
+      tib %>% dplyr::filter(M %in% ret_tib$Address) %>%
+        dplyr::group_by(Probe_Type,Rep_Max) %>% 
+        dplyr::summarise(Rep_Count=n(), .groups='drop') %>% print()
+      tib %>% dplyr::group_by(Probe_Type) %>% 
+        dplyr::summarise(Count=n(), .groups='drop') %>% print()
+    }
     
     ret_cnt <- ret_tib %>% base::nrow()
   })

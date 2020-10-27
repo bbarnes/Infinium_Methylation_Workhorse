@@ -305,7 +305,7 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C0'
     opt$version     <- 'C8'
     opt$version     <- 'C11'
-    opt$version     <- 'C10'
+    opt$version     <- 'C12'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -621,12 +621,6 @@ man_raw_tib <- decodeAqpPqcWrapper(
   name=opt$runName,outDir=opt$manDir,origin=opt$org_txt,
   fresh=opt$fresh,fixIds=opt$fixIds,full=par$retData,trim=TRUE,
   verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
-
-# Summary Data::
-if (opt$verbose>=1) {
-  man_raw_tib %>% dplyr::group_by(Probe_Type) %>% 
-    dplyr::summarise(Count=n(), .groups='drop') %>% print()
-}
 
 if (!is.null(par$local_runType) && par$local_runType=='COVID') {
   
