@@ -149,13 +149,6 @@ loadNcbiGeneGR = function(file,
   ret_grs
 }
 
-
-
-
-
-
-
-
 loadUcscGeneGR = function(file,
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'loadUcscGeneGR'
@@ -227,8 +220,6 @@ loadUcscGeneGR = function(file,
   
   ret_grs
 }
-
-
 
 loadUcscCpgsGR = function(file,
                           verbose=0,vt=3,tc=1,tt=NULL) {

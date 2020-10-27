@@ -157,7 +157,7 @@ if (args.dat[1]=='RStudio') {
   opt$outDir <- file.path(par$topDir, 'scratch')
   opt$impDir <- file.path(par$topDir, 'data/improbe')
   opt$annDir <- file.path(par$topDir, 'data/annotation')
-
+  
   # opt$cpg_s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/gz/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.tsv.gz')
   opt$cpg_s48_tsv <- file.path(opt$impDir, 'designOutput_21092020/seq48U/un/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.tsv')
   
@@ -306,8 +306,6 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C8'
     opt$version     <- 'C11'
     opt$version     <- 'C12'
-    opt$version     <- 'C13'
-    opt$version     <- 'C14'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -347,7 +345,7 @@ if (args.dat[1]=='RStudio') {
     opt$idat <- paste(
       file.path(par$idatsTopDir, '204637490025'),
       sep=',')
-
+    
   } else if (par$local_runType=='NZT') {
     # opt$fresh <- TRUE
     opt$matFormat <- 'old'
@@ -443,7 +441,7 @@ if (args.dat[1]=='RStudio') {
                 help="CpH Position TSV File [default= %default]", metavar="character"),
     make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv, 
                 help="SNP Position TSV File [default= %default]", metavar="character"),
-
+    
     # make_option(c("--cpg_des_csv"), type="character", default=opt$cpg_des_csv, 
     #             help="CpG Position TSV File [default= %default]", metavar="character"),
     make_option(c("--cph_des_csv"), type="character", default=opt$cph_des_csv, 
@@ -512,6 +510,7 @@ if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Sour
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
 
+# opt <- program_done()
 opt <- program_init(name=opt$runName,
                     opts=opt, opt_reqs=opt_reqs, 
                     pars=par, par_reqs=par_reqs,
@@ -610,6 +609,11 @@ color_len <- length(color_vec)
 opt$verbose <- 40
 opt$verbose <- 3
 
+#
+# TBD:: Add fixOrder to loadOrd...
+#   - Default Color_Channel, col, Next_Base to Normalization_Bin
+#
+
 man_raw_tib <- decodeAqpPqcWrapper(
   ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec,
   platform=opt$platform,version=opt$version,
@@ -619,84 +623,155 @@ man_raw_tib <- decodeAqpPqcWrapper(
   pqcSkip=opt$pqcSkip,
   name=opt$runName,outDir=opt$manDir,origin=opt$org_txt,
   fresh=opt$fresh,fixIds=opt$fixIds,full=par$retData,trim=TRUE,
-  verbose=opt$verbose,vt=1,tc=0,tt=pTracker) %>%
-  dplyr::mutate(
-    Probe_Type=dplyr::case_when(Probe_Type=='ne' ~ "NE", TRUE ~ Probe_Type))
+  verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
 
+#
 # The Summary we really want::
 #
 man_raw_tib %>% dplyr::group_by(Probe_Type) %>% 
   dplyr::summarise(PType_Count=n(), .groups='drop') %>% print()
 
+
+if (!is.null(par$local_runType) && par$local_runType=='COVID') {
+  
+  man_prb_tib <- man_raw_tib %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::add_count(Seq_ID,Strand_TB,Strand_CO,Infinium_Design, name='Rep_Max2') %>%
+    dplyr::group_by(Seq_ID,Strand_TB,Strand_CO,Infinium_Design) %>%
+    dplyr::mutate(
+      Rep_Cnt=dplyr::row_number(),
+      IlmnID=paste0(Seq_ID,'_',Strand_TB,Strand_CO,Infinium_Design,Rep_Cnt),
+      ValidID=TRUE
+    ) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::distinct(IlmnID,M,U, .keep_all=TRUE) %>% 
+    # dplyr::rename(Probe_ID_Org=Probe_ID) %>% 
+    dplyr::mutate(
+      Probe_ID=stringr::str_replace(IlmnID,'^gt','cg'),
+      Probe_Type=stringr::str_sub(Probe_ID,1,2),
+      Probe_Class=Probe_Type,
+      Top_Sequence=NA_character_,
+      Next_Base=dplyr::case_when(
+        Infinium_Design==2 ~ NA_character_,
+        col=='R' ~ 'A',
+        col=='G' ~ 'C',
+        TRUE ~ NA_character_
+      ),
+      MFG_Change_Flagged=dplyr::case_when(
+        ValidID ~ 'FALSE',
+        TRUE ~ 'TRUE'
+      ),
+      Probe_Source=opt$platform,
+      Version=opt$version
+    ) %>%
+    # dplyr::rename(Strand_TB=Strand_TB,Strand_CO=Strand_CO) %>%
+    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,
+                  Seq_ID,Probe_Type,Probe_Source,Version,
+                  Strand_TB,Strand_CO,Infinium_Design,Rep_Num,
+                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                  Top_Sequence, everything()) %>%
+    dplyr::arrange(IlmnID) %>%
+    dplyr::select(IlmnID,Probe_Class,Probe_Type,dplyr::everything())
+  
+  # Matched Group Summary::
+  man_prb_tib %>% dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
+    dplyr::summarise(Count=n(), .groups='drop')
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Write Sesame Manifest:: Standard
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  ctl_only_csv <- '/Users/bretbarnes/Documents/data/CustomContent/Genknowme/manifest/GKME_Sesame_EPIC-Controls-Only.csv'
+  ctl_only_tib <- readr::read_csv(ctl_only_csv, col_names=c('Probe_ID','M','U','DESIGN')) %>%
+    dplyr::mutate(Probe_Class='ctl',Probe_Type=Probe_Class,IlmnID=Probe_ID,
+                  COLOR_CHANNEL='Both',col=NA_character_,Next_Base=NA_character_,
+                  Infinium_Design=2,Rep_Num=1)
+  ctl_only_tib <- NULL
+  
+  #
+  # TBD:: Make Infinium II probes Negative probes
+  #
+  
+  out_ses_tib <- dplyr::bind_rows(man_prb_tib,ctl_only_tib) %>%
+    dplyr::arrange(Probe_ID) %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID:Next_Base,Seq_ID,Probe_Type,Strand_TB,Strand_CO,
+                  Infinium_Design,Rep_Num,AlleleA_Probe_Sequence,
+                  AlleleB_Probe_Sequence,Top_Sequence)
+  
+  readr::write_csv(out_ses_tib,ses_base_csv)
+  
+  #
+  # May Want to look into using all controls, but we'll fix this properly later...
+  #
+  # std_ctl_tib <- NULL
+  # ctl_csv <- ctls_vec[1]
+  # std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
+  # std_ctl_seq_tib <- dplyr::inner_join(
+  #   suppressMessages(suppressWarnings(readr::read_tsv(std_ctl_seq_tsv) )) %>% 
+  #     dplyr::mutate(Address=stringr::str_remove(address_name, '^1') %>% as.integer()),
+  #   suppressMessages(suppressWarnings(
+  #     readr::read_csv(ctl_csv, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID")) )),
+  #   by="Address") %>%
+  #   dplyr::select(Address,Probe_Type,COLOR_CHANNEL,Probe_ID,probe_id,sequence, everything()) %>%
+  #   dplyr::rename(Design_ID=probe_id) %>% dplyr::distinct(Address, .keep_all=TRUE) %>%
+  #   dplyr::select(-type_b,-bo_seq,-address_name)
+}
+
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                2.0 Build Probes foreach Type:: RS/CH/CG/etc..
+#                           2.1 Build Probes:: SNP
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 man_prb_list <- NULL
-man_raw_list <- man_raw_tib %>% split(.$Probe_Type)
 
-for (probe_type in rev(names(man_raw_list)) ) {
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Building Probes Types={probe_type}...{RET}"))
-
-  if (probe_type == 'rs') {
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                           2.1 Build Probes:: SNP
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-    man_prb_list[[probe_type]] <- NULL
-    if (!is.null(opt$snp_des_csv) && file.exists(opt$snp_des_csv) ) {
-      man_prb_list[[probe_type]] = 
-        adhoc_desToMAN(man=man_raw_tib, des_csv=opt$snp_des_csv, probe_type=probe_type,
-                       name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
-                       fresh=opt$fresh,fixIds=FALSE,
-                       verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
-    }
-  } else if (probe_type == 'ch') {
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                           2.2 Build Probes:: CpH
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-    man_prb_list[[probe_type]] <- NULL
-    if (!is.null(opt$cph_des_csv) && file.exists(opt$cph_des_csv) ) {
-      man_prb_list[[probe_type]] =
-        adhoc_desToMAN(man=man_raw_tib, des_csv=opt$cph_des_csv, probe_type=probe_type,
-                       name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
-                       fresh=opt$fresh,fixIds=FALSE,
-                       verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
-    }
-  } else if (probe_type == 'cg') {
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                           2.3 Build Probes:: CpG
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    man_prb_list[[probe_type]] <- NULL
-    if (!is.null(opt$cpg_s48_tsv) && file.exists(opt$cpg_s48_tsv) &&
-        !is.null(opt$cpg_top_tsv) && file.exists(opt$cpg_top_tsv)) {
-      man_prb_list[[probe_type]] =
-        clean_manifest_probes(
-          tib=man_raw_tib,
-          s48_tsv=opt$cpg_s48_tsv,top_tsv=opt$cpg_top_tsv,
-          name=opt$runName,outDir=opt$outDir,origin=opt$time_org_txt,
-          
-          design_key=opt$design_key,
-          design_seq=opt$design_seq,
-          design_prb=opt$design_prb,
-          probe_type=probe_type,
-          design_srs=opt$design_srs,
-          design_cos=opt$design_cos,
-          parallel=opt$parallel,fresh=opt$fresh,
-          
-          verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
-    }
-  } else {
-    if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Probes Types={probe_type} NOT supported!{RET}{RET}"))
-  }
+probe_type <- 'rs'
+man_prb_list[[probe_type]] <- NULL
+if (!is.null(opt$snp_des_csv) && file.exists(opt$snp_des_csv) ) {
+  man_prb_list[[probe_type]] = 
+    adhoc_desToMAN(man=man_raw_tib, des_csv=opt$snp_des_csv, probe_type=probe_type,
+                   name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
+                   fresh=opt$fresh,fixIds=FALSE,
+                   verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
 }
-if (opt$verbose>=1) {
-  cat(glue::glue("[{par$prgmTag}]: Done. Building Probes.{RET}{RET}"))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           2.2 Build Probes:: CpH
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+probe_type <- 'ch'
+man_prb_list[[probe_type]] <- NULL
+if (!is.null(opt$cph_des_csv) && file.exists(opt$cph_des_csv) ) {
+  man_prb_list[[probe_type]] =
+    adhoc_desToMAN(man=man_raw_tib, des_csv=opt$cph_des_csv, probe_type=probe_type,
+                   name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
+                   fresh=opt$fresh,fixIds=FALSE,
+                   verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           2.3 Build Probes:: CpG
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+probe_type <- 'cg'
+man_prb_list[[probe_type]] <- NULL
+if (!is.null(opt$cpg_s48_tsv) && file.exists(opt$cpg_s48_tsv) &&
+    !is.null(opt$cpg_top_tsv) && file.exists(opt$cpg_top_tsv)) {
+  man_prb_list[[probe_type]] =
+    clean_manifest_probes(
+      tib=man_raw_tib,
+      s48_tsv=opt$cpg_s48_tsv,top_tsv=opt$cpg_top_tsv,
+      name=opt$runName,outDir=opt$outDir,origin=opt$time_org_txt,
+      
+      design_key=opt$design_key,
+      design_seq=opt$design_seq,
+      design_prb=opt$design_prb,
+      probe_type=probe_type,
+      design_srs=opt$design_srs,
+      design_cos=opt$design_cos,
+      parallel=opt$parallel,fresh=opt$fresh,
+      
+      verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
 }
 
 # program_done(opts=opt, pars=par, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
@@ -785,14 +860,14 @@ for (probe_class in names(man_new_list)) {
   pos_key <- paste(opt$runName,probe_class, sep='.')
   pos_col <- 
     cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
-
+  
   pos_tsv <- NULL
   if (probe_class=='cg') pos_tsv <- opt$cpg_pos_tsv
   if (probe_class=='ch') pos_tsv <- opt$cph_pos_tsv
   if (probe_class=='rs') pos_tsv <- opt$snp_pos_tsv
   if (is.null(pos_tsv))
     stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Unsupported probe_class={probe_class}!{RET}{RET}"))
-
+  
   man_pos_list[[probe_class]] <- NULL
   man_pos_list[[probe_class]] =
     loadAllGenomicByMAN(
@@ -832,86 +907,60 @@ man_pos_grs <- GRanges(
           names=man_pos_tib$Seq_ID) )
 
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                5.0 Build Annotation GRanges:: Gene/Islands
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-man_ana_tib <- NULL
+
+
+
+
+
 if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
-
+  #
+  # TBD:: Use only NCBI for Gene Names...
+  #
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                5.0 Build Annotation GRanges:: Gene/Islands
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  gene_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ucsc.knownGene.tsv.gz', sep='.') )
+  cpgs_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ucsc.CpG-Islands.tsv.gz', sep='.') )
+  ncbi_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ncbi.RefSeqGenes.tsv.gz', sep='.') )
+  
+  gene_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(gene_ann_tsv) ))
+  cpgs_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(cpgs_ann_tsv) )) %>% dplyr::select(-1)
+  ncbi_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(ncbi_ann_tsv) ))
+  
+  colnames(gene_ann_tib)[1] <- stringr::str_remove(colnames(gene_ann_tib)[1], '^#')
+  
+  # Protein Field Summary::
+  gene_ann_tib %>% dplyr::filter(!is.na(proteinID)) %>% 
+    dplyr::group_by(proteinID) %>% 
+    dplyr::summarise(PCount=n(), .groups='drop') %>% dplyr::arrange(-PCount)
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                5.1 Intersect Mapped Probes with Annotation::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  # NCBI Genes::
-  ncbi_mat_tib <- NULL
-  ncbi_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ncbi.RefSeqGenes.tsv.gz', sep='.') )
-  if (!is.null(ncbi_ann_tsv) && file.exists(ncbi_ann_tsv)) {
-    ncbi_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(ncbi_ann_tsv) ))
-    colnames(ncbi_ann_tib)[1] <- stringr::str_remove(colnames(ncbi_ann_tib)[1], '^#')
-    
-    ncbi_ref_grs <- loadNcbiGeneGR(file=ncbi_ann_tsv, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-    ncbi_mat_tib <- intersectGranges(man=man_pos_grs,ref=ncbi_ref_grs,
-                                     verbose=opt$verbose,vt=1,tc=1,tt=pTracker) %>% 
-      dplyr::left_join(dplyr::select(ncbi_ann_tib,name,name2), by=c("Gene"="name")) %>% 
-      dplyr::rename(Transcript=Gene, Gene=name2) %>% 
-      dplyr::select(Seq_ID, Gene,Transcript,dplyr::everything()) %>%
-      dplyr::mutate(Source="NCBI")
-  }
+  ncbi_grs <- loadNcbiGeneGR(file=ncbi_ann_tsv, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+  ncbi_tib <- intersectGranges(man=man_pos_grs,ref=ncbi_grs,
+                               verbose=opt$verbose,vt=1,tc=1,tt=pTracker) %>% 
+    dplyr::left_join(dplyr::select(ncbi_ann_tib,name,name2), by=c("Gene"="name")) %>% 
+    dplyr::rename(Transcript=Gene, Gene=name2) %>% 
+    dplyr::select(Seq_ID, Gene,Transcript,dplyr::everything())
   
-  # UCSC Genes::
-  # gene_mat_tib2 <- gene_mat_tib
+  #
+  # Below is good code, just not needed yet...
+  #
+  gene_grs <- loadUcscGeneGR(file=gene_ann_tsv, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+  cpgs_grs <- loadUcscCpgsGR(file=cpgs_ann_tsv, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
   
-  gene_mat_tib <- NULL
-  gene_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ucsc.knownGene.tsv.gz', sep='.') )
-  if (!is.null(gene_ann_tsv) && file.exists(gene_ann_tsv)) {
-    gene_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(gene_ann_tsv) )) %>% 
-      dplyr::rename(name2=proteinID)
-    colnames(gene_ann_tib)[1] <- stringr::str_remove(colnames(gene_ann_tib)[1], '^#')
-    
-    # proteinID
-    gene_ref_grs <- loadUcscGeneGR(file=gene_ann_tsv, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-    gene_mat_tib <- intersectGranges(man=man_pos_grs,ref=gene_ref_grs,
-                                     verbose=opt$verbose,vt=1,tc=1,tt=pTracker) %>%
-      dplyr::left_join(dplyr::select(gene_ann_tib,name,name2), by=c("Gene"="name")) %>% 
-      dplyr::rename(Transcript=Gene, Gene=name2) %>% 
-      dplyr::select(Seq_ID, Gene,Transcript,dplyr::everything()) %>%
-      # dplyr::rename(Transcript=Gene, Gene=proteinID) %>% 
-      dplyr::mutate(Source="UCSC")
-  }
-  
-  # CpG Islands::
-  cpgs_mat_tib <- NULL
-  cpgs_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ucsc.CpG-Islands.tsv.gz', sep='.') )
-  if (!is.null(cpgs_ann_tsv) && file.exists(cpgs_ann_tsv)) {
-    cpgs_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(cpgs_ann_tsv) )) %>% dplyr::select(-1)
-    cpgs_ref_grs <- loadUcscCpgsGR(file=cpgs_ann_tsv, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-    cpgs_mat_tib <- intersectGranges(man=man_pos_grs,ref=cpgs_ref_grs,
-                                     verbose=opt$verbose,vt=1,tc=1,tt=pTracker) %>%
-      dplyr::mutate(Source="UCSC")
-  }
-  
-  man_ana_tib <- dplyr::bind_rows(ncbi_mat_tib,gene_mat_tib,cpgs_mat_tib) %>% 
-    dplyr::arrange(chrom,chromStart,chromEnd)
+  gene_tib <- intersectGranges(man=man_pos_grs,ref=gene_grs,
+                               verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+  cpgs_tib <- intersectGranges(man=man_pos_grs,ref=cpgs_grs,
+                               verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 }
 
-program_done(opts=opt, pars=par, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-q()
 
-
-
-
-
-
-
-
-
-
-
-
-#
-# UNIQUE FOR COVIC Probes to set Multi-Unique Probe_Types::
-#
 if (opt$platform=='COVIC') {
   
   #
@@ -973,18 +1022,6 @@ if (opt$platform=='COVIC') {
   readr::write_csv(tar_unq_tib,tar_out_csv)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #            Extract Missing Probes from Manifest:: i.e. CTL/UNK
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1000,18 +1037,18 @@ if (!is.null(man_unk_tib) && base::nrow(man_unk_tib)>0) {
     cat(glue::glue("[{par$prgmTag}]: Parsing Unk/Ctl Probes...{RET}"))
   
   man_unk_tib <- man_unk_tib %>%
-  fixOrderProbeIDs(verbose=opt$verbose,vt=1,tc=0,tt=pTracker) %>%
-  dplyr::mutate(SR_Str=TB, CO_Str=CO) %>% 
-  dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
-  dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
-  dplyr::mutate(
-    Rep_Cnt=dplyr::row_number(),
-    IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
-    ValidID=FALSE,
-  ) %>% 
-  dplyr::ungroup() %>% 
-  dplyr::select(IlmnID, dplyr::everything()) %>%
-  dplyr::arrange(IlmnID)
+    fixOrderProbeIDs(verbose=opt$verbose,vt=1,tc=0,tt=pTracker) %>%
+    dplyr::mutate(SR_Str=TB, CO_Str=CO) %>% 
+    dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
+    dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
+    dplyr::mutate(
+      Rep_Cnt=dplyr::row_number(),
+      IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
+      ValidID=FALSE,
+    ) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(IlmnID, dplyr::everything()) %>%
+    dplyr::arrange(IlmnID)
 }
 man_unk_cnt <- man_unk_tib %>% base::nrow()
 if (opt$verbose>=3) {
@@ -1063,8 +1100,7 @@ if (par$local_runType=='GRCm38') {
     dplyr::filter(Probe_Type != 'rs') %>% 
     dplyr::filter(Probe_Type != 'mu') %>% 
     dplyr::filter(Probe_Type != 'rp') %>% 
-    # dplyr::filter(Probe_Type == 'BS' | Probe_Type == 'NO' | Probe_Type == 'ne') %>% 
-    dplyr::filter(Probe_Type == 'BS' | Probe_Type == 'NO' | Probe_Type == 'NE') %>% 
+    dplyr::filter(Probe_Type == 'BS' | Probe_Type == 'NO' | Probe_Type == 'ne') %>% 
     dplyr::distinct(M,U, .keep_all=TRUE,Top_Sequence=NA) %>% 
     dplyr::mutate(SR_Str=FR,CO_Str=CO,Rep_Num=NA,Probe_Source='MUS',NXB_D=NA) %>% 
     dplyr::arrange(Probe_Type,Infinium_Design) %>%
@@ -1292,7 +1328,7 @@ if (par$local_runType=='GRCm38') {
                   AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, NXB_D, Top_Sequence,
                   dplyr::everything() ) %>% 
     dplyr::arrange(Seq_ID) # %>%
-    # dplyr::mutate(Assay_Class='Control', Seq_ID=paste('ctl',Seq_ID, sep='-'))
+  # dplyr::mutate(Assay_Class='Control', Seq_ID=paste('ctl',Seq_ID, sep='-'))
   
   #
   # Old Method:: Need to re-evaluate::
@@ -1521,7 +1557,7 @@ readr::write_csv(out_ses_tib,ses_base_csv)
 
 
 
-  
+
 
 out_ses_tib <- fin_ses_tib %>% 
   dplyr::mutate(Probe_ID=IlmnID) %>%

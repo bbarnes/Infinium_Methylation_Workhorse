@@ -348,7 +348,7 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
     } else {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh data from={s48_tsv}...{RET}"))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Fresh or Failed to find pre-built data...{RET}"))
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #
