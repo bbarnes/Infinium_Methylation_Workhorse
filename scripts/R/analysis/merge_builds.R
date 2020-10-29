@@ -206,8 +206,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GENK'
-  par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
+  par$local_runType <- 'GRCm38'
   
   if (par$local_runType=='COVID') {
     
@@ -266,9 +266,9 @@ if (args.dat[1]=='RStudio') {
     opt$runName   <- 'mm10_controls'
     
     opt$buildDir  <- paste(
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameA),
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameB),
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameC),
+      file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameA),
+      file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameB),
+      file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameC),
       sep=',')
     
     opt$classVar <- 'Sample_Name'

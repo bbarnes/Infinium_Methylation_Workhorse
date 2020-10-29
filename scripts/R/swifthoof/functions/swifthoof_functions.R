@@ -121,7 +121,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     pool_sum_tib <- ses_man_tib %>% dplyr::filter(Probe_Type=='cg' | Probe_Type=='ch' | Probe_Type=='rs') %>% 
       dplyr::mutate(Probe_Type=stringr::str_to_upper(Probe_Type)) %>%
       dplyr::group_by(Probe_Type) %>%
-      dplyr::summarise(Count=n()) %>% tidyr::spread(Probe_Type,Count) %>% 
+      dplyr::summarise(Count=n(), .groups='drop') %>% 
+      tidyr::spread(Probe_Type,Count) %>% 
       purrr::set_names(paste(names(.),'Manifest_Count',sep='_') ) %>% 
       addBeadPoolToSampleSheet(field='CG_Manifest_Count') %>% dplyr::ungroup()
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pool_sum_tib built.{RET}"))
@@ -324,7 +325,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
           Probe_Design_Inb_Raw!=Probe_Design_Inb_Cur & Probe_Design_Oob_Raw!=Probe_Design_Oob_Cur ~ 'Alternate',
           TRUE ~ NA_character_
         )) %>% dplyr::group_by(Probe_Design_Inb_Raw,isSwap) %>% 
-        dplyr::summarise(Count=n()) %>% 
+        dplyr::summarise(Count=n(), .groups='drop') %>% 
         dplyr::ungroup() %>% 
         dplyr::mutate(Total=sum(Count)) %>% 
         tidyr::unite(Type, Probe_Design_Inb_Raw, isSwap, sep='_') %>% 

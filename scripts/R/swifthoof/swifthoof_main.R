@@ -188,12 +188,12 @@ if (args.dat[1]=='RStudio') {
   par$expRunStr  <- NULL
   par$expChipNum <- NULL
   
-  par$local_runType <- 'GRCm38'
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'COVID'
+  par$local_runType <- 'GRCm38'
   
   if (par$local_runType=='COVID') {
     par$expRunStr  <- 'COVID-Direct-Set1'
@@ -535,7 +535,8 @@ if (opt$cluster) {
       dplyr::pull() %>% paste(collapse=" ")
     
     cmd_full <- paste(opt$Rscript, par$exePath, cmd_bool, cmd_strs,"\n", sep=' ')
-    readr::write_file(cmd_full, file=runShell)
+    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Writing cmd_full={cmd_full}.{RET}"))
+    readr::write_file(x=cmd_full, file=runShell)
     Sys.chmod(runShell, mode="0777")
     
     # Add cluster execute if avialbel (i.e. linux)
@@ -692,7 +693,7 @@ if (opt$cluster) {
     #                              verbose=opt$verbose+30)
     #   
     # }
-      
+    
     cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   }
   

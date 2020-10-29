@@ -1,6 +1,24 @@
 #!/bin/sh
 
-/usr/local/bin/Rscript\
+RSCRIPT_A=/usr/bin/Rscript
+RSCRIPT_B=/usr/local/bin/Rscript
+
+if [ -e ${RSCRIPT_A} ]; then
+
+    RSCRIPT=${RSCRIPT_A}
+
+elif [ -e ${TOP_LIX} ]; then
+
+    RSCRIPT=${RSCRIPT_B}
+
+else
+    echo "Unrecognized RSCRIPT directory!"
+    exit
+fi
+
+echo "Rscript detected="${RSCRIPT}
+
+${RSCRIPT} \
     /repo/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R \
     --Rscript /usr/local/bin/Rscript \
     -i . -o /output \

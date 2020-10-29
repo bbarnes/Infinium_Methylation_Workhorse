@@ -587,6 +587,8 @@ man_out_key <- paste(opt$platform,opt$version, sep='-')
 gs_swap_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.GenomeStudio.cpg-sorted.csv', sep='.') )
 gz_swap_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.GenomeStudio.cpg-sorted.csv.gz', sep='.') )
 
+ann_base_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.annotation-base.pos-sorted.csv.gz', sep='.') )
+
 ses_base_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.sesame-base.cpg-sorted.csv.gz', sep='.') )
 pos_base_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.sesame-base.pos-sorted.csv.gz', sep='.') )
 ses_mach_csv <- file.path(opt$prdDir, paste(man_out_key,'manifest.sesame-mach.cpg-sorted.csv.gz', sep='.') )
@@ -831,7 +833,6 @@ man_pos_grs <- GRanges(
           end=man_pos_tib$chromEnd, 
           names=man_pos_tib$Seq_ID) )
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                5.0 Build Annotation GRanges:: Gene/Islands
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -843,9 +844,15 @@ if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
   #                5.1 Intersect Mapped Probes with Annotation::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
+  cat(glue::glue("opt$annDir={opt$annDir}/{opt$genomeBuild}"))
+  ncbi_ann_name <- paste(opt$genomeBuild,'ncbi.RefSeqGenes.tsv.gz', sep='.')
+  cat(glue::glue("ncbi_ann_name='{ncbi_ann_name}'{RET}"))
+  
   # NCBI Genes::
   ncbi_mat_tib <- NULL
-  ncbi_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ncbi.RefSeqGenes.tsv.gz', sep='.') )
+  ncbi_ann_tsv <- file.path(opt$annDir,opt$genomeBuild,paste(opt$genomeBuild,'ncbi.RefSeqGenes.tsv.gz', sep='.') )
+  cat("ncbi_ann_tsv={ncbi_ann_tsv}.{RET}{RET")
+  
   if (!is.null(ncbi_ann_tsv) && file.exists(ncbi_ann_tsv)) {
     ncbi_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(ncbi_ann_tsv) ))
     colnames(ncbi_ann_tib)[1] <- stringr::str_remove(colnames(ncbi_ann_tib)[1], '^#')
@@ -863,7 +870,7 @@ if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
   # gene_mat_tib2 <- gene_mat_tib
   
   gene_mat_tib <- NULL
-  gene_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ucsc.knownGene.tsv.gz', sep='.') )
+  gene_ann_tsv <- file.path(opt$annDir,opt$genomeBuild,paste(opt$genomeBuild,'ucsc.knownGene.tsv.gz', sep='.') )
   if (!is.null(gene_ann_tsv) && file.exists(gene_ann_tsv)) {
     gene_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(gene_ann_tsv) )) %>% 
       dplyr::rename(name2=proteinID)
@@ -882,7 +889,7 @@ if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
   
   # CpG Islands::
   cpgs_mat_tib <- NULL
-  cpgs_ann_tsv <- file.path(par$topDir, 'data/annotation',opt$genomeBuild,paste(opt$genomeBuild,'ucsc.CpG-Islands.tsv.gz', sep='.') )
+  cpgs_ann_tsv <- file.path(opt$annDir,opt$genomeBuild,paste(opt$genomeBuild,'ucsc.CpG-Islands.tsv.gz', sep='.') )
   if (!is.null(cpgs_ann_tsv) && file.exists(cpgs_ann_tsv)) {
     cpgs_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(cpgs_ann_tsv) )) %>% dplyr::select(-1)
     cpgs_ref_grs <- loadUcscCpgsGR(file=cpgs_ann_tsv, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
@@ -895,13 +902,46 @@ if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
     dplyr::arrange(chrom,chromStart,chromEnd)
 }
 
+cat(glue::glue("[{par$prgmTag}]: Writing annotation mappings={ann_base_csv}...{RET}"))
+readr::write_csv(man_ana_tib, ann_base_csv)
+cat(glue::glue("[{par$prgmTag}]: Done. Writing annotation mappings.{RET}{RET}"))
+
+
+#
+#
+# TBD::
+#  - Load Standard HSA controls
+#  - Format MUS controls
+#  - 
+#  - Merge Analytical and Controls -> Sesamized Manifest
+#
+#  - Test Sesame on Mouse Samples
+# 
+#  - Convert to GS
+#
+#
+
+#
+# Current Sesame manifest::
+#
+man_ses_tib <- man_prb_tib %>% 
+  dplyr::filter(IlmnID==Probe_ID) %>% dplyr::select(-IlmnID) %>%
+  dplyr::select(Probe_ID:Next_Base,Probe_Class,Probe_Type, dplyr::everything())
+
+hsa_ctl_csv <- file.path(par$datDir, 'manifest/controls','Infinium_Methylation_Controls_1983_full.csv.gz')
+hsa_ctl_tib <- readr::read_csv(hsa_ctl_csv) %>% 
+  dplyr::mutate(COLOR_CHANNEL='Both',Probe_Class=Control_Group,Probe_Type=Control_Group, Probe_Source='EPIC_CTL',Strand_TB='N', Strand_CO='C',Infinium_Design=2) %>%
+  dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,Probe_Class,Probe_Type, dplyr::everything() )
+
+
+# ses_base_csv
+ses_base_tib <- dplyr::bind_rows(man_ses_tib,hsa_ctl_tib)
+readr::write_csv(ses_base_tib, ses_base_csv)
+
+
+
 program_done(opts=opt, pars=par, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 q()
-
-
-
-
-
 
 
 
