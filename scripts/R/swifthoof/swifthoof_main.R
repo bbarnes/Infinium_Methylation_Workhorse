@@ -389,7 +389,6 @@ if (args.dat[1]=='RStudio') {
   opt = parse_args(opt_parser)
 }
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Program Initialization::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -410,85 +409,6 @@ opt <- program_init(name=par$prgmTag,
 
 par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
-
-
-if (FALSE) {
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                            Validate Options::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  if (is.null(par$runMode) || is.null(par$prgmTag) || is.null(par$scrDir) || is.null(par$datDir)) {
-    
-    par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
-    par_tib %>% base::print(n=base::nrow(par_tib) )
-    
-    if (is.null(par$runMode)) cat(glue::glue("[Usage]: runMode is NULL!!!{RET}"))
-    if (is.null(par$prgmTag)) cat(glue::glue("[Usage]: prgmTag is NULL!!!{RET}"))
-    if (is.null(par$scrDir))  cat(glue::glue("[Usage]: scrDir is NULL!!!{RET}"))
-    if (is.null(par$datDir))  cat(glue::glue("[Usage]: darDir is NULL!!!{RET}"))
-    base::stop("Null Parameters!\n\n")
-  }
-  
-  if (is.null(opt$outDir) || is.null(opt$idatsDir) ||
-      is.null(opt$Rscript) ||
-      is.null(opt$verbose)) {
-    if (par$runMode=='CommandLine') print_help(opt_parser)
-    
-    opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
-    opt_tib %>% base::print(n=base::nrow(opt_tib) )
-    
-    cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
-    
-    if (is.null(opt$outDir))    cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
-    if (is.null(opt$idatDir))   cat(glue::glue("[Usage]: idatDir is NULL!!!{RET}"))
-    if (is.null(opt$Rscript))   cat(glue::glue("[Usage]: Rscript is NULL!!!{RET}"))
-    
-    if (is.null(opt$verbose))  cat(glue::glue("[Usage]: verbose is NULL!!!{RET}"))
-    base::stop(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
-  }
-  par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
-  opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
-  if (opt$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
-  if (opt$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
-  
-  cat(glue::glue("[{par$prgmTag}]: Done. Validating Options.{RET}{RET}"))
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                              Source Files::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  par$gen_src_dir <- file.path(par$scrDir, 'functions')
-  if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
-  
-  par$prgm_src_dir <- file.path(par$scrDir,par$prgmDir, 'functions')
-  if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Source={par$prgm_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
-  
-  # Load All other function methods::
-  par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
-  if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
-  
-  par$swt_src_dir <- file.path(par$scrDir, 'swifthoof/functions')
-  if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$swt_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=par$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$swt_src_dir}!{RET}{RET}") )
-  
-  par$prb_src_dir <- file.path(par$scrDir, 'probe_design/functions')
-  if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$prb_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
-  
-  par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
-  if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
-  
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
-}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Preprocessing::
@@ -561,7 +481,8 @@ if (opt$cluster) {
     
     cmd_full <- paste(opt$Rscript, par$exePath, cmd_bool, cmd_strs,"\n", sep=' ')
     cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Writing cmd_full={cmd_full}.{RET}"))
-    readr::write_file(x=cmd_full, file=runShell)
+    # readr::write_file(x=cmd_full, file=runShell)
+    readr::write_lines(x=cmd_full, file=runShell)
     Sys.chmod(runShell, mode="0777")
     
     # Add cluster execute if avialbel (i.e. linux)
