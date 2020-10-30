@@ -207,7 +207,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
                                save=opt$writeSsetRaw, csv=raw_sset_csv, 
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     }
-    raw_call_tib <- sset2calls(sset=raw_sset, workflow='raw', as.enframe=TRUE,
+    raw_call_tib <- sset2calls(sset=raw_sset, workflow='raw', as.enframe=FALSE,
                                percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
@@ -278,7 +278,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
                                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
       cur_call_tib <- sset2calls(sset=cur_sset, workflow=cur_workflow, 
-                                 as.enframe=TRUE,
+                                 as.enframe=FALSE,
                                  percisionBeta=opt$percisionBeta, 
                                  percisionPval=opt$percisionPval, 
                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
