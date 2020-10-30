@@ -211,7 +211,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
                                percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
-    cat("Running: callToSSheet\n\n:")
     if (retData) {
       ret$raw_sset <- raw_sset
       ret$raw_sset_tib <- raw_sset_tib

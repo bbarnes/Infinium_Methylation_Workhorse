@@ -205,7 +205,7 @@ sigsSumToSSheet2 = function(tib, metric='avg',
   pt_tib <- tib %>% split(.$Probe_Type)
   
   tib_names <- pt_tib %>% names()
-  core_pts <- c('cg', 'ch', 'rs')
+  core_pts <- c('cg', 'ch', 'rs', 'rp', 'mu')
   
   ss_tib <- NULL
   for (pt in tib_names) {
