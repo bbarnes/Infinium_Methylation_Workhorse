@@ -846,9 +846,10 @@ ssetToPvalTib = function(sset, method, name, percision=0,
   dat
 }
 
-ssetToBetaTib = function(sset, name, quality.mask=FALSE, nondetection.mask=FALSE, 
-                         mask.use.tcga=FALSE, pval.threshold=1, sum.TypeI=FALSE,
-                         as.enframe=FALSE, percision=0,
+ssetToBetaTib = function(sset, name, quality.mask=FALSE, 
+                         nondetection.mask=FALSE, mask.use.tcga=FALSE, 
+                         pval.method="pOOBAH", pval.threshold=1, 
+                         sum.TypeI=FALSE, as.enframe=FALSE, percision=0,
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'ssetToBetaTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -869,9 +870,16 @@ ssetToBetaTib = function(sset, name, quality.mask=FALSE, nondetection.mask=FALSE
   stime <- system.time({
     dat <- sesame::getBetas(sset=sset, quality.mask=quality.mask,
                             nondetection.mask=nondetection.mask, 
+                            correct.switch=TRUE,
                             mask.use.tcga=mask.use.tcga, 
+                            pval.method=pval.method,
                             pval.threshold=pval.threshold,
                             sum.TypeI=sum.TypeI)
+    
+    # sset, quality.mask = TRUE, nondetection.mask = TRUE, 
+    # correct.switch = TRUE, mask.use.tcga = FALSE, pval.threshold = 0.05, 
+    # pval.method = NULL, sum.TypeI = FALSE
+    
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} dat={RET}"))
     if (verbose>=vt+4) print(dat)
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
