@@ -34,7 +34,7 @@ joinSsetTibInfI = function(tib,
   tib_spl <- NULL
   tib_grn <- NULL
   tib_red <- NULL
-
+  
   stime <- system.time({
     tib_spl <- tib %>% dplyr::filter(Probe_Design != 'II') %>% split(.$Probe_Design)
     
@@ -49,7 +49,7 @@ joinSsetTibInfI = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
-
+  
   ret_tib
 }
 
@@ -482,13 +482,13 @@ callToSSheet = function(call, idx, key, pre=NULL, minNegPval, minOobPval,
   
   tib <- NULL
   stime <- system.time({
-
+    
     id <- id %>% rlang::sym()
     if (onlyCG) call <- call %>% dplyr::filter(stringr::str_starts(!!id, 'cg'))
     
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} call={RET}"))
     if (verbose>=vt+4) print(call)
-
+    
     beta_tib <- NULL
     beta_key_str <- paste('Beta',idx,'Method', sep=del)
     beta_val_str <- paste('Beta',idx,'Mean', sep=del)
@@ -509,7 +509,7 @@ callToSSheet = function(call, idx, key, pre=NULL, minNegPval, minOobPval,
                                  dplyr::summarise_all(list(pass_perc=cntPer_lte), min=minNegPval) %>%
                                  dplyr::pull() %>% round(percisionPval) )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} negs_key_str={negs_key_str}, negs_val_str={negs_val_str}.{RET}"))
-
+    
     poob_tib <- NULL
     poob_key_str <- paste('Poob_Pass',idx,'Method', sep=del)
     poob_val_str <- paste('Poob_Pass',idx,'Perc', sep=del)
@@ -580,17 +580,17 @@ ssetToPredict = function(sset, idx, key, pre=NULL, del='_',
     
     beta <- sesame::getBetas(sset, quality.mask=quality.mask, nondetection.mask=nondetection.mask, 
                              mask.use.tcga=mask.use.tcga, pval.threshold=pval.threshold, sum.TypeI=sum.TypeI)
-
+    
     skn_tib <- NULL
     inf_key <- paste('SkinAge',idx,'Method', sep=del) %>% rlang::sym()
     inf_val <- paste('SkinAge',idx,'Score', sep=del) %>% rlang::sym()
     skn_tib <- tibble::tibble(!!inf_key := key, !!inf_val := safeSkinAge(beta, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) )
-
+    
     phn_tib <- NULL
     inf_key <- paste('PhenoAge',idx,'Method', sep=del) %>% rlang::sym()
     inf_val <- paste('PhenoAge',idx,'Score', sep=del) %>% rlang::sym()
     phn_tib <- tibble::tibble(!!inf_key := key, !!inf_val := safePhenoAge(beta, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) )
-
+    
     tib <- dplyr::bind_cols(pre, skn_tib, phn_tib)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -869,12 +869,12 @@ ssetToBetaTib = function(sset, name, quality.mask=FALSE,
   
   stime <- system.time({
     dat <- sesame::getBetas(sset=sset, quality.mask=quality.mask,
-                            nondetection.mask=nondetection.mask, 
-                            correct.switch=TRUE,
-                            mask.use.tcga=mask.use.tcga, 
-                            pval.method=pval.method,
-                            pval.threshold=pval.threshold,
-                            sum.TypeI=sum.TypeI)
+                            nondetection.mask=nondetection.mask)
+                            # correct.switch=TRUE,
+                            # mask.use.tcga=mask.use.tcga, 
+                            # pval.method=pval.method,
+                            # pval.threshold=pval.threshold,
+                            # sum.TypeI=sum.TypeI)
     
     # sset, quality.mask = TRUE, nondetection.mask = TRUE, 
     # correct.switch = TRUE, mask.use.tcga = FALSE, pval.threshold = 0.05, 
@@ -1056,16 +1056,16 @@ sesameStepAbbreviation = function(x, verbose=0,vt=3,tc=1,tt=NULL) {
   return('U')
 }
 
-sesameWorkflow = function(sset=NULL, add, call, sigs, swap, pheno, beadPool=NULL,
-                          prefix=NULL, platform=NULL, manifest=NULL, # This is only used if sset is not present
-                          stepCalls=NULL,
-                          negsCalls=NULL,
-                          poobCalls=NULL,
-                          betaCalls=NULL, 
-                          intsCalls=NULL,
-                          swapCalls=NULL, 
-                          fenoCalls=NULL, 
-                          del='_', verbose=0,vt=3,tc=1,tt=NULL) {
+sesameWorkflow_OLD = function(sset=NULL, add, call, sigs, swap, pheno, beadPool=NULL,
+                              prefix=NULL, platform=NULL, manifest=NULL, # This is only used if sset is not present
+                              stepCalls=NULL,
+                              negsCalls=NULL,
+                              poobCalls=NULL,
+                              betaCalls=NULL, 
+                              intsCalls=NULL,
+                              swapCalls=NULL, 
+                              fenoCalls=NULL, 
+                              del='_', verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'sesameWorkflow'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -1111,7 +1111,8 @@ sesameWorkflow = function(sset=NULL, add, call, sigs, swap, pheno, beadPool=NULL
       beta <- NULL
       if (!is.null(betaCalls) && !is.null(betaCalls[ii]) && betaCalls[ii]==TRUE) {
         babr <- paste(sabr,'beta', sep=del)
-        beta <- ssetToBetaTib(sset=sset, name=babr, as.enframe=FALSE, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        beta <- ssetToBetaTib(sset=sset, name=babr, as.enframe=FALSE, 
+                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         call <- call %>% dplyr::left_join(tibble::enframe(beta, name='Probe_ID', value=babr), by="Probe_ID")
       }
       
@@ -1159,7 +1160,8 @@ sesameWorkflow = function(sset=NULL, add, call, sigs, swap, pheno, beadPool=NULL
         
         # fabr <- paste(sabr,'pheno', sep=del)
         fabr <- sabr
-        if (is.null(beta)) beta <- ssetToBetaTib(sset=sset, name=fabr, as.enframe=FALSE, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        if (is.null(beta)) beta <- 
+          ssetToBetaTib(sset=sset, name=fabr, as.enframe=FALSE, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         
         gct_str  <- paste('gct',fabr, sep=del)
         age_str  <- paste('agePheno',fabr, sep=del)
