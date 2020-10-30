@@ -851,9 +851,24 @@ ssetToBetaTib = function(sset, name, quality.mask=FALSE, nondetection.mask=FALSE
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} name={name}.{RET}"))
+  
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}      quality.mask={quality.mask}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} nondetection.mask={nondetection.mask}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}     mask.use.tcga={mask.use.tcga}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}    pval.threshold={pval.threshold}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}         sum.TypeI={sum.TypeI}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}        as.enframe={as.enframe}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}         percision={percision}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}              sset={RET}"))
+  if (verbose>=vt+4) print(sset)
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
+  
   stime <- system.time({
-    dat <- sesame::getBetas(sset, quality.mask=quality.mask, nondetection.mask=nondetection.mask, 
-                            mask.use.tcga=mask.use.tcga, pval.threshold=pval.threshold, sum.TypeI=sum.TypeI)
+    dat <- sesame::getBetas(sset=sset, quality.mask=quality.mask,
+                            nondetection.mask=nondetection.mask, 
+                            mask.use.tcga=mask.use.tcga, 
+                            pval.threshold=pval.threshold,
+                            sum.TypeI=sum.TypeI)
     if (percision!=0) dat <- round(dat, percision)
     if (as.enframe) dat <- dat %>% tibble::enframe(name='Probe_ID', value=name)
   })
