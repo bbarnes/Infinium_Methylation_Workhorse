@@ -126,6 +126,11 @@ opt$dpi <- 120
 opt$plotMax <- 10000
 opt$plotSub <- 5000
 
+opt$opt_csv  <- NULL
+opt$par_csv  <- NULL
+opt$time_csv <- NULL
+opt$time_org_txt <- NULL
+
 # verbose Options::
 opt$verbose <- 3
 
@@ -381,6 +386,14 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--plotSub"), type="double", default=opt$plotSub, 
                 help="Sub Sample Display Count for Plotting [default= %default]", metavar="double"),
     
+    make_option(c("--opt_csv"), type="character", default=opt$opt_csv, 
+                help="Unused variable opt_csv [default= %default]", metavar="character"),
+    make_option(c("--par_csv"), type="character", default=opt$par_csv, 
+                help="Unused variable par_csv [default= %default]", metavar="character"),
+    make_option(c("--time_csv"), type="character", default=opt$time_csv, 
+                help="Unused variable time_csv [default= %default]", metavar="character"),
+    make_option(c("--time_org_txt"), type="character", default=opt$time_org_txt, 
+                help="Unused variable time_org_txt [default= %default]", metavar="character"),
     # verbose::
     make_option(c("-v", "--verbose"), type="integer", default=opt$verbose, 
                 help="0-5 (5 is very verbose) [default= %default]", metavar="integer")
@@ -537,36 +550,19 @@ if (opt$cluster) {
     par$funcTag <- 'sesamizeSingleSample-Parallel'
     par$retData <- FALSE
     
-    cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
-
-    cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: chipPrefixes={RET}"))
-    print(chipPrefixes)
+    cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; ",
+                   "num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
+    # cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: chipPrefixes={RET}"))
+    # print(chipPrefixes)
     
     # chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
+      rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=2)
-      # rdat <- NULL
-      # try_str <- ''
-      # rdat = tryCatch({
-      #   try_str <- 'Pass'
-      #   sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-      #                        retData=par$retData, workflows=workflows_vec, tc=3)
-      # }, warning = function(w) {
-      #   try_str <- paste('warning',par$funcTag, sep='-')
-      #   rdat <- NA
-      # }, error = function(e) {
-      #   try_str <- paste('error',par$funcTag, sep='-')
-      #   rdat <- NA
-      # }, finally = {
-      #   try_str <- paste('cleanup',par$funcTag, sep='-')
-      #   rdat <- NA
-      # })
-      # cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
-      
       rdat
     }
-    
+    cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   } else {
     par$funcTag <- 'sesamizeSingleSample-Linear'
     
@@ -582,64 +578,9 @@ if (opt$cluster) {
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=2)
       
-      if (FALSE) {
-        sset <- sesame::readIDATpair(rdat$prefix, platform=rdat$platform, manifest=rdat$sman)
-        
-        
-        raw_sset_rds <- paste(opt$outDir, 'raw-sset.rds', sep=del)
-        raw_sset <- initSesameRaw(prefix=rdat$prefix, platform=rdat$platform, manifest=rdat$sman,
-                      load=opt$loadSsets, save=opt$saveRawSset, rds=raw_sset_rds,
-                      verbose=opt$verbose)
-      }
-      
-      
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
     }
-    
-    #   next
-    #   
-    #   if (FALSE) {
-    #     rdat <- NULL
-    #     rdat = tryCatch({
-    #       try_str <- 'Pass'
-    #       sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-    #                            retData=par$retData, workflows=workflows_vec, tc=3)
-    #     }, warning = function(w) {
-    #       try_str <- paste('warning',par$funcTag, sep='-')
-    #       rdat <- NA
-    #     }, error = function(e) {
-    #       try_str <- paste('error',par$funcTag, sep='-')
-    #       rdat <- NA
-    #     }, finally = {
-    #       try_str <- paste('cleanup',par$funcTag, sep='-')
-    #       rdat <- NA
-    #     })
-    #     cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
-    #     
-    #     if (opt$single) break
-    #   }
-    # }
-    # 
-    # if (FALSE) {
-    #   rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-    #                                retData=par$retData, workflows=workflows_vec)
-    # 
-    #   
-    #   callSUM_tib <- callToSSheet(rdat$raw_call_tib, idx=0, key='raw', pre=NULL, minNegPval=opt$minNegPval, minOobPval=opt$minOobPval, 
-    #                               percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
-    #                               verbose=opt$verbose+30)
-    #   
-    #   
-    #   rawSSET <- rdat$raw_sset
-    #   raw_sset_tib <- sset2tib(rawSSET, by="Probe_ID", des="Probe_Design",  
-    #                            percision=opt$percisionSigs, sort=FALSE, save=opt$writeSsetRaw, csv=raw_sset_csv, 
-    #                            verbose=opt$verbose+30)
-    #   raw_call_tib <- sset2calls(sset=rawSSET, workflow='raw', percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
-    #                              verbose=opt$verbose+30)
-    #   
-    # }
-    
     cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   }
   

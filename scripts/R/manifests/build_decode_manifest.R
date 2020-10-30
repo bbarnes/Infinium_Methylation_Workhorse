@@ -109,6 +109,11 @@ opt$single   <- FALSE
 opt$parallel <- TRUE
 opt$cluster  <- FALSE
 
+opt$opt_csv  <- NULL
+opt$par_csv  <- NULL
+opt$time_csv <- NULL
+opt$time_org_txt <- NULL
+
 # verbose Options::
 opt$verbose <- 3
 
@@ -491,6 +496,15 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--cluster"), action="store_true", default=opt$cluster,
                 help="Boolean variable to run jobs on cluster by chip [default= %default]", metavar="boolean"),
     
+    make_option(c("--opt_csv"), type="character", default=opt$opt_csv, 
+                help="Unused variable opt_csv [default= %default]", metavar="character"),
+    make_option(c("--par_csv"), type="character", default=opt$par_csv, 
+                help="Unused variable par_csv [default= %default]", metavar="character"),
+    make_option(c("--time_csv"), type="character", default=opt$time_csv, 
+                help="Unused variable time_csv [default= %default]", metavar="character"),
+    make_option(c("--time_org_txt"), type="character", default=opt$time_org_txt, 
+                help="Unused variable time_org_txt [default= %default]", metavar="character"),
+    
     # verbose::
     make_option(c("-v", "--verbose"), type="integer", default=opt$verbose, 
                 help="0-5 (5 is very verbose) [default= %default]", metavar="integer")
@@ -619,7 +633,7 @@ man_raw_tib <- decodeAqpPqcWrapper(
   matFormat=opt$matFormat,matSkip=opt$matSkip,
   aqpSkip=opt$aqpSkip,
   pqcSkip=opt$pqcSkip,
-  name=opt$runName,outDir=opt$manDir,origin=opt$org_txt,
+  name=opt$runName,outDir=opt$manDir,origin=opt$time_org_txt,
   fresh=opt$fresh,fixIds=opt$fixIds,full=par$retData,trim=TRUE,
   verbose=opt$verbose,vt=1,tc=0,tt=pTracker) %>%
   dplyr::mutate(
