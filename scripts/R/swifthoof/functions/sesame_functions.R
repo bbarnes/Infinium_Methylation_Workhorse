@@ -349,7 +349,8 @@ sset2tib = function(sset, man=NULL, by="Probe_ID", type="Probe_Type", des="Probe
   tib
 }
 
-sset2calls = function(sset, workflow, percisionBeta=0, percisionPval=0,
+sset2calls = function(sset, workflow, as.enframe=FALSE,
+                      percisionBeta=0, percisionPval=0,
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'sset2calls'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -362,7 +363,9 @@ sset2calls = function(sset, workflow, percisionBeta=0, percisionPval=0,
     #
     name <- paste(workflow,'beta', sep='_')
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Settting name={name}...{RET}"))
-    beta <- ssetToBetaTib(sset=sset, name=name, as.enframe=FALSE, percision=percisionBeta, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    beta <- ssetToBetaTib(sset=sset, name=name, as.enframe=as.enframe,
+                          percision=percisionBeta, 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     tib <- tibble::enframe(beta, name='Probe_ID', value=name)
     if (verbose>=vt+4) print(tib)
     
@@ -869,6 +872,10 @@ ssetToBetaTib = function(sset, name, quality.mask=FALSE, nondetection.mask=FALSE
                             mask.use.tcga=mask.use.tcga, 
                             pval.threshold=pval.threshold,
                             sum.TypeI=sum.TypeI)
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} dat={RET}"))
+    if (verbose>=vt+4) print(dat)
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
+    
     if (percision!=0) dat <- round(dat, percision)
     if (as.enframe) dat <- dat %>% tibble::enframe(name='Probe_ID', value=name)
   })

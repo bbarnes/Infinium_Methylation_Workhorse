@@ -195,10 +195,10 @@ if (args.dat[1]=='RStudio') {
   
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
-  par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'COVID'
   par$local_runType <- 'GRCm38'
+  par$local_runType <- 'qcMVP'
   
   if (par$local_runType=='COVID') {
     par$expRunStr  <- 'COVID-Direct-Set1'
@@ -218,6 +218,7 @@ if (args.dat[1]=='RStudio') {
     opt$autoDetect <- FALSE
   } else if (par$local_runType=='qcMVP') {
     par$expRunStr  <- 'CNTL-Samples_VendA_10092020'
+    par$expRunStr  <- 'CNTL-Samples_VendA_10092020_test'
     opt$autoDetect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='CORE') {

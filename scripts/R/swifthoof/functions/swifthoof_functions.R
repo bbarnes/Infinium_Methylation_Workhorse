@@ -207,7 +207,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
                                save=opt$writeSsetRaw, csv=raw_sset_csv, 
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     }
-    raw_call_tib <- sset2calls(sset=raw_sset, workflow='raw', 
+    raw_call_tib <- sset2calls(sset=raw_sset, workflow='raw', as.enframe=TRUE,
                                percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval,
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
@@ -267,27 +267,44 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       stopifnot(!is.null(cur_sset))
       
       cur_sset_tib <- sset2tib(sset=cur_sset, by="Probe_ID", des="Probe_Design",  
-                               percision=opt$percisionSigs, sort=FALSE, save=opt$writeSset, csv=cur_sset_csv, 
+                               percision=opt$percisionSigs, sort=FALSE, 
+                               save=opt$writeSset, csv=cur_sset_csv, 
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
-      sset_dat_tib <- sigTibToSSheet(sigs=cur_sset_tib, man=ses_man_tib, save=opt$writeSsum, csv=cur_ssum_csv, 
+      sset_dat_tib <- sigTibToSSheet(sigs=cur_sset_tib, man=ses_man_tib, 
+                                     save=opt$writeSsum, csv=cur_ssum_csv, 
                                      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-      sset_sum_tib <- sigsSumToSSheet2(tib=sset_dat_tib, metric='avg', verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      sset_sum_tib <- sigsSumToSSheet2(tib=sset_dat_tib, metric='avg', 
+                                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
-      cur_call_tib <- sset2calls(sset=cur_sset, workflow=cur_workflow, percisionBeta=opt$percisionBeta, 
-                                 percisionPval=opt$percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-      call_sum_tib <- callToSSheet(call=cur_call_tib, idx=ww, key=cur_workflow, pre=call_sum_tib, 
-                                   minNegPval=opt$minNegPval, minOobPval=opt$minOobPval, 
-                                   percisionBeta=opt$percisionBeta, percisionPval=opt$percisionPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-      phen_sum_tib <- ssetToInferences(sset=cur_sset, idx=ww, key=cur_workflow, pre=phen_sum_tib,    verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-      phen_sum_tib <- ssetToPredict(sset=cur_sset, idx=ww, key=cur_workflow, pre=phen_sum_tib,       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      cur_call_tib <- sset2calls(sset=cur_sset, workflow=cur_workflow, 
+                                 as.enframe=TRUE,
+                                 percisionBeta=opt$percisionBeta, 
+                                 percisionPval=opt$percisionPval, 
+                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      call_sum_tib <- callToSSheet(call=cur_call_tib, idx=ww, 
+                                   key=cur_workflow, pre=call_sum_tib, 
+                                   minNegPval=opt$minNegPval, 
+                                   minOobPval=opt$minOobPval, 
+                                   percisionBeta=opt$percisionBeta, 
+                                   percisionPval=opt$percisionPval, 
+                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      phen_sum_tib <- ssetToInferences(sset=cur_sset, idx=ww, key=cur_workflow, 
+                                       pre=phen_sum_tib,    
+                                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      phen_sum_tib <- ssetToPredict(sset=cur_sset, idx=ww, key=cur_workflow, 
+                                    pre=phen_sum_tib,       
+                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
-      all_call_tib <- joinTibbles(all_call_tib, cur_call_tib, by='Probe_ID', side='full')
+      all_call_tib <- joinTibbles(all_call_tib, cur_call_tib, 
+                                  by='Probe_ID', side='full')
       
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Done. cur_workflow={cur_workflow}...{RET}{RET}"))
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Done. ",
+                                      "cur_workflow={cur_workflow}...{RET}{RET}"))
     }
     ssheet_ncols <- ssheet_tib %>% base::ncol()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Building Workflows={workflow_cnt}, ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Building Workflows={workflow_cnt}, ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     if (verbose>=vt+4) print(all_call_tib)
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -295,7 +312,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(phen_sum_tib)
     ssheet_ncols <- ssheet_tib %>% base::ncol()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with Phenotype) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with Phenotype) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Add Summarize Call Stats (p-vales/beta values)::
@@ -306,14 +324,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       dplyr::bind_cols(call_sum_tib)
     
     ssheet_ncols <- ssheet_tib %>% base::ncol()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with summary p-value/beta-value) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with summary p-value/beta-value) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Add Swapped Summary Percentages::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     if (!is.null(raw_sset_tib) & !is.null(cur_sset_tib)) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Inferred Sample Swapped Stats.{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Inferred Sample Swapped Stats.{RET}"))
       
       swap_sum_tib <- NULL
       swap_sum_tib <- dplyr::inner_join(joinSsetTibInfI(tib=raw_sset_tib), 
@@ -335,14 +355,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(swap_sum_tib)
       
       ssheet_ncols <- ssheet_tib %>% base::ncol()
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with channel-swap-stats) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with channel-swap-stats) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     }
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                             Auto-Detect Sample::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     if (opt$autoDetect) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detecting Auto-Sample-Sheet: [SampleName, rsquared,deltaBeta].{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detecting Auto-Sample-Sheet: [SampleName, rsquared,deltaBeta].{RET}"))
       
       # Prep all_call_tib to match previous format::
       #  Probe_ID       M        U DESIGN COLOR_CHANNEL col   Probe_Type Probe_Source Next_Base
@@ -365,7 +387,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(auto_data)
       
       ssheet_ncols <- ssheet_tib %>% base::ncol()
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with auto-detect-sample) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with auto-detect-sample) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     }
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -374,7 +397,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(sset_sum_tib)
     
     ssheet_ncols <- ssheet_tib %>% base::ncol()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with intensity-summary) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with intensity-summary) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                             Add Requeue Flags::
@@ -389,7 +413,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       dplyr::select(Requeue_Flag_Oob, Requeue_Flag_Neg, Requeue_Pass_Perc_Oob, Requeue_Pass_Perc_Neg, everything())
     
     ssheet_ncols <- ssheet_tib %>% base::ncol()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with sample-requeue) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with sample-requeue) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                       Add Sentrix Names to Calls Files::
@@ -415,7 +440,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                               Write Outputs::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Outputs: [call,sigs,signalSummary,sampleSheet,time].{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Outputs: [call,sigs,signalSummary,sampleSheet,time].{RET}"))
     
     # Arrange the Sample Sheet Columns
     ssheet_tib <- ssheet_tib %>% dplyr::select(-starts_with('Iscan_'), starts_with('Iscan_')) %>% dplyr::mutate_if(is.numeric, list(round), 4)
