@@ -363,7 +363,8 @@ sset2calls = function(sset, workflow, as.enframe=FALSE,
     #
     name <- paste(workflow,'beta', sep='_')
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Settting name={name}...{RET}"))
-    beta <- ssetToBetaTib(sset=sset, name=name, as.enframe=as.enframe,
+    beta <- ssetToBetaTib(sset=sset, name=name, 
+                          as.enframe=as.enframe,
                           percision=percisionBeta, 
                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     tib <- tibble::enframe(beta, name='Probe_ID', value=name)
@@ -868,8 +869,11 @@ ssetToBetaTib = function(sset, name, quality.mask=FALSE,
   if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
   
   stime <- system.time({
-    dat <- sesame::getBetas(sset=sset, quality.mask=quality.mask,
-                            nondetection.mask=nondetection.mask)
+    dat <- sesame::getBetas(sset=sset, 
+                            mask=quality.mask,
+                            sum.TypeI=sum.TypeI)
+                            # quality.mask=quality.mask,
+                            # nondetection.mask=nondetection.mask)
                             # correct.switch=TRUE,
                             # mask.use.tcga=mask.use.tcga, 
                             # pval.method=pval.method,
@@ -1055,158 +1059,6 @@ sesameStepAbbreviation = function(x, verbose=0,vt=3,tc=1,tt=NULL) {
   
   return('U')
 }
-
-sesameWorkflow_OLD = function(sset=NULL, add, call, sigs, swap, pheno, beadPool=NULL,
-                              prefix=NULL, platform=NULL, manifest=NULL, # This is only used if sset is not present
-                              stepCalls=NULL,
-                              negsCalls=NULL,
-                              poobCalls=NULL,
-                              betaCalls=NULL, 
-                              intsCalls=NULL,
-                              swapCalls=NULL, 
-                              fenoCalls=NULL, 
-                              del='_', verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'sesameWorkflow'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  stime <- system.time({
-    
-    if (is.null(sset)) {
-      stopifnot(is.null(prefix))
-      stopifnot(is.null(platform))
-      stopifnot(is.null(manifest))
-      sset <- initSesameRaw(prefix=prefix, platform=platform, manifest=manifest,
-                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    }
-    
-    sabr <- ''
-    step_cnt <- length(stepCalls)
-    for (ii in seq(1:step_cnt)) {
-      step <- stepCalls[ii]
-      sabr <- paste0(sabr, sesameStepAbbreviation(step) )
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} step={step}, sabr={sabr}.{RET}"))
-      sset <- sset %>% mutateSesame(method=step, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      if (verbose>=vt+4) print(sset)
-      
-      # Make Negative Detection-Pval Call::
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting pval.{RET}"))
-      
-      if (!is.null(negsCalls) && !is.null(negsCalls[ii]) && negsCalls[ii]==TRUE) {
-        nabr <- paste(sabr,'negs_pval', sep=del)
-        call <- call %>% dplyr::left_join(
-          sset %>% mutateSesame(method='detectionPnegEcdf', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-            ssetToPvalTib(name=nabr, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt), by="Probe_ID")
-      }
-      # Make Poob Detection-Pval Call::
-      if (!is.null(poobCalls) && !is.null(poobCalls[ii]) && poobCalls[ii]==TRUE) {
-        pabr <- paste(sabr,'poob_pval', sep=del)
-        call <- call %>% dplyr::left_join(
-          sset %>% mutateSesame(method='pOOBAH', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-            ssetToPvalTib(name=pabr, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt), by="Probe_ID")
-      }
-      
-      # Make Beta Call::
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting beta.{RET}"))
-      beta <- NULL
-      if (!is.null(betaCalls) && !is.null(betaCalls[ii]) && betaCalls[ii]==TRUE) {
-        babr <- paste(sabr,'beta', sep=del)
-        beta <- ssetToBetaTib(sset=sset, name=babr, as.enframe=FALSE, 
-                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        call <- call %>% dplyr::left_join(tibble::enframe(beta, name='Probe_ID', value=babr), by="Probe_ID")
-      }
-      
-      # Make Signal Intesnisty Table::
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting signal{RET}"))
-      cur_sigs <- NULL
-      if (!is.null(intsCalls) && !is.null(intsCalls[ii]) && intsCalls[ii]==TRUE) {
-        # iabr <- paste(sabr,'sigs', sep=del)
-        iabr <- sabr
-        cur_sigs <- ssetToSigsTib(sset=sset, add=add, name=iabr, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        
-        sigs <- sigs %>% dplyr::left_join(cur_sigs, by=c("Probe_ID", "Man_Col", "Design_Type", "Probe_Type") )
-      }
-      
-      # Record Swapping Changes::
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting swapping.{RET}"))
-      if (!is.null(intsCalls) && !is.null(intsCalls[ii]) && intsCalls[ii]==TRUE) {
-        # wabr <- paste(sabr,'swap', sep=del)
-        wabr <- sabr
-        
-        # Need to make the signal call before if it wasn't already called::
-        if (is.null(cur_sigs))
-          cur_sigs <- ssetToSigsTib(sset=sset, add=add, name=iabr, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        
-        if (verbose>=vt+4) cat(glue::glue("{RET}{RET}CURRENT SIGS({wabr}){RET}"))
-        if (verbose>=vt+4) print(cur_sigs)
-        
-        # TBD:: Fix the directly indexed field[5] below...
-        cur_swap <- cur_sigs %>% dplyr::filter(Design_Type!='II') %>% 
-          dplyr::filter(.[5]==TRUE) %>% dplyr::select(Probe_ID, Man_Col, Probe_Type, 5)
-        
-        if (verbose>=vt+4) cat(glue::glue("{RET}{RET}CURRENT SWAPS({wabr}){RET}"))
-        if (verbose>=vt+4) print(cur_swap)
-        if (is.null(swap)) {
-          swap <- cur_swap
-        } else {
-          swap <- swap %>% dplyr::full_join(cur_swap, by=c("Probe_ID", "Man_Col", "Probe_Type")) %>% dplyr::distinct()
-        }
-      }
-      
-      # Make Sesame Inferred Phenotype Calls::
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Inferred Phenotype calls.{RET}"))
-      if (!is.null(fenoCalls) && !is.null(fenoCalls[ii]) && fenoCalls[ii]==TRUE) {
-        if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Calculating Pheno Type Predictions(beadPool={beadPool}).{RET}"))
-        
-        # fabr <- paste(sabr,'pheno', sep=del)
-        fabr <- sabr
-        if (is.null(beta)) beta <- 
-          ssetToBetaTib(sset=sset, name=fabr, as.enframe=FALSE, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        
-        gct_str  <- paste('gct',fabr, sep=del)
-        age_str  <- paste('agePheno',fabr, sep=del)
-        skin_str <- paste('ageSkin',fabr, sep=del)
-        sex_str  <- paste('sex',fabr, sep=del)
-        sexKaryo_str  <- paste('sexKaryo',fabr, sep=del)
-        ethnicity_str <- paste('ethnicity',fabr, sep=del)
-        
-        if (!is.null(beadPool) && beadPool=='EPIC') {
-          gct  <- safeGCT(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-          age  <- safePhenoAge(beta, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-          skin <- safeSkinAge(beta, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-          sex  <- safeSex(sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-          sexKaryo  <- safeSexKaryo(sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-          ethnicity <- safeEthnicity(sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        } else {
-          gct  <- NA
-          age  <- NA
-          skin <- NA
-          sex  <- NA
-          sexKaryo  <- NA
-          ethnicity <- NA
-        }
-        
-        phen_tib <- tibble::tibble(!!gct_str  := gct,
-                                   !!age_str  := age,
-                                   !!skin_str := skin,
-                                   !!sex_str  := sex,
-                                   !!sexKaryo_str  := sexKaryo,
-                                   !!ethnicity_str := ethnicity
-        )
-        
-        pheno <- pheno %>% dplyr::bind_cols(phen_tib)
-      }
-    }
-    
-  })
-  nrows <- call %>% base::nrow()
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. nrows={nrows}, elapsed={etime}.{RET}{RET}"))
-  
-  list(call, sigs, swap, pheno, sset)
-}
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     SSET to BeadSET Conversion Methods::
