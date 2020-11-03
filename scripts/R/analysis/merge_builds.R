@@ -51,7 +51,6 @@ par$prgmDir <- 'analysis'
 par$prgmTag <- 'merge_builds'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
-
 # Predefined human sample sheet name::
 par$humanSampleSheetName <- 'humanSampleSheet.csv'
 
@@ -74,6 +73,7 @@ opt$classVar <- 'Sample_Name'
 opt$classVar <- 'Sample_Class'
 
 opt$select <- FALSE
+opt$clean_gta <- FALSE
 
 # Sample Sheet Parameters::
 opt$addSampleName    <- FALSE
@@ -186,8 +186,8 @@ if (args.dat[1]=='RStudio') {
   opt$featuresDml <- NULL
   
   opt$classVar <- 'Sample_Class'
-  par$platform <- 'EPIC'
-  par$version  <- 'B4'
+  opt$platform <- 'EPIC'
+  opt$version  <- 'B4'
   
   opt$clean <- FALSE
   opt$clean <- TRUE
@@ -200,11 +200,65 @@ if (args.dat[1]=='RStudio') {
   #
   # Pre-defined local options runTypes::
   #
-  par$local_runType <- 'covic'
-  par$local_runType <- 'mm10'
-  par$local_runType <- 'ctl_mvp'
+  par$local_runType <- 'qcMVP'
+  par$local_runType <- 'CORE'
+  par$local_runType <- 'EXCBR'
+  par$local_runType <- 'NZT'
+  par$local_runType <- 'COVIC'
+  par$local_runType <- 'GENK'
+  par$local_runType <- 'COVID'
+  par$local_runType <- 'GRCm38'
   
-  if (par$local_runType=='mm10') {
+  if (par$local_runType=='COVID') {
+    
+    opt$flagDetectPval   <- FALSE
+    opt$flagSampleDetect <- FALSE
+    opt$flagRefMatch     <- FALSE
+    
+    opt$pvalDetectMinKey <- NULL
+    opt$pvalDetectMinVal <- NULL
+    
+    opt$clean_gta <- TRUE
+    
+    opt$sampleCsv <- 
+      file.path(par$topDir,'data/CustomContent/COVID-19_HLA/data/directDetection/COVID_Direct/mappings/Chip_Result_Mapping.Sample_Class.csv.gz')
+    
+    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+    # opt$trainClass <- paste('NEGATIVE', 'POSTIVE', sep=',')
+    
+    opt$runName  <- 'COVID-Direct-Set1'
+    opt$classVar <- 'Sample_Class'
+    opt$platform <- 'COVID'
+    opt$version  <- 'C1'
+    
+    opt$buildDir <- paste(
+      file.path(par$topDir, 'scratch/COVID_All/swifthoof_main',opt$runName),
+      sep=',')
+    
+  } else if (par$local_runType=='COVIC') {
+    opt$runName  <- 'COVIC-Set7-06082020'
+    opt$runName  <- 'COVIC-Set5-10062020'
+    opt$runName  <- 'COVIC-Set1-15052020'
+    
+    opt$version  <- 'C0'
+    
+    opt$buildDir <- paste(
+      file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameA),
+      file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameB),
+      file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameC),
+      sep=',')
+    
+    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
+    
+    # Loci (Feature) Selection Parameters::
+    #
+    # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
+    #                           file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
+    #                           file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
+    #                           sep=',')
+    # opt$featuresDml <- "100"
+    
+  } else if (par$local_runType=='GRCm38') {
     par$runNameA  <- 'ILMN_mm10_betaTest_17082020'
     par$runNameB  <- 'VanAndel_mm10_betaTest_31082020'
     par$runNameC  <- 'MURMETVEP_mm10_betaTest_06082020'
@@ -212,9 +266,9 @@ if (args.dat[1]=='RStudio') {
     opt$runName   <- 'mm10_controls'
     
     opt$buildDir  <- paste(
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameA),
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameB),
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameC),
+      file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameA),
+      file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameB),
+      file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameC),
       sep=',')
     
     opt$classVar <- 'Sample_Name'
@@ -235,30 +289,7 @@ if (args.dat[1]=='RStudio') {
       file.path(par$topDir,'scratch/merge_builds/LEGX/S1/Sample_Name',opt$runName),
       sep=',')
     
-  } else if (par$local_runType=='covic') {
-    opt$runName  <- 'COVIC-Set7-06082020'
-    opt$runName  <- 'COVIC-Set5-10062020'
-    opt$runName  <- 'COVIC-Set1-15052020'
-    
-    par$version  <- 'C0'
-    
-    opt$buildDir <- paste(
-      file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameA),
-      file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameB),
-      file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameC),
-      sep=',')
-    
-    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
-    
-    # Loci (Feature) Selection Parameters::
-    #
-    # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
-    #                           file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
-    #                           file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
-    #                           sep=',')
-    # opt$featuresDml <- "100"
-    
-  } else if (par$local_runType=='ctl_mvp') {
+  } else if (par$local_runType=='qcMVP') {
     opt$classVar <- 'AutoSample_dB_Key'
     opt$platform <- 'EPIC'
     opt$version  <- 'B4'
@@ -292,7 +323,6 @@ if (args.dat[1]=='RStudio') {
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
-  
   opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
 
 } else {
@@ -360,6 +390,9 @@ if (args.dat[1]=='RStudio') {
                 help="Rounding percision for beta values in calls output files [default= %default]", metavar="integer"),
     make_option(c("--percisionPval"), type="integer", default=opt$percisionPval,
                 help="Rounding percision for detection p-values in calls output files [default= %default]", metavar="integer"),
+
+    make_option(c("--clean_gta"), action="store_true", default=opt$clean_gta, 
+                help="Boolean variable to remove Genotyping tails from Sentrix Names (mostly testing stuff) [default= %default]", metavar="boolean"),
     
     # Parallel/Cluster Parameters::
     make_option(c("--execute"), action="store_true", default=opt$execute, 
@@ -517,7 +550,6 @@ if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
 
 cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
-
 print(blds_dir_vec)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -541,11 +573,13 @@ for (curDir in blds_dir_vec) {
     hum_ss_tib <- dplyr::bind_rows(hum_ss_tib,cur_hm_tib)
   }
   
-  cur_ss_tib <- loadAutoSampleSheets(dir=curDir, platform=opt$platform, manifest=opt$version,
-                                     addSampleName=opt$addSampleName,  addPathsCall=opt$addPathsCall, addPathsSset=opt$addPathsSset,
-                                     flagDetectPval=opt$flagDetectPval, flagSampleDetect=opt$flagSampleDetect, flagRefMatch=opt$flagRefMatch,
-                                     pvalDetectMinKey=opt$pvalDetectMinKey, pvalDetectMinVal=opt$pvalDetectMinVal,
-                                     verbose=opt$verbose,tc=2,tt=NULL) %>% 
+  cur_ss_tib <- 
+    loadAutoSampleSheets(dir=curDir, platform=opt$platform, manifest=opt$version,
+                         addSampleName=opt$addSampleName, addPathsCall=opt$addPathsCall, addPathsSset=opt$addPathsSset,
+                         flagDetectPval=opt$flagDetectPval, flagSampleDetect=opt$flagSampleDetect, flagRefMatch=opt$flagRefMatch,
+                         pvalDetectMinKey=opt$pvalDetectMinKey, pvalDetectMinVal=opt$pvalDetectMinVal,
+                         clean_gta=opt$clean_gta,
+                         verbose=opt$verbose,vt=3,tc=1,tt=pTracker) %>% 
     dplyr::distinct(Sentrix_Name, .keep_all=TRUE) %>% 
     dplyr::mutate(build_source=base::basename(curDir))
   
@@ -563,9 +597,9 @@ cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len
 # print(auto_ss_tib)
 
 # Temp Output::
-va_ss_csv <- '/Users/bretbarnes/Documents/VA-MVP.AutoSampleSheet.csv.gz'
-va_ss_tib <- auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::select(Sentrix_Name,AutoSample_R2_Key,build_source, everything())
-readr::write_csv(va_ss_tib,va_ss_csv)
+# va_ss_csv <- '/Users/bretbarnes/Documents/VA-MVP.AutoSampleSheet.csv.gz'
+# va_ss_tib <- auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::select(Sentrix_Name,AutoSample_R2_Key,build_source, everything())
+# readr::write_csv(va_ss_tib,va_ss_csv)
 
 # auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key!=AutoSample_R2_Key) %>% dplyr::select(AutoSample_dB_Key,AutoSample_R2_Key,AutoSample_dB_Val,AutoSample_R2_Val,Poob_Pass_0_Perc)
 # auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::arrange(Poob_Pass_0_Perc)
@@ -591,7 +625,9 @@ if (! is.null(hum_ss_tib)) {
   
   cat(glue::glue("[{par$prgmTag}]: Loading predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}") )
   
-  hum_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(opt$sampleCsv) ))
+  hum_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(opt$sampleCsv) )) %>% 
+    dplyr::mutate(Sentrix_Name=paste(Sentrix_ID,Sentrix_Position, sep='_')) %>% 
+    dplyr::select(Sentrix_Name,Sample_Class, dplyr::everything())
   hum_ss_len <- hum_ss_tib %>% base::nrow()
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Human Classification; hum_ss_len={hum_ss_len}!{RET}{RET}") )
   # print(hum_ss_tib)

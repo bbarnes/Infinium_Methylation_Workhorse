@@ -20,10 +20,6 @@ BNG <- "|"
 #                          Docker improbe Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# image=par$docker_image
-# shell=par$docker_shell
-# file=snp_inp_fon
-# name=opt$genomeBuild
 improbe_docker = function(dir, file, name, image, shell, 
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'improbe_docker'

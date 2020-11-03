@@ -139,24 +139,27 @@ loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
 getIdatSignalTib = function(idat, channel, del='_', verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getIdatSignalTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; channel={channel}...{RET}"))
   
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     datTag   <- 'sig'
     meanName <- paste('Raw', channel,datTag, sep=del)
     sdName   <- paste('SD',  channel,datTag, sep=del)
     beadName <- paste('Bead',channel, sep=del)
     
-    tib <- idat$Quants %>% tibble::as_tibble(rownames="Address") %>%
+    new_cnames <- c('Address',meanName,sdName,beadName)
+    ret_tib <- idat$Quants %>% tibble::as_tibble(rownames="Address") %>%
       dplyr::mutate(Address=as.integer(Address)) %>%
-      purrr::set_names('Address',meanName,sdName,beadName)
-    tib_nrow <- base::nrow(tib)
+      purrr::set_names(new_cnames)
+    ret_cnt <- base::nrow(ret_tib)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
   
-  tib
+  ret_tib
 }
 
 getIdatBarcodeTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -187,11 +190,12 @@ getIdatFormatTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
   
   stime <- system.time({
     chipType <- idat$ChipType
-    if (chipType=='BeadChip 8x5') chipFormat         <- '8x1'
-    else if (chipType=='BeadChip 12x8') chipFormat   <- '12x1'
-    else if (chipType=='BeadChip 24x1x4') chipFormat <- '24x1'
-    else if (chipType=='BeadChip 24x1x2') chipFormat <- '24x1'
-    else if (chipType=='Beadchip 24x1x2') chipFormat <- '24x1'
+    if (chipType=='SLIDE.15028542.24X1X1') chipFormat <- '24x1'
+    else if (chipType=='BeadChip 8x5') chipFormat     <- '8x1'
+    else if (chipType=='BeadChip 12x8') chipFormat    <- '12x1'
+    else if (chipType=='BeadChip 24x1x4') chipFormat  <- '24x1'
+    else if (chipType=='BeadChip 24x1x2') chipFormat  <- '24x1'
+    else if (chipType=='Beadchip 24x1x2') chipFormat  <- '24x1'
     else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unrecognized ChipType={chipType}!{RET}{RET}"))
     tib <- tibble::tibble('Chip_Type'=chipType,'Chip_Format'=chipFormat)
   })

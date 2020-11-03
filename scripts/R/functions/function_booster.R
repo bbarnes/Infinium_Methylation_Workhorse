@@ -12,12 +12,320 @@ RET <- "\n"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Standard Function Template::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+template_func = function(tib,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'template_func'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                General Program Initialization Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+program_init = function(name,opts,opt_reqs=NULL,pars,par_reqs=NULL,
+                        libs=TRUE,rcpp=FALSE,
+                        verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'program_init'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                         Validate Required Options::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  if (!is.null(par_reqs)) {
+    pars <- check_list(list=pars, vals=par_reqs, name='params',
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  }
+  if (!is.null(opt_reqs)) {
+    opts <- check_list(list=opts, vals=opt_reqs, name='options',
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  }
+  
+  stopifnot(!is.null(opts[['outDir']]))
+  stopifnot(!is.null(pars[['prgmTag']]))
+  stopifnot(!is.null(pars[['exePath']]))
+  
+  if (!is.null(opt[['verbose']])) verbose <- opts$verbose
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                              Load Libraries::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  if (libs) {
+    opts <- load_libraries(opts=opts, pars=pars, rcpp=rcpp,
+                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  }
+  par_tib <- dplyr::bind_rows(pars) %>% tidyr::gather("Params", "Value")
+  opt_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
+  if (opts$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
+  if (opts$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                            Build Directories::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opts$outDir <- file.path(opts$outDir, par$prgmDir, name)
+  if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                         Program Start Time Stamp::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  opts$time_org_txt <- file.path(opts$outDir,paste(name,'time_stamp-org.txt', sep='.'))
+  if (!file.exists(opts$time_org_txt) || (!is.null(opts[['fresh']]) && opts$fresh) )
+    readr::write_lines(x=date(),file=opts$time_org_txt,sep='\n',append=FALSE)
+  
+  opts$opt_csv  <- file.path(opts$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )
+  opts$par_csv  <- file.path(opts$outDir, paste(par$prgmTag,'program-parameters.csv', sep='.') )
+  opts$time_csv <- file.path(opts$outDir, paste(par$prgmTag,'time-tracker.csv.gz', sep='.') )
+  
+  if (file.exists(opts$opt_csv))  unlink(opts$opt_csv)
+  if (file.exists(opts$par_csv))  unlink(opts$par_csv)
+  if (file.exists(opts$time_csv)) unlink(opts$time_csv)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                          Program Command Shell::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  pars$cmd_shell <- file.path(opts$outDir,paste(pars$prgmTag,name,'command.sh', sep='.'))
+  pars$cmd_shell <- 
+    optsToCommand(opts=opt_tib, pre=opt$Rscript,exe=pars$exePath, file=pars$cmd_shell, 
+                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  
+  ret_cnt <- names(opts) %>% length()
+  
+  # etime <- stime[3] %>% as.double() %>% round(2)
+  etime <- 0
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  opts
+}
+
+# program_done(name=)
+program_done = function(opts,pars,
+                        verbose=0,vt=3,tc=1,tt) {
+  funcTag <- 'program_done'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  opts_tib  <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
+  pars_tib  <- dplyr::bind_rows(pars) %>% tidyr::gather("Params", "Value")
+  time_tib <- tt$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+  
+  readr::write_csv(opts_tib, opts$opt_csv)
+  readr::write_csv(pars_tib, opts$par_csv)
+  readr::write_csv(time_tib, opts$time_csv)
+  
+  sysTime <- Sys.time()
+  cat(glue::glue("{RET}[{pars$prgmTag}]: Finished(time={sysTime}){RET}{RET}"))
+  
+  return(0)
+}
+
+load_libraries = function(opts, pars, rcpp=FALSE,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'load_libraries'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  
+  stopifnot(!is.null(pars$prgmDir))
+  stopifnot(!is.null(pars$scrDir))
+  
+  pars$prgm_src_dir <- file.path(pars$scrDir,pars$prgmDir, 'functions')
+  if (!dir.exists(pars$prgm_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Program Source={pars$prgm_src_dir} does not exist!{RET}"))
+  for (sfile in list.files(path=pars$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Program Source={pars$prgm_src_dir}!{RET}{RET}") )
+  
+  # Load All other function methods::
+  pars$man_src_dir <- file.path(pars$scrDir, 'manifests/functions')
+  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$man_src_dir} does not exist!{RET}"))
+  for (sfile in list.files(path=pars$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$man_src_dir}!{RET}{RET}") )
+  
+  pars$swt_src_dir <- file.path(pars$scrDir, 'swifthoof/functions')
+  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$swt_src_dir} does not exist!{RET}"))
+  for (sfile in list.files(path=pars$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$swt_src_dir}!{RET}{RET}") )
+  
+  pars$prb_src_dir <- file.path(pars$scrDir, 'probe_design/functions')
+  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$prb_src_dir} does not exist!{RET}"))
+  for (sfile in list.files(path=pars$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$prb_src_dir}!{RET}{RET}") )
+  
+  pars$anl_src_dir <- file.path(pars$scrDir, 'analysis/functions')
+  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$anl_src_dir} does not exist!{RET}"))
+  for (sfile in list.files(path=pars$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$anl_src_dir}!{RET}{RET}") )
+  
+  pars$anl_src_dir <- file.path(pars$scrDir, 'annotation/functions')
+  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$anl_src_dir} does not exist!{RET}"))
+  for (sfile in list.files(path=pars$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$anl_src_dir}!{RET}{RET}") )
+  
+  if (rcpp) {
+    opts <- setLaunchExe(opts=opts, pars=pars, verbose=opts$verbose, vt=5,tc=0)
+    
+    if (!opts$isLinux) {
+      par$sourceCpp <- file.path(par$scrDir, 'R/Rcpp/cpgLociVariation.cpp')
+      if (!file.exists(par$sourceCpp)) par$sourceCpp <- file.path(par$scrDir, 'Rcpp/cpgLociVariation.cpp')
+      if (!file.exists(par$sourceCpp)) stop(glue::glue("[{par$prgmTag}]: Source={par$sourceCpp} does not exist!{RET}"))
+      Rcpp::sourceCpp(par$sourceCpp)
+    }
+  }
+  ret_cnt <- opts %>% names() %>% length()
+  
+  # etime <- stime[3] %>% as.double() %>% round(2)
+  etime <- 0
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  opts
+}
+
+check_list = function(list, vals, name="options",
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'check_list'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt  <- 0
+  vals_len <- length(vals)
+  valid_list <- TRUE
+  for (val in vals) {
+    if (is.null(list[[val]])) {
+      cat(glue::glue("[Usage]: In {name} {val} is NULL [Required]!!!{RET}"))
+      valid_list <- FALSE
+    }
+  }
+  if (valid_list) {
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Validated all required options({vals_len}).{RET}"))
+  } else {
+    stop(glue::glue("[{funcTag}]:{tabsStr} Invalid Options; use --help!!!{RET}{RET}"))
+    return(NULL)
+  }
+    
+  ret_cnt <- names(list) %>% length()
+  
+  # etime <- stime[3] %>% as.double() %>% round(2)
+  etime <- 0
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  list
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Basic Tibble Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+check_timeStamps = function(name,outDir,origin=NULL,files,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'check_timeStamps'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  beg_txt <- NULL
+  end_txt <- NULL
+  isValid <- TRUE
+  stime <- system.time({
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    beg_txt <- file.path(outDir,paste(name,'time-stamp-beg.txt', sep='.') )
+    end_txt <- file.path(outDir,paste(name,'time-stamp-end.txt', sep='.') )
+    
+    ret_tib <- tibble::tibble(
+      valid=isValid,
+      beg=beg_txt,
+      end=end_txt,
+    )
+    
+    # Check everything to be checked exists::
+    if (!is.null(origin) && !file.exists(origin)) isValid <- FALSE
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Origin exist={isValid}.{RET}"))
+    
+    if (!file.exists(beg_txt)) isValid <- FALSE
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Beg exist={isValid}.{RET}"))
+    
+    if (!file.exists(end_txt)) isValid <- FALSE
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} End exist={isValid}.{RET}"))
+    
+    for (file in files) {
+      if (!file.exists(file)) isValid <- FALSE
+    }
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} All files exist={isValid}.{RET}"))
+    
+    
+    # Check all time stamps::
+    if (isValid && !is.null(origin) && !file.exists(origin) &&
+        file.mtime(orgin) > file.mtime(beg_txt)) isValid <- FALSE
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Origin stamp check={isValid}.{RET}"))
+    
+    if (isValid && file.mtime(beg_txt) > file.mtime(end_txt)) isValid <- FALSE
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Beg/End stamp check={isValid}.{RET}"))
+    
+    if (isValid) {
+      for (file in files) {
+        if (file.mtime(beg_txt) >= file.mtime(file) ||
+            file.mtime(end_txt) <= file.mtime(file)) {
+          if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Failed stamp={file}.{RET}"))
+          isValid <- FALSE
+          break
+        }
+      }
+    }
+    
+    # Clear everything if validation failed for any reason::
+    if (!isValid) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaning all files...{RET}"))
+      
+      if (file.exists(beg_txt)) unlink(beg_txt)
+      if (file.exists(end_txt)) unlink(end_txt)
+      for (file in files) {
+        if (!file.exists(file)) unlink(file)
+      }
+      readr::write_lines(x=date(),file=beg_txt,sep='\n',append=FALSE)
+    }
+    
+    # Update return tibble::
+    ret_tib$isValid <- isValid
+
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Basic Tibble Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 reduceSortedTib = function(tib, n=3,
                            verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'optsToCommand'
+  funcTag <- 'reduceSortedTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; n={n}...{RET}"))
@@ -38,15 +346,19 @@ reduceSortedTib = function(tib, n=3,
 #                       Options to Script Commands::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# optsToCommand(opts=opt_tib, exe=par$exePath, rm=c("lociBetaKey","lociPvalKey"), verbose=10) %>% print()
-#
-optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, file=NULL, key="Option", val="Value",
+optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, 
+                         file=NULL, key="Option", val="Value",
+                         cluster=TRUE,
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'optsToCommand'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
 
+  ret_val  <- NULL
+  add_str  <- ''
+  opt_str  <- ''
+  bool_str <- ''
   key <- key %>% as.character() %>% rlang::sym()
   val <- val %>% as.character() %>% rlang::sym()
   
@@ -54,33 +366,42 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, file=NULL, key=
   if (!is.null(rm)) opts <- opts %>% dplyr::filter(! (!!key %in% rm) )
 
   # Handel Boolean Variables::
+  bool <- NULL
   bool <- opts %>% dplyr::filter(Value=="TRUE")
   opts <- opts %>% dplyr::filter(Value!="TRUE")
   opts <- opts %>% dplyr::filter(Value!="FALSE")
-  
-  bool_str <- bool %>% 
-    dplyr::mutate(!!key := stringr::str_c('--',!!key)) %>%
-    dplyr::pull(!!key) %>% stringr::str_c(collapse=" ")
-  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} bool_str='{bool_str}'.{RET}{RET}"))
+
+  if (!is.null(bool)) {
+    bool_str <- bool %>% 
+      dplyr::mutate(!!key := stringr::str_c('--',!!key)) %>%
+      dplyr::pull(!!key) %>% stringr::str_c(collapse=" ")
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} bool_str='{bool_str}'.{RET}{RET}"))
+  }
   
   # Merge Options::
-  opt_str <- opts %>% dplyr::arrange(!!key) %>%
-    tidyr::unite(Param, !!key, !!val, sep='=') %>%
-    dplyr::mutate(Param=stringr::str_c('--',Param)) %>% 
-    dplyr::pull(Param) %>%
-    stringr::str_c(collapse=" ")
-  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} opt_str='{opt_str}'.{RET}{RET}"))
-  
-  # Second Removal Attempt of rm fields::
-  opt_str <- opt_str %>% stringr::str_remove('--cluster')
-  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} opt_str(-cluster)='{opt_str}'.{RET}{RET}"))
+  if (!is.null(opts)) {
+    opt_str <- opts %>% dplyr::arrange(!!key) %>%
+      tidyr::unite(Param, !!key, !!val, sep='=') %>%
+      dplyr::mutate(Param=stringr::str_c('--',Param)) %>% 
+      dplyr::pull(Param) %>%
+      stringr::str_c(collapse=" ")
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} opt_str='{opt_str}'.{RET}{RET}"))
+    
+    # Second Removal Attempt of rm fields::
+    if (!cluster) {
+      opt_str <- opt_str %>% stringr::str_remove('--cluster')
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} opt_str(-cluster)='{opt_str}'.{RET}{RET}"))
+    }
+  }
   
   # Options:: Add
-  add_str <- add %>% tidyr::unite(Param, !!key, !!val, sep='=') %>%
-    dplyr::mutate(Param=stringr::str_c('--',Param)) %>% 
-    dplyr::pull(Param) %>%
-    stringr::str_c(collapse=" ")
-  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} add_str='{add_str}'.{RET}{RET}"))
+  if (!is.null(add)) {
+    add_str <- add %>% tidyr::unite(Param, !!key, !!val, sep='=') %>%
+      dplyr::mutate(Param=stringr::str_c('--',Param)) %>% 
+      dplyr::pull(Param) %>%
+      stringr::str_c(collapse=" ")
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} add_str='{add_str}'.{RET}{RET}"))
+  }
   
   # Add Executable and Join Options::
   cmd <- ''
@@ -88,17 +409,21 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, file=NULL, key=
   cmd <- stringr::str_c(cmd,exe,opt_str,add_str,bool_str, sep=' ')
   if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} cmd='{cmd}'.{RET}{RET}"))
 
+  ret_val <- cmd
   if (!is.null(file)) {
     dir <- base::dirname(file)
     if (!dir.exists(dir)) dir.create(dir, recursive=TRUE)
     base::unlink(file)
     
-    readr::write_lines(cmd, path=file)
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing program shell={file}...{RET}"))
+    readr::write_lines(cmd, file=file)
     Sys.chmod(file, mode="0777")
+    
+    ret_val <- file
   }
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
-  file
+  ret_val
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

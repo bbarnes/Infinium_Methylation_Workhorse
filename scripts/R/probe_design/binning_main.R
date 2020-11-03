@@ -289,6 +289,47 @@ for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, r
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Local Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+manToBeadSummary = function(man, field="Infinium_Design",
+                            verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'manToBeadSummary'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} field={field}.{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    field <- rlang::sym(field)
+    inf1_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
+      dplyr::filter(!!field=='I') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
+    inf2_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
+      dplyr::filter(!!field=='II') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
+    
+    bead1_cnt <- inf1_cnt * 2
+    bead2_cnt <- inf2_cnt
+    beads_cnt <- bead1_cnt + bead2_cnt
+    beads_per <- bead1_cnt / beads_cnt
+    
+    ret_tib <- tibble::tibble(Inf1=inf1_cnt, Inf2=inf2_cnt, 
+                              Bead1=bead1_cnt, Bead2=bead2_cnt, Beads=beads_cnt,
+                              BeadPerc=beads_per)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 pTracker <- timeTracker$new(verbose=opt$verbose)
