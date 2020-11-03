@@ -313,7 +313,7 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C12'
     opt$version     <- 'C13'
     opt$version     <- 'C14'
-    opt$version     <- 'C16'
+    opt$version     <- 'C17'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -631,10 +631,10 @@ opt$verbose <- 40
 opt$verbose <- 3
 
 opt$fixIds <- FALSE
-opt$fresh  <- TRUE
-aqps_vec   <- NULL
+# opt$fresh  <- TRUE
+# aqps_vec   <- NULL
 
-man_pqc_dat_tib2 <- 
+man_pqc_dat_tib <- 
   decodeAqpPqcWrapper(
     ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec,
     platform=opt$platform,version=opt$version,
@@ -645,10 +645,6 @@ man_pqc_dat_tib2 <-
     name=opt$runName,outDir=opt$manDir,origin=opt$time_org_txt,
     fresh=opt$fresh,fixIds=opt$fixIds,full=par$retData,trim=TRUE,
     verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
-
-
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                2.0 Build Probes foreach Type:: RS/CH/CG/etc..
@@ -728,13 +724,251 @@ if (opt$verbose>=1) {
 #                 3.0 Join All Detected Probes:: SNP/CpH/CpG
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-man_prb_tib <- bindProbeDesignList(
+#
+# TBD:: bindProbeDesignList should use inferFunction...
+#
+man_pqc_prb_tib <- bindProbeDesignList(
   list=man_prb_list, platform=opt$platform, version=opt$version,
   sumDir=opt$sumDir,del='.',
   verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
 
 # program_done(opts=opt, pars=par, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 # q()
+
+
+#
+# STOPPED HERE::
+#  + both man_pqc_dat_tib and man_pqc_prb_tib should be intergers for M/U
+#  + then sort out UNK probes and new-CTL
+#  - ---- - then add all old-CTL
+#  - then build base-sesame manifest
+#
+#  - then build GKME manifest from scratch old-CTL...
+#
+#
+#  - then add coordinates and build annotation
+#  - then build Genome Studio manifest
+#
+#  - then update git
+#  - then test swifthoof
+#  - then update docker
+#  - then test docker
+#
+
+#
+# Extract Missing Probes from Manifest
+#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#            Extract Missing Probes from Manifest:: i.e. CTL/UNK
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+man_pqc_unk_tib <- dplyr::anti_join(
+  dplyr::distinct(man_pqc_dat_tib, M,U, .keep_all=TRUE),
+  dplyr::distinct(man_pqc_prb_tib, M,U, .keep_all=TRUE),
+  by=c("M","U")) %>% dplyr::distinct(M,U, .keep_all=TRUE) %>%
+  dplyr::rename(Strand_TB=TB, Strand_CO=CO) %>% 
+  dplyr::add_count(Seq_ID,Strand_TB,Strand_CO,Infinium_Design, name='Rep_Max') %>%
+  dplyr::group_by(Seq_ID,Strand_TB,Strand_CO,Infinium_Design) %>%
+  dplyr::mutate(
+    Rep_Cnt=dplyr::row_number(),
+    Probe_ID=paste0(Seq_ID,'_',Strand_TB,Strand_CO,Infinium_Design,Rep_Cnt),
+    Probe_Class=dplyr::case_when(
+      Probe_Type=='cg' ~ 'UK',
+      Probe_Type=='ch' ~ 'UK',
+      Probe_Type=='mu' ~ 'UK',
+      Probe_Type=='rp' ~ 'UK',
+      Probe_Type=='rs' ~ 'UK',
+      Probe_Type=='BS' ~ 'BS',
+      Probe_Type=='NG' ~ 'NG',
+      Probe_Type=='NP' ~ 'NP',
+      TRUE ~ NA_character_),
+    FN=NA_character_,
+    Probe_Source=opt$platform,
+    Version=opt$version,
+    ValidID=FALSE,
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,
+                Seq_ID,Probe_Type,Probe_Source,Version,
+                Strand_TB,Strand_CO,Infinium_Design,Rep_Num,
+                AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                everything()) %>%
+  dplyr::arrange(Probe_ID)
+
+# Full Unite::
+#  TBD:: Should remove Rep_Num from source...
+#
+man_pqc_all_tib <- 
+  dplyr::bind_rows(man_pqc_prb_tib,man_pqc_unk_tib) %>% 
+  dplyr::select(-Rep_Num)
+
+# Validation Stats::
+man_pqc_all_cnt <- man_pqc_all_tib %>% base::nrow()
+man_pqc_dat_cnt <- man_pqc_dat_tib %>% base::nrow()
+man_dif_all_cnt <- man_pqc_all_cnt - man_pqc_dat_cnt
+
+man_pqc_prb_cnt <- man_pqc_prb_tib %>% base::nrow()
+man_pqc_unk_cnt <- man_pqc_unk_tib %>% base::nrow()
+man_dif_unk_cnt <- man_pqc_dat_cnt - man_pqc_prb_cnt - man_pqc_unk_cnt
+
+cat(glue::glue("[{par$prgmTag}]: Done; Parsing PQC/All Probes={man_pqc_all_cnt}.{RET}"))
+cat(glue::glue("[{par$prgmTag}]: Done; Parsing PQC/Dat Probes={man_pqc_dat_cnt}.{RET}"))
+cat(glue::glue("[{par$prgmTag}]: Done; Parsing DiffCnt Probes={man_dif_all_cnt}.{RET}{RET}"))
+
+cat(glue::glue("[{par$prgmTag}]: Done; Parsing PQC/Prb Probes={man_pqc_prb_cnt}.{RET}"))
+cat(glue::glue("[{par$prgmTag}]: Done; Parsing Unk/Ctl Probes={man_pqc_unk_cnt}.{RET}"))
+cat(glue::glue("[{par$prgmTag}]: Done; Parsing DiffCnt Probes={man_dif_unk_cnt}.{RET}{RET}"))
+
+man_unk_sum_tib <- man_pqc_unk_tib %>% 
+  dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
+  dplyr::summarise(Count=n(), .groups='drop')
+print(man_unk_sum_tib,n=base::nrow(man_unk_sum_tib))
+
+man_all_sum_tib <- man_pqc_all_tib %>% 
+  dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
+  dplyr::summarise(Count=n(), .groups='drop')
+print(man_all_sum_tib,n=base::nrow(man_all_sum_tib))
+
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#              2.4. Collect Remainder:: CTL::Complete HSA
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# TBD:: Use Steven's new namings for human controls::
+#
+std_ctl_tib <- NULL
+ctl_csv <- ctls_vec[1]
+std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
+
+if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
+    !is.null(std_ctl_seq_tsv) && file.exists(std_ctl_seq_tsv)) {
+  
+  # TBD:: This should be transferred to 
+  std_ctl_seq_tib <- dplyr::inner_join(
+    suppressMessages(suppressWarnings(readr::read_tsv(std_ctl_seq_tsv) )) %>% 
+      dplyr::mutate(Address=stringr::str_remove(address_name, '^1') %>% as.integer()),
+    suppressMessages(suppressWarnings(
+      readr::read_csv(ctl_csv, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID")) )),
+    by="Address") %>%
+    dplyr::select(Address,Probe_Type,COLOR_CHANNEL,Probe_ID,probe_id,sequence, everything()) %>%
+    dplyr::rename(Design_ID=probe_id) %>% dplyr::distinct(Address, .keep_all=TRUE) %>%
+    dplyr::select(-type_b,-bo_seq,-address_name)
+  
+  std_ctl_tib <- std_ctl_seq_tib %>% 
+    dplyr::mutate(PIDX=Probe_ID %>%
+                    stringr::str_replace('^.*[^0-9]([0-9]+)$', '\\$1') %>% 
+                    stringr::str_remove_all('\\\\')) %>%
+    dplyr::mutate(Probe_ID=Probe_ID %>%
+                    stringr::str_replace_all(' ', '_') %>%
+                    stringr::str_replace_all('-', '_') %>% 
+                    stringr::str_replace_all('\\(', '') %>% 
+                    stringr::str_replace_all('\\)', '')) %>%
+    dplyr::rename(U=Address) %>%
+    dplyr::mutate(M=NA,DESIGN='II',col=NA,Probe_Source='HSA',Next_Base=NA) %>%
+    dplyr::mutate(M=as.double(M), Probe_ID=paste('ctl',Probe_ID, sep='_')) %>%
+    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Probe_Source,Next_Base,
+                  dplyr::everything()) %>%
+    dplyr::arrange(Probe_Type,Probe_ID) %>%
+    dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+    dplyr::mutate(
+      Design_Base_ID=stringr::str_remove(Design_ID, '_[AB]$'),
+      Design_Base_AB=stringr::str_replace(Design_ID, '^.*_([AB])$','\\$1') %>%
+        stringr::str_remove_all('\\\\'),
+      Control_Group=Probe_Type,
+      Control_Group_Str=stringr::str_replace_all(Control_Group,' ','_') %>% 
+        stringr::str_replace_all('-','_'),
+      Probe_Type=dplyr::case_when(
+        Control_Group=="BISULFITE CONVERSION I"  ~ 'BS',
+        Control_Group=="BISULFITE CONVERSION II" ~ 'BS',
+        Control_Group=="EXTENSION"       ~ 'EX',
+        Control_Group=="HYBRIDIZATION"   ~ 'HB',
+        Control_Group=="NEGATIVE"        ~ 'NG',
+        Control_Group=="NON-POLYMORPHIC" ~ 'NP',
+        
+        Control_Group=="NORM_A"          ~ 'MA',
+        Control_Group=="NORM_C"          ~ 'MC',
+        Control_Group=="NORM_G"          ~ 'MG',
+        Control_Group=="NORM_T"          ~ 'MT',
+        
+        Control_Group=="RESTORATION"     ~ 'RE',
+        Control_Group=="SPECIFICITY I"   ~ 'S1',
+        Control_Group=="SPECIFICITY II"  ~ 'S2',
+        
+        Control_Group=="TARGET REMOVAL"  ~ 'TR',
+        TRUE ~ NA_character_
+      )
+    )
+  
+  std_bsU_tib <- std_ctl_tib %>% dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_U')) %>%
+    dplyr::rename(Address=U,AlleleA_Probe_Sequence=sequence) %>% 
+    dplyr::select(-Probe_ID,-Design_ID,-M,-COLOR_CHANNEL,-col,-DESIGN,-Next_Base)
+  
+  std_bsC_tib <- std_ctl_tib %>% dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_C')) %>%
+    dplyr::rename(Address=U,AlleleB_Probe_Sequence=sequence) %>% 
+    dplyr::select(-Probe_ID,-Design_ID,-M,-COLOR_CHANNEL,-col,-DESIGN,-Next_Base)
+  
+  # Unique Addresses to Remove from Standard Controls
+  std_bs1_add_vec <- dplyr::bind_rows(std_bsU_tib,std_bsC_tib) %>% 
+    dplyr::distinct(Address) %>% dplyr::pull(Address)
+  
+  # Bisulfite Conversion I Probes for Standard Human Controls
+  std_bs1_hum_tib <- 
+    dplyr::inner_join(std_bsU_tib,std_bsC_tib, 
+                      by=c("Design_Base_ID","Probe_Type","Probe_Source",
+                           "Control_Group","Control_Group_Str","PIDX"), 
+                      suffix=c("_U", "_C") ) %>%
+    dplyr::rename(U=Address_U,M=Address_C) %>% 
+    dplyr::mutate(Seq_ID=paste0(Control_Group_Str,'_',PIDX),
+                  Infinium_Design=1,Rep_Num=1) %>%
+    dplyr::select(Seq_ID,Infinium_Design,Rep_Num,Probe_Type,U,M,
+                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                  dplyr::everything())
+  
+  #
+  # Build remainder of Standard EPIC Controls::
+  #
+  std_inf1_hum_tib <- std_ctl_tib %>% 
+    dplyr::filter(!U %in% std_bs1_add_vec) %>% 
+    dplyr::rename(AlleleA_Probe_Sequence=sequence) %>%
+    dplyr::mutate(
+      AlleleB_Probe_Sequence=NA,
+      DiNuc=NA_character_,
+      N1=NA_character_,
+      N2=NA_character_
+    ) %>%
+    dplyr::mutate(
+      Infinium_Design=1,
+      Seq_ID=paste0(Control_Group_Str,'_',PIDX) %>%
+        stringr::str_replace_all(' ', '_') %>%
+        stringr::str_replace_all('-', '_') %>% 
+        stringr::str_replace_all('\\(', '') %>% 
+        stringr::str_replace_all('\\)', ''))
+  
+  hsa_ctl_tib <- 
+    dplyr::bind_rows(std_inf1_hum_tib,std_bs1_hum_tib) %>%
+    dplyr::distinct(M,U, .keep_all=TRUE)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #            4.0 Load all Coordinates for Detected Manifest Probes::
@@ -1185,17 +1419,17 @@ if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
         Control_Group=="BISULFITE CONVERSION II" ~ 'BS',
         Control_Group=="EXTENSION"       ~ 'EX',
         Control_Group=="HYBRIDIZATION"   ~ 'HB',
-        Control_Group=="NEGATIVE"        ~ 'ne',
-        Control_Group=="NON-POLYMORPHIC" ~ 'NO',
+        Control_Group=="NEGATIVE"        ~ 'NG',
+        Control_Group=="NON-POLYMORPHIC" ~ 'NP',
         
-        Control_Group=="NORM_A"          ~ 'NA',
-        Control_Group=="NORM_C"          ~ 'NC',
-        Control_Group=="NORM_G"          ~ 'NG',
-        Control_Group=="NORM_T"          ~ 'NT',
+        Control_Group=="NORM_A"          ~ 'MA',
+        Control_Group=="NORM_C"          ~ 'MC',
+        Control_Group=="NORM_G"          ~ 'MG',
+        Control_Group=="NORM_T"          ~ 'MT',
         
         Control_Group=="RESTORATION"     ~ 'RE',
-        Control_Group=="SPECIFICITY I"   ~ 'SP',
-        Control_Group=="SPECIFICITY II"  ~ 'SP',
+        Control_Group=="SPECIFICITY I"   ~ 'S1',
+        Control_Group=="SPECIFICITY II"  ~ 'S2',
         
         Control_Group=="TARGET REMOVAL"  ~ 'TR',
         TRUE ~ NA_character_

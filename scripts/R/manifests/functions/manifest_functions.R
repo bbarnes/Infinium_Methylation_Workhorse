@@ -322,14 +322,12 @@ bindProbeDesignList = function(list, platform, version, sumDir=NULL,del='.',
       dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
       dplyr::mutate(
         Rep_Cnt=dplyr::row_number(),
-        IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
+        Probe_ID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
         ValidID=TRUE
       ) %>% 
       dplyr::ungroup() %>% 
-      dplyr::distinct(IlmnID,M,U, .keep_all=TRUE) %>% 
-      dplyr::rename(Probe_ID_Org=Probe_ID) %>% 
+      dplyr::distinct(Probe_ID,M,U, .keep_all=TRUE) %>% 
       dplyr::mutate(
-        Probe_ID=IlmnID,
         DESIGN=dplyr::case_when(
           Infinium_Design==1 ~ 'I',
           Infinium_Design==2 ~ 'II',
@@ -352,9 +350,11 @@ bindProbeDesignList = function(list, platform, version, sumDir=NULL,del='.',
           Infinium_Design==2 ~ NA_character_,
           Infinium_Design==1 ~ stringr::str_to_upper(NXB_D),
           TRUE ~ NA_character_),
-        MFG_Change_Flagged=dplyr::case_when(
-          ValidID ~ 'FALSE',
-          TRUE ~ 'TRUE'),
+        # MFG_Change_Flagged=dplyr::case_when(
+        #   ValidID ~ 'FALSE',
+        #   TRUE ~ 'TRUE'),
+        M=as.integer(M),
+        U=as.integer(U),
         Probe_Source=platform,
         Version=version
       ) %>%
@@ -364,9 +364,8 @@ bindProbeDesignList = function(list, platform, version, sumDir=NULL,del='.',
                     Strand_TB,Strand_CO,Infinium_Design,Rep_Num,
                     AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
                     Top_Sequence, everything()) %>%
-      dplyr::arrange(IlmnID) %>%
-      dplyr::select(IlmnID,Probe_Class,Probe_Type,dplyr::everything())
-    
+      dplyr::arrange(Probe_ID)
+
     # Matched Group Summary::
     sum_tib <- ret_tib %>% 
       dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
@@ -446,7 +445,7 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
       imp_s48_tib <- seq48U_to_cgn(tib=tib, imp_tsv=s48_tsv,
                                    name=name,outDir=intDir,
                                    mat_key='Seq_48U', fresh=fresh,
-                                   colA=4,colB=1,
+                                   colA=4,colB=3,
                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -855,7 +854,8 @@ broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     rname <- 'seq48U_to_cgn'
     colA <- 4
-    colB <- 1
+    colB <- 3
+    # colB <- 1
     mat_vec <- c(mat_key,'M','U')
     int_col <- cols(Seq_48U = col_character(),
                     CGN_Imp = col_character(),
@@ -1075,21 +1075,9 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
         # Fix Adhoc Probe_ID/Probe_Type
         ret_tib <- ret_tib %>% 
           fixOrderProbeIDs(field="Probe_Type", verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+          dplyr::mutate(M=as.integer(M),U=as.integer(U)) %>%
           dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Next_Base,
                         dplyr::everything())
-        
-        if (FALSE) {
-          ret_tib <- ret_tib %>% dplyr::arrange(Seq_48U) %>% 
-            dplyr::mutate(
-              Probe_Type=dplyr::case_when(
-                Probe_Type=='bs' ~ "BS", TRUE ~ Probe_Type,
-                Probe_Type=='ne' ~ "NE", TRUE ~ Probe_Type,
-                Probe_Type=='no' ~ "NO", TRUE ~ Probe_Type,
-              )
-            ) %>%
-            dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Next_Base,
-                          dplyr::everything())
-        }
         
         sum_tib <- ret_tib %>% dplyr::group_by(Probe_Type) %>%
           dplyr::summarise(PType_Count=n(), .groups='drop')
@@ -1839,48 +1827,6 @@ decodeToManifest = function(ord, mat, pqc,
       dplyr::filter(is.na(Decode_Status_A) | Decode_Status_A!=-1) %>% 
       dplyr::filter(is.na(Decode_Status_B) | Decode_Status_B!=-1)
     
-    #
-    # Should be replaced with inferOrderFields()::
-    #
-    #
-    # Update common predictable fields::
-    #
-    # ret_tib <- ret_tib %>%
-    #   dplyr::mutate(
-    #     Infinium_Design=dplyr::case_when(
-    #       !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) ~ 1,
-    #       !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) ~ 2,
-    #       TRUE ~ NA_real_
-    #     ),
-    #     Seq_48U=dplyr::case_when(
-    #       Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx1,len1),
-    #       Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx2,len2),
-    #       TRUE ~ NA_character_
-    #     ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
-    #     DESIGN=dplyr::case_when(
-    #       Infinium_Design==1 ~ 'I',
-    #       Infinium_Design==2 ~ 'II',
-    #       TRUE ~ NA_character_),
-    #     COLOR_CHANNEL=dplyr::case_when(
-    #       Infinium_Design==2 ~ 'Both',
-    #       Infinium_Design==1 & Normalization_Bin=='A' ~ 'Red',
-    #       Infinium_Design==1 & Normalization_Bin=='B' ~ 'Grn',
-    #       TRUE ~ NA_character_),
-    #     col=dplyr::case_when(
-    #       Infinium_Design==1 & Normalization_Bin=='A' ~ 'R',
-    #       Infinium_Design==1 & Normalization_Bin=='B' ~ 'G',
-    #       TRUE ~ NA_character_),
-    #     Probe_Type=stringr::str_sub(Probe_ID,1,2) %>%
-    #       stringr::str_replace('^ne','NE'),
-    #     Probe_Source=NA_character_,
-    #     Next_Base=dplyr::case_when(
-    #       Infinium_Design==1 & Normalization_Bin=='A' ~ 'A',
-    #       Infinium_Design==1 & Normalization_Bin=='B' ~ 'G',
-    #       TRUE ~ NA_character_)
-    #   ) %>%
-    #   dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,
-    #                 Probe_Type,Probe_Source,Next_Base, everything() )
-
     if (!is.null(platform)) ret_tib <- ret_tib %>% dplyr::mutate(platform=platform)
     if (!is.null(version))  ret_tib <- ret_tib %>% dplyr::mutate(version=version)
     if (!is.null(AQP)) ret_tib <- ret_tib %>% dplyr::mutate(AQP=AQP)
