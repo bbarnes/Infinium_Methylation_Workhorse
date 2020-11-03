@@ -60,7 +60,8 @@ template_func = function(tib,
 
 adhoc_desToMAN = function(man, des_csv, probe_type,
                           name=NULL,outDir=NULL,origin=NULL,
-                          fresh=FALSE,fixIds=FALSE, del='.',
+                          idsKey,seqKey,prbKey,strsSR,strsCO,
+                          parallel=FALSE,fresh=FALSE,fixIds=FALSE, del='.',max=0,
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'adhoc_desToMAN'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -111,7 +112,8 @@ adhoc_desToMAN = function(man, des_csv, probe_type,
       
       if (fixIds) {
         man_tib <- man_tib %>%
-          fixOrderProbeIDs(verbose=opt$verbose+4,vt=1,tc=1,tt=tt)
+          fixOrderProbeIDs(verbose=verbose+4,vt=vt+1,tc=tc+1,tt=tt)
+        
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(fixed)={RET}"))
         if (verbose>=vt+4) print(man_tib)
       }
@@ -130,14 +132,11 @@ adhoc_desToMAN = function(man, des_csv, probe_type,
         dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
       
       # Design Probes::
-      test_max <- 0
       full_des_tib <- 
         desSeq_to_prbs(
-          tib=top_snp_tib, 
-          idsKey=opt$design_key,
-          seqKey=opt$design_seq,prbKey=opt$design_prb,
-          strsSR=opt$design_srs,strsCO=opt$design_cos,
-          parallel=opt$parallel, max=test_max,
+          tib=top_snp_tib,
+          idsKey=idsKey,seqKey=seqKey,prbKey=prbKey,strsSR=strsSR,strsCO=strsCO,
+          parallel=parallel, max=max,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       ret_tib <- 
@@ -145,7 +144,7 @@ adhoc_desToMAN = function(man, des_csv, probe_type,
                       man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
                       man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
                       man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-                      verbose=opt$verbose,tc=1,tt=tt) %>% 
+                      verbose=verbose,vt+1,tc=tc+1,tt=tt) %>% 
         dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
         dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
         dplyr::select(-Top_Sequence_Prb)
@@ -302,6 +301,94 @@ addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Bind Probe Design Lists::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+bindProbeDesignList = function(list, platform, version, sumDir=NULL,del='.',
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'bindProbeDesignList'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  sum_tib <- NULL
+  stime <- system.time({
+    
+    ret_tib <- 
+      dplyr::bind_rows(list, .id="Probe_Class") %>%
+      dplyr::distinct(M,U, .keep_all=TRUE) %>%
+      dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
+      dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
+      dplyr::mutate(
+        Rep_Cnt=dplyr::row_number(),
+        IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
+        ValidID=TRUE
+      ) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::distinct(IlmnID,M,U, .keep_all=TRUE) %>% 
+      dplyr::rename(Probe_ID_Org=Probe_ID) %>% 
+      dplyr::mutate(
+        Probe_ID=IlmnID,
+        DESIGN=dplyr::case_when(
+          Infinium_Design==1 ~ 'I',
+          Infinium_Design==2 ~ 'II',
+          TRUE ~ NA_character_),
+        COLOR_CHANNEL=dplyr::case_when(
+          Infinium_Design==2 ~ 'Both',
+          stringr::str_to_upper(NXB_D)=='A' ~ 'Red',
+          stringr::str_to_upper(NXB_D)=='T' ~ 'Red',
+          stringr::str_to_upper(NXB_D)=='C' ~ 'Grn',
+          stringr::str_to_upper(NXB_D)=='G' ~ 'Grn',
+          TRUE ~ NA_character_),
+        col=dplyr::case_when(
+          Infinium_Design==2 ~ NA_character_,
+          stringr::str_to_upper(NXB_D)=='A' ~ 'R',
+          stringr::str_to_upper(NXB_D)=='T' ~ 'R',
+          stringr::str_to_upper(NXB_D)=='C' ~ 'G',
+          stringr::str_to_upper(NXB_D)=='G' ~ 'G',
+          TRUE ~ NA_character_),
+        Next_Base=dplyr::case_when(
+          Infinium_Design==2 ~ NA_character_,
+          Infinium_Design==1 ~ stringr::str_to_upper(NXB_D),
+          TRUE ~ NA_character_),
+        MFG_Change_Flagged=dplyr::case_when(
+          ValidID ~ 'FALSE',
+          TRUE ~ 'TRUE'),
+        Probe_Source=platform,
+        Version=version
+      ) %>%
+      dplyr::rename(Strand_TB=SR_Str,Strand_CO=CO_Str) %>%
+      dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,
+                    Seq_ID,Probe_Type,Probe_Source,Version,
+                    Strand_TB,Strand_CO,Infinium_Design,Rep_Num,
+                    AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                    Top_Sequence, everything()) %>%
+      dplyr::arrange(IlmnID) %>%
+      dplyr::select(IlmnID,Probe_Class,Probe_Type,dplyr::everything())
+    
+    # Matched Group Summary::
+    sum_tib <- ret_tib %>% 
+      dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
+      dplyr::summarise(Count=n(), .groups='drop')
+    if (verbose>=vt) print(sum_tib)
+    
+    if (!is.null(sumDir)) {
+      if (!dir.exists(sumDir)) dir.create(sumDir, recursive=TRUE)
+      sum_csv <- file.path(sumDir, paste(funcTag,'core-manifest.summary.csv.gz', sep=del))
+      readr::write_csv(sum_tib,sum_csv)
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                Join Manifest Probes with Design Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -358,7 +445,7 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       imp_s48_tib <- seq48U_to_cgn(tib=tib, imp_tsv=s48_tsv,
                                    name=name,outDir=intDir,
-                                   mat_key='Mat_PrbA', fresh=fresh,
+                                   mat_key='Seq_48U', fresh=fresh,
                                    colA=4,colB=1,
                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
@@ -538,7 +625,7 @@ man_join_prbs = function(man, prbs,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 seq48U_to_cgn = function(tib, imp_tsv,name=NULL, outDir=NULL,
-                         mat_key='Mat_PrbA',fresh=TRUE, colA=4,colB=1,del='.',
+                         mat_key='Seq_48U',fresh=TRUE, colA=4,colB=1,del='.',
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'seq48U_to_cgn'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -546,7 +633,7 @@ seq48U_to_cgn = function(tib, imp_tsv,name=NULL, outDir=NULL,
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; colA={colA}, colB={colB}...{RET}"))
   
   # Intersection Results Header::
-  int_col <- cols(Mat_PrbA = col_character(),
+  int_col <- cols(Seq_48U = col_character(),
                   CGN_Imp = col_character(),
                   TB_Imp = col_character(),
                   CO_Imp = col_character(),
@@ -770,7 +857,7 @@ broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
     colA <- 4
     colB <- 1
     mat_vec <- c(mat_key,'M','U')
-    int_col <- cols(Mat_PrbA = col_character(),
+    int_col <- cols(Seq_48U = col_character(),
                     CGN_Imp = col_character(),
                     TB_Imp = col_character(),
                     CO_Imp = col_character(),
@@ -836,6 +923,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
   ret_cnt <- 0
   ret_tib <- NULL
   ret_csv <- NULL
+  sum_tib <- NULL
   stp_tib <- NULL
   stime <- system.time({
     ord_len <- length(ord_vec)
@@ -851,9 +939,10 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
       out_name <- paste(name,funcTag, sep=del)
       if (verbose>=vt) cat(glue::glue("[{funcTag}]: Will use outDir(name={out_name})={outDir}.{RET}") )
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      mat_csv <- file.path(outDir, paste(out_name,'unqiue-match.sorted.tsv.gz', sep=del) )
-      rep_csv <- file.path(outDir, paste(out_name,'manifest.sum.csv.gz', sep=del) )
-      ret_csv <- file.path(outDir, paste(out_name,'manifest.raw.csv.gz', sep=del) )
+      mat_tsv <- file.path(outDir, paste(out_name,'manifest.unq.mat.tsv.gz', sep=del) )
+      rep_csv <- file.path(outDir, paste(out_name,'manifest.rep.sum.csv.gz', sep=del) )
+      sum_csv <- file.path(outDir, paste(out_name,'manifest.prb.sum.csv.gz', sep=del) )
+      ret_csv <- file.path(outDir, paste(out_name,'manifest.raw.dat.csv.gz', sep=del) )
       
       if (fresh) {
         if (verbose>=vt) cat(glue::glue("[{funcTag}]: Cleaning outDir(name={name})={outDir}...{RET}") )
@@ -861,8 +950,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
       }
       if (verbose>=vt) cat(glue::glue("[{funcTag}]: {RET}") )
       
-      ret_csv <- file.path(outDir,paste(out_name,'csv.gz', sep=del) )
-      csv_vec <- c(mat_csv,rep_csv,ret_csv)
+      csv_vec <- c(mat_tsv,rep_csv,sum_csv,ret_csv)
       stp_tib <- check_timeStamps(name=out_name,outDir=outDir,origin=origin,files=csv_vec,
                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
@@ -885,12 +973,12 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         dplyr::bind_rows(.id="AQP") %>% 
         dplyr::mutate(AQP=as.integer(AQP)) %>% dplyr::arrange(-AQP) %>% dplyr::distinct(Address,.keep_all=TRUE)
-      readr::write_tsv(mat_tib,mat_csv)
-      mat_vec   <- c(mat_csv)
+      readr::write_tsv(mat_tib,mat_tsv)
+      mat_vec   <- c(mat_tsv)
       mat_col   <- names(mat_tib)
       matSkip   <- 0
       matFormat <- 'new'
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Wrote Ordered Full Match TSV={mat_csv}.{RET}{RET}") )
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Wrote Ordered Full Match TSV={mat_tsv}.{RET}{RET}") )
       
       if (!fresh && !is.null(ret_csv) && file.exists(ret_csv)) {
         if (verbose>=vt) cat(glue::glue("[{funcTag}]: Loading Pre-existing Raw Manifest={ret_csv}...{RET}") )
@@ -909,6 +997,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           pqc_man_tib <- decodeToManifestWrapper(
             ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
             platform=platform, version=version,
+            
             matFormat=matFormat,matSkip=matSkip,matGuess=matGuess,
             ordFormat=ordFormat,ordSkip=ordSkip,ordGuess=ordGuess,
             pqcFormat=pqcFormat,pqcSkip=pqcSkip,pqcGuess=pqcGuess,
@@ -921,11 +1010,13 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           if (fixIds)
             pqc_fix_tib <- fixOrderProbeIDs(pqc_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
           
-          pqc_fix_tib <- pqc_fix_tib %>%
-            addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-            dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+          # pqc_fix_tib <- pqc_fix_tib %>%
+          #   addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          
+          if (fixIds) pqc_fix_tib <- pqc_fix_tib %>%
+            dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Seq_48U, everything())
         }
-        
+
         # Load AQP::
         aqp_man_tib <- NULL
         aqp_fix_tib <- NULL
@@ -936,6 +1027,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           aqp_man_tib <- decodeToManifestWrapper(
             ords=ord_vec, mats=mat_vec, pqcs=pqc_vec, aqps=aqp_vec, 
             platform=platform, version=version, 
+            
             matFormat=matFormat,matSkip=matSkip,matGuess=matGuess,
             ordFormat=ordFormat,ordSkip=ordSkip,ordGuess=ordGuess,
             pqcFormat=pqcFormat,pqcSkip=aqpSkip,pqcGuess=aqpGuess,
@@ -948,11 +1040,13 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           if (fixIds)
             aqp_fix_tib <- fixOrderProbeIDs(aqp_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
           
-          aqp_fix_tib <- aqp_fix_tib %>%
-            addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-            dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Mat_PrbA, everything())
+          # aqp_fix_tib <- aqp_fix_tib %>%
+          #   addReducedMapProbe(sidx=sidx,plen=plen, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          
+          if (fixIds) aqp_fix_tib <- aqp_fix_tib %>%
+            dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Seq_48U, everything())
         }
-        
+
         # QC Sanity Checks for AQP/PQC if present::
         qc_man_tib  <- NULL
         if (!is.null(pqc_man_tib) && !is.null(aqp_man_tib)) {
@@ -977,14 +1071,42 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           stop(glue::glue("{RET}[{funcTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
           return(NULL)
         }
-        ret_tib <- ret_tib %>% dplyr::arrange(Mat_PrbA) %>% dplyr::mutate(CO=stringr::str_remove_all(CO,' '))
-        rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        ret_cnt <- ret_tib %>% base::nrow()
         
-        if (!is.null(ret_csv)) {
+        # Fix Adhoc Probe_ID/Probe_Type
+        ret_tib <- ret_tib %>% 
+          fixOrderProbeIDs(field="Probe_Type", verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+          dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Next_Base,
+                        dplyr::everything())
+        
+        if (FALSE) {
+          ret_tib <- ret_tib %>% dplyr::arrange(Seq_48U) %>% 
+            dplyr::mutate(
+              Probe_Type=dplyr::case_when(
+                Probe_Type=='bs' ~ "BS", TRUE ~ Probe_Type,
+                Probe_Type=='ne' ~ "NE", TRUE ~ Probe_Type,
+                Probe_Type=='no' ~ "NO", TRUE ~ Probe_Type,
+              )
+            ) %>%
+            dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Next_Base,
+                          dplyr::everything())
+        }
+        
+        sum_tib <- ret_tib %>% dplyr::group_by(Probe_Type) %>%
+          dplyr::summarise(PType_Count=n(), .groups='drop')
+        if (verbose>=vt) sum_tib %>% print()
+        if (!is.null(sum_csv)) {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Probe Type Summary Manifest={sum_csv}...{RET}") )
+          readr::write_csv(sum_tib,sum_csv)
+        }
+
+        rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        if (!is.null(rep_csv)) {
           if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Rep Summary Manifest={rep_csv}...{RET}") )
           readr::write_csv(rep_tib,rep_csv)
-          
+        }
+        
+        ret_cnt <- ret_tib %>% base::nrow()
+        if (!is.null(ret_csv)) {
           if (verbose>=vt) cat(glue::glue("[{funcTag}]: Writing Raw Manifest(cnt={ret_cnt})={ret_csv}...{RET}") )
           readr::write_csv(ret_tib,ret_csv)
           readr::write_lines(x=date(),file=stp_tib$end[1],sep='\n',append=FALSE)
@@ -1103,7 +1225,7 @@ AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
 #                       Specialized Mouse Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-inferOrderFields = function(tib,
+inferOrderFields = function(tib, sidx=2, plen=50,
                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'inferOrderFields'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -1113,45 +1235,55 @@ inferOrderFields = function(tib,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
     
     # Add Infinium Type Definition:: Also, fail any probe that breaks this method
-    tib <- tib %>% dplyr::mutate(
-      Infinium_Design=dplyr::case_when(
-        !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) ~ 1,
-        !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) ~ 2,
-        TRUE ~ NA_real_
-      )
-    )
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} tib(with Inf Des)=.{RET}"))
-    if (verbose>=vt+4) print(tib)
-    
-    # Add Probe Rep_Num, Old_Probe_ID, and Probe Lengths
-    ret_tib <- tib %>%
+    ret_tib <- tib %>% 
+      dplyr::mutate(
+        Infinium_Design=dplyr::case_when(
+          !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) ~ 1,
+          !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) ~ 2,
+          TRUE ~ NA_real_)
+        ) %>%
       dplyr::filter(!is.na(Infinium_Design)) %>%
-      dplyr::mutate(AlleleA_Probe_Length=stringr::str_length(AlleleA_Probe_Sequence),
-                    AlleleB_Probe_Length=stringr::str_length(AlleleB_Probe_Sequence),
-                    AlleleB_Probe_Length=dplyr::case_when(
-                      is.na(AlleleB_Probe_Length) ~ 0.0,
-                      TRUE ~ as.double(AlleleB_Probe_Length)
-                    ),
-                    AlleleB_Probe_Length=as.integer(AlleleB_Probe_Length),
-                    DESIGN=dplyr::case_when(
-                      Infinium_Design==1 ~ 'I',
-                      Infinium_Design==2 ~ 'II',
-                      TRUE ~ NA_character_),
-                    COLOR_CHANNEL=dplyr::case_when(
-                      Infinium_Design==2 ~ 'Both',
-                      Normalization_Bin=='A' ~ 'Red',
-                      Normalization_Bin=='B' ~ 'Grn',
-                      TRUE ~ NA_character_),
-                    col=dplyr::case_when(
-                      Infinium_Design==2 ~ NA_character_,
-                      Normalization_Bin=='A' ~ 'R',
-                      Normalization_Bin=='B' ~ 'G',
-                      TRUE ~ NA_character_) ) %>% 
-      dplyr::mutate(Probe_Type=stringr::str_sub(Assay_Design_Id, 1,2))
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} tib(with Rep, Old-ID, Len)=.{RET}"))
-    if (verbose>=vt+4) print(tib)
+      dplyr::mutate(
+        Seq_48U=dplyr::case_when(
+          Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx1,len1),
+          Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx2,len2),
+          TRUE ~ NA_character_
+        ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+        DESIGN=dplyr::case_when(
+          Infinium_Design==1 ~ 'I',
+          Infinium_Design==2 ~ 'II',
+          TRUE ~ NA_character_),
+        COLOR_CHANNEL=dplyr::case_when(
+          Infinium_Design==2 ~ 'Both',
+          Infinium_Design==1 & Normalization_Bin=='A' ~ 'Red',
+          Infinium_Design==1 & Normalization_Bin=='B' ~ 'Grn',
+          TRUE ~ NA_character_),
+        col=dplyr::case_when(
+          Infinium_Design==1 & Normalization_Bin=='A' ~ 'R',
+          Infinium_Design==1 & Normalization_Bin=='B' ~ 'G',
+          TRUE ~ NA_character_),
+        Probe_Type=stringr::str_sub(Assay_Design_Id,1,2) %>%
+          stringr::str_replace('^ne','NE'),
+        Probe_Source=NA_character_,
+        Next_Base=dplyr::case_when(
+          Infinium_Design==1 & Normalization_Bin=='A' ~ 'A',
+          Infinium_Design==1 & Normalization_Bin=='B' ~ 'G',
+          TRUE ~ NA_character_),
+        AlleleA_Probe_Length=stringr::str_length(AlleleA_Probe_Sequence),
+        AlleleB_Probe_Length=stringr::str_length(AlleleB_Probe_Sequence),
+        AlleleB_Probe_Length=dplyr::case_when(
+          is.na(AlleleB_Probe_Length) ~ 0.0,
+          TRUE ~ as.double(AlleleB_Probe_Length) ),
+      ) %>%
+      dplyr::rename(Probe_ID=Assay_Design_Id) %>%
+      dplyr::select(Probe_ID,DESIGN,COLOR_CHANNEL,col,
+                    Probe_Type,Probe_Source,Next_Base, everything())
     
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
@@ -1164,7 +1296,7 @@ inferOrderFields = function(tib,
   ret_tib
 }
 
-fixOrderProbeIDs = function(tib, # field="Probe_Type",
+fixOrderProbeIDs = function(tib, field="Probe_Type",
                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'fixOrderProbeIDs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -1174,6 +1306,8 @@ fixOrderProbeIDs = function(tib, # field="Probe_Type",
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
+    
+    field_sym <- rlang::sym(field)
     
     if (FALSE) {
       # Add Infinium Type Definition:: Also, fail any probe that breaks this method
@@ -1215,7 +1349,12 @@ fixOrderProbeIDs = function(tib, # field="Probe_Type",
     # 1 BS                1041  BSC_CCND3-CT-R-40170_F_B_O_II
     # 6 NO                 815  NON_CCND3.87768_GT_2_R_B_O_II
     # 5 ne                 395  neg_cg42568514_R_B_C
-    tib_types <- tib %>% split(.$Probe_Type)
+    # tib_types <- tib %>% split(.$Probe_Type)
+    #
+    
+    tib_types <- tib %>% split(.[field_sym])
+    tib_names <- names(tib_types)
+    if (verbose>=vt+4) print(tib_names)
     
     ord_col <- c("Seq_ID","FR","TB","CO","Infinium_Design","Probe_ID","M","U","AlleleA_Probe_Sequence_MIX",
                  "AlleleB_Probe_Sequence_MIX","Normalization_Bin",
@@ -1235,19 +1374,25 @@ fixOrderProbeIDs = function(tib, # field="Probe_Type",
                     AlleleB_Probe_Length=as.integer(AlleleB_Probe_Length)
       )
     
-    for (type in names(tib_types)) {
+    for (type in tib_names) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Formatting type={type}...{RET}"))
       
       # cur_tib <- tib_types[[type]]
       cur_tib <- dplyr::bind_rows(nul_tib, tib_types[[type]])
+      cur_len <- cur_tib %>% base::nrow()
       
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_len={cur_len}...{RET}"))
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_tib={RET}"))
+      if (verbose>=vt+4) cur_tib %>% head(n=2) %>% print()
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
+
       if (type=='cg' || type=='ch' || type=='rp') {
         cur_tib <- cur_tib %>% 
           dplyr::mutate(
             Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_\\$1_N_\\$2') %>% stringr::str_remove_all('\\\\')
           ) %>%
           tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE)
-        
+        cur_tib <- cur_tib %>% mutate(Probe_Type := !!type)
       } else if (type=='mu') {
         # Clean up for some mm10 mu early designs...
         cur_tib <- dplyr::bind_rows(
@@ -1258,32 +1403,36 @@ fixOrderProbeIDs = function(tib, # field="Probe_Type",
           tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','DS','HS', 'PD'), sep='_', remove=FALSE) %>%
           dplyr::mutate(DS=stringr::str_remove(DS, 's'), HS=stringr::str_remove(HS, 'h'),
                         PD=dplyr::case_when(is.na(PD) ~ DS, TRUE ~ PD),
-                        DS=dplyr::case_when(DS=='I' | DS=='II' ~ NA_character_, TRUE ~ DS)
-          )
+                        DS=dplyr::case_when(DS=='I' | DS=='II' ~ NA_character_, TRUE ~ DS) )
+        cur_tib <- cur_tib %>% mutate(Probe_Type='mu')
       } else if (type=='rs') {
         cur_tib <- cur_tib %>% dplyr::filter(Probe_Type=='rs') %>% dplyr::mutate(
           Probe_ID=stringr::str_replace(Probe_ID, '^rs([A-Z0-9]+)_([0-9]+)_', 'rs-\\$1-\\$2_') %>% stringr::str_remove_all('\\\\'),
           Probe_ID=stringr::str_replace(Probe_ID, '_([FR])_([CO]_[I]+)$',  '_NN_N_\\$1_N_\\$2') %>% stringr::str_remove_all('\\\\')
         ) %>% 
           tidyr::separate(Probe_ID, into=c('Seq_ID','Di','FN','FR','TB','CO','PD'), sep='_', remove=FALSE)
+        cur_tib <- cur_tib %>% mutate(Probe_Type='rs')
       } else if (type=='BS' || type=='bs') {
         cur_tib <- cur_tib %>% dplyr::mutate(
           Di=stringr::str_replace(Probe_ID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% stringr::str_remove_all('\\\\')
         ) %>% 
-          dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '^BSC_', 'bs-')) %>% 
+          dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '^BSC_', 'BS-')) %>% 
           tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE) 
+        cur_tib <- cur_tib %>% mutate(Probe_Type='BS')
       } else if (type=='NO' || type=='no') {
         cur_tib <- cur_tib %>% dplyr::mutate(
           Di=stringr::str_replace(Probe_ID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% stringr::str_remove_all('\\\\')
         ) %>% 
-          dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '^NON_', 'no-') %>% 
+          dplyr::mutate(Probe_ID=stringr::str_replace(Probe_ID, '^NON_', 'NP-') %>% 
                           stringr::str_replace('\\.', '-') %>% stringr::str_replace('_','-') %>% stringr::str_replace('_','-')) %>% 
           tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE) 
-      } else if (type=='ne') {
+        cur_tib <- cur_tib %>% mutate(Probe_Type='NP')
+      } else if (type=='NE' || type=='ne') {
         cur_tib <- cur_tib %>% 
-          dplyr::mutate(Probe_ID=paste(stringr::str_replace(Probe_ID, '^neg_', 'ne-'),'_I') ) %>% 
+          dplyr::mutate(Probe_ID=paste(stringr::str_replace(Probe_ID, '^neg_', 'NG-'),'_I') ) %>% 
           tidyr::separate(Probe_ID, into=c('Seq_ID','FR','TB','CO','PD'), sep='_', remove=FALSE) %>%
           dplyr::mutate(DS=NA)
+        cur_tib <- cur_tib %>% mutate(Probe_Type='NG')
       } else {
         cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: Unsupported type={type}!{RET}{RET}"))
       }
@@ -1293,7 +1442,8 @@ fixOrderProbeIDs = function(tib, # field="Probe_Type",
                       Decode_Status_A=as.integer(Decode_Status_A), 
                       Decode_Status_B=as.integer(Decode_Status_B),
                       DS=as.integer(DS), HS=as.integer(HS),
-                      BP=as.integer(BP), AQP=as.integer(AQP),
+                      # BP=as.integer(BP), AQP=as.integer(AQP),
+                      AQP=as.integer(AQP),
                       Rep_Max=as.integer(Rep_Max), Rep_Num=as.integer(Rep_Num),
                       AlleleA_Probe_Length=as.integer(AlleleA_Probe_Length),
                       AlleleB_Probe_Length=as.integer(AlleleB_Probe_Length) ) %>%
@@ -1316,47 +1466,9 @@ fixOrderProbeIDs = function(tib, # field="Probe_Type",
   ret_tib
 }
 
-addReducedMapProbe = function(tib, sidx=2, plen=50,
-                              verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'addReducedMapProbe'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Assumed Probe Length={plen}...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- system.time({
-    idx1 <- sidx
-    len1 <- plen - 1
-    idx2 <- sidx + 1
-    len2 <- plen
-    
-    ret_tib <- tib %>% dplyr::mutate(
-      Mat_PrbA=dplyr::case_when(
-        Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx1,len1),
-        Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx2,len2),
-        TRUE ~ NA_character_
-      ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T')
-      # Mat_Prb=dplyr::case_when(
-      #   Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, 2,plen),
-      #   Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, 3,plen),
-      #   TRUE ~ NA_character_
-      # ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
-    )
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
-    if (verbose>=vt+4) print(ret_tib)
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
-  
-  ret_tib
-}
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Manifest Stats Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
 
 manifestCheckSummary = function(tib,
                                 verbose=0,vt=3,tc=1,tt=NULL) {
@@ -1430,48 +1542,12 @@ manifestCheckSummary = function(tib,
   ret_tib
 }
 
-manToBeadSummary = function(man, field="Infinium_Design",
-                            verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'manToBeadSummary'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} field={field}.{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- system.time({
-    
-    field <- rlang::sym(field)
-    inf1_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
-      dplyr::filter(!!field=='I') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
-    inf2_cnt <- man %>% dplyr::group_by(!!field) %>% dplyr::summarise(Count=n()) %>% 
-      dplyr::filter(!!field=='II') %>% dplyr::summarise(Sum_Count=sum(Count)) %>% dplyr::pull(Sum_Count) %>% as.integer()
-    
-    bead1_cnt <- inf1_cnt * 2
-    bead2_cnt <- inf2_cnt
-    beads_cnt <- bead1_cnt + bead2_cnt
-    beads_per <- bead1_cnt / beads_cnt
-    
-    ret_tib <- tibble::tibble(Inf1=inf1_cnt, Inf2=inf2_cnt, 
-                              Bead1=bead1_cnt, Bead2=bead2_cnt, Beads=beads_cnt,
-                              BeadPerc=beads_per)
-    
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
-    if (verbose>=vt+4) print(ret_tib)
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
-  
-  ret_tib
-}
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   Order, Match, PQC/AQP File IO Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 loadORD = function(file, format='old', skip=8, guess=50000, trim=FALSE,
+                   sidx=2, plen=50,
                    verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'loadORD'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -1481,6 +1557,7 @@ loadORD = function(file, format='old', skip=8, guess=50000, trim=FALSE,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
+    
     if (format=='old' || format=='gta') {
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(file, skip=skip, guess_max=guess)  )) %>%
         dplyr::mutate(AlleleB_Probe_Id=as.character(AlleleB_Probe_Id), 
@@ -1490,7 +1567,12 @@ loadORD = function(file, format='old', skip=8, guess=50000, trim=FALSE,
       return(NULL)
     }
     ret_tib <- ret_tib %>% dplyr::filter(!is.na(Assay_Design_Id))
-    ret_tib <- inferOrderFields(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Order Tibble={RET}"))
+    if (verbose>=vt+4) ret_tib %>% print()
+    
+    ret_tib <- inferOrderFields(ret_tib, sidx=sidx, plen=plen,
+                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     #
     # NOTE:: This is for COVID Direct Detection as of now, but should work for
@@ -1562,6 +1644,11 @@ loadORD = function(file, format='old', skip=8, guess=50000, trim=FALSE,
       # QC Check:: First one should be zero, second one should be total count
       # ret_tib %>% dplyr::filter(Rep_Num != Rep_Idx)
       # ret_tib %>% dplyr::filter(Rep_Num == Rep_Idx)
+    } else if (format=='old') {
+      # ret_tib <- ret_tib %>% 
+      #   fixOrderProbeIDs(field="Probe_Type", verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported format={format}!!!{RET}{RET}"))
     }
     
     ret_cnt <- ret_tib %>% base::nrow()
@@ -1678,11 +1765,14 @@ loadPQC = function(file, format='pqc', skip=7, guess=1000, trim=FALSE,
 #                   AQP Manifest Generation Wrappers::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
+decodeToManifest = function(ord, mat, pqc, 
+                            platform=NULL, version=NULL, AQP=NULL,
                             ordFormat='old', ordSkip=8,  ordGuess=50000,
                             matFormat='new', matSkip=40, matGuess=1000,
                             pqcFormat='pqc', pqcSkip=7,  pqcGuess=1000,
                             
+                            sidx=2, plen=50,
+
                             matCols=NULL,
                             full=FALSE, trim=TRUE,
                             verbose=0,vt=4,tc=1,tt=NULL) {
@@ -1694,12 +1784,16 @@ decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
   ret_tib <- NULL
   stime <- system.time({
     
-    manifest_str <- paste(platform,version, sep='-')
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
     
     ord_tib <- NULL
     mat_tib <- NULL
     pqc_tib <- NULL
     ord_tib <- loadORD(file=ord, format=ordFormat, skip=ordSkip, guess=ordGuess, trim=trim,
+                       sidx=sidx, plen=plen,
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     mat_tib <- loadMAT(file=mat, format=matFormat, skip=matSkip, guess=matGuess, trim=trim,
                        cols=matCols,
@@ -1715,7 +1809,7 @@ decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
     
     # Reformat Order File::
     #  - Upper case sequences
-    ord_tib <- dplyr::rename(ord_tib, Probe_ID=Assay_Design_Id) %>% 
+    ord_tib <- ord_tib %>% # dplyr::rename(ord_tib, Probe_ID=Assay_Design_Id) %>% 
       dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id) %>%
       dplyr::rename(AlleleA_Probe_Sequence_MIX=AlleleA_Probe_Sequence,
                     AlleleB_Probe_Sequence_MIX=AlleleB_Probe_Sequence ) %>%
@@ -1742,10 +1836,55 @@ decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
       dplyr::left_join(exp_tib, by=c("AlleleB_Probe_Sequence"="Probe_Seq")) %>% 
       dplyr::rename(M=Address, Decode_Status_B=Decode_Status, Address_Seq_B=Tango_Seq) %>%
       dplyr::filter(!is.na(Decode_Status_A)) %>%
-      dplyr::filter(Decode_Status_A!=-1) %>% 
-      dplyr::filter(is.na(Decode_Status_B) | Decode_Status_B!=-1) %>%
-      dplyr::select(Probe_ID, M, U, everything() )
-    if (!is.null(round)) ret_tib <- ret_tib %>% dplyr::mutate(BP=round, AQP=round)
+      dplyr::filter(is.na(Decode_Status_A) | Decode_Status_A!=-1) %>% 
+      dplyr::filter(is.na(Decode_Status_B) | Decode_Status_B!=-1)
+    
+    #
+    # Should be replaced with inferOrderFields()::
+    #
+    #
+    # Update common predictable fields::
+    #
+    # ret_tib <- ret_tib %>%
+    #   dplyr::mutate(
+    #     Infinium_Design=dplyr::case_when(
+    #       !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) ~ 1,
+    #       !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) ~ 2,
+    #       TRUE ~ NA_real_
+    #     ),
+    #     Seq_48U=dplyr::case_when(
+    #       Infinium_Design==1 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx1,len1),
+    #       Infinium_Design==2 ~ stringr::str_sub(AlleleA_Probe_Sequence, idx2,len2),
+    #       TRUE ~ NA_character_
+    #     ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+    #     DESIGN=dplyr::case_when(
+    #       Infinium_Design==1 ~ 'I',
+    #       Infinium_Design==2 ~ 'II',
+    #       TRUE ~ NA_character_),
+    #     COLOR_CHANNEL=dplyr::case_when(
+    #       Infinium_Design==2 ~ 'Both',
+    #       Infinium_Design==1 & Normalization_Bin=='A' ~ 'Red',
+    #       Infinium_Design==1 & Normalization_Bin=='B' ~ 'Grn',
+    #       TRUE ~ NA_character_),
+    #     col=dplyr::case_when(
+    #       Infinium_Design==1 & Normalization_Bin=='A' ~ 'R',
+    #       Infinium_Design==1 & Normalization_Bin=='B' ~ 'G',
+    #       TRUE ~ NA_character_),
+    #     Probe_Type=stringr::str_sub(Probe_ID,1,2) %>%
+    #       stringr::str_replace('^ne','NE'),
+    #     Probe_Source=NA_character_,
+    #     Next_Base=dplyr::case_when(
+    #       Infinium_Design==1 & Normalization_Bin=='A' ~ 'A',
+    #       Infinium_Design==1 & Normalization_Bin=='B' ~ 'G',
+    #       TRUE ~ NA_character_)
+    #   ) %>%
+    #   dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,
+    #                 Probe_Type,Probe_Source,Next_Base, everything() )
+
+    if (!is.null(platform)) ret_tib <- ret_tib %>% dplyr::mutate(platform=platform)
+    if (!is.null(version))  ret_tib <- ret_tib %>% dplyr::mutate(version=version)
+    if (!is.null(AQP)) ret_tib <- ret_tib %>% dplyr::mutate(AQP=AQP)
+    
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Manifest Tibble={RET}"))
     if (verbose>=vt+4) print(ret_tib)
     
@@ -1758,7 +1897,8 @@ decodeToManifest = function(ord, mat, pqc, platform, version, round=NULL,
   ret_tib
 }
 
-decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, version,
+decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, 
+                                   platform=NULL, version=NULL,
                                    ordFormat='old', ordSkip=8,  ordGuess=50000,
                                    matFormat='new', matSkip=40, matGuess=1000,
                                    pqcFormat='pqc', pqcSkip=7,  pqcGuess=1000,
@@ -1820,7 +1960,7 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL, platform, v
       
       ret_tib <- ret_tib %>% dplyr::bind_rows(
         decodeToManifest(ord=ord_file, mat=mat_file, pqc=pqc_file,
-                         platform=platform, version=version, round=idx,
+                         platform=platform, version=version, AQP=idx,
                          
                          ordFormat=ordFormat, ordSkip=ordSkip, ordGuess=ordGuess,
                          matFormat=matFormat, matSkip=matSkip, matGuess=matGuess,
@@ -2041,8 +2181,9 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
         TRUE ~ NA_character_
       )
     )
-    man_tib <- man_tib %>% dplyr::mutate(AddressA_ID=stringr::str_remove(AddressA_ID, '^0+') %>% as.double(),
-                                         AddressB_ID=stringr::str_remove(AddressB_ID, '^0+') %>% as.double() )
+    man_tib <- man_tib %>% 
+      dplyr::mutate(AddressA_ID=stringr::str_remove(AddressA_ID, '^0+') %>% as.double(),
+                    AddressB_ID=stringr::str_remove(AddressB_ID, '^0+') %>% as.double() )
     
     if (normalize) {
       # Check for field that are unique to known manifests::
