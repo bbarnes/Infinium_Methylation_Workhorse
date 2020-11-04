@@ -183,8 +183,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'GENK'
   par$local_runType <- 'COVID'
+  par$local_runType <- 'GENK'
   par$local_runType <- 'GRCm38'
   
   if (par$local_runType=='COVID') {
@@ -269,15 +269,19 @@ if (args.dat[1]=='RStudio') {
     
   } else if (par$local_runType=='GENK') {
     opt$fresh <- TRUE
+    opt$fresh <- FALSE
+    
     opt$matFormat <- 'old'
     opt$ordFormat <- 'old'
     opt$matSkip <- 0
     opt$ordSkip <- 0
     
+    opt$genomeBuild <- 'GRCh37'
     opt$genomeBuild <- 'GRCh38'
     opt$platform    <- 'GENK'
     opt$version     <- 'A1'
     opt$version     <- 'A2'
+    opt$version     <- 'A3'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -781,10 +785,17 @@ man_pqc_unk_tib <- dplyr::anti_join(
       Probe_Type=='BS' ~ 'BS',
       Probe_Type=='NG' ~ 'NG',
       Probe_Type=='NP' ~ 'NP',
-      TRUE ~ NA_character_),
+      TRUE ~ 'UK'),
+      # TRUE ~ NA_character_),
     FN=NA_character_,
     Probe_Source=opt$platform,
     Version=opt$version,
+    M=as.integer(M),
+    U=as.integer(U),
+    Strand_TB=as.character(Strand_TB),
+    Strand_CO=as.character(Strand_CO),
+    Infinium_Design=as.integer(Infinium_Design),
+    Rep_Num=as.integer(Rep_Num),
     ValidID=FALSE,
   ) %>% 
   dplyr::ungroup() %>% 
@@ -795,12 +806,19 @@ man_pqc_unk_tib <- dplyr::anti_join(
                 everything()) %>%
   dplyr::arrange(Probe_ID)
 
+
 # Full Unite::
 #  TBD:: Should remove Rep_Num from source...
 #
-man_pqc_all_tib <- 
-  dplyr::bind_rows(man_pqc_prb_tib,man_pqc_unk_tib) %>% 
-  dplyr::select(-Rep_Num)
+man_pqc_all_tib <- dplyr::bind_rows(
+  dplyr::select(man_pqc_prb_tib, 1:35),
+  dplyr::select(man_pqc_unk_tib, 1:35) )
+
+if (FALSE) {
+  man_pqc_all_tib <- 
+    dplyr::bind_rows(man_pqc_prb_tib,man_pqc_unk_tib) %>% 
+    dplyr::select(-Rep_Num)
+}
 
 # Validation Stats::
 man_pqc_all_cnt <- man_pqc_all_tib %>% base::nrow()
@@ -828,6 +846,52 @@ man_all_sum_tib <- man_pqc_all_tib %>%
   dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
   dplyr::summarise(Count=n(), .groups='drop')
 print(man_all_sum_tib,n=base::nrow(man_all_sum_tib))
+
+
+
+if (FALSE) {
+  gnkw_all_csv <- '/Users/bretbarnes/Documents/data/CustomContent/Genknowme/Missing_probes.csv'
+  gnkw_all_tib <- readr::read_csv(gnkw_all_csv) %>%
+    dplyr::mutate(Seq_ID=stringr::str_remove(Assay_Design_Id, '_.*$'))
+  
+  gnkw_mat_tib <- gnkw_all_tib %>% dplyr::filter(!Failed_QC)
+  gnkw_mis_tib <- gnkw_all_tib %>% dplyr::filter( Failed_QC)
+  
+  man_pqc_all_tib %>% dplyr::inner_join(gnkw_mat_tib, by="Seq_ID" )
+  gnkw_mat_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
+  
+  man_pqc_all_tib %>% dplyr::inner_join(gnkw_mis_tib, by="Seq_ID" )
+  
+  
+    
+  man_pqc_all_tib %>% dplyr::inner_join(gnkw_mis_tib, by="Seq_ID" )
+  gnkw_mat_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID") %>% as.data.frame()
+  
+  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
+  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID") %>% as.data.frame()
+  
+  #
+  # Mat::
+  #
+  man_pqc_all_tib %>% dplyr::anti_join(gnkw_mat_tib, by="Seq_ID")
+  gnkw_mat_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
+  
+  
+  #
+  # Mis::
+  #
+  man_pqc_all_tib %>% dplyr::anti_join(gnkw_mis_tib, by="Seq_ID")
+  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
+  
+  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
+  man_pqc_all_tib %>% dplyr::anti_join(gnkw_mis_tib, by="Seq_ID")
+  
+  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID") %>% as.data.frame()
+  man_pqc_all_tib %>% dplyr::anti_join(gnkw_mis_tib, by="Seq_ID") %>% as.data.frame()
+  
+}
+
+
 
 
 
@@ -949,13 +1013,32 @@ if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
   
   hsa_ctl_tib <- 
     dplyr::bind_rows(std_inf1_hum_tib,std_bs1_hum_tib) %>%
-    dplyr::distinct(M,U, .keep_all=TRUE)
+    dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+    dplyr::filter(!is.na(Probe_ID))
 }
 
+#
+#
+# Basic Sesame Manifest::
+#
+#
+ses_base_col <- c('Probe_ID','M','U','DESIGN','COLOR_CHANNEL','col','Probe_Type','Probe_Source','Next_Base')
+
+man_base_ses_tib <- dplyr::bind_rows(
+  dplyr::filter(man_pqc_all_tib, Probe_Type=='cg') %>% select(Probe_ID:Next_Base, ses_base_col),
+  dplyr::select(hsa_ctl_tib, ses_base_col) ) %>%
+  dplyr::arrange(Probe_ID)
+
+readr::write_csv(man_base_ses_tib,ses_base_csv)
 
 
+# dplyr::bind_rows(man_pqc_all_tib, hsa_ctl_tib) %>% dplyr::select(Probe_ID:Infinium_Design) %>% tail(n=200) %>% as.data.frame()
+dplyr::bind_rows(man_pqc_all_tib, hsa_ctl_tib) %>% 
+  dplyr::select(Probe_ID:Infinium_Design) %>% tail(n=200) %>% as.data.frame()
 
-
+#
+# TBD:: Check if ctl_ works or if we can use ct- for HSA controls...
+#
 
 
 
