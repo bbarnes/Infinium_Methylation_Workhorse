@@ -1,9 +1,10 @@
 #!/bin/sh
 
-EXE_A=/repo/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
-EXE_B=/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
+EXE_NAME=Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
+EXE_A=/repo/${EXE_NAME}
+EXE_B=/Users/bretbarnes/Documents/tools/${EXE_NAME}
 
-RSCRIPT_A=/usr/bin/Rscript
+RSCRIPT_A=/usr/local/bin/Rscript
 RSCRIPT_B=/usr/local/bin/Rscript
 
 if [ -e ${EXE_A} ]; then
@@ -24,29 +25,6 @@ else
     exit
 fi
 
-if [ -e ${RSCRIPT_A} ]; then
-    RSCRIPT=${RSCRIPT_A}
-
-    echo "Docker Rscript="${RSCRIPT}
-
-    if [ "$#" -lt 2 ]; then
-	echo "Usage: $0 input output [options]"
-	exit 1
-    fi
-
-elif [ -e ${RSCRIPT_B} ]; then
-    RSCRIPT=${RSCRIPT_B}
-
-    echo "Docker Rscript="${RSCRIPT}
-
-    INP=$1
-    OUT=$2
-
-else
-    echo "Unrecognized RSCRIPT directory!"
-    exit
-fi
-
 echo "RSC="${RSCRIPT}
 echo "EXE="${EXE}
 echo "INP="${INP}
@@ -62,18 +40,21 @@ echo "done."
 exit
 
 ${RSCRIPT} ${EXE} \
-    --Rscript /usr/local/bin/Rscript \
+    --Rscript ${RSCRIPT} \
     -i ${INP} -o ${OUT} \
     --workflows="i,ind" \
     --writeCalls \
-    --writeSsheet \
-    --minNegPval=0.02 \
-    --minOobPval=0.1 \
-    --minNegPerc=98 \
-    --minOobPerc=90 \
-    --minDeltaBeta=0.2 \
-    --percisionBeta=4 \
-    --percisionPval=6 \
-    --verbose=${VER}
+    --writeSsheet
+
+
+    
+#    --minNegPval=0.02 \
+#    --minOobPval=0.1 \
+#    --minNegPerc=98 \
+#    --minOobPerc=90 \
+#    --minDeltaBeta=0.2 \
+#    --percisionBeta=4 \
+#    --percisionPval=6 \
+#    --verbose=${VER}
 
 # End of file
