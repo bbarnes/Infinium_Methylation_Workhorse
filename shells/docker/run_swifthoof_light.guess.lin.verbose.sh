@@ -1,7 +1,27 @@
 #!/bin/sh
 
+VER=30
+
+EXE_A=/repo/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
+EXE_B=/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
+
 RSCRIPT_A=/usr/bin/Rscript
 RSCRIPT_B=/usr/local/bin/Rscript
+
+if [ -e ${EXE_A} ]; then
+    EXE=${EXE_A}
+
+    INP=.
+    OUT=/output
+    
+elif [ -e ${EXE_B} ]; then
+    EXE=${EXE_B}
+
+    
+else
+    echo "Unrecognized EXE directory!"
+    exit
+fi
 
 if [ -e ${RSCRIPT_A} ]; then
 
@@ -11,15 +31,28 @@ elif [ -e ${TOP_LIX} ]; then
 
     RSCRIPT=${RSCRIPT_B}
 
+    if [ "$#" -lt 2 ]; then
+	echo "Usage: $0 input output"
+	exit 1
+    fi
+
+    INP=$1
+    OUT=$2
+
 else
     echo "Unrecognized RSCRIPT directory!"
     exit
 fi
 
-${RSCRIPT} \
-    /repo/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R \
+echo "RSC="${RSCRIPT}
+echo "EXE="${EXE}
+echo "INP="${INP}
+echo "OUT="${OUT}
+echo ""
+
+${RSCRIPT} ${EXE} \
     --Rscript /usr/local/bin/Rscript \
-    -i . -o /output \
+    -i ${INP} -o ${OUT} \
     --workflows="i,ind" \
     --writeCalls \
     --writeSsheet \
@@ -30,12 +63,6 @@ ${RSCRIPT} \
     --minDeltaBeta=0.2 \
     --percisionBeta=4 \
     --percisionPval=6 \
-    --verbose=30
-
-
-#
-# --datDir /repo/workhorse/dat \
-# --platform=EPIC \
-# --manifest=B4 \
+    --verbose=${VER}
 
 # End of file
