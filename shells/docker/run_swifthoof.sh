@@ -11,9 +11,13 @@ if [ -e ${EXE_A} ]; then
 
     INP=/input
     OUT=/output
+
+    echo "Docker Run..."
     
 elif [ -e ${EXE_B} ]; then
     EXE=${EXE_B}
+
+    echo "Local Run..."
     
 else
     echo "Unrecognized EXE directory!"
@@ -23,6 +27,8 @@ fi
 if [ -e ${RSCRIPT_A} ]; then
     RSCRIPT=${RSCRIPT_A}
 
+    echo "Docker Rscript="${RSCRIPT}
+
     if [ "$#" -lt 2 ]; then
 	echo "Usage: $0 input output [options]"
 	exit 1
@@ -30,6 +36,8 @@ if [ -e ${RSCRIPT_A} ]; then
 
 elif [ -e ${RSCRIPT_B} ]; then
     RSCRIPT=${RSCRIPT_B}
+
+    echo "Docker Rscript="${RSCRIPT}
 
     INP=$1
     OUT=$2
