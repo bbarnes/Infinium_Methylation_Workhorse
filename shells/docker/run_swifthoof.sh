@@ -53,9 +53,9 @@ echo "INP="${INP}
 echo "OUT="${OUT}
 echo ""
 
-echo ${RSCRIPT} ${EXE} -Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
+echo ${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
 
-${RSCRIPT} ${EXE} -Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
+${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
 
 echo "done."
 

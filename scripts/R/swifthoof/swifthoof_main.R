@@ -277,9 +277,9 @@ if (args.dat[1]=='RStudio') {
                 help="Rscript path [default= %default]", metavar="character"),
     
     # Directories::
-    make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
+    make_option(c("--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("-i", "--idatsDir"), type="character", default=opt$idatsDir, 
+    make_option(c("--idatsDir"), type="character", default=opt$idatsDir, 
                 help="idats directory [default= %default]", metavar="character"),
 
     # Optional Files::
