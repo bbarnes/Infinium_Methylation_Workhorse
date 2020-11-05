@@ -1,7 +1,5 @@
 #!/bin/sh
 
-VER=30
-
 EXE_A=/repo/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
 EXE_B=/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
 
@@ -11,12 +9,11 @@ RSCRIPT_B=/usr/local/bin/Rscript
 if [ -e ${EXE_A} ]; then
     EXE=${EXE_A}
 
-    INP=.
+    INP=/input
     OUT=/output
     
 elif [ -e ${EXE_B} ]; then
     EXE=${EXE_B}
-
     
 else
     echo "Unrecognized EXE directory!"
@@ -24,15 +21,13 @@ else
 fi
 
 if [ -e ${RSCRIPT_A} ]; then
-
     RSCRIPT=${RSCRIPT_A}
 
-elif [ -e ${TOP_LIX} ]; then
-
+elif [ -e ${RSCRIPT_B} ]; then
     RSCRIPT=${RSCRIPT_B}
 
     if [ "$#" -lt 2 ]; then
-	echo "Usage: $0 input output"
+	echo "Usage: $0 input output [options]"
 	exit 1
     fi
 
@@ -49,6 +44,14 @@ echo "EXE="${EXE}
 echo "INP="${INP}
 echo "OUT="${OUT}
 echo ""
+
+echo ${RSCRIPT} ${EXE} -Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
+
+${RSCRIPT} ${EXE} -Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
+
+echo "done."
+
+exit
 
 ${RSCRIPT} ${EXE} \
     --Rscript /usr/local/bin/Rscript \

@@ -23,13 +23,13 @@ fi
 if [ -e ${RSCRIPT_A} ]; then
     RSCRIPT=${RSCRIPT_A}
 
-elif [ -e ${RSCRIPT_B} ]; then
-    RSCRIPT=${RSCRIPT_B}
-
     if [ "$#" -lt 2 ]; then
 	echo "Usage: $0 input output [options]"
 	exit 1
     fi
+
+elif [ -e ${RSCRIPT_B} ]; then
+    RSCRIPT=${RSCRIPT_B}
 
     INP=$1
     OUT=$2
