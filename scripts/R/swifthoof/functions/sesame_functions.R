@@ -835,14 +835,18 @@ ssetToPvalTib = function(sset, method, name, percision=0,
   
   pval_cnt <- 0
 
-  print(sset@pval)
+  head(sset@pval) %>% print()
   
   if (!is.null(sset@pval) && 
-      !is.null(sset@pval[method]) &&
-      !is.null(sset@pval[[method]]))
+      !is.null(sset@pval[method]) ) {
+    cat("HEREREERE - Docker\n")
     pval_cnt <- sset@pval[method] %>% names() %>% length()
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} pval_cnt={pval_cnt}!!!{RET}"))
+  }
+  #  pval_cnt <- sset@pval[method] %>% names() %>% length()
   #  pval_cnt <- sset@pval[[method]] %>% names() %>% length()
-  print(sset@pval[method])
+  head(sset@pval[method]) %>% print()
   
   if (pval_cnt==0) {
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Warning; pval_cnt={pval_cnt}!!!{RET}"))
