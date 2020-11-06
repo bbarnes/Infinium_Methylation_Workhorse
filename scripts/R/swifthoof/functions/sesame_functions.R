@@ -606,11 +606,20 @@ ssetToPredict = function(sset, idx, key, pre=NULL, del='_',
   tib <- NULL
   stime <- system.time({
     
-    beta <- sesame::getBetas(sset=sset, quality.mask=quality.mask, 
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sset={RET}"))
+    if (verbose>=vt+4) print(sset)
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{RET}{RET}"))
+    
+    beta <- sesame::getBetas(sset=sset, 
+                             quality.mask=quality.mask, 
                              nondetection.mask=nondetection.mask, 
                              mask.use.tcga=mask.use.tcga, 
                              pval.threshold=pval.threshold, 
                              sum.TypeI=sum.TypeI)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} beta={RET}"))
+    if (verbose>=vt+4) print(beta)
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{RET}{RET}"))
     
     skn_tib <- NULL
     inf_key <- paste('SkinAge',idx,'Method', sep=del) %>% rlang::sym()
