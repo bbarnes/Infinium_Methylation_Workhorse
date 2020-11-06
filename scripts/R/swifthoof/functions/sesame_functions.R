@@ -885,7 +885,7 @@ ssetToBetaTib = function(sset, name, quality.mask=FALSE,
     # pval.method = NULL, sum.TypeI = FALSE
     
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} dat={RET}"))
-    if (verbose>=vt+4) print(dat)
+    if (verbose>=vt+4) dat %>% head() %>% print()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
     
     if (percision!=0) dat <- round(dat, percision)
