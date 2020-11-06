@@ -841,8 +841,8 @@ ssetToPvalTib = function(sset, method, name, percision=0,
       !is.null(sset@pval[method]) ) {
     cat("HEREREERE - Docker\n")
     pval_cnt <- sset@pval[method] %>% names() %>% length()
-    
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} pval_cnt={pval_cnt}!!!{RET}"))
+    head(sset@pval[method]) %>% print()
   }
   #  pval_cnt <- sset@pval[method] %>% names() %>% length()
   #  pval_cnt <- sset@pval[[method]] %>% names() %>% length()
@@ -857,7 +857,7 @@ ssetToPvalTib = function(sset, method, name, percision=0,
     if (!is.null(sset@pval) && 
         !is.null(sset@pval[method]) &&
         !is.null(sset@pval[[method]]))
-      ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[[method]]), !!name_sym := 1.0)
+      ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[method]), !!name_sym := 1.0)
     
     #  ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
     
