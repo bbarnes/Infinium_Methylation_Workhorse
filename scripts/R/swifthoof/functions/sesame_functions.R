@@ -851,7 +851,7 @@ ssetToPvalTib = function(sset, method, name, percision=0,
   
   stime <- system.time({
     if (!is.null(sset@pval) && !is.null(sset@pval[method]) )
-      ret_tib <- tibble::tibble(Probe_ID=names(sset@pval[[method]]), !!name_sym := 1.0)
+      ret_tib <- tibble::tibble(Probe_ID=names(sset@pval[method]), !!name_sym := 1.0)
     
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Warning; returning; pval=1.0.{RET}"))
     if (verbose>=vt+4) ret_tib %>% head() %>% print()
