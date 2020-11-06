@@ -856,7 +856,8 @@ ssetToPvalTib = function(sset, method, name, percision=0,
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Warning; returning; pval=1.0.{RET}"))
     if (verbose>=vt+4) ret_tib %>% head() %>% print()
 
-    ret_tib <- sset@pval[[method]] %>% tibble::enframe(name='Probe_ID', value=name)
+    # ret_tib <- sset@pval[[method]] %>% tibble::enframe(name='Probe_ID', value=name)
+    ret_tib <- sset@pval[method] %>% tibble::enframe(name='Probe_ID', value=name)
     if (percision!=0) ret_tib <- ret_tib %>% dplyr::mutate_if(purrr::is_double, round, percision)
     
     ret_cnt <- ret_tib %>% base::nrow()
