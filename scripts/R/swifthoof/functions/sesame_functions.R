@@ -173,12 +173,16 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
     if (is.null(method)) stop(glue::glue("{RET}[{funcTag}]: ERROR: Missing method!!!{RET}{RET}"))
     else if (method=='open') sset <- sset %>% sesame::pOOBAH() %>% sesame::noob() %>% sesame::dyeBiasCorrTypeINorm()
     else if (method=='dyeBiasCorrTypeINorm') sset <- sset %>% sesame::dyeBiasCorrTypeINorm()
-    else if (method=='detectionPnegEcdf') sset <- sset %>% sesame::detectionPnegEcdf()
+    else if (method=='detectionPnegEcdf') {
+      cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt}, method={method})={RET}"))
+      print(sset)
+      sset <- sset %>% sesame::detectionPnegEcdf()
+      cat(glue::glue("[{funcTag}]:{tabsStr} {RET}{RET}"))
+    }
     else if (method=='pOOBAH') sset <- sset %>% sesame::pOOBAH()
     else if (method=='noob') sset <- sset %>% sesame::noob()
     else if (method=='noobsb') sset <- sset %>% sesame::noobsb()
     else if (method=='inferTypeIChannel') sset <- sset %>% sesame::inferTypeIChannel(switch_failed=FALSE, verbose=FALSE)
-    # else if (method=='inferTypeIChannel') sset <- sset %>% sesame::inferTypeIChannel(switch_failed=TRUE, verbose=FALSE)
     else if (method=='raw') { } # sset <- sset
     else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported method={method}!!!{RET}{RET}"))
     
