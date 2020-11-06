@@ -187,15 +187,15 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
     else if (method=='raw') { } # sset <- sset
     else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported method={method}!!!{RET}{RET}"))
     
-    if (method!='detectionPnegEcdf') {
-      if (!is.null(sset@pval[['pOOBAH']]))
-        ret_cnt <- sset@pval[['pOOBAH']] %>% names() %>% length()
-    }
-    })
+    # if (method!='detectionPnegEcdf') {
+    #   if (!is.null(sset@pval) && 
+    #       !is.null(sset@pval[['pOOBAH']]))
+    #     ret_cnt <- sset@pval[['pOOBAH']] %>% names() %>% length()
+    # }
+  })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
-  
   
   sset
 }
