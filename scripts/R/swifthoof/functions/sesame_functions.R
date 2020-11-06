@@ -177,7 +177,7 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
     else if (method=='detectionPnegEcdf') {
       cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt}, method={method})={RET}"))
       print(sset)
-      # sset <- sset %>% sesame::detectionPnegEcdf()
+      sset <- sset %>% sesame::detectionPnegEcdf()
       cat(glue::glue("[{funcTag}]:{tabsStr} {RET}{RET}"))
     }
     else if (method=='pOOBAH') sset <- sset %>% sesame::pOOBAH()
@@ -378,20 +378,6 @@ sset2calls = function(sset, workflow, as.enframe=FALSE,
     tib <- tibble::enframe(beta, name='Probe_ID', value=name)
     if (verbose>=vt+4) print(tib)
     
-    # PnegEcdf:: negs
-    #
-    name <- paste(workflow,'negs', sep='_')
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
-    sset <- mutateSesame(sset=sset, method='detectionPnegEcdf', 
-                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    if (verbose>=vt+4) print(sset)
-    
-    pval <- ssetToPvalTib(sset=sset, method='PnegEcdf', name=name, 
-                          percision=percisionPval, 
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    if (verbose>=vt+4) print(pval)
-    tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
-    
     # pOOBAH:: poob
     #
     name <- paste(workflow,'poob', sep='_')
@@ -405,6 +391,20 @@ sset2calls = function(sset, workflow, as.enframe=FALSE,
                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (verbose>=vt+4) print(pval)
     
+    tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
+    
+    # PnegEcdf:: negs
+    #
+    name <- paste(workflow,'negs', sep='_')
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
+    sset <- mutateSesame(sset=sset, method='detectionPnegEcdf', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (verbose>=vt+4) print(sset)
+    
+    pval <- ssetToPvalTib(sset=sset, method='PnegEcdf', name=name, 
+                          percision=percisionPval, 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (verbose>=vt+4) print(pval)
     tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
   })
   nrows <- tib %>% base::nrow()
@@ -838,6 +838,7 @@ ssetToPvalTib = function(sset, method, name, percision=0,
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Warning; pval_cnt={pval_cnt}!!!{RET}"))
     
     name_sym <- rlang::sym(name)
+    # ret_dat  <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
     ret_dat  <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Warning; returning; pval=1.0.{RET}"))
     if (verbose>=vt+4) ret_dat %>% print()
