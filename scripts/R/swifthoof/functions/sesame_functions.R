@@ -832,32 +832,31 @@ ssetToPvalTib = function(sset, method, name, percision=0,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; method={method}, name={name}.{RET}"))
-  
-  pval_cnt <- 0
+
+  ret_cnt <- 0
+  ret_tib <- NULL
 
   head(sset@pval) %>% print()
   
-  if (!is.null(sset@pval) && 
+  if (!is.null(sset@pval) ||
       !is.null(sset@pval[method]) ) {
     cat("HEREREERE - Docker\n")
-    pval_cnt <- sset@pval[method] %>% names() %>% length()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} pval_cnt={pval_cnt}!!!{RET}"))
-    head(sset@pval[method]) %>% print()
+    ret_cnt <- sset@pval[method] %>% names() %>% length()
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} ret_cnt={ret_cnt}!!!{RET}"))
+    # head(sset@pval[method]) %>% print()
   }
-  #  pval_cnt <- sset@pval[method] %>% names() %>% length()
-  #  pval_cnt <- sset@pval[[method]] %>% names() %>% length()
-  head(sset@pval[method]) %>% print()
+  # head(sset@pval[method]) %>% print()
   
-  if (pval_cnt==0) {
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Warning; pval_cnt={pval_cnt}!!!{RET}"))
+  if (ret_cnt==0) {
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Warning; ret_cnt={ret_cnt}!!!{RET}"))
     
     name_sym <- rlang::sym(name)
-    # ret_dat  <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
     
     if (!is.null(sset@pval) && 
         !is.null(sset@pval[method]) )
       ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[method]), !!name_sym := 1.0)
     #  ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
+    #  ret_dat  <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
     
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Warning; returning; pval=1.0.{RET}"))
     if (verbose>=vt+4) ret_dat %>% print()
@@ -865,7 +864,7 @@ ssetToPvalTib = function(sset, method, name, percision=0,
   }
   
   stime <- system.time({
-    dat <- sset@pval[[method]] %>% tibble::enframe(name='Probe_ID', value=name)
+    dat <- sset@pval[method] %>% tibble::enframe(name='Probe_ID', value=name)
     if (percision!=0) dat <- dat %>% dplyr::mutate_if(purrr::is_double, round, percision)
   })
   
