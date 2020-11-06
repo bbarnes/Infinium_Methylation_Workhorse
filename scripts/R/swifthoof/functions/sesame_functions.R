@@ -834,11 +834,15 @@ ssetToPvalTib = function(sset, method, name, percision=0,
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; method={method}, name={name}.{RET}"))
   
   pval_cnt <- 0
+
+  print(sset@pval)
   
   if (!is.null(sset@pval) && 
       !is.null(sset@pval[method]) &&
       !is.null(sset@pval[[method]]))
-    pval_cnt <- sset@pval[[method]] %>% names() %>% length()
+    pval_cnt <- sset@pval[method] %>% names() %>% length()
+  #  pval_cnt <- sset@pval[[method]] %>% names() %>% length()
+  print(sset@pval[method])
   
   if (pval_cnt==0) {
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Warning; pval_cnt={pval_cnt}!!!{RET}"))
