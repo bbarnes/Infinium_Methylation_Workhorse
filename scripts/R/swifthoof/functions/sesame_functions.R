@@ -166,6 +166,7 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
     return(sset)
   }
   
+  ret_cnt <- 0
   stime <- system.time({
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt})={RET}"))
     if (verbose>=vt+4) print(sset)
@@ -186,7 +187,8 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
     else if (method=='raw') { } # sset <- sset
     else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported method={method}!!!{RET}{RET}"))
     
-    ret_cnt <- sset@pval[['pOOBAH']] %>% names() %>% length()
+    if (!is.null(sset@pval[['pOOBAH']]))
+      ret_cnt <- sset@pval[['pOOBAH']] %>% names() %>% length()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
