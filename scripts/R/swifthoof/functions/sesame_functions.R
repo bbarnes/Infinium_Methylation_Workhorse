@@ -610,12 +610,17 @@ ssetToPredict = function(sset, idx, key, pre=NULL, del='_',
     if (verbose>=vt+4) print(sset)
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{RET}{RET}"))
     
-    beta <- sesame::getBetas(sset=sset, 
-                             quality.mask=quality.mask, 
-                             nondetection.mask=nondetection.mask, 
-                             mask.use.tcga=mask.use.tcga, 
-                             pval.threshold=pval.threshold, 
-                             sum.TypeI=sum.TypeI)
+    beta <- sesame::getBetas(sset=sset)
+
+    #
+    # Original code with all options::
+    #
+    # beta <- sesame::getBetas(sset=sset, 
+    #                          quality.mask=quality.mask, 
+    #                          nondetection.mask=nondetection.mask, 
+    #                          mask.use.tcga=mask.use.tcga, 
+    #                          pval.threshold=pval.threshold, 
+    #                          sum.TypeI=sum.TypeI)
     
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} beta={RET}"))
     if (verbose>=vt+4) print(beta)
