@@ -835,15 +835,20 @@ ssetToPvalTib = function(sset, method, name, percision=0,
   
   pval_cnt <- 0
   
-  if (!is.null(sset@pval) && !is.null(sset@pval[[method]]))
+  if (!is.null(sset@pval) && 
+      !is.null(sset@pval[method]) &&
+      !is.null(sset@pval[[method]]))
     pval_cnt <- sset@pval[[method]] %>% names() %>% length()
+  
   if (pval_cnt==0) {
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Warning; pval_cnt={pval_cnt}!!!{RET}"))
     
     name_sym <- rlang::sym(name)
     # ret_dat  <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
     
-    if (!is.null(sset@pval) && !is.null(sset@pval[[method]]))
+    if (!is.null(sset@pval) && 
+        !is.null(sset@pval[method]) &&
+        !is.null(sset@pval[[method]]))
       ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[[method]]), !!name_sym := 1.0)
     
     #  ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
