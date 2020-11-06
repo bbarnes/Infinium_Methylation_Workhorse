@@ -465,8 +465,11 @@ sset2bset = function(sset, addSigs=TRUE, addNegs=TRUE, addPoob=TRUE, addBeta=TRU
     }
     
     if (addBeta) {
-      beta <- sesame::getBetas(sset, quality.mask=quality.mask, nondetection.mask=nondetection.mask, 
-                               mask.use.tcga=mask.use.tcga, pval.threshold=pval.threshold, sum.TypeI=sum.TypeI)
+      beta <- sesame::getBetas(sset=sset, quality.mask=quality.mask, 
+                               nondetection.mask=nondetection.mask, 
+                               mask.use.tcga=mask.use.tcga, 
+                               pval.threshold=pval.threshold, 
+                               sum.TypeI=sum.TypeI)
       if (as.enframe) beta <- beta %>% tibble::enframe(name='Probe_ID', value='beta')
       if (round_dat && round_beta>0) beta <- beta %>% dplyr::mutate_if(is.numeric, list(round), round_beta)
       bset <- bset %>% dplyr::left_join(beta, by='Probe_ID')
@@ -593,12 +596,21 @@ ssetToPredict = function(sset, idx, key, pre=NULL, del='_',
   funcTag <- 'ssetToPredict'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}      quality.mask={quality.mask}...{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} nondetection.mask={nondetection.mask}...{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}     mask.use.tcga={mask.use.tcga}...{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}    pval.threshold={pval.threshold}...{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}         sum.TypeI={sum.TypeI}...{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}        as.enframe={as.enframe}...{RET}{RET}"))
   
   tib <- NULL
   stime <- system.time({
     
-    beta <- sesame::getBetas(sset, quality.mask=quality.mask, nondetection.mask=nondetection.mask, 
-                             mask.use.tcga=mask.use.tcga, pval.threshold=pval.threshold, sum.TypeI=sum.TypeI)
+    beta <- sesame::getBetas(sset=sset, quality.mask=quality.mask, 
+                             nondetection.mask=nondetection.mask, 
+                             mask.use.tcga=mask.use.tcga, 
+                             pval.threshold=pval.threshold, 
+                             sum.TypeI=sum.TypeI)
     
     skn_tib <- NULL
     inf_key <- paste('SkinAge',idx,'Method', sep=del) %>% rlang::sym()
@@ -1099,8 +1111,12 @@ ssetBeta2bset = function(sset, bset, nkey, del='_',
   stime <- system.time({
     dat <- NULL
     
-    betas <- sset %>% sesame::getBetas(quality.mask=quality.mask, nondetection.mask=nondetection.mask, 
-                                       mask.use.tcga=mask.use.tcga, pval.threshold=pval.threshold, sum.TypeI=sum.TypeI) %>%
+    betas <- sesame::getBetas(sset=sset,
+                              quality.mask=quality.mask, 
+                              nondetection.mask=nondetection.mask, 
+                              mask.use.tcga=mask.use.tcga, 
+                              pval.threshold=pval.threshold, 
+                              sum.TypeI=sum.TypeI) %>%
       tibble::enframe(name='Probe_ID', value=betaTag)
     
     dat <- add2bset(bset=bset, inf1=betas, keyA='Probe_ID', verbose=verbose,vt=1,tc=0,tt=tt)
@@ -1274,7 +1290,8 @@ getSexInfo_Copy = function (sset)
   probe2chr <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$probe2chr.hg19
   # print(probe2chr)
   
-  xLinkedBeta <- sesame::getBetas(sesame::subsetSignal(sset, xLinked), quality.mask = FALSE)
+  xLinkedBeta <- sesame::getBetas(sset=sesame::subsetSignal(sset, xLinked), 
+                                  quality.mask = FALSE)
   intens <- sesame::totalIntensities(sset)
   probes <- intersect(names(intens), names(probe2chr))
   intens <- intens[probes]
