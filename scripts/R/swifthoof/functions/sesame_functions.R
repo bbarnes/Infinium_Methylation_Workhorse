@@ -72,7 +72,7 @@ initSesameRaw = function(prefix, platform, manifest, load=FALSE, save=FALSE, rds
       if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={rds}.{RET}"))
       sset <- readr::read_rds(rds)
     } else {
-      if (verbose>=vt+4) print(manifest)
+      if (verbose>=vt+4) head(manifest) %>% print()
       sset <- sesame::readIDATpair(prefix, platform=platform, manifest=manifest)
       if (save && !is.null(rds)) {
         if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS={rds}.{RET}"))
@@ -176,8 +176,9 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
     else if (method=='dyeBiasCorrTypeINorm') sset <- sset %>% sesame::dyeBiasCorrTypeINorm()
     else if (method=='detectionPnegEcdf') {
       cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt}, method={method})={RET}"))
-      print(sset)
+      if (verbose>=vt+4) print(sset)
       sset <- sset %>% sesame::detectionPnegEcdf()
+      if (verbose>=vt+4) print(sset)
       cat(glue::glue("[{funcTag}]:{tabsStr} {RET}{RET}"))
     }
     else if (method=='pOOBAH') sset <- sset %>% sesame::pOOBAH()
@@ -273,7 +274,7 @@ sigsSumToSSheet2 = function(tib, metric='avg',
     # cat(glue::glue("2nd: pt={pt}.{RET}"))
   }
   ss_tib <- ss_tib %>% dplyr::mutate_if(is.numeric, as.integer)
-  if (verbose>=vt+4) ss_tib %>% as.data.frame() %>% print()
+  if (verbose>=vt+4) head(ss_tib) %>% as.data.frame() %>% print()
   
   ss_tib
 }
@@ -364,55 +365,62 @@ sset2calls = function(sset, workflow, as.enframe=FALSE,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; workflow={workflow}.{RET}"))
   if (verbose>=vt+4) print(sset)
-  tib <- NULL
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     
     # noob:: beta
     #
     name <- paste(workflow,'beta', sep='_')
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Settting name={name}...{RET}"))
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Settting name={name}...{RET}"))
+    
     beta <- ssetToBetaTib(sset=sset, name=name, 
                           as.enframe=as.enframe,
                           percision=percisionBeta, 
                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    tib <- tibble::enframe(beta, name='Probe_ID', value=name)
-    if (verbose>=vt+4) print(tib)
-    
-    # pOOBAH:: poob
-    #
-    name <- paste(workflow,'poob', sep='_')
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
-    sset <- mutateSesame(sset=sset, method='pOOBAH', 
-                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    if (verbose>=vt+4) print(sset)
-    
-    pval <- ssetToPvalTib(sset=sset, method='pOOBAH', name=name, 
-                          percision=percisionPval, 
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    if (verbose>=vt+4) print(pval)
-    
-    tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
+    ret_tib <- tibble::enframe(beta, name='Probe_ID', value=name)
+    if (verbose>=vt+4) head(ret_tib) %>% print()
     
     # PnegEcdf:: negs
     #
     name <- paste(workflow,'negs', sep='_')
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
-    sset <- mutateSesame(sset=sset, method='detectionPnegEcdf', 
-                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    if (verbose>=vt+4) print(sset)
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
     
-    pval <- ssetToPvalTib(sset=sset, method='PnegEcdf', name=name, 
+    ssetA <- mutateSesame(sset=sset, method='detectionPnegEcdf', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (verbose>=vt+4) print(ssetA)
+
+    pvalA <- ssetToPvalTib(sset=ssetA, method='PnegEcdf', name=name, 
                           percision=percisionPval, 
                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    if (verbose>=vt+4) print(pval)
-    tib <- tib %>% dplyr::left_join(pval, by="Probe_ID")
+    # if (verbose>=vt+4) head(pval) %>% print()
+    ret_tib <- ret_tib %>% dplyr::left_join(pvalA, by="Probe_ID")
+    
+    # pOOBAH:: poob
+    #
+    name <- paste(workflow,'poob', sep='_')
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
+    
+    ssetB <- mutateSesame(sset=sset, method='pOOBAH', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (verbose>=vt+4) print(ssetB)
+    
+    pvalB <- ssetToPvalTib(sset=sset, method='pOOBAH', name=name, 
+                          percision=percisionPval, 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # if (verbose>=vt+4) head(pval) %>% print()
+    ret_tib <- ret_tib %>% dplyr::left_join(pvalB, by="Probe_ID")
+    ret_cnt <- ret_tib %>% base::nrow()
   })
-  nrows <- tib %>% base::nrow()
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done nrows={nrows}, elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done ret_cnt={ret_cnt}, elapsed={etime}.{RET}{RET}"))
   
-  tib
+  ret_tib
 }
 
 sset2bset = function(sset, addSigs=TRUE, addNegs=TRUE, addPoob=TRUE, addBeta=TRUE,
@@ -496,7 +504,7 @@ callToSSheet = function(call, idx, key, pre=NULL, minNegPval, minOobPval,
     if (onlyCG) call <- call %>% dplyr::filter(stringr::str_starts(!!id, 'cg'))
     
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} call={RET}"))
-    if (verbose>=vt+4) print(call)
+    if (verbose>=vt+4) head(call) %>% print()
     
     beta_tib <- NULL
     beta_key_str <- paste('Beta',idx,'Method', sep=del)
@@ -513,6 +521,8 @@ callToSSheet = function(call, idx, key, pre=NULL, minNegPval, minOobPval,
     negs_val_str <- paste('Negs_Pass',idx,'Perc', sep=del)
     negs_key_sym <- rlang::sym(negs_key_str)
     negs_val_sym <- rlang::sym(negs_val_str)
+    
+    print(call)
     
     negs_tib <- tibble::tibble(!!negs_key_sym := key, !!negs_val_sym := dplyr::select(call, ends_with('_negs')) %>%
                                  dplyr::summarise_all(list(pass_perc=cntPer_lte), min=minNegPval) %>%
@@ -832,46 +842,30 @@ ssetToPvalTib = function(sset, method, name, percision=0,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; method={method}, name={name}.{RET}"))
-
+  
   ret_cnt <- 0
   ret_tib <- NULL
-
-  head(sset@pval) %>% print()
   
-  if (!is.null(sset@pval) ||
-      !is.null(sset@pval[method]) ) {
-    cat("HEREREERE - Docker\n")
-    ret_cnt <- sset@pval[method] %>% names() %>% length()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} ret_cnt={ret_cnt}!!!{RET}"))
-    # head(sset@pval[method]) %>% print()
-  }
-  # head(sset@pval[method]) %>% print()
-  
-  if (ret_cnt==0) {
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Warning; ret_cnt={ret_cnt}!!!{RET}"))
-    
-    name_sym <- rlang::sym(name)
-    
-    if (!is.null(sset@pval) && 
-        !is.null(sset@pval[method]) )
-      ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[method]), !!name_sym := 1.0)
-    #  ret_dat <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
-    #  ret_dat  <- tibble::tibble(Probe_ID=names(sset@pval[['pOOBAH']]), !!name_sym := 1.0)
-    
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Warning; returning; pval=1.0.{RET}"))
-    if (verbose>=vt+4) ret_dat %>% print()
-    return(ret_dat)
-  }
+  # if (verbose>=vt+4) head(sset@pval[method]) %>% print()
+  name_sym <- rlang::sym(name)
   
   stime <- system.time({
-    dat <- sset@pval[method] %>% tibble::enframe(name='Probe_ID', value=name)
-    if (percision!=0) dat <- dat %>% dplyr::mutate_if(purrr::is_double, round, percision)
+    if (!is.null(sset@pval) && !is.null(sset@pval[method]) )
+      ret_tib <- tibble::tibble(Probe_ID=names(sset@pval[[method]]), !!name_sym := 1.0)
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Warning; returning; pval=1.0.{RET}"))
+    if (verbose>=vt+4) ret_tib %>% head() %>% print()
+
+    ret_tib <- sset@pval[[method]] %>% tibble::enframe(name='Probe_ID', value=name)
+    if (percision!=0) ret_tib <- ret_tib %>% dplyr::mutate_if(purrr::is_double, round, percision)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
   })
-  
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
-  
-  dat
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+
+  ret_tib
 }
 
 ssetToBetaTib = function(sset, name, quality.mask=FALSE, 
@@ -899,13 +893,13 @@ ssetToBetaTib = function(sset, name, quality.mask=FALSE,
     dat <- sesame::getBetas(sset=sset, 
                             mask=quality.mask,
                             sum.TypeI=sum.TypeI)
-                            # quality.mask=quality.mask,
-                            # nondetection.mask=nondetection.mask)
-                            # correct.switch=TRUE,
-                            # mask.use.tcga=mask.use.tcga, 
-                            # pval.method=pval.method,
-                            # pval.threshold=pval.threshold,
-                            # sum.TypeI=sum.TypeI)
+    # quality.mask=quality.mask,
+    # nondetection.mask=nondetection.mask)
+    # correct.switch=TRUE,
+    # mask.use.tcga=mask.use.tcga, 
+    # pval.method=pval.method,
+    # pval.threshold=pval.threshold,
+    # sum.TypeI=sum.TypeI)
     
     # sset, quality.mask = TRUE, nondetection.mask = TRUE, 
     # correct.switch = TRUE, mask.use.tcga = FALSE, pval.threshold = 0.05, 

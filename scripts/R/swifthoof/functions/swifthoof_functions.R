@@ -116,7 +116,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
                        CG_Bead_AvgRep=round(CG_Bead_Total/CG_Bead_Count/2),1,
                        .groups='drop')
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bead_sum_tib built.{RET}"))
-    if (verbose>=vt+10) print(bead_sum_tib)
+    if (verbose>=vt+10) head(bead_sum_tib) %>% print()
     
     pool_sum_tib <- ses_man_tib %>% dplyr::filter(Probe_Type=='cg' | Probe_Type=='ch' | Probe_Type=='rs') %>% 
       dplyr::mutate(Probe_Type=stringr::str_to_upper(Probe_Type)) %>%
@@ -126,7 +126,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       purrr::set_names(paste(names(.),'Manifest_Count',sep='_') ) %>% 
       addBeadPoolToSampleSheet(field='CG_Manifest_Count') %>% dplyr::ungroup()
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pool_sum_tib built.{RET}"))
-    if (verbose>=vt+10) print(pool_sum_tib)
+    if (verbose>=vt+10) head(pool_sum_tib) %>% print()
     
     chipFormat <- idat_list$ann %>% dplyr::select(Chip_Format) %>% dplyr::pull()
     beadPool   <- pool_sum_tib %>% dplyr::select(Bead_Pool) %>% dplyr::pull()
@@ -202,6 +202,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     raw_sset_tib <- NULL
     opt$writeSsetRaw <- FALSE
     if (!is.null(opt$skipSwap) && !opt$skipSwap) {
+      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building raw_sset_tib...{RET}") )
+
       raw_sset_tib <- sset2tib(sset=raw_sset, by="Probe_ID", des="Probe_Design",  
                                percision=opt$percisionSigs, sort=FALSE, 
                                save=opt$writeSsetRaw, csv=raw_sset_csv, 
@@ -305,7 +307,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     ssheet_ncols <- ssheet_tib %>% base::ncol()
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Building Workflows={workflow_cnt}, ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
-    if (verbose>=vt+4) print(all_call_tib)
+    if (verbose>=vt+4) head(all_call_tib) %>% print()
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                       Add Summarize Phenotype Inferences::
@@ -558,28 +560,24 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
     if (!is.null(datKey)) datKey <- datKey %>% rlang::sym()
     if (!is.null(minKey)) minKey <- minKey %>% rlang::sym()
     
-    if (verbose>=vt+4) print(file)
-    
-    # if (stringr::str_ends(file,'.rds')) {
-    # if (stringr::str_match(file,'.rds$')) {
     if (stringr::str_detect(file,'.rds$')) {
       tib <- suppressMessages(suppressWarnings(readr::read_rds(file)) )
     } else {
       tib <- suppressMessages(suppressWarnings(readr::read_csv(file)) )
     }
-    if (verbose>=vt+4) print(tib)
+    if (verbose>=vt+4) head(tib) %>% print()
     
     if (retRaw && !is.null(datKey)) {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} IS_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       tib <- tib %>% dplyr::select(!!selKey,ends_with(paste0(del,datKey)) )
-      if (verbose>=vt+4) print(tib)
+      if (verbose>=vt+4) head(tib) %>% print()
     } else {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NOT_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       
       if (!is.null(minVal) && !is.null(datKey)) {
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} USE_PVAL minVal={minVal}, SELECT=[selKey={selKey}, minKey={minKey}, datKey={datKey}].{RET}"))
         tib <- tib %>% dplyr::select(!!selKey,!!minKey, !!datKey)
-        if (verbose>=vt+4) print(tib)
+        if (verbose>=vt+4) head(tib) %>% print()
         
         tot_cnt  <- tib %>% base::nrow()
         pre_cnt  <- tib %>% dplyr::filter(is.na(!!datKey)) %>% base::nrow()
@@ -595,7 +593,7 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
       } else {
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NO_PVAL.{RET}"))
         if (!is.null(datKey)) tib <- tib %>% dplyr::select(!!selKey,!!datKey)
-        if (verbose>=vt+4) print(tib)
+        if (verbose>=vt+4) head(tib) %>% print()
       }
       if (!is.null(prefix)) tib <- tib %>% purrr::set_names(paste(prefix,names(tib), sep='.') ) %>% dplyr::rename(!!selKey := 1)
     }
@@ -728,9 +726,9 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
   
   if (verbose>=vt+4) {
     cat(glue::glue("[{funcTag}]:{tabsStr} CAN::{RET}") )
-    print(can)
+    head(can) %>% print()
     cat(glue::glue("[{funcTag}]:{tabsStr} REF::{RET}") )
-    print(ref)
+    head(ref) %>% print()
   }
   
   stime <- system.time({
@@ -762,7 +760,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Pre-join. dname={dname}, pname={pname}, pval={pval}, field={field}, jval={jval}.{RET}"))
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref=={RET}"))
-      print(ref)
+      head(ref) %>% print()
       
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib1=={RET}"))
       can %>% dplyr::select(!!jval,!!dname,!!pname,!!pval,!!field) %>% print()
