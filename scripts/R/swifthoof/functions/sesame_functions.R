@@ -916,33 +916,32 @@ ssetToBetaTib = function(sset, name, quality.mask=FALSE,
   if (verbose>=vt+4) print(sset)
   if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
   
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
-    dat <- sesame::getBetas(sset=sset, 
-                            mask=quality.mask,
-                            sum.TypeI=sum.TypeI)
-    # quality.mask=quality.mask,
-    # nondetection.mask=nondetection.mask)
-    # correct.switch=TRUE,
-    # mask.use.tcga=mask.use.tcga, 
-    # pval.method=pval.method,
-    # pval.threshold=pval.threshold,
-    # sum.TypeI=sum.TypeI)
+    ret_tib <- sesame::getBetas(sset=sset, 
+                            quality.mask = quality.mask, 
+                            nondetection.mask = nondetection.mask, 
+                            correct.switch = correct.switch, 
+                            mask.use.tcga = mask.use.tcga, 
+                            pval.threshold = pval.threshold, 
+                            sum.TypeI = sum.TypeI)
     
-    # sset, quality.mask = TRUE, nondetection.mask = TRUE, 
-    # correct.switch = TRUE, mask.use.tcga = FALSE, pval.threshold = 0.05, 
-    # pval.method = NULL, sum.TypeI = FALSE
-    
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} dat={RET}"))
-    if (verbose>=vt+4) dat %>% head() %>% print()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
+    if (verbose>=vt+4) ret_tib %>% head() %>% print()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
     
-    if (percision!=0) dat <- round(dat, percision)
-    if (as.enframe) dat <- dat %>% tibble::enframe(name='Probe_ID', value=name)
+    if (percision!=0) ret_tib <- round(ret_tib, percision)
+    if (as.enframe) ret_tib <- ret_tib %>% 
+        tibble::enframe(name='Probe_ID', value=name)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  
-  dat
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+
+  ret_tib
 }
 
 ssetToSigsTib = function(sset, add, name, del='_', rmAdd=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
