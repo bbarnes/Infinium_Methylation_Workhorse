@@ -33,7 +33,7 @@ echo ""
 
 echo ${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
 
-${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
+${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --idatsDir ${INP} --outDir ${OUT} $@
 
 echo "done."
 

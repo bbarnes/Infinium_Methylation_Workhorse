@@ -184,8 +184,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'COVID'
-  par$local_runType <- 'GENK'
   par$local_runType <- 'GRCm38'
+  par$local_runType <- 'GENK'
   
   if (par$local_runType=='COVID') {
     opt$fresh  <- TRUE
@@ -1025,7 +1025,8 @@ if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
 ses_base_col <- c('Probe_ID','M','U','DESIGN','COLOR_CHANNEL','col','Probe_Type','Probe_Source','Next_Base')
 
 man_base_ses_tib <- dplyr::bind_rows(
-  dplyr::filter(man_pqc_all_tib, Probe_Type=='cg') %>% select(Probe_ID:Next_Base, ses_base_col),
+  # dplyr::filter(man_pqc_all_tib, Probe_Type=='cg') %>% select(Probe_ID:Next_Base, ses_base_col),
+  dplyr::select(man_pqc_all_tib, Probe_ID:Next_Base, ses_base_col),
   dplyr::select(hsa_ctl_tib, ses_base_col) ) %>%
   dplyr::arrange(Probe_ID)
 
