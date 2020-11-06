@@ -177,7 +177,7 @@ mutateSesame = function(sset, method, verbose=0,vt=3,tc=1,tt=NULL) {
     else if (method=='detectionPnegEcdf') {
       cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt}, method={method})={RET}"))
       if (verbose>=vt+4) print(sset)
-      sset <- sset %>% sesame::detectionPnegEcdf()
+      # sset <- sset %>% sesame::detectionPnegEcdf()
       if (verbose>=vt+4) print(sset)
       cat(glue::glue("[{funcTag}]:{tabsStr} {RET}{RET}"))
     }
