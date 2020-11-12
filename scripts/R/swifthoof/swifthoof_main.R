@@ -257,7 +257,7 @@ if (args.dat[1]=='RStudio') {
   opt$single   <- TRUE
   opt$parallel <- FALSE
   opt$cluster  <- FALSE
-  opt$verbose <- 3
+  opt$verbose  <- 3
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -574,8 +574,8 @@ if (opt$cluster) {
     for (prefix in names(chipPrefixes)) {
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
-      # par$retData <- TRUE
-      # opt$verbose <- 30
+      par$retData <- TRUE
+      opt$verbose <- 30
       
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=2)

@@ -869,81 +869,10 @@ man_all_sum_tib <- man_pqc_all_tib %>%
   dplyr::summarise(Count=n(), .groups='drop')
 print(man_all_sum_tib,n=base::nrow(man_all_sum_tib))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#
-# Previous QC Check used for GenKnowMe::
-#
-if (FALSE) {
-  gnkw_all_csv <- '/Users/bretbarnes/Documents/data/CustomContent/Genknowme/Missing_probes.csv'
-  gnkw_all_tib <- readr::read_csv(gnkw_all_csv) %>%
-    dplyr::mutate(Seq_ID=stringr::str_remove(Assay_Design_Id, '_.*$'))
-  
-  gnkw_mat_tib <- gnkw_all_tib %>% dplyr::filter(!Failed_QC)
-  gnkw_mis_tib <- gnkw_all_tib %>% dplyr::filter( Failed_QC)
-  
-  man_pqc_all_tib %>% dplyr::inner_join(gnkw_mat_tib, by="Seq_ID" )
-  gnkw_mat_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
-  
-  man_pqc_all_tib %>% dplyr::inner_join(gnkw_mis_tib, by="Seq_ID" )
-  
-  
-    
-  man_pqc_all_tib %>% dplyr::inner_join(gnkw_mis_tib, by="Seq_ID" )
-  gnkw_mat_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID") %>% as.data.frame()
-  
-  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
-  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID") %>% as.data.frame()
-  
-  #
-  # Mat::
-  #
-  man_pqc_all_tib %>% dplyr::anti_join(gnkw_mat_tib, by="Seq_ID")
-  gnkw_mat_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
-  
-  
-  #
-  # Mis::
-  #
-  man_pqc_all_tib %>% dplyr::anti_join(gnkw_mis_tib, by="Seq_ID")
-  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
-  
-  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID")
-  man_pqc_all_tib %>% dplyr::anti_join(gnkw_mis_tib, by="Seq_ID")
-  
-  gnkw_mis_tib %>% dplyr::anti_join(man_pqc_all_tib, by="Seq_ID") %>% as.data.frame()
-  man_pqc_all_tib %>% dplyr::anti_join(gnkw_mis_tib, by="Seq_ID") %>% as.data.frame()
-  
-}
-
-
-
-
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #              2.4. Collect Remainder:: CTL::Complete HSA
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-#
-# TBD:: Use Steven's new namings for human controls::
-#
 std_ctl_tib <- NULL
 ctl_csv <- ctls_vec[1]
 std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
@@ -972,8 +901,11 @@ if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
                     stringr::str_replace_all('\\(', '') %>% 
                     stringr::str_replace_all('\\)', '')) %>%
     dplyr::rename(U=Address) %>%
-    dplyr::mutate(M=NA,DESIGN='II',col=NA,Probe_Source='HSA',Next_Base=NA) %>%
-    dplyr::mutate(M=as.double(M), Probe_ID=paste('ctl',Probe_ID, sep='_')) %>%
+    dplyr::mutate(M=NA_real_,M=as.double(M),U=as.double(U),
+                  DESIGN='II',Infinium_Design=2,
+                  col=NA_character_,Probe_Source='HSA',
+                  Next_Base=NA_character_,
+                  Probe_ID=paste('ctl',Probe_ID, sep='_')) %>%
     dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Probe_Source,Next_Base,
                   dplyr::everything()) %>%
     dplyr::arrange(Probe_Type,Probe_ID) %>%
@@ -1004,203 +936,70 @@ if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
         
         Control_Group=="TARGET REMOVAL"  ~ 'TR',
         TRUE ~ NA_character_
-      )
+      ),
+      # AlleleB_Probe_Sequence=NA,
+      DiNuc=NA_character_,
+      N1=NA_character_,
+      N2=NA_character_,
+      Seq_ID=paste0(Control_Group_Str,'_',PIDX) %>%
+        stringr::str_replace_all(' ', '_') %>%
+        stringr::str_replace_all('-', '_') %>% 
+        stringr::str_replace_all('\\(', '') %>% 
+        stringr::str_replace_all('\\)', '')
     )
   
-  std_bsU_tib <- std_ctl_tib %>% dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_U')) %>%
+  std_bsU_tib <- std_ctl_tib %>% 
+    dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_U')) %>%
     dplyr::rename(Address=U,AlleleA_Probe_Sequence=sequence) %>% 
-    dplyr::select(-Probe_ID,-Design_ID,-M,-COLOR_CHANNEL,-col,-DESIGN,-Next_Base)
-  
-  std_bsC_tib <- std_ctl_tib %>% dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_C')) %>%
+    dplyr::mutate(Probe_ID=stringr::str_remove(Probe_ID,'_[A-Z][0-9]+$')) %>%
+    dplyr::select(-M)
+
+  std_bsC_tib <- std_ctl_tib %>% 
+    dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_C')) %>%
     dplyr::rename(Address=U,AlleleB_Probe_Sequence=sequence) %>% 
-    dplyr::select(-Probe_ID,-Design_ID,-M,-COLOR_CHANNEL,-col,-DESIGN,-Next_Base)
-  
+    dplyr::mutate(Probe_ID=stringr::str_remove(Probe_ID,'_[A-Z][0-9]+$')) %>%
+    dplyr::select(-M)
+
   # Unique Addresses to Remove from Standard Controls
   std_bs1_add_vec <- dplyr::bind_rows(std_bsU_tib,std_bsC_tib) %>% 
     dplyr::distinct(Address) %>% dplyr::pull(Address)
   
-  # Bisulfite Conversion I Probes for Standard Human Controls
   std_bs1_hum_tib <- 
     dplyr::inner_join(std_bsU_tib,std_bsC_tib, 
-                      by=c("Design_Base_ID","Probe_Type","Probe_Source",
-                           "Control_Group","Control_Group_Str","PIDX"), 
-                      suffix=c("_U", "_C") ) %>%
-    dplyr::rename(U=Address_U,M=Address_C) %>% 
-    dplyr::mutate(Seq_ID=paste0(Control_Group_Str,'_',PIDX),
-                  Infinium_Design=1,Rep_Num=1) %>%
-    dplyr::select(Seq_ID,Infinium_Design,Rep_Num,Probe_Type,U,M,
-                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                  dplyr::everything())
-  
+                    by=c("Probe_ID","Design_Base_ID","Probe_Type","Probe_Source","PIDX","Control_Group","Control_Group_Str",
+                         "DESIGN","col","Next_Base","DiNuc","N1","N2","Infinium_Design","Seq_ID"), suffix=c("_A","_B") ) %>% 
+    dplyr::rename(U=Address_A,M=Address_B) %>%
+    dplyr::mutate(
+      DESIGN='I',
+      Infinium_Design=1,
+      COLOR_CHANNEL='Both',
+      col=COLOR_CHANNEL_A,
+      Next_Base='N',
+      Design_Base_AB="AB",
+      Design_ID=Design_Base_ID
+    )
+
   #
   # Build remainder of Standard EPIC Controls::
   #
   std_inf1_hum_tib <- std_ctl_tib %>% 
     dplyr::filter(!U %in% std_bs1_add_vec) %>% 
     dplyr::rename(AlleleA_Probe_Sequence=sequence) %>%
-    dplyr::mutate(
-      AlleleB_Probe_Sequence=NA,
-      DiNuc=NA_character_,
-      N1=NA_character_,
-      N2=NA_character_
-    ) %>%
-    dplyr::mutate(
-      Infinium_Design=1,
-      Seq_ID=paste0(Control_Group_Str,'_',PIDX) %>%
-        stringr::str_replace_all(' ', '_') %>%
-        stringr::str_replace_all('-', '_') %>% 
-        stringr::str_replace_all('\\(', '') %>% 
-        stringr::str_replace_all('\\)', ''))
-  
+    dplyr::mutate(col=COLOR_CHANNEL)
+
   #
   # TBD:: This does not contain all controls and loses pairs...
   #
   hsa_ctl_tib <- 
-    # dplyr::bind_rows(std_bs1_hum_tib,std_inf1_hum_tib) %>%
     dplyr::bind_rows(std_inf1_hum_tib,std_bs1_hum_tib) %>%
     dplyr::distinct(M,U, .keep_all=TRUE) %>% 
-    dplyr::filter(!is.na(Probe_ID))
+    dplyr::filter(!is.na(Probe_ID)) %>%
+    dplyr::select(-Design_Base_AB_A,-Design_Base_AB_B,
+                  -Design_ID_A,-Design_ID_B)
+  
+  hsa_ctl_tib %>% dplyr::filter(Infinium_Design==1) %>% as.data.frame() %>% print()
+  hsa_ctl_tib %>% dplyr::filter(Infinium_Design==2) %>% as.data.frame() %>% print()
 }
-
-
-if (FALSE && par$local_runType=='GENK') {
-  
-  # epic_man_csv <- file.path(par$datDir, 'manifest/base/EPIC-B4.manifest.sesame-base.cpg-sorted.csv.gz')
-  epic_man_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B4.csv.gz'
-  epic_man_lst <- loadManifestGenomeStudio(file=epic_man_csv, verbose=opt$verbose+4)
-  epic_man_tib <- epic_man_lst$man %>% dplyr::select(IlmnID,Genome_Build,CHR,MAPINFO,Strand)
-  epic_ctl_tib <- epic_man_lst$ctl %>% dplyr::mutate(Address=as.double(Address))
-  
-  hm45_man_csv <- '/Users/bretbarnes/Documents/data/manifests/HumanMethylation450_15017482_v.1.2.csv.gz'
-  hm45_man_lst <- loadManifestGenomeStudio(file=hm45_man_csv, verbose=opt$verbose+4)
-  hm45_man_tib <- hm45_man_lst$man %>% dplyr::select(IlmnID,Genome_Build,CHR,MAPINFO,Strand)
-  hm45_ctl_tib <- hm45_man_lst$ctl %>% dplyr::mutate(Address=as.double(Address))
-  
-  #
-  # EPIC/450k control overlap::
-  #
-  epic_int_tib <- hsa_ctl_tib %>% dplyr::inner_join(epic_ctl_tib, by=c("U"="Address"), suffix=c("_Full", "_EPIC"))
-  hsa_ctl_tib %>% dplyr::inner_join(epic_ctl_tib, by=c("M"="Address"), suffix=c("_Full", "_EPIC"))
-  
-  hsa_ctl_tib %>% dplyr::inner_join(hm45_ctl_tib, by=c("U"="Address"), suffix=c("_Full", "_HM45"))
-  
-
-  #
-  # Extract Probe Coordinates from EPIC/450k...
-  #
-  epic_man_int_tib <- man_pqc_all_tib %>% 
-    dplyr::inner_join(epic_man_tib, by=c("Seq_ID"="IlmnID"), suffix=c("_Full", "_EPIC"))
-  epic_man_mis_tib <- man_pqc_all_tib %>% 
-    dplyr::anti_join(epic_man_int_tib, by="Probe_ID") # %>% dplyr::select(1:10) %>% as.data.frame()
-  
-  
-  # 450k remaining...
-  hm45_man_int_tib <- epic_man_mis_tib %>% 
-    dplyr::inner_join(hm45_man_tib, by=c("Seq_ID"="IlmnID"), suffix=c("_Full", "_EPIC"))
-  hm45_man_mis_tib <- epic_man_mis_tib %>%
-    dplyr::anti_join(hm45_man_int_tib, by="Probe_ID") %>% dplyr::select(1:10) %>% as.data.frame()
-  
-  
-  # 27k:: cg02613386
-  # NON:: cg03800834, cg11274912
-  
-  genk_gen_csv <- file.path(opt$genDir, )
-  genk_gen_tib <- dplyr::bind_rows(epic_man_int_tib,hm45_man_int_tib) %>% 
-    dplyr::distinct(Probe_ID,M,U, .keep_all=TRUE) %>% 
-    dplyr::select(Probe_ID,M,U,Genome_Build:Strand)
-  
-  #
-  # TBD:: Understand where the STAINING Controls went...
-  #
-  
-  stain_ctl_vec <- c(21630339,24669308,27630314, 34648333,41666334,43603326)
-  # 21630339 STAINING               -99           DNP(20K)          
-  # 24669308 STAINING               -99           Biotin(5K)        
-  # 27630314 STAINING               Red           DNP (High)        
-  # 34648333 STAINING               Blue          Biotin (Bkg)      
-  # 41666334 STAINING               Green         Biotin (High)     
-  # 43603326 STAINING               Purple        DNP (Bkg)      
-  
-  hsa_ctl_tib %>% dplyr::filter(U %in% stain_ctl_vec)
-  std_inf1_hum_tib %>% dplyr::filter(U %in% stain_ctl_vec)
-  std_bs1_hum_tib %>% dplyr::filter(U %in% stain_ctl_vec)
-  std_ctl_seq_tib %>% dplyr::filter(Address %in% stain_ctl_vec)
-  
-  #
-  # Copy from 1750... Renamed as Biotin and DNP...
-  #
-  ctl_only_tib %>% dplyr::filter(U %in% stain_ctl_vec)
-  
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                         GENKNOWME FINAL MANIFEST::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  fin_ses_tib <- 
-    dplyr::bind_rows(man_pqc_all_tib) %>%
-    dplyr::distinct(M,U, .keep_all=TRUE) %>%
-    dplyr::arrange(Probe_ID)
-  
-  fin_ses_tib$Assay_Class %>% unique()
-  
-  #
-  # Super Quick Fix::
-  #
-  ctl_only_csv <- '/Users/bretbarnes/Documents/data/CustomContent/Genknowme/manifest/GKME_Sesame_EPIC-Controls-Only.csv'
-  ctl_only_tib <- readr::read_csv(ctl_only_csv, col_names=c('Probe_ID','M','U','DESIGN')) %>%
-    dplyr::mutate(U=as.integer(U), M=as.integer(M))
-  
-  out_ses_tib <- dplyr::bind_rows(
-    fin_ses_tib %>% dplyr::filter(!stringr::str_starts(Probe_ID,'ctl')),
-    ctl_only_tib) %>%
-    dplyr::arrange(Probe_ID) %>% 
-    dplyr::distinct(M,U, .keep_all=TRUE) %>%
-    dplyr::mutate(Rep_Num=Rep_Cnt) %>%
-    dplyr::select(Probe_ID:Next_Base,Seq_ID,Probe_Type,Strand_TB,Strand_CO,
-                  Infinium_Design,Rep_Num,AlleleA_Probe_Sequence,
-                  AlleleB_Probe_Sequence,Top_Sequence)
-  
-  readr::write_csv(out_ses_tib,ses_base_csv)
-}
-
-
-#
-#
-# Basic Sesame Manifest::
-#
-#
-if (FALSE) {
-  ses_base_col <- c('Probe_ID','M','U','DESIGN','COLOR_CHANNEL','col','Probe_Type','Probe_Source','Next_Base')
-  
-  man_base_ses_tib <- dplyr::bind_rows(
-    # dplyr::filter(man_pqc_all_tib, Probe_Type=='cg') %>% select(Probe_ID:Next_Base, ses_base_col),
-    dplyr::select(man_pqc_all_tib, Probe_ID:Next_Base, ses_base_col),
-    dplyr::select(hsa_ctl_tib, ses_base_col) ) %>%
-    dplyr::arrange(Probe_ID)
-  
-  readr::write_csv(man_base_ses_tib,ses_base_csv)
-  
-  
-  # dplyr::bind_rows(man_pqc_all_tib, hsa_ctl_tib) %>% dplyr::select(Probe_ID:Infinium_Design) %>% tail(n=200) %>% as.data.frame()
-  dplyr::bind_rows(man_pqc_all_tib, hsa_ctl_tib) %>% 
-    dplyr::select(Probe_ID:Infinium_Design) %>% tail(n=200) %>% as.data.frame()
-  
-  #
-  # TBD:: Check if ctl_ works or if we can use ct- for HSA controls...
-  #
-}
-
-
-
-
-
-
-
-
-
-
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #            4.0 Load all Coordinates for Detected Manifest Probes::
@@ -1251,8 +1050,6 @@ for (probe_class in names(man_new_list)) {
     cat(glue::glue("[{par$prgmTag}]: Done. Loading Coordinates.{RET}{RET}"))
 }
 
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                  4.1 Rejoin all Manifest Mapped Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1301,7 +1098,7 @@ if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
   ncbi_mat_tib <- NULL
   ncbi_ann_tsv <- file.path(opt$annDir,opt$genomeBuild,
                             paste(opt$genomeBuild,'ncbi.RefSeqGenes.tsv.gz', sep='.') )
-  if (opt$verbose>=1) cat("ncbi_ann_tsv={ncbi_ann_tsv}.{RET}{RET")
+  if (opt$verbose>=1) cat(glue::glue("ncbi_ann_tsv={ncbi_ann_tsv}.{RET}{RET"))
   
   if (!is.null(ncbi_ann_tsv) && file.exists(ncbi_ann_tsv)) {
     ncbi_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(ncbi_ann_tsv) ))
@@ -1352,124 +1149,15 @@ if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
   cat(glue::glue("[{par$prgmTag}]: Writing annotation mappings={ann_base_csv}...{RET}"))
   readr::write_csv(man_ana_tib, ann_base_csv)
   cat(glue::glue("[{par$prgmTag}]: Done. Writing annotation mappings.{RET}{RET}"))
-}
-
-man_ana_key <- names(man_ana_tib)[1]
-man_ana_beg <- names(man_ana_tib)[2]
-man_ana_beg <- names(man_ana_tib)[2]
-
-man_ana_col <- man_ana_tib %>% dplyr::select(-1) %>% names()
-man_all_col <- man_ana_tib %>% names()
-
-
-
-#
-#
-# TBD::
-#  - Load Standard HSA controls
-#  - Format MUS controls
-#  - 
-#  - Merge Analytical and Controls -> Sesamized Manifest
-#
-#  - Test Sesame on Mouse Samples
-# 
-#  - Convert to GS
-#
-#
-
-#
-# Current Sesame manifest::
-#
-if (FALSE) {
-  man_ses_tib <- man_prb_tib %>% 
-    dplyr::filter(IlmnID==Probe_ID) %>% dplyr::select(-IlmnID) %>%
-    dplyr::select(Probe_ID:Next_Base,Probe_Class,Probe_Type, dplyr::everything())
   
-  hsa_ctl_csv <- file.path(par$datDir, 'manifest/controls','Infinium_Methylation_Controls_1983_full.csv.gz')
-  hsa_ctl_tib <- readr::read_csv(hsa_ctl_csv) %>% 
-    dplyr::mutate(COLOR_CHANNEL='Both',Probe_Class=Control_Group,Probe_Type=Control_Group, Probe_Source='EPIC_CTL',Strand_TB='N', Strand_CO='C',Infinium_Design=2) %>%
-    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,Probe_Class,Probe_Type, dplyr::everything() )
   
-  #
-  # ses_base_csv??? ses_full_csv instead...
-  #   - should be joined further down...
-  #
-  # man_core_all_tib <- dplyr::bind_rows(man_ses_tib,hsa_ctl_tib)
-  man_base_tib <- dplyr::bind_rows(man_ses_tib,hsa_ctl_tib)
-  readr::write_csv(man_base_tib, ses_base_csv)
+  # man_ana_key <- names(man_ana_tib)[1]
+  # man_ana_beg <- names(man_ana_tib)[2]
+  # man_ana_beg <- names(man_ana_tib)[2]
+  # 
+  # man_ana_col <- man_ana_tib %>% dplyr::select(-1) %>% names()
+  # man_all_col <- man_ana_tib %>% names()
   
-  program_done(opts=opt, pars=par, verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
-  q()
-}
-
-
-
-
-
-
-
-#
-# UNIQUE FOR COVIC Probes to set Multi-Unique Probe_Types::
-#
-if (opt$platform=='COVIC') {
-  
-  #
-  # Updating Multi-unique probes...
-  #
-  man_mul_tib <- man_prb_tib %>% 
-    dplyr::full_join(man_pos_tib, by="Seq_ID") %>% 
-    dplyr::add_count(IlmnID, name="Gen_Hit_Count") %>%
-    dplyr::mutate(Probe_Type=dplyr::case_when(
-      Gen_Hit_Count>1 ~ 'mu', TRUE ~ 'cg') )
-  
-  # Unique Version::
-  # man_tar_tib <- ncbi_tib %>% 
-  #   dplyr::distinct(Seq_ID,Gene,Feature) %>% 
-  #   dplyr::inner_join(man_mul_tib, by="Seq_ID") %>% 
-  #   dplyr::distinct(IlmnID,Gene,Probe_Type,Feature)
-  
-  man_tar_tib <- ncbi_tib %>% 
-    dplyr::distinct(Seq_ID,Gene,Feature) %>% 
-    dplyr::inner_join(man_mul_tib, by="Seq_ID") %>% 
-    dplyr::distinct(IlmnID,Gene,Probe_Type,Feature,
-                    chrom,chromStart,chromEnd,Strand_TB,Strand_CO)
-  
-  man_tar_tib %>% 
-    dplyr::group_by(Gene,Probe_Type,Feature) %>% 
-    dplyr::summarise(Probe_Count=n(), .groups='drop') %>% 
-    ggplot2::ggplot(aes(x=Probe_Count)) + 
-    ggplot2::geom_density(alpha=0.7) + 
-    ggplot2::facet_grid(rows=vars(Probe_Type), 
-                        cols=vars(Feature), scales="free_y")
-  
-  #
-  # Get Target Enriched Regions::
-  #
-  
-  tar_gene_csv <- '/Users/bretbarnes/Documents/tmp/COVID-19_HLA/data/content/Gene_Content_List_Merged_03262020.csv'
-  tar_gene_tib <- readr::read_csv(tar_gene_csv)
-  tar_sum_tib <- tar_gene_tib %>% 
-    dplyr::group_by(Gene_Name) %>% 
-    dplyr::summarise(Support_Count=n(), .groups='drop') %>% 
-    dplyr::rename(Gene=Gene_Name) %>%
-    dplyr::arrange(Gene)
-  
-  ncbi_unq_tib <- 
-    dplyr::rename(ncbi_ann_tib, Gene=name2) %>% 
-    dplyr::distinct(Gene) %>% 
-    dplyr::arrange(Gene)
-  
-  # Unique set of target genes::
-  tar_unq_tib <- dplyr::inner_join(tar_sum_tib,ncbi_unq_tib, by="Gene")
-  
-  #
-  # Write 
-  #
-  man_out_csv <- file.path(opt$outDir, paste(opt$runName,'ncbi.RefSeqGenes.coverage.csv.gz', sep='.'))
-  tar_out_csv <- file.path(opt$outDir, paste(opt$runName,'ncbi.RefSeqGenes.targets.csv.gz', sep='.'))
-  
-  readr::write_csv(man_tar_tib,man_out_csv)
-  readr::write_csv(tar_unq_tib,tar_out_csv)
 }
 
 
@@ -1479,45 +1167,6 @@ if (opt$platform=='COVIC') {
 
 
 
-
-
-
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#            Extract Missing Probes from Manifest:: i.e. CTL/UNK
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-man_unk_tib <- 
-  dplyr::distinct(man_prb_tib, M,U, .keep_all=TRUE) %>% 
-  dplyr::mutate(M=as.double(M), U=as.double(U)) %>%
-  dplyr::anti_join(man_prb_tib, by=c("M","U")) %>% 
-  dplyr::distinct(M,U, .keep_all=TRUE)
-
-if (!is.null(man_unk_tib) && base::nrow(man_unk_tib)>0) {
-  if (opt$verbose>=3)
-    cat(glue::glue("[{par$prgmTag}]: Parsing Unk/Ctl Probes...{RET}"))
-  
-  man_unk_tib <- man_unk_tib %>%
-  fixOrderProbeIDs(verbose=opt$verbose,vt=1,tc=0,tt=pTracker) %>%
-  dplyr::mutate(SR_Str=TB, CO_Str=CO) %>% 
-  dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
-  dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
-  dplyr::mutate(
-    Rep_Cnt=dplyr::row_number(),
-    IlmnID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
-    ValidID=FALSE,
-  ) %>% 
-  dplyr::ungroup() %>% 
-  dplyr::select(IlmnID, dplyr::everything()) %>%
-  dplyr::arrange(IlmnID)
-}
-man_unk_cnt <- man_unk_tib %>% base::nrow()
-if (opt$verbose>=3) {
-  cat(glue::glue("[{par$prgmTag}]: Done; Parsing Unk/Ctl Probes={man_unk_cnt}.{RET}"))
-  man_unk_tib %>% dplyr::group_by(Probe_Type,Infinium_Design,AQP) %>% 
-    dplyr::summarise(Count=n(), .groups='drop')
-}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #               6.1 Intersect improbe Probe Thermo Stats::
@@ -1537,11 +1186,13 @@ if (FALSE) {
   
   test_max <- 0
   man_scr_tib <- intersect_tsv(
-    man=man_prb_tib, 
+    man=man_pqc_all_tib, 
     man_tsv=man_tsv, imp_tsv=imp_dat_tsv, int_tsv=int_tsv, 
     colA=1,colB=1, mat_vec=c(mat_key), int_col=imp_col_vec, 
     fresh=opt$fresh, max=test_max,
     verbose=opt$verbose+2,tc=1,tt=pTracker)
+  
+  # man_scr_tib <- readr::read_tsv(int_tsv)
 }
 
 
@@ -1612,121 +1263,6 @@ if (par$local_runType=='GRCm38') {
                   dplyr::everything())
 }
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#              2.4. Collect Remainder:: CTL::Complete HSA
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-#
-# TBD:: Use Steven's new namings for human controls::
-#
-std_ctl_tib <- NULL
-ctl_csv <- ctls_vec[1]
-std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
-
-if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
-    !is.null(std_ctl_seq_tsv) && file.exists(std_ctl_seq_tsv)) {
-  
-  # TBD:: This should be transferred to 
-  std_ctl_seq_tib <- dplyr::inner_join(
-    suppressMessages(suppressWarnings(readr::read_tsv(std_ctl_seq_tsv) )) %>% 
-      dplyr::mutate(Address=stringr::str_remove(address_name, '^1') %>% as.integer()),
-    suppressMessages(suppressWarnings(
-      readr::read_csv(ctl_csv, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID")) )),
-    by="Address") %>%
-    dplyr::select(Address,Probe_Type,COLOR_CHANNEL,Probe_ID,probe_id,sequence, everything()) %>%
-    dplyr::rename(Design_ID=probe_id) %>% dplyr::distinct(Address, .keep_all=TRUE) %>%
-    dplyr::select(-type_b,-bo_seq,-address_name)
-  
-  std_ctl_tib <- std_ctl_seq_tib %>% 
-    dplyr::mutate(PIDX=Probe_ID %>%
-                    stringr::str_replace('^.*[^0-9]([0-9]+)$', '\\$1') %>% 
-                    stringr::str_remove_all('\\\\')) %>%
-    dplyr::mutate(Probe_ID=Probe_ID %>%
-                    stringr::str_replace_all(' ', '_') %>%
-                    stringr::str_replace_all('-', '_') %>% 
-                    stringr::str_replace_all('\\(', '') %>% 
-                    stringr::str_replace_all('\\)', '')) %>%
-    dplyr::rename(U=Address) %>%
-    dplyr::mutate(M=NA,DESIGN='II',col=NA,Probe_Source='HSA',Next_Base=NA) %>%
-    dplyr::mutate(M=as.double(M), Probe_ID=paste('ctl',Probe_ID, sep='_')) %>%
-    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Probe_Source,Next_Base,
-                  dplyr::everything()) %>%
-    dplyr::arrange(Probe_Type,Probe_ID) %>%
-    dplyr::distinct(M,U, .keep_all=TRUE) %>% 
-    dplyr::mutate(
-      Design_Base_ID=stringr::str_remove(Design_ID, '_[AB]$'),
-      Design_Base_AB=stringr::str_replace(Design_ID, '^.*_([AB])$','\\$1') %>%
-        stringr::str_remove_all('\\\\'),
-      Control_Group=Probe_Type,
-      Control_Group_Str=stringr::str_replace_all(Control_Group,' ','_') %>% 
-        stringr::str_replace_all('-','_'),
-      Probe_Type=dplyr::case_when(
-        Control_Group=="BISULFITE CONVERSION I"  ~ 'BS',
-        Control_Group=="BISULFITE CONVERSION II" ~ 'BS',
-        Control_Group=="EXTENSION"       ~ 'EX',
-        Control_Group=="HYBRIDIZATION"   ~ 'HB',
-        Control_Group=="NEGATIVE"        ~ 'NG',
-        Control_Group=="NON-POLYMORPHIC" ~ 'NP',
-        
-        Control_Group=="NORM_A"          ~ 'MA',
-        Control_Group=="NORM_C"          ~ 'MC',
-        Control_Group=="NORM_G"          ~ 'MG',
-        Control_Group=="NORM_T"          ~ 'MT',
-        
-        Control_Group=="RESTORATION"     ~ 'RE',
-        Control_Group=="SPECIFICITY I"   ~ 'S1',
-        Control_Group=="SPECIFICITY II"  ~ 'S2',
-        
-        Control_Group=="TARGET REMOVAL"  ~ 'TR',
-        TRUE ~ NA_character_
-      )
-    )
-  
-  std_bsU_tib <- std_ctl_tib %>% dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_U')) %>%
-    dplyr::rename(Address=U,AlleleA_Probe_Sequence=sequence) %>% 
-    dplyr::select(-Probe_ID,-Design_ID,-M,-COLOR_CHANNEL,-col,-DESIGN,-Next_Base)
-  
-  std_bsC_tib <- std_ctl_tib %>% dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_C')) %>%
-    dplyr::rename(Address=U,AlleleB_Probe_Sequence=sequence) %>% 
-    dplyr::select(-Probe_ID,-Design_ID,-M,-COLOR_CHANNEL,-col,-DESIGN,-Next_Base)
-  
-  # Unique Addresses to Remove from Standard Controls
-  std_bs1_add_vec <- dplyr::bind_rows(std_bsU_tib,std_bsC_tib) %>% 
-    dplyr::distinct(Address) %>% dplyr::pull(Address)
-  
-  # Bisulfite Conversion I Probes for Standard Human Controls
-  std_bs1_hum_tib <- 
-    dplyr::inner_join(std_bsU_tib,std_bsC_tib, 
-                      by=c("Design_Base_ID","Probe_Type","Probe_Source",
-                           "Control_Group","Control_Group_Str","PIDX"), 
-                      suffix=c("_U", "_C") ) %>%
-    dplyr::rename(U=Address_U,M=Address_C) %>% 
-    dplyr::mutate(Seq_ID=paste0(Control_Group_Str,'_',PIDX),
-                  Infinium_Design=1,Rep_Num=1) %>%
-    dplyr::select(Seq_ID,Infinium_Design,Rep_Num,Probe_Type,U,M,
-                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                  dplyr::everything())
-  
-  #
-  # Build remainder of Standard EPIC Controls::
-  #
-  std_inf1_hum_tib <- std_ctl_tib %>% 
-    dplyr::filter(!U %in% std_bs1_add_vec) %>% 
-    dplyr::rename(AlleleA_Probe_Sequence=sequence) %>%
-    dplyr::mutate(
-      AlleleB_Probe_Sequence=NA,
-      DiNuc=NA_character_,
-      N1=NA_character_,
-      N2=NA_character_
-    ) %>%
-    dplyr::mutate(
-      Infinium_Design=1,
-      Seq_ID=paste0(Control_Group_Str,'_',PIDX) %>%
-        stringr::str_replace_all(' ', '_') %>%
-        stringr::str_replace_all('-', '_') %>% 
-        stringr::str_replace_all('\\(', '') %>% 
-        stringr::str_replace_all('\\)', ''))
-}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #              2.5. Collect Remainder:: CTL::Selected HSA/MUS
@@ -1861,19 +1397,6 @@ if (FALSE) {
                   AlleleB_Probe_Sequence,Top_Sequence)
   
   readr::write_csv(out_ses_tib,ses_base_csv)
-}
-
-
-#
-# Unclear why this is needed::
-#
-if (FALSE) {
-  fin_ses_base_tib <- fin_core_ann_tib %>% 
-    dplyr::mutate(Probe_ID=IlmnID) %>%
-    dplyr::arrange(Probe_ID) %>% 
-    dplyr::distinct(M,U, .keep_all=TRUE) %>% 
-    dplyr::select(Probe_ID:Top_Sequence,Assay_Class,MFG_Change_Flagged)
-  readr::write_csv(fin_ses_base_tib,ses_base_csv)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

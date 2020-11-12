@@ -44,7 +44,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
   # Retrun Value::
   ret <- NULL
   
-  # tTracker <- timeTracker$new(verbose=verbose)
   tTracker <- timeTracker$new()
   stime <- system.time({
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -78,7 +77,20 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # ses_man_tib <- getSesameManifest(man, idat_list$sig, verbose=verbose,vt=1,tc=tc+1,tt=tTracker)
     # ses_add_tib <- ses_man_tib %>% dplyr::select(Probe_ID) %>% dplyr::inner_join(add, by='Probe_ID')
     
+    #
+    # TBD: Return tibble with each manifest reciprical overlap...
+    #
     ses_dat <- idat2manifest(sigs=idat_list$sig, mans=mans, verbose=verbose,tc=tc+1,tt=tTracker)
+    
+    #
+    # TEMP FIX::
+    #   if (COLOR_CHANNEL==both & col==NA) col=COLOR_CHANNEL
+    #
+    ses_dat$man <- ses_dat$man %>% dplyr::mutate(
+      col=dplyr::case_when(
+        !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
+        TRUE ~ col
+    ))
     
     # Make sure we have unique names::
     ses_dat$man <- ses_dat$man %>% dplyr::distinct(Probe_ID, .keep_all=TRUE)
@@ -86,7 +98,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     ses_add_tib <- ses_dat$add
     platform_key <- ses_dat$platform
     version_key  <- ses_dat$manifest
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Initialize Data (Structures) Tables::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -131,15 +143,15 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     chipFormat <- idat_list$ann %>% dplyr::select(Chip_Format) %>% dplyr::pull()
     beadPool   <- pool_sum_tib %>% dplyr::select(Bead_Pool) %>% dplyr::pull()
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} chipFormat={chipFormat}, beadPool={beadPool}.{RET}"))
-
+    
     ssheet_tib <- idat_list$ann
     if (!is.null(pool_sum_tib)) ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(pool_sum_tib)
     if (!is.null(bead_sum_tib)) ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(bead_sum_tib)
-    ssheet_tib <- ssheet_tib %>% add_column(minNegPval   = opt$minNegPval)
-    ssheet_tib <- ssheet_tib %>% add_column(minOobPval   = opt$minOobPval)
-    ssheet_tib <- ssheet_tib %>% add_column(minDeltaBeta = opt$minDeltaBeta)
-    ssheet_tib <- ssheet_tib %>% add_column(platformUsed = platform_key)
-    ssheet_tib <- ssheet_tib %>% add_column(platVersUsed = version_key)
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(minNegPval   = opt$minNegPval)
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(minOobPval   = opt$minOobPval)
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(minDeltaBeta = opt$minDeltaBeta)
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(platformUsed = platform_key)
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(platVersUsed = version_key)
     
     if (retData) {
       ret$idat <- idat_list
@@ -185,25 +197,67 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     #
     #  - Required for initial phenotype calcs before channel inference
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    #
+    # Current goal:: build out FIXED raw_sset + workflow -> calls file + ssheet update
+    #
+    
     raw_sset <- NULL
     raw_sset <- initSesameRaw(prefix=prefix, platform=platform_key, manifest=ses_man_tib,
                               load=opt$loadSsets, save=opt$saveRawSset, rds=raw_sset_rds,
                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} raw_sset={RET}") )
-    if (verbose>=vt+4) print(raw_sset)
+    if (verbose>=vt+3) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} raw_sset={RET}") )
+    if (verbose>=vt+3) print(raw_sset)
+    
+    raw_sset <- mutateSesame(sset=raw_sset, method="detectionPnegEcdf", 
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    
+    raw_sset <- mutateSesame(sset=raw_sset, method="beta", 
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    
     
     if (retData) {
       ret$raw_sset <- raw_sset
-      # return(ret)
+      return(ret)
     }
+    
+    #
+    # Forced Workflows::
+    #
+
+    #
+    # Lots to fix...
+    #
+    #  NOTES::
+    #  names(extra(rdat$raw_sset)$pvals)
+    #  ctl_tmp <- sesame::ctl(rdat$raw_sset)[grep('negative', tolower(rownames(ctl(rdat$raw_sset)))),]
+    #  rdat$raw_sset %>% sesame::detectionPnegEcdf(force = TRUE)
+    #  extra(sset)[["pvals"]][["pOOBAH"]]
+    #
+    # new_sset <- sesame::detectionPfixedNorm(rdat$raw_sset)
+    #  sesame::extra(new_sset)[['pvals']] %>% names()
+    # new_sset <- sesame::detectionPnegEcdf(new_sset)
+    #  new_sset@pval <- sesame::extra(new_sset)[['pvals']][[2]]
+    #
+    
+    #
+    #  extra(pvals)[['raw']]
+    #  extra(pvals)[['inf']]
+    #  extra(betas)
+    #  extra(aftIs)
+    #
+    
+    
+    # Beta values by summing...
+    # aft_tib <- sesame::getAFTypeIbySumAlleles(rdat$raw_sset, known.ccs.only=FALSE) %>% tibble::enframe(name="Probe_ID", value="AFT_Score")
     
     all_call_tib <- NULL
     raw_sset_tib <- NULL
     opt$writeSsetRaw <- FALSE
     if (!is.null(opt$skipSwap) && !opt$skipSwap) {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building raw_sset_tib...{RET}") )
-
+      
       raw_sset_tib <- sset2tib(sset=raw_sset, by="Probe_ID", des="Probe_Design",  
                                percision=opt$percisionSigs, sort=FALSE, 
                                save=opt$writeSsetRaw, csv=raw_sset_csv, 
@@ -217,7 +271,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ret$raw_sset <- raw_sset
       ret$raw_sset_tib <- raw_sset_tib
       ret$raw_call_tib <- raw_call_tib
-      # return(ret)
+      return(ret)
     }
     
     call_sum_tib <- callToSSheet(call=raw_call_tib, idx=0, key='raw', pre=call_sum_tib, 
@@ -226,7 +280,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     phen_sum_tib <- ssetToInferences(sset=raw_sset, idx=0, key='raw', pre=phen_sum_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     phen_sum_tib <- ssetToPredict(sset=raw_sset, idx=0, key='raw', pre=phen_sum_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-
+    
     # Never need this in production::
     #  if (opt$addRawCalls) all_call_tib <- raw_sset_tib
     
@@ -238,7 +292,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       # return(ret)
     }
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built RAW Data.{RET}"))
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -276,14 +330,15 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       sset_dat_tib <- sigTibToSSheet(sigs=cur_sset_tib, man=ses_man_tib, 
                                      save=opt$writeSsum, csv=cur_ssum_csv, 
                                      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-      sset_sum_tib <- sigsSumToSSheet2(tib=sset_dat_tib, metric='avg', 
-                                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      sset_sum_tib <- sigsSumToSSheet(tib=sset_dat_tib, metric='avg', 
+                                      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
       cur_call_tib <- sset2calls(sset=cur_sset, workflow=cur_workflow, 
                                  as.enframe=FALSE,
                                  percisionBeta=opt$percisionBeta, 
                                  percisionPval=opt$percisionPval, 
                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      
       call_sum_tib <- callToSSheet(call=cur_call_tib, idx=ww, 
                                    key=cur_workflow, pre=call_sum_tib, 
                                    minNegPval=opt$minNegPval, 
@@ -308,7 +363,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Building Workflows={workflow_cnt}, ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     if (verbose>=vt+4) head(all_call_tib) %>% print()
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                       Add Summarize Phenotype Inferences::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -321,8 +376,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     #                  Add Summarize Call Stats (p-vales/beta values)::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     ssheet_tib <- ssheet_tib %>% 
-      add_column(MinNegPval=opt$minNegPval) %>%
-      add_column(MinOobPval=opt$minOobPval) %>%
+      tibble::add_column(MinNegPval=opt$minNegPval) %>%
+      tibble::add_column(MinOobPval=opt$minOobPval) %>%
       dplyr::bind_cols(call_sum_tib)
     
     ssheet_ncols <- ssheet_tib %>% base::ncol()
@@ -353,14 +408,14 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         dplyr::mutate(Perc=round(100*Count/Total, 3)) %>% 
         dplyr::select(Type, Perc) %>% tidyr::spread(Type, Perc) %>%
         purrr::set_names(paste(names(.),'Perc', sep='_') )
-
+      
       ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(swap_sum_tib)
       
       ssheet_ncols <- ssheet_tib %>% base::ncol()
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with channel-swap-stats) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     }
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                             Auto-Detect Sample::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -385,14 +440,14 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
                                 outDir=opt$outDir, sname=out_name, plotMatrix=opt$plotAuto, writeMatrix=opt$writeAuto,
                                 dpi=opt$dpi, format=opt$plotFormat, datIdx=4, non.ref=non_ref,
                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-
+      
       ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(auto_data)
       
       ssheet_ncols <- ssheet_tib %>% base::ncol()
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with auto-detect-sample) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     }
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                       Add Summarize Sample Intensities::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -410,14 +465,14 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       Requeue_Flag_Neg=case_when(ssheet_tib$Negs_Pass_0_Perc <= opt$minNegPerc ~ TRUE, TRUE ~ FALSE),
       Requeue_Pass_Perc_Oob=opt$minOobPerc,
       Requeue_Pass_Perc_Neg=opt$minNegPerc)
-
+    
     ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(requ_sum_tib) %>% 
       dplyr::select(Requeue_Flag_Oob, Requeue_Flag_Neg, Requeue_Pass_Perc_Oob, Requeue_Pass_Perc_Neg, everything())
     
     ssheet_ncols <- ssheet_tib %>% base::ncol()
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with sample-requeue) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                       Add Sentrix Names to Calls Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -426,7 +481,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       all_call_tib <- all_call_tib %>% purrr::set_names(paste(names(.), ssheet_tib$Sentrix_Name[1], sep='_') )
       colnames(all_call_tib)[1] <- org_col_key1
     }
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Add to Full Return Values:: R&D Testing ONLY::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
