@@ -14,6 +14,304 @@ TAB <- "\t"
 RET <- "\n"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Controls Formatting:: HSA/New
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+format_controls_Unk = function(tib,
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'format_controls_Unk'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_tib <- tib %>% 
+      # dplyr::filter(Probe_Type != 'cg') %>% 
+      # dplyr::filter(Probe_Type != 'ch') %>% 
+      # dplyr::filter(Probe_Type != 'rs') %>% 
+      # dplyr::filter(Probe_Type != 'mu') %>% 
+      # dplyr::filter(Probe_Type != 'rp') %>% 
+      # dplyr::filter(Probe_Type == 'BS' | Probe_Type == 'NO' | Probe_Type == 'NE') %>% 
+      dplyr::distinct(M,U, .keep_all=TRUE,Top_Sequence=NA) %>% 
+      # dplyr::mutate(SR_Str=FR,CO_Str=CO,Rep_Num=NA,Probe_Source='MUS',NXB_D=NA) %>% 
+      dplyr::mutate(Probe_Source='MUS',NXB_D=NA) %>% 
+      dplyr::arrange(Probe_Type,Infinium_Design) %>%
+      dplyr::mutate(
+        Control_Group=dplyr::case_when(
+          Probe_Type=='BS' & Infinium_Design==1 ~ "BISULFITE CONVERSION I",
+          Probe_Type=='BS' & Infinium_Design==2 ~ "BISULFITE CONVERSION II",
+          Probe_Type=='NO' ~ 'NON-POLYMORPHIC',
+          Probe_Type=='ne' ~ 'NEGATIVE',
+          TRUE ~ NA_character_
+        ),
+        Control_Group_Str=stringr::str_replace_all(Control_Group,' ','_') %>% 
+          stringr::str_replace_all('-','_'),
+        DiNuc=dplyr::case_when(
+          Probe_Type=='BS' ~ stringr::str_replace(Seq_ID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% 
+            stringr::str_remove_all('\\\\'),
+          Probe_Type=='NO' ~ stringr::str_replace(Seq_ID, '^.*_([ACTG][ACTG])_.*$', '\\$1') %>% 
+            stringr::str_remove_all('\\\\'),
+          TRUE ~ NA_character_
+        ),
+        N1=stringr::str_sub(DiNuc, 1,1),
+        N2=stringr::str_sub(DiNuc, 2,2),
+        Last_BaseA=stringr::str_sub(AlleleA_Probe_Sequence,-1),
+        Last_BaseB=stringr::str_sub(AlleleB_Probe_Sequence,-1)
+      ) %>% 
+      dplyr::group_by(Probe_Type,Infinium_Design) %>%
+      dplyr::mutate(
+        Row_Idx=dplyr::row_number() + 100,
+        Row_Str=Row_Idx,
+        Col_Idx=Row_Idx %% (color_len-100)
+      ) %>%
+      dplyr::ungroup() %>%
+      dplyr::mutate(
+        Control_Name=dplyr::case_when(
+          # Probe_Type=='BS' & Infinium_Design==1 & Last_BaseA=='G' ~ paste0(Control_Group_Str,'_U',Row_Str),
+          # Probe_Type=='BS' & Infinium_Design==1 & Last_BaseA=='A' ~ paste0(Control_Group_Str,'_C',Row_Str),
+          Probe_Type=='BS' & Infinium_Design==1 ~ paste0(Control_Group_Str,'_',Row_Str),
+          Probe_Type=='BS' & Infinium_Design==2 ~ paste0(Control_Group_Str,'_',Row_Str),
+          Probe_Type=='NO' & Infinium_Design==2 ~ paste0(Control_Group_Str,'_',Row_Str),
+          Probe_Type=='ne' & Infinium_Design==2 ~ paste0(Control_Group_Str,'_',Row_Str),
+          TRUE ~ NA_character_ ),
+        Seq_ID_Org=Seq_ID,
+        Seq_ID=Control_Name
+      ) %>%
+      dplyr::select(Seq_ID,Strand_TB,Strand_TB,Infinium_Design,Probe_Type,U,M, 
+                    dplyr::everything())
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+format_controls_New = function(tib,
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'format_controls_New'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_tib <- tib %>% 
+      dplyr::filter(Probe_Type != 'cg') %>% 
+      dplyr::filter(Probe_Type != 'ch') %>% 
+      dplyr::filter(Probe_Type != 'rs') %>% 
+      dplyr::filter(Probe_Type != 'mu') %>% 
+      dplyr::filter(Probe_Type != 'rp') %>% 
+      dplyr::filter(Probe_Type == 'BS' | Probe_Type == 'NO' | Probe_Type == 'NE') %>% 
+      dplyr::distinct(M,U, .keep_all=TRUE,Top_Sequence=NA) %>% 
+      dplyr::mutate(SR_Str=FR,CO_Str=CO,Rep_Num=NA,Probe_Source='MUS',NXB_D=NA) %>% 
+      dplyr::arrange(Probe_Type,Infinium_Design) %>%
+      dplyr::mutate(
+        Control_Group=dplyr::case_when(
+          Probe_Type=='BS' & Infinium_Design==1 ~ "BISULFITE CONVERSION I",
+          Probe_Type=='BS' & Infinium_Design==2 ~ "BISULFITE CONVERSION II",
+          Probe_Type=='NO' ~ 'NON-POLYMORPHIC',
+          Probe_Type=='ne' ~ 'NEGATIVE',
+          TRUE ~ NA_character_
+        ),
+        Control_Group_Str=stringr::str_replace_all(Control_Group,' ','_') %>% 
+          stringr::str_replace_all('-','_'),
+        DiNuc=dplyr::case_when(
+          Probe_Type=='BS' ~ stringr::str_replace(Seq_ID, '^.*-([ACTG][ACTG])-.*$', '\\$1') %>% 
+            stringr::str_remove_all('\\\\'),
+          Probe_Type=='NO' ~ stringr::str_replace(Seq_ID, '^.*_([ACTG][ACTG])_.*$', '\\$1') %>% 
+            stringr::str_remove_all('\\\\'),
+          TRUE ~ NA_character_
+        ),
+        N1=stringr::str_sub(DiNuc, 1,1),
+        N2=stringr::str_sub(DiNuc, 2,2),
+        Last_BaseA=stringr::str_sub(AlleleA_Probe_Sequence,-1),
+        Last_BaseB=stringr::str_sub(AlleleB_Probe_Sequence,-1)
+      ) %>% 
+      dplyr::group_by(Probe_Type,Infinium_Design) %>%
+      dplyr::mutate(
+        Row_Idx=dplyr::row_number() + 100,
+        Row_Str=Row_Idx,
+        Col_Idx=Row_Idx %% (color_len-100)
+      ) %>%
+      dplyr::ungroup() %>%
+      dplyr::mutate(
+        Control_Name=dplyr::case_when(
+          # Probe_Type=='BS' & Infinium_Design==1 & Last_BaseA=='G' ~ paste0(Control_Group_Str,'_U',Row_Str),
+          # Probe_Type=='BS' & Infinium_Design==1 & Last_BaseA=='A' ~ paste0(Control_Group_Str,'_C',Row_Str),
+          Probe_Type=='BS' & Infinium_Design==1 ~ paste0(Control_Group_Str,'_',Row_Str),
+          Probe_Type=='BS' & Infinium_Design==2 ~ paste0(Control_Group_Str,'_',Row_Str),
+          Probe_Type=='NO' & Infinium_Design==2 ~ paste0(Control_Group_Str,'_',Row_Str),
+          Probe_Type=='ne' & Infinium_Design==2 ~ paste0(Control_Group_Str,'_',Row_Str),
+          TRUE ~ NA_character_ ),
+        Seq_ID_Org=Seq_ID,
+        Seq_ID=Control_Name
+      ) %>%
+      dplyr::select(Seq_ID,SR_Str,CO_Str,Infinium_Design,Rep_Num,Probe_Type,U,M, 
+                    dplyr::everything())
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+format_controls_HSA = function(file1, file2,
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'format_controls_HSA'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    std_ctl_seq_tib <- dplyr::inner_join(
+      suppressMessages(suppressWarnings(readr::read_tsv(file1) )) %>% 
+        dplyr::mutate(Address=stringr::str_remove(address_name, '^1') %>% as.integer()),
+      suppressMessages(suppressWarnings(
+        readr::read_csv(file2, col_names=c("Address","Probe_Type","COLOR_CHANNEL","Probe_ID")) )),
+      by="Address") %>%
+      dplyr::select(Address,Probe_Type,COLOR_CHANNEL,Probe_ID,probe_id,sequence, everything()) %>%
+      dplyr::rename(Design_ID=probe_id) %>% dplyr::distinct(Address, .keep_all=TRUE) %>%
+      dplyr::select(-type_b,-bo_seq,-address_name)
+    
+    std_ctl_tib <- std_ctl_seq_tib %>% 
+      dplyr::mutate(PIDX=Probe_ID %>%
+                      stringr::str_replace('^.*[^0-9]([0-9]+)$', '\\$1') %>% 
+                      stringr::str_remove_all('\\\\')) %>%
+      dplyr::mutate(Probe_ID=Probe_ID %>%
+                      stringr::str_replace_all(' ', '_') %>%
+                      stringr::str_replace_all('-', '_') %>% 
+                      stringr::str_replace_all('\\(', '') %>% 
+                      stringr::str_replace_all('\\)', '')) %>%
+      dplyr::rename(U=Address) %>%
+      dplyr::mutate(M=NA_real_,M=as.double(M),U=as.double(U),
+                    DESIGN='II',Infinium_Design=2,
+                    col=NA_character_,Probe_Source='HSA',
+                    Next_Base=NA_character_,
+                    Probe_ID=paste('ctl',Probe_ID, sep='_')) %>%
+      dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Probe_Source,Next_Base,
+                    dplyr::everything()) %>%
+      dplyr::arrange(Probe_Type,Probe_ID) %>%
+      dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+      dplyr::mutate(
+        Design_Base_ID=stringr::str_remove(Design_ID, '_[AB]$'),
+        Design_Base_AB=stringr::str_replace(Design_ID, '^.*_([AB])$','\\$1') %>%
+          stringr::str_remove_all('\\\\'),
+        Control_Group=Probe_Type,
+        Control_Group_Str=stringr::str_replace_all(Control_Group,' ','_') %>% 
+          stringr::str_replace_all('-','_'),
+        Probe_Type=dplyr::case_when(
+          Control_Group=="BISULFITE CONVERSION I"  ~ 'BS',
+          Control_Group=="BISULFITE CONVERSION II" ~ 'BS',
+          Control_Group=="EXTENSION"       ~ 'EX',
+          Control_Group=="HYBRIDIZATION"   ~ 'HB',
+          Control_Group=="NEGATIVE"        ~ 'NG',
+          Control_Group=="NON-POLYMORPHIC" ~ 'NP',
+          
+          Control_Group=="NORM_A"          ~ 'MA',
+          Control_Group=="NORM_C"          ~ 'MC',
+          Control_Group=="NORM_G"          ~ 'MG',
+          Control_Group=="NORM_T"          ~ 'MT',
+          
+          Control_Group=="RESTORATION"     ~ 'RE',
+          Control_Group=="SPECIFICITY I"   ~ 'S1',
+          Control_Group=="SPECIFICITY II"  ~ 'S2',
+          
+          Control_Group=="TARGET REMOVAL"  ~ 'TR',
+          TRUE ~ NA_character_
+        ),
+        # AlleleB_Probe_Sequence=NA,
+        DiNuc=NA_character_,
+        N1=NA_character_,
+        N2=NA_character_,
+        Seq_ID=paste0(Control_Group_Str,'_',PIDX) %>%
+          stringr::str_replace_all(' ', '_') %>%
+          stringr::str_replace_all('-', '_') %>% 
+          stringr::str_replace_all('\\(', '') %>% 
+          stringr::str_replace_all('\\)', '')
+      )
+    
+    std_bsU_tib <- std_ctl_tib %>% 
+      dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_U')) %>%
+      dplyr::rename(Address=U,AlleleA_Probe_Sequence=sequence) %>% 
+      dplyr::mutate(Probe_ID=stringr::str_remove(Probe_ID,'_[A-Z][0-9]+$')) %>%
+      dplyr::select(-M)
+    
+    std_bsC_tib <- std_ctl_tib %>% 
+      dplyr::filter(stringr::str_detect(Probe_ID,'ctl_BS_Conversion_I_C')) %>%
+      dplyr::rename(Address=U,AlleleB_Probe_Sequence=sequence) %>% 
+      dplyr::mutate(Probe_ID=stringr::str_remove(Probe_ID,'_[A-Z][0-9]+$')) %>%
+      dplyr::select(-M)
+    
+    # Unique Addresses to Remove from Standard Controls
+    std_bs1_add_vec <- dplyr::bind_rows(std_bsU_tib,std_bsC_tib) %>% 
+      dplyr::distinct(Address) %>% dplyr::pull(Address)
+    
+    std_bs1_hum_tib <- 
+      dplyr::inner_join(std_bsU_tib,std_bsC_tib, 
+                        by=c("Probe_ID","Design_Base_ID","Probe_Type","Probe_Source","PIDX","Control_Group","Control_Group_Str",
+                             "DESIGN","col","Next_Base","DiNuc","N1","N2","Infinium_Design","Seq_ID"), suffix=c("_A","_B") ) %>% 
+      dplyr::rename(U=Address_A,M=Address_B) %>%
+      dplyr::mutate(
+        DESIGN='I',
+        Infinium_Design=1,
+        COLOR_CHANNEL='Both',
+        col=COLOR_CHANNEL_A,
+        Next_Base='N',
+        Design_Base_AB="AB",
+        Design_ID=Design_Base_ID
+      )
+    
+    #
+    # Build remainder of Standard EPIC Controls::
+    #
+    std_inf1_hum_tib <- std_ctl_tib %>% 
+      dplyr::filter(!U %in% std_bs1_add_vec) %>% 
+      dplyr::rename(AlleleA_Probe_Sequence=sequence) %>%
+      dplyr::mutate(col=COLOR_CHANNEL)
+    
+    #
+    # TBD:: This does not contain all controls and loses pairs...
+    #
+    ret_tib <- 
+      dplyr::bind_rows(std_inf1_hum_tib,std_bs1_hum_tib) %>%
+      dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+      dplyr::filter(!is.na(Probe_ID)) %>%
+      dplyr::select(-Design_Base_AB_A,-Design_Base_AB_B,
+                    -Design_ID_A,-Design_ID_B) %>%
+      dplyr::mutate(
+        Probe_ID=paste0(stringr::str_replace_all(Probe_ID,'_','-'),'-HSA_NN',Infinium_Design,'1'),
+        Assay_Class='Control',
+        AQP=1,
+        Probe_Class=Probe_Type
+      )
+    
+    if (verbose>=vt+4) {
+      ret_tib %>% dplyr::filter(Infinium_Design==1) %>% as.data.frame() %>% print()
+      ret_tib %>% dplyr::filter(Infinium_Design==2) %>% as.data.frame() %>% print()
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                            Controls I/O::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
