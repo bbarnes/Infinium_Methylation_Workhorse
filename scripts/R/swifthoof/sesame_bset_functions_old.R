@@ -312,4 +312,254 @@ add2bset = function(bset, inf1, inf2=NULL, keyA=NULL,keyB=NULL,
   dat
 }
 
+ssetToBetaTib_old = function(sset, name, 
+                             quality.mask = FALSE, nondetection.mask = FALSE, 
+                             correct.switch = TRUE, mask.use.tcga = FALSE, 
+                             pval.threshold = 1, 
+                             pval.method = "pOOBAH", sum.TypeI = FALSE,
+                             as.enframe=FALSE, percision=0,
+                             verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'ssetToBetaTib_old'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} name={name}.{RET}"))
+  
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}      quality.mask={quality.mask}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} nondetection.mask={nondetection.mask}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}    correct.switch={correct.switch}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}     mask.use.tcga={mask.use.tcga}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}    pval.threshold={pval.threshold}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}         sum.TypeI={sum.TypeI}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}       pval.method={pval.method}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}        as.enframe={as.enframe}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}         percision={percision}.{RET}"))
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}              sset={RET}"))
+  if (verbose>=vt+4) print(sset)
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    ret_tib <- sesame::getBetas(sset=sset,
+                                quality.mask = quality.mask, 
+                                nondetection.mask = nondetection.mask, 
+                                correct.switch = correct.switch, 
+                                mask.use.tcga = mask.use.tcga, 
+                                pval.threshold = pval.threshold, 
+                                pval.method = pval.method, 
+                                sum.TypeI = sum.TypeI)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
+    if (verbose>=vt+4) ret_tib %>% head() %>% print()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
+    
+    if (percision!=0) ret_tib <- round(ret_tib, percision)
+    if (as.enframe) ret_tib <- ret_tib %>% 
+        tibble::enframe(name='Probe_ID', value=name)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+
+#
+# TBD:: ssetToPrbTib (Probe_ID,beta,pvals...)
+#
+# ssetToPrbTib(sset=rdat$raw_sset, verbose=10)
+ssetToPrbTib_old = function(sset,
+                            verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'ssetToPrbTib'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    # Validate p-value slots::
+    #
+    slot_names <- slotNames(sset)
+    if (grep("pvals",slot_names) %>% length() == 0) {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR; Failed to find pval in sset!!!{RET}{RET}"))
+      return(ret_tib)
+    }
+    
+    # Process each p-value::
+    #
+    pval_names <- sset@pval %>% names
+    for (pval_name in pval_names) {
+      # list = ret_tib <- sset@pval[pval_name]
+      # dobl = ret_tib <- sset@pval[[pval_name]]
+      
+      ret_tib <- sset@pval[[pval_name]]
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+sset2calls_old = function(sset, workflow, 
+                          quality.mask = FALSE, nondetection.mask = FALSE, 
+                          correct.switch = TRUE, mask.use.tcga = FALSE, 
+                          pval.threshold = 1, 
+                          pval.method = "pOOBAH", sum.TypeI = FALSE,
+                          
+                          as.enframe=FALSE, percisionBeta=0, percisionPval=0,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'sset2calls_old'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; workflow={workflow}.{RET}"))
+  if (verbose>=vt+4) print(sset)
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    # noob:: beta
+    #
+    name <- paste(workflow,'beta', sep='_')
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Settting name={name}...{RET}"))
+    
+    #
+    # ssetToBeta (provide return type=tib/dat)
+    #
+    beta <- ssetToBetaTib(sset=sset, name=name, 
+                          as.enframe=as.enframe,
+                          percision=percisionBeta, 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    
+    
+    ret_tib <- tibble::enframe(beta, name='Probe_ID', value=name)
+    if (verbose>=vt+4) head(ret_tib) %>% print()
+    
+    # PnegEcdf:: negs
+    #
+    name <- paste(workflow,'negs', sep='_')
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
+    
+    ssetA <- mutateSesame(sset=sset, method='detectionPnegEcdf', 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (verbose>=vt+4) print(ssetA)
+    
+    pvalA <- ssetToPvalTib(sset=ssetA, method='PnegEcdf', name=name, 
+                           percision=percisionPval, 
+                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # if (verbose>=vt+4) head(pval) %>% print()
+    ret_tib <- ret_tib %>% dplyr::left_join(pvalA, by="Probe_ID")
+    
+    # pOOBAH:: poob
+    #
+    name <- paste(workflow,'poob', sep='_')
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Setting name={name}...{RET}"))
+    
+    ssetB <- mutateSesame(sset=sset, method='pOOBAH', 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (verbose>=vt+4) print(ssetB)
+    
+    pvalB <- ssetToPvalTib(sset=sset, method='pOOBAH', name=name, 
+                           percision=percisionPval, 
+                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # if (verbose>=vt+4) head(pval) %>% print()
+    ret_tib <- ret_tib %>% dplyr::left_join(pvalB, by="Probe_ID")
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done ret_cnt={ret_cnt}, elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Extracted Sesame Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+inferSexKaryotypes_Copy = function (sset) 
+{
+  stopifnot(is(sset, "SigSet"))
+  sex.info <- getSexInfo_Copy(sset)
+  auto.median <- median(sex.info[paste0("chr", seq_len(22))], 
+                        na.rm = TRUE)
+  XdivAuto <- sex.info["medianX"]/auto.median
+  YdivAuto <- sex.info["medianY"]/auto.median
+  if (XdivAuto > 1.2) {
+    if (sex.info["fracXlinked"] >= 0.5) 
+      sexX <- "XaXi"
+    else if (sex.info["fracXmeth"] > sex.info["fracXunmeth"]) 
+      sexX <- "XiXi"
+    else sexX <- "XaXa"
+  }
+  else {
+    if (sex.info["fracXmeth"] > sex.info["fracXunmeth"]) 
+      sexX <- "Xi"
+    else sexX <- "Xa"
+  }
+  if ((sexX == "Xi" || sexX == "Xa") && XdivAuto >= 1 && sex.info["fracXlinked"] >= 
+      0.5) 
+    sexX <- "XaXi"
+  if (YdivAuto > 0.3 || sex.info["medianY"] > 2000) 
+    sexY <- "Y"
+  else sexY <- ""
+  karyotype <- paste0(sexX, sexY)
+  karyotype
+}
+
+inferSex_Copy = function (sset) 
+{
+  stopifnot(is(sset, "SigSet"))
+  sex.info <- getSexInfo_Copy(sset)[seq_len(3)]
+  as.character(predict(sesameDataGet("sex.inference"), sex.info))
+}
+
+# 
+# sesameData::sesameDataGet(paste0(rdat$raw_sset@platform, '.probeInfo'))$chrY.clean
+# sex_info <- getSexInfo_Copy(sset=rdat$raw_sset)
+# kar_info <- sesame::inferSexKaryotypes(sset=rdat$raw_sset)
+getSexInfo_Copy = function (sset) 
+{
+  if (is(sset, "SigSetList")) 
+    return(do.call(cbind, lapply(sset, getSexInfo)))
+  stopifnot(is(sset, "SigSet"))
+  cleanY <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrY.clean
+  # cleanY %>% length() %>% print()
+  
+  xLinked <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrX.xlinked
+  # xLinked %>% length() %>% print()
+  
+  probe2chr <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$probe2chr.hg19
+  # print(probe2chr)
+  
+  xLinkedBeta <- sesame::getBetas(sset=sesame::subsetSignal(sset, xLinked), 
+                                  quality.mask = FALSE)
+  intens <- sesame::totalIntensities(sset)
+  probes <- intersect(names(intens), names(probe2chr))
+  intens <- intens[probes]
+  probe2chr <- probe2chr[probes]
+  # print(probe2chr)
+  
+  # return( sesame::subsetSignal(sset, cleanY) )
+  # return( median(sesame::totalIntensities(sesame::subsetSignal(sset, cleanY))) )
+  
+  c(medianY = median(sesame::totalIntensities(sesame::subsetSignal(sset, cleanY)), na.rm=TRUE), 
+    medianX = median(sesame::totalIntensities(sesame::subsetSignal(sset, xLinked)), na.rm=TRUE), fracXlinked = 
+      (sum(xLinkedBeta > 0.3 & xLinkedBeta < 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta))) ), 
+    fracXmeth = (sum(xLinkedBeta > 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    fracXunmeth = (sum(xLinkedBeta < 0.3, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    tapply(intens, probe2chr, median, na.rm=TRUE))
+}
+
 # End of file

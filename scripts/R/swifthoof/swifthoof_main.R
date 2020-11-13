@@ -180,7 +180,8 @@ if (args.dat[1]=='RStudio') {
   locIdatDir <- file.path(par$topDir, 'data/idats')
   
   opt$workflows <- 'ind'
-  
+  opt$workflows <- "r,i,ind"
+
   opt$buildSubDir  <- FALSE
   opt$autoDetect   <- FALSE
   opt$writeCalls   <- TRUE
@@ -536,6 +537,9 @@ if (opt$cluster) {
   auto_can_tib <- NULL
   
   if (opt$autoDetect) {
+    if (is.null(opt$auto_sam_csv))
+      opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+
     cat(glue::glue("[{par$prgmTag}]:{TAB} Loading auto_sam_csv={opt$auto_sam_csv}...{RET}"))
     auto_sam_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$auto_sam_csv) ))
     cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}"))
@@ -561,7 +565,7 @@ if (opt$cluster) {
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                                   retData=par$retData, workflows=workflows_vec, tc=2)
+                                   retData=par$retData, workflows=workflows_vec, tc=1)
       rdat
     }
     cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
@@ -575,10 +579,68 @@ if (opt$cluster) {
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
       par$retData <- TRUE
-      opt$verbose <- 30
+      opt$verbose <- 3
+      opt$verbose <- 6
+      # workflows_vec <- c('r', 'i', 'ind')
       
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                                   retData=par$retData, workflows=workflows_vec, tc=2)
+                                   retData=par$retData, workflows=workflows_vec, tc=1)
+      
+      if (FALSE) {
+        
+        rdat$cur_sset@extra$pvals$pOOBAH %>% head()
+        rdat$cur_sset@extra$pvals$pOOBAH <- NULL
+        
+        new_sset <- rdat$raw_sset
+        new_sset@extra$pvals$pOOBAH <- NULL
+        new_sset@extra$pvals <- NULL
+        new_sset <- pOOBAH2(new_sset, force=TRUE)
+        new_sset@extra$pvals$pOOBAH %>% head(n=30)
+
+        two_sset <- rdat$cur_sset
+        two_sset@extra$pvals$pOOBAH <- NULL
+        two_sset@extra$pvals <- NULL
+        two_sset <- pOOBAH2(two_sset, force=TRUE)
+        two_sset@extra$pvals$pOOBAH %>% head(n=30)
+        
+        rdat$raw_sset@extra$pvals$pOOBAH %>% head(n=30)
+        
+        
+        
+        
+        # cur_sset <- mutateSSET_workflow(sset=rdat$raw_sset, workflow='i', verbose=20)
+        #
+        # mutateSesame(sset=cur_sset, method="betas", verbose=20)
+        # sesame::getBetas(sset=rdat$raw_sset, mask = FALSE, sum.TypeI = FALSE) %>% head()
+        #
+        #
+        # sesame::extra(cur_sset)[['IRR']] %>% length()
+        # sesame::extra(cur_sset)[['betas']] <- NULL
+        # 
+        
+        which(!sesame::extra(cur_sset)[['IRR']]) %>% length()
+        which(!sesame::extra(cur_sset)[['IGG']]) %>% length()
+        sesame::extra(cur_sset)[['IRR']] %>% length()
+        sesame::extra(cur_sset)[['IGG']] %>% length()
+        
+        cur_sset@extra$oobR[!cur_sset@extra$IGG,] %>% head()
+        cur_sset@extra$oobG[!cur_sset@extra$IRR,] %>% head()
+        
+        #   63
+        # 2151      
+        #
+        # 93216    93216
+        # 50496    50567    dif = 71
+        #----------------
+        #          50567
+        #          93216
+        
+        
+        swt_sset <- rdat$raw_sset %>% sesame::inferTypeIChannel(switch_failed=TRUE, verbose=TRUE)
+        
+        getBetas2(sset=cur_sset)
+      }
+      
       
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
@@ -598,7 +660,6 @@ if (opt$cluster) {
   readr::write_csv(par_tib, opt$par_csv)
   # readr::write_csv(time_tib, opt$time_csv)
 }
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::

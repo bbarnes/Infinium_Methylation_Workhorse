@@ -532,7 +532,7 @@ if (TRUE) {
   }
   
   out_dat <- all_int_tib
-  out_csv <- '/Users/bretbarnes/Documents/data/annotation/GRCh37/current-inferred-dbSNP151.hg19.csv.gz'
+  out_csv <- '/Users/bretbarnes/Documents/data/annotation/GRCh37/current-inferred-dbSNP151.hg19.clean.csv.gz'
   readr::write_csv(out_dat,out_csv)
   
   # all_int_tib %>% dplyr::mutate(REF_Base=dplyr::case_when())

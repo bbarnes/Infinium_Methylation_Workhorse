@@ -13,6 +13,7 @@ if [ -e ${EXE_A} ]; then
 
     INP=/input
     OUT=/output
+    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --idatsDir=${INP} --outDir=${OUT} $@"
 
     echo "Docker Run..."
     
@@ -20,6 +21,10 @@ elif [ -e ${EXE_B} ]; then
     EXE=${EXE_B}
     RSCRIPT=${RSCRIPT_B}
 
+    # INP=$1
+    # OUT=$2
+
+    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} $@"
     echo "Local Run..."
     
 else
@@ -31,11 +36,11 @@ echo "RSC="${RSCRIPT}
 echo "EXE="${EXE}
 echo "INP="${INP}
 echo "OUT="${OUT}
+echo "CMD="${CMD}
 echo ""
 
-echo ${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} -i ${INP} -o ${OUT} $@
-
-${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --idatsDir ${INP} --outDir ${OUT} $@
+# echo ${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --idatsDir=${INP} --outDir=${OUT} $@
+${CMD}
 
 echo "done."
 
