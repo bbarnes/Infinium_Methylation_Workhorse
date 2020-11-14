@@ -1213,6 +1213,78 @@ AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
 #                       Specialized Mouse Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+inferManifestFields = function(tib, sidx=2, plen=50,
+                               key="Assay_Design_Id",
+                               seqA="AlleleA_Probe_Sequence", 
+                               seqB="AlleleB_Probe_Sequence",
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'inferManifestFields'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    # key  <- rlang::sym(key)
+    seqA_sym <- rlang::sym(seqA)
+    seqB_sym <- rlang::sym(seqB)
+    
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
+    
+    # Add Infinium Type Definition:: Also, fail any probe that breaks this method
+    ret_tib <- tib %>% 
+      dplyr::mutate(
+        Infinium_Design=dplyr::case_when(
+          !is.na(!!seqA_sym) & !is.na(!!seqB_sym) ~ 1,
+          !is.na(!!seqA_sym) &  is.na(!!seqB_sym) ~ 2,
+          TRUE ~ NA_real_)
+      ) %>%
+      dplyr::filter(!is.na(Infinium_Design)) %>%
+      dplyr::mutate(
+        Seq_48U=dplyr::case_when(
+          Infinium_Design==1 ~ stringr::str_sub(!!seqA_sym, idx1,len1),
+          Infinium_Design==2 ~ stringr::str_sub(!!seqA_sym, idx2,len2),
+          TRUE ~ NA_character_
+        ) %>% stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+        DESIGN=dplyr::case_when(
+          Infinium_Design==1 ~ 'I',
+          Infinium_Design==2 ~ 'II',
+          TRUE ~ NA_character_),
+        COLOR_CHANNEL=dplyr::case_when(
+          Infinium_Design==2 ~ 'Both',
+          TRUE ~ Color_Channel),
+        col=dplyr::case_when(
+          Infinium_Design==1 ~ stringr::str_sub(Color_Channel, 1,2),
+          TRUE ~ NA_character_),
+        Probe_Type=stringr::str_sub(!!key,1,2) %>%
+          stringr::str_replace('^ne','NE'),
+        Probe_Source=NA_character_,
+        AlleleA_Probe_Length=stringr::str_length(!!seqA_sym),
+        AlleleB_Probe_Length=stringr::str_length(!!seqB_sym),
+        AlleleB_Probe_Length=dplyr::case_when(
+          is.na(AlleleB_Probe_Length) ~ 0.0,
+          TRUE ~ as.double(AlleleB_Probe_Length) ),
+      ) %>%
+      dplyr::rename(Probe_ID=!!key) %>%
+      dplyr::select(Probe_ID,DESIGN,COLOR_CHANNEL,col,
+                    Probe_Type,Probe_Source,Next_Base, everything())
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
 inferOrderFields = function(tib, sidx=2, plen=50,
                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'inferOrderFields'
@@ -1955,6 +2027,102 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL,
 #                             Manifest I/O::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+idatToManifestMap = function(tib, mans, field='Address', sortMax=TRUE,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'idatToManifestMap'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    field_sym <- rlang::sym(field)
+    
+    # Get vector of addresses...
+    can_tib <- tib %>% dplyr::filter(!is.na(!!field_sym)) %>% 
+      dplyr::distinct(!!field_sym)
+    can_cnt <- can_tib %>% base::nrow()
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Idat Address Count={can_cnt}.{RET}"))
+
+    man_keys <- names(mans)
+    man_cnts <- length(man_keys)
+    
+    for (man_key in man_keys) {
+      man_tib <- mans[[man_key]]
+      
+      # Init current manifest rc-overlap tib::
+      #
+      rec_tib <- tibble::tibble(manifest=man_key) %>% 
+        tidyr::separate(manifest, into=c("platform","version"), sep="-", remove=FALSE) %>%
+        dplyr::mutate(sample_cnt=can_cnt)
+      
+      #
+      #
+      # The correct way to intersect::
+      #  - M,U,N
+      #
+      
+      
+      
+      
+      # Gather manifest M/U values and trim if greater than 10::
+      #
+      ref_tib <- man_tib %>% dplyr::select(M,U) %>% 
+        tidyr::gather(MU,!!field_sym) %>% 
+        dplyr::filter(!is.na(!!field_sym)) %>% 
+        dplyr::mutate(Address_Len=stringr::str_length(!!field_sym))
+      
+      add_len <- max(ref_tib$Address_Len, na.rm=TRUE)
+      if (add_len!=8 && add_len!=10) {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: Invalid Max Address Length {add_len} != [8,10].{RET}{RET}"))
+        return(ret_tib)
+      }
+      
+      if (add_len==10) {
+        if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Trimming address (len={add_len})...{RET}"))
+        
+        ref_tib <- ref_tib %>% dplyr::mutate(
+          !!field_sym := stringr::str_remove(!!field_sym,'^1') %>% 
+            stringr::str_remove('^0+') %>% as.numeric() %>% as.integer() )
+      }
+      ref_cnt <- ref_tib %>% dplyr::distinct(!!field_sym) %>% base::nrow()
+      if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest Address Count={ref_cnt}.{RET}"))
+      
+      # Get intersection::
+      #
+      # if (verbose>=vt+4) print(can_tib)
+      # if (verbose>=vt+4) print(ref_tib)
+      
+      mat_tib <- dplyr::inner_join(can_tib,ref_tib, by=field)
+      mat_cnt <- mat_tib %>% base::nrow()
+      rec_per <- round(100*mat_cnt / base::min(can_cnt,ref_cnt), 3)
+      
+      # Update tables::
+      #
+      if (sortMax) {
+        rec_tib <- rec_tib %>% 
+          dplyr::mutate(manifest_cnt=ref_cnt, match_cnt=mat_cnt, rc_per=manifest_cnt)
+      } else {
+        rec_tib <- rec_tib %>% 
+          dplyr::mutate(manifest_cnt=ref_cnt, match_cnt=mat_cnt, rc_per=rec_per)
+      }
+      
+      ret_tib <- dplyr::bind_rows(ret_tib, rec_tib)
+    }
+    ret_tib <- ret_tib %>% dplyr::arrange(-rc_per)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
 idat2manifest = function(sigs, mans, verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'idat2manifest'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -2071,9 +2239,14 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
       cur_manifest <- cur_key_tib$manifest
       cur_key <- paste(cur_platform, cur_manifest, sep='-')
       
-      man_tibs[[cur_key]] <- suppressMessages(suppressWarnings( readr::read_csv(paths[ii]) )) %>%
-        dplyr::mutate(M=as.integer(M), U=as.integer(U))
-      
+      man_tibs[[cur_key]] <- 
+        suppressMessages(suppressWarnings( readr::read_csv(paths[ii]) )) %>%
+        dplyr::mutate(M=as.integer(M), U=as.integer(U)) %>% 
+        dplyr::mutate(col=dplyr::case_when(
+          !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
+          TRUE ~ col)
+        )
+
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done; Loading manifest.{RET}{RET}"))
       if (verbose>=vt+4) print(man_tibs[[cur_key]])
     }

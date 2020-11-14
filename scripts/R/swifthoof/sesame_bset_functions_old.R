@@ -101,7 +101,52 @@ epicI_ses_tib %>% dplyr::inner_join(hub_snp137_tib, by=c("rs"="name"), suffix=c(
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-
+if (FALSE) {
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Add Swapped Summary Percentages::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  if (!is.null(opt$skipSwap) && !opt$skipSwap) {
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building raw_sset_tib...{RET}") )
+    
+    cur_sset_tib <- NULL
+    raw_sset_tib <- NULL
+    opt$writeSsetRaw <- FALSE
+    raw_sset_tib <- sset2tib(sset=raw_sset, by="Probe_ID", des="Probe_Design",  
+                             percision=opt$percisionSigs, sort=FALSE, 
+                             save=opt$writeSsetRaw, csv=raw_sset_csv, 
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    if (retData) ret$raw_sset_tib <- raw_sset_tib
+  }
+  
+  if (!is.null(raw_sset_tib) && !is.null(cur_sset_tib)) {
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Inferred Sample Swapped Stats.{RET}"))
+    
+    swap_sum_tib <- NULL
+    swap_sum_tib <- dplyr::inner_join(joinSsetTibInfI(tib=raw_sset_tib), 
+                                      joinSsetTibInfI(tib=cur_sset_tib), 
+                                      by="Probe_ID", suffix=c("_Raw", "_Cur") ) %>%
+      dplyr::mutate(isSwap=dplyr::case_when(
+        Probe_Design_Inb_Raw==Probe_Design_Inb_Cur & Probe_Design_Oob_Raw==Probe_Design_Oob_Cur ~ 'Reference',
+        Probe_Design_Inb_Raw!=Probe_Design_Inb_Cur & Probe_Design_Oob_Raw!=Probe_Design_Oob_Cur ~ 'Alternate',
+        TRUE ~ NA_character_
+      )) %>% dplyr::group_by(Probe_Design_Inb_Raw,isSwap) %>% 
+      dplyr::summarise(Count=n(), .groups='drop') %>% 
+      dplyr::ungroup() %>% 
+      dplyr::mutate(Total=sum(Count)) %>% 
+      tidyr::unite(Type, Probe_Design_Inb_Raw, isSwap, sep='_') %>% 
+      dplyr::mutate(Perc=round(100*Count/Total, 3)) %>% 
+      dplyr::select(Type, Perc) %>% tidyr::spread(Type, Perc) %>%
+      purrr::set_names(paste(names(.),'Perc', sep='_') )
+    
+    ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(swap_sum_tib)
+    
+    ssheet_ncols <- ssheet_tib %>% base::ncol()
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with channel-swap-stats) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+  }
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   OLD Sesame SSET Manipulation Methods::

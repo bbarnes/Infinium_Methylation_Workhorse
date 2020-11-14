@@ -70,8 +70,7 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
         getIdatTimeStampTib(grn_idat, method='Decoding', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),
         getIdatTimeStampTib(grn_idat, method='Extract', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       )
-      if (verbose>=vt+10) print(grn_ann)
-      
+
       if (validate) {
         red_ann <- dplyr::bind_cols(
           getIdatBarcodeTib(red_idat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),

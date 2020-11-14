@@ -100,6 +100,112 @@ initSesameRaw = function(prefix, platform, manifest, load=FALSE, save=FALSE, rds
   sset
 }
 
+# man=ses_man_tib
+# idx=ww
+# workflow=cur_workflow
+#
+# minNegPval=opt$minNegPval, 
+# minOobPval=opt$minOobPval, 
+# percisionBeta=opt$percisionBeta, 
+# percisionPval=opt$percisionPval, 
+# percisionSigs=opt$percisionSigs
+
+# writeSset=opt$writeSset
+# sset_csv=cur_sset_csv
+#
+# writeSsum=opt$writeSsum
+# ssum_csv=cur_ssum_csv
+
+# sumSig, retSset, 
+#
+# return(ssheet,calls)
+#
+
+summarySSET_workflow = function(sset, man, idx, workflow,
+                                writeSset=FALSE, sset_csv=NULL,
+                                writeSsum=FALSE, ssum_csv=NULL,
+                                
+                                minOobPval=0.1,minNegPval=0.02,
+                                percisionBeta=0,percisionPval=0,percisionSigs=0,
+                                verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'summarySSET_workflow'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_dat <- NULL
+  stime <- system.time({
+    
+    # Set/Update Pvals and Betas::
+    #
+    sset <- mutateSesame(sset=sset, method="betas", 
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    sset <- mutateSesame(sset=sset, method="detectionPnegEcdf", 
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    sset <- mutateSesame(sset=sset, method="pOOBAH", 
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    # Signal Summary
+    #
+    sset_tib <- NULL
+    sset_tib <- sset2tib(sset=sset, by="Probe_ID", des="Probe_Design",  
+                             percision=percisionSigs, sort=FALSE, 
+                             save=writeSset, csv=sset_csv, 
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    sset_dat_tib <- NULL
+    sset_dat_tib <- sigTibToSSheet(sigs=sset_tib, man=man,
+                                   save=writeSsum, csv=cur_ssum_csv, 
+                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    sset_sum_tib <- NULL
+    sset_sum_tib <- sigsSumToSSheet(tib=sset_dat_tib, metric='avg', 
+                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    # Calls Data and Summary: pvals/betas
+    #
+    call_dat_tib <- NULL
+    call_dat_tib <- sset2calls(sset=sset, workflow=workflow, 
+                               percisionBeta=percisionBeta, 
+                               percisionPval=percisionPval, 
+                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    call_sum_tib <- NULL
+    call_sum_tib <- callToSSheet(call=call_dat_tib, idx=idx, 
+                                 key=workflow, pre=call_sum_tib, 
+                                 minNegPval=minNegPval, 
+                                 minOobPval=minOobPval, 
+                                 percisionBeta=percisionBeta, 
+                                 percisionPval=percisionPval, 
+                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    # Predicted and Inferred Data::
+    #
+    phen_sum_tib <- NULL
+    phen_sum_tib <- ssetToInferences(sset=sset, idx=idx, key=workflow, 
+                                     pre=phen_sum_tib,    
+                                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    phen_sum_tib <- ssetToPredict(sset=sset, idx=idx, key=workflow, 
+                                  pre=phen_sum_tib,
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    # Set Outputs::
+    #
+    ret_dat$sset_dat <- sset
+    ret_dat$sset_sum <- sset_sum_tib
+    ret_dat$call_dat <- call_dat_tib
+    ret_dat$call_sum <- call_sum_tib
+    ret_dat$phen_sum <- phen_sum_tib
+    
+    ret_cnt <- ret_dat %>% names %>% length()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_dat
+}
+
 # Predefined SSET to Calls by Order of Operations Workflows::
 mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL, 
                                verbose=0,vt=3,tc=1,tt=NULL) {
@@ -112,7 +218,7 @@ mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL,
     #
     # TBD:: This could be parsed into individual letters and then processed in that order...
     #
-    if (workflow=='r') {
+    if (workflow=='r' || workflow=='raw') {
     } else if (workflow=='i') {
       sset <- sset %>% 
         mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
@@ -311,7 +417,7 @@ sigTibToSSheet = function(sigs, man=NULL, by="Probe_ID", type="Probe_Type", des=
       sigs <- dplyr::select(man, !!by, !!type) %>% dplyr::right_join(sigs, by=by ) %>% dplyr::group_by(!!type, !!des) 
       tib <- sigs %>% summarise_if(is.numeric, list(min=min, med=median, avg=mean, sd=sd, max=max), na.rm=TRUE)
     } else {
-      stop(glue::glue("\n[{func}]: ERROR: Currently only supported with the manifest!!!{RET}{RET}"))
+      stop(glue::glue("{RET}[{func}]: ERROR: Currently only supported with the manifest!!!{RET}{RET}"))
       tib <- sigs %>% dplyr::group_by(!!des) %>% summarise_if(is.numeric, list(mu=mean), na.rm=TRUE)
     }
     
@@ -475,9 +581,7 @@ callToSSheet = function(call, idx, key, pre=NULL, minNegPval, minOobPval,
     negs_val_str <- paste('Negs_Pass',idx,'Perc', sep=del)
     negs_key_sym <- rlang::sym(negs_key_str)
     negs_val_sym <- rlang::sym(negs_val_str)
-    
-    print(call)
-    
+
     negs_tib <- tibble::tibble(!!negs_key_sym := key, !!negs_val_sym := dplyr::select(call, ends_with('_negs')) %>%
                                  dplyr::summarise_all(list(pass_perc=cntPer_lte), min=minNegPval) %>%
                                  dplyr::pull() %>% round(percisionPval) )

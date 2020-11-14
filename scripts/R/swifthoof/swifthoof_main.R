@@ -586,7 +586,29 @@ if (opt$cluster) {
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=1)
       
+      idats <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+                                    retData=par$retData, workflows=workflows_vec, tc=1)
+      
       if (FALSE) {
+        
+        cur_sset <- rdat$cur_sset
+        ses_man_tib <- rdat$sman
+        ww <- 3
+        cur_workflow <- 'ind'
+        
+        cur_sset_csv <- NULL
+        cur_ssum_csv <- NULL
+        
+        sum_list <- summarySSET_workflow(
+          sset=cur_sset, man=ses_man_tib, idx=ww, workflow=cur_workflow,
+          writeSset=opt$writeSset,sset_csv=cur_sset_csv,
+          writeSsum=opt$writeSsum,ssum_csv=cur_ssum_csv,
+          minNegPval=opt$minNegPval,minOobPval=opt$minOobPval,
+          percisionBeta=opt$percisionBeta, 
+          percisionPval=opt$percisionPval, 
+          percisionSigs=opt$percisionSigs,
+          verbose=4)
+        
         
         rdat$cur_sset@extra$pvals$pOOBAH %>% head()
         rdat$cur_sset@extra$pvals$pOOBAH <- NULL
@@ -604,41 +626,6 @@ if (opt$cluster) {
         two_sset@extra$pvals$pOOBAH %>% head(n=30)
         
         rdat$raw_sset@extra$pvals$pOOBAH %>% head(n=30)
-        
-        
-        
-        
-        # cur_sset <- mutateSSET_workflow(sset=rdat$raw_sset, workflow='i', verbose=20)
-        #
-        # mutateSesame(sset=cur_sset, method="betas", verbose=20)
-        # sesame::getBetas(sset=rdat$raw_sset, mask = FALSE, sum.TypeI = FALSE) %>% head()
-        #
-        #
-        # sesame::extra(cur_sset)[['IRR']] %>% length()
-        # sesame::extra(cur_sset)[['betas']] <- NULL
-        # 
-        
-        which(!sesame::extra(cur_sset)[['IRR']]) %>% length()
-        which(!sesame::extra(cur_sset)[['IGG']]) %>% length()
-        sesame::extra(cur_sset)[['IRR']] %>% length()
-        sesame::extra(cur_sset)[['IGG']] %>% length()
-        
-        cur_sset@extra$oobR[!cur_sset@extra$IGG,] %>% head()
-        cur_sset@extra$oobG[!cur_sset@extra$IRR,] %>% head()
-        
-        #   63
-        # 2151      
-        #
-        # 93216    93216
-        # 50496    50567    dif = 71
-        #----------------
-        #          50567
-        #          93216
-        
-        
-        swt_sset <- rdat$raw_sset %>% sesame::inferTypeIChannel(switch_failed=TRUE, verbose=TRUE)
-        
-        getBetas2(sset=cur_sset)
       }
       
       
