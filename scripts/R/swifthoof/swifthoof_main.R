@@ -314,8 +314,6 @@ if (args.dat[1]=='RStudio') {
     # Optional Files::
     make_option(c("--manifestPath"), type="character", default=opt$manifestPath,
                 help="Path to manfifest (CSV) otherwise use dat [default= %default]", metavar="character"),
-    # make_option(c("--addressPath"), type="character", default=opt$addressPath,
-    #             help="Path to address (RDS) otherwise use dat [default= %default]", metavar="character"),
     make_option(c("--subManifest"), action="store_true", default=opt$subManifest,
                 help="Boolean variable to use subset manifest instead of subset. [default= %default]", metavar="boolean"),
     make_option(c("--auto_sam_csv"), type="character", default=opt$auto_sam_csv,
@@ -334,8 +332,8 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to build subdirectories based on Chip/BeadPool (for R&D purposes) [default= %default]", metavar="boolean"),
     make_option(c("--autoDetect"), action="store_true", default=opt$autoDetect,
                 help="Boolean variable to auto detect reference samples. Must provide reference samples. [default= %default]", metavar="boolean"),
-    make_option(c("--skipSwap"), action="store_true", default=opt$skipSwap,
-                help="Boolean variable to skpping appending swap percentages to sample sheet. [default= %default]", metavar="boolean"),
+    # make_option(c("--skipSwap"), action="store_true", default=opt$skipSwap,
+    #             help="Boolean variable to skpping appending swap percentages to sample sheet. [default= %default]", metavar="boolean"),
     
     make_option(c("--workflows"), type="character", default=opt$workflows,
                 help="Order of operations comma seperated [ raw,ind,ndi,din ] [default= %default]", metavar="character"),
@@ -355,8 +353,8 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--saveRawSset"), action="store_true", default=opt$saveRawSset,
                 help="Boolean variable to write Raw Signal Set RDS file [default= %default]", metavar="boolean"),
 
-    make_option(c("--addSentrixID"), action="store_true", default=opt$addSentrixID,
-                help="Boolean variable to add Sentrix Name to calls output columns [default= %default]", metavar="boolean"),
+    # make_option(c("--addSentrixID"), action="store_true", default=opt$addSentrixID,
+    #             help="Boolean variable to add Sentrix Name to calls output columns [default= %default]", metavar="boolean"),
     
     #
     # Old Versions to be deleted::
@@ -375,9 +373,7 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to write Signal Set Summary file (CSV) [default= %default]", metavar="boolean"),
     make_option(c("--write_call"), action="store_true", default=opt$write_call,
                 help="Boolean variable to write Calls (Pval/Beta) file (CSV) [default= %default]", metavar="boolean"),
-    make_option(c("--write_call"), action="store_true", default=opt$write_call,
-                help="Boolean variable to write Calls (Pval/Beta) Summary file (CSV) [default= %default]", metavar="boolean"),
-    
+
     #
     # Threshold Options::
     #
