@@ -242,7 +242,7 @@ if (args.dat[1]=='RStudio') {
     opt$genomeBuild <- 'GRCh38'
     opt$platform    <- 'COVIC'
     opt$version     <- 'C0'
-    opt$version     <- 'B0'
+    opt$version     <- 'B1'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -777,6 +777,8 @@ if (opt$verbose>=1) {
   cat(glue::glue("[{par$prgmTag}]: Done. Building Probes.{RET}{RET}"))
 }
 
+# '/Users/bretbarnes/Documents/scratch/manifests/GRCh38-COVIC-B0/design/cg/GRCh38-COVIC-B0.clean_manifest_probes.cg.Top_Sequence.mat-probes.rds'
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.0 Join All Detected Probes:: SNP/CpH/CpG
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -788,7 +790,8 @@ man_pqc_prb_tib <- bindProbeDesignList(
   list=man_prb_list, platform=opt$platform, version=opt$version,
   sumDir=opt$sumDir,del='.',
   verbose=opt$verbose,vt=3,tc=1,tt=pTracker) %>% 
-  dplyr::mutate(Assay_Class='Analytical')
+  dplyr::mutate(Assay_Class='Analytical') %>% 
+  dplyr::mutate(Probe_Type=dplyr::case_when(Probe_Type=='Pr' ~ 'cg', TRUE ~ Probe_Type))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #            Extract Missing Probes from Manifest:: i.e. CTL/UNK
@@ -1033,13 +1036,13 @@ print(man_prd_sum_tib,n=base::nrow(man_prd_sum_tib))
 # QC Checks::
 #
 # man_prd_all_tib %>% dplyr::group_by(DESIGN,COLOR_CHANNEL,col,Next_Base) %>% dplyr::summarise(Count=n()) %>% as.data.frame()
-
-man_prd_all_tib %>% dplyr::select(Probe_Type, 1:10) %>% split(.$Probe_Type)
-man_prd_all_tib %>% dplyr::select(Probe_Type,11:20) %>% split(.$Probe_Type)
-man_prd_all_tib %>% dplyr::select(Probe_Type,21:30) %>% split(.$Probe_Type)
-man_prd_all_tib %>% dplyr::select(Probe_Type,31:40) %>% split(.$Probe_Type)
-man_prd_all_tib %>% dplyr::select(Probe_Type,41:50) %>% split(.$Probe_Type)
-
+#
+# man_prd_all_tib %>% dplyr::select(Probe_Type, 1:10) %>% split(.$Probe_Type)
+# man_prd_all_tib %>% dplyr::select(Probe_Type,11:20) %>% split(.$Probe_Type)
+# man_prd_all_tib %>% dplyr::select(Probe_Type,21:30) %>% split(.$Probe_Type)
+# man_prd_all_tib %>% dplyr::select(Probe_Type,31:40) %>% split(.$Probe_Type)
+# man_prd_all_tib %>% dplyr::select(Probe_Type,41:50) %>% split(.$Probe_Type)
+#
 
 #
 # Write Sesame Output Full::

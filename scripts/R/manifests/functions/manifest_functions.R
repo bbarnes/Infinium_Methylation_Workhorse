@@ -1213,7 +1213,7 @@ AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
 #                       Specialized Mouse Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-inferManifestFields = function(tib, sidx=2, plen=50,
+inferManifestFields = function(tib, sidx=2, plen=50, AQP=0,
                                key="Assay_Design_Id",
                                seqA="AlleleA_Probe_Sequence", 
                                seqB="AlleleB_Probe_Sequence",
@@ -1242,7 +1242,8 @@ inferManifestFields = function(tib, sidx=2, plen=50,
         Infinium_Design=dplyr::case_when(
           !is.na(!!seqA_sym) & !is.na(!!seqB_sym) ~ 1,
           !is.na(!!seqA_sym) &  is.na(!!seqB_sym) ~ 2,
-          TRUE ~ NA_real_)
+          TRUE ~ NA_real_),
+        AQP=AQP
       ) %>%
       dplyr::filter(!is.na(Infinium_Design)) %>%
       dplyr::mutate(
@@ -2241,12 +2242,21 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
       
       man_tibs[[cur_key]] <- 
         suppressMessages(suppressWarnings( readr::read_csv(paths[ii]) )) %>%
-        dplyr::mutate(M=as.integer(M), U=as.integer(U)) %>% 
-        dplyr::mutate(col=dplyr::case_when(
-          !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
-          TRUE ~ col)
+        dplyr::mutate(
+          M=as.integer(M),
+          U=as.integer(U),
+          col=dplyr::case_when(
+            !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
+            TRUE ~ col),
+          Probe_ID=stringr::str_replace_all( 
+            stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("\\W+"), " ")) ), " ","_"),
+          Probe_Type=stringr::str_replace_all( 
+            stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
+          Probe_Design=dplyr::case_when(
+            is.na(M) ~ '1',
+            TRUE ~ '2'
+          )
         )
-
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done; Loading manifest.{RET}{RET}"))
       if (verbose>=vt+4) print(man_tibs[[cur_key]])
     }

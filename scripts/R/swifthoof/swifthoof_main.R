@@ -78,21 +78,31 @@ opt$fresh       <- FALSE
 opt$buildSubDir <- FALSE
 opt$autoDetect  <- FALSE
 opt$skipSwap    <- FALSE
+
 opt$workflows   <- NULL
+opt$manDirName  <- 'core'
 
 # Output Options::
 opt$loadIdat    <- FALSE
 opt$saveIdat    <- FALSE
 
-opt$loadSsets   <- FALSE
-opt$saveSsets   <- FALSE
+opt$load_sset   <- FALSE
+opt$save_sset   <- FALSE
 opt$saveRawSset <- FALSE
 
+#
+# TBD: Add new variable names::
+#
+opt$write_sset  <- FALSE
+opt$write_sigs  <- FALSE
+opt$write_ssum  <- FALSE
+opt$write_call  <- FALSE
+opt$write_csum  <- FALSE
+
 opt$addSentrixID <- FALSE
-opt$writeSset    <- FALSE
-opt$writeSsum    <- FALSE
-opt$writeCalls   <- FALSE
-opt$writeSsheet  <- FALSE
+# opt$writeSset    <- FALSE
+# opt$writeSsum    <- FALSE
+# opt$writeCalls   <- FALSE
 opt$writeAuto    <- FALSE
 
 opt$addRawCalls <- FALSE
@@ -180,13 +190,12 @@ if (args.dat[1]=='RStudio') {
   locIdatDir <- file.path(par$topDir, 'data/idats')
   
   opt$workflows <- 'ind'
-  opt$workflows <- "r,i,ind"
+  opt$workflows <- "nd,ind"
 
   opt$buildSubDir  <- FALSE
   opt$autoDetect   <- FALSE
   opt$writeCalls   <- TRUE
-  opt$writeSsheet  <- TRUE
-  
+
   opt$platform   <- 'EPIC'
   opt$manifest   <- 'B4'
   opt$platform   <- NULL
@@ -194,6 +203,24 @@ if (args.dat[1]=='RStudio') {
   
   par$expRunStr  <- NULL
   par$expChipNum <- NULL
+  
+  # Writing Options::
+  opt$write_sset  <- FALSE
+  opt$write_sigs  <- FALSE
+  opt$write_ssum  <- FALSE
+  opt$write_call  <- FALSE
+  opt$write_csum  <- FALSE
+  
+  opt$write_sset  <- TRUE
+  opt$write_sigs  <- TRUE
+  opt$write_ssum  <- TRUE
+  opt$write_call  <- TRUE
+  opt$write_csum  <- TRUE
+  #
+  #
+  
+  opt$manDirName  <- 'base'
+  opt$manDirName  <- 'core'
   
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
@@ -309,10 +336,11 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to auto detect reference samples. Must provide reference samples. [default= %default]", metavar="boolean"),
     make_option(c("--skipSwap"), action="store_true", default=opt$skipSwap,
                 help="Boolean variable to skpping appending swap percentages to sample sheet. [default= %default]", metavar="boolean"),
+    
     make_option(c("--workflows"), type="character", default=opt$workflows,
                 help="Order of operations comma seperated [ raw,ind,ndi,din ] [default= %default]", metavar="character"),
-    # make_option(c("--sampleSheet"), type="character", default=opt$sampleSheet, 
-    #             help="Target Sample Sheet containing samples/chips to ONLY analyze [default= %default]", metavar="character"),
+    make_option(c("--manDirName"), type="character", default=opt$manDirName,
+                help="Manifest directory name [default= %default]", metavar="character"),
     
     # Output Options::
     make_option(c("--loadIdat"), action="store_true", default=opt$loadIdat,
@@ -320,29 +348,39 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--saveIdat"), action="store_true", default=opt$saveIdat,
                 help="Boolean variable to write IDAT RDS file [default= %default]", metavar="boolean"),
     
-    make_option(c("--loadSsets"), action="store_true", default=opt$loadSsets,
+    make_option(c("--load_sset"), action="store_true", default=opt$load_sset,
                 help="Boolean variable to load existing Signal Set from RDS file [default= %default]", metavar="boolean"),
-    make_option(c("--saveSsets"), action="store_true", default=opt$saveSsets,
+    make_option(c("--save_sset"), action="store_true", default=opt$save_sset,
                 help="Boolean variable to write Signal Set RDS file [default= %default]", metavar="boolean"),
     make_option(c("--saveRawSset"), action="store_true", default=opt$saveRawSset,
                 help="Boolean variable to write Raw Signal Set RDS file [default= %default]", metavar="boolean"),
 
     make_option(c("--addSentrixID"), action="store_true", default=opt$addSentrixID,
                 help="Boolean variable to add Sentrix Name to calls output columns [default= %default]", metavar="boolean"),
-    make_option(c("--writeSset"), action="store_true", default=opt$writeSset,
-                help="Boolean variable to write Signal Set file [default= %default]", metavar="boolean"),
-    make_option(c("--writeSsum"), action="store_true", default=opt$writeSsum,
-                help="Boolean variable to write Signal Set Summary file [default= %default]", metavar="boolean"),
-    make_option(c("--writeCalls"), action="store_true", default=opt$writeCalls,
-                help="Boolean variable to write Calls (Pval/Beta) file [default= %default]", metavar="boolean"),
-    make_option(c("--writeSsheet"), action="store_true", default=opt$writeSsheet,
-                help="Boolean variable to Sample Sheet file [default= %default]", metavar="boolean"),
+    
+    #
+    # Old Versions to be deleted::
+    #
     make_option(c("--writeAuto"), action="store_true", default=opt$writeAuto,
                 help="Boolean variable to write Auto-Detection Matricies (Pval/Beta) file [default= %default]", metavar="boolean"),
-    make_option(c("--addRawCalls"), action="store_true", default=opt$addRawCalls,
-                help="Boolean variable to output raw calls [default= %default]", metavar="boolean"),
+
+    #
+    # Current Versions::
+    #
+    make_option(c("--write_sset"), action="store_true", default=opt$write_sset,
+                help="Boolean variable to write Signal Set file (RDS) [default= %default]", metavar="boolean"),
+    make_option(c("--write_sigs"), action="store_true", default=opt$write_sigs,
+                help="Boolean variable to write Signal Set file (CSV) [default= %default]", metavar="boolean"),
+    make_option(c("--write_ssum"), action="store_true", default=opt$write_ssum,
+                help="Boolean variable to write Signal Set Summary file (CSV) [default= %default]", metavar="boolean"),
+    make_option(c("--write_call"), action="store_true", default=opt$write_call,
+                help="Boolean variable to write Calls (Pval/Beta) file (CSV) [default= %default]", metavar="boolean"),
+    make_option(c("--write_call"), action="store_true", default=opt$write_call,
+                help="Boolean variable to write Calls (Pval/Beta) Summary file (CSV) [default= %default]", metavar="boolean"),
     
+    #
     # Threshold Options::
+    #
     make_option(c("--minNegPval"), type="double", default=opt$minNegPval, 
                 help="Minimum passing detection p-value using Negative Controls [default= %default]", metavar="double"),
     make_option(c("--minOobPval"), type="double", default=opt$minOobPval,
@@ -528,7 +566,7 @@ if (opt$cluster) {
   # pTracker <- timeTracker$new(verbose=opt$verbose)
   
   mans <- NULL
-  opt$manDir <- file.path(par$datDir, 'manifest/base')
+  opt$manDir <- file.path(par$datDir, 'manifest',opt$manDirName)
   mans <- getManifestList(path=opt$manifestPath, platform=opt$platform, manifest=opt$manifest, 
                           dir=opt$manDir, verbose=opt$verbose, tt=pTracker)
   
@@ -581,16 +619,171 @@ if (opt$cluster) {
       par$retData <- TRUE
       opt$verbose <- 3
       opt$verbose <- 6
-      # workflows_vec <- c('r', 'i', 'ind')
+      # workflows_vec <- c('i', 'ind')
       
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=1)
-      
-      idats <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
-                                    retData=par$retData, workflows=workflows_vec, tc=1)
-      
+
       if (FALSE) {
         
+        auto_beta_key <- 'ind_beta'
+        auto_negs_key <- 'ind_PnegEcdf'
+        
+        auto_list <- 
+          autoDetect_Wrapper(can=rdat$all_calls, ref=auto_sam_tib, man=rdat$sman,
+                             
+                             minPval=opt$minNegPval, minDelta=opt$minDeltaBeta,
+                             dname='Design_Type', pname='Probe_Type', ptype='cg',
+                             jval='Probe_ID', field=auto_beta_key, pval=auto_negs_key, suffix='beta', del='_',
+                             outDir=opt$outDir, sname=out_name, plotMatrix=opt$plotAuto, writeMatrix=opt$writeAuto,
+                             dpi=opt$dpi, format=opt$plotFormat, datIdx=4, non.ref=non_ref,
+                             
+                             verbose=20)
+        
+        
+        work_data  <- rdat$rsum_list
+        work_names <- work_data %>% names()
+        
+        all_call_tib <- NULL
+        for (work_name in work_names) {
+          if (is.null(all_call_tib)) {
+            all_call_tib <- work_data[[work_name]]$call_dat
+          } else {
+            all_call_tib <- all_call_tib %>% 
+              dplyr::inner_join(work_data[[work_name]]$call_dat, by="Probe_ID")
+          }
+        }
+        
+        
+        
+        
+        
+        
+        
+        metric='mean'
+        platform <- rdat$platform
+        man_tib <- rdat$sman
+        
+        opt$load_sset <- FALSE
+        opt$save_sset <- FALSE
+        
+        sset_rds <- file.path(opt$outDir, 'raw.sset.rds')
+        raw_sset <- newSset(prefix=chipPrefixes[[prefix]], 
+                            platform=platform, manifest=man_tib,
+                            load=opt$load_sset, save=opt$save_sset,rds=sset_rds,
+                            verbose=4)
+        
+        cdat <- 
+          ssetToSummary(sset=raw_sset, man=rdat$sman, idx=0, workflow='raw',
+                        write_call=TRUE, call_csv=NULL, ret_call=TRUE,
+                        
+                        percision_sigs=opt$percisionSigs,
+                        percision_beta=opt$percisionBeta,
+                        percision_pval=opt$percisionPval,
+                        by="Probe_ID", type="Probe_Type", des="Probe_Class",
+                        fresh=opt$fresh,
+                        verbose=4)
+        
+        
+        
+        
+        raw_sset <- mutateSesame(sset=raw_sset, method="detectionPnegEcdf", 
+                                 verbose=4)
+        
+        # Sigs::Data
+        #
+        raw_sset_dat_csv <- file.path(opt$outDir, 'raw_sset.dat.csv.gz')
+        raw_sigs_dat_tib <- ssetToSigsTib(
+          sset=raw_sset, man=man_tib, 
+          by="Probe_ID", type="Probe_Type", des="Probe_Class", 
+          percision=2, sort=TRUE, save=TRUE, csv=raw_sset_dat_csv, verbose=4)
+        
+        raw_sigs_dat_tib %>% 
+          dplyr::group_by(Probe_Type,Probe_Class) %>% 
+          dplyr::summarise(Count=n(), .groups='drop')
+
+        # Sigs::Summary
+        #
+        raw_sset_sum_csv <- file.path(opt$outDir, 'raw_sset.sum.csv.gz')
+        raw_sigs_sum_tib <- sigsTibToSummary(
+          tib=raw_sigs_dat_tib, 
+          by="Probe_ID", type="Probe_Type", des="Probe_Class",
+          save=TRUE, csv=raw_sset_sum_csv, verbose=4)
+
+        raw_sigs_ssheet_tib <- sigsSumToSSheet(
+          tib=raw_sigs_sum_tib, metric=metric,
+          by="Probe_ID", type="Probe_Type", des="Probe_Class", 
+          verbose=4)
+
+        # Calls::
+        #
+        raw_call_tib <- raw_sset %>% ssetToCallTib(workflow='raw', verbose=4)
+        
+        # Call::betas
+        #
+
+        betas_cols <- raw_call_tib %>% 
+          dplyr::select(Probe_ID,dplyr::ends_with('_beta')) %>% names()
+        
+        raw_beta_sum_tib <- raw_call_tib %>% 
+          dplyr::select(dplyr::all_of(betas_cols)) %>%
+          sigsTibToSummary(man=man_tib, 
+                           by="Probe_ID", type="Probe_Type", des="Probe_Design", 
+                           verbose=4)
+        
+        raw_beta_ssheeet_tib <- sigsSumToSSheet(
+          tib=raw_beta_sum_tib, metric=metric,
+          by="Probe_ID", type="Probe_Type", des="Probe_Design", 
+          verbose=4)
+        
+        # Call::pvals
+        #
+        pvals_cols <- raw_call_tib %>% 
+          dplyr::select(!dplyr::ends_with('_beta')) %>% names()
+        
+        raw_pval_sum_tib <- raw_call_tib %>% 
+          dplyr::select(dplyr::all_of(pvals_cols)) %>%
+          sigsTibToSummary(man=man_tib, 
+                           by="Probe_ID", type="Probe_Type", des="Probe_Design", 
+                           cutoff=0.1,
+                           verbose=4)
+        
+        raw_pval_ssheeet_tib <- sigsSumToSSheet(
+          tib=raw_pval_sum_tib, metric='pass_perc',
+          by="Probe_ID", type="Probe_Type", des="Probe_Design", 
+          verbose=4)
+        
+        
+        
+
+                
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        # Summary::
+        sset_tib <- ssetToTib(rdat$rsum_list$sset_dat)
+        sset_tib %>% dplyr::group_by(Probe_Design) %>% dplyr::summarise(Count=n())
+        
+        sset_sum_tib <- sset_tib %>% sigTibToSummary(man=rdat$sman)
+        sset_sum_tib %>% 
+          tidyr::unite(Probe_Type, Probe_Type,Probe_Design, sep='_') %>%
+          dplyr::select(Probe_Type, ends_with(metric)) %>% tidyr::gather(Metric, Value, -Probe_Type) %>%
+          tidyr::unite(Key, Probe_Type,Metric, sep='_') %>%
+          tidyr::spread(Key, Value)
+        
+        
+
         cur_sset <- rdat$cur_sset
         ses_man_tib <- rdat$sman
         ww <- 3
