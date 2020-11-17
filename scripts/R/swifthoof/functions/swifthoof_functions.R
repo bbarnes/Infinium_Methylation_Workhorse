@@ -325,18 +325,29 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     #                          Join all Sample Sheets::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
+    poob_val  <- FALSE
     poob1_val <- ssheet_tib$pOOBAH_cg_1_pass_perc_0[1]
     poob2_val <- ssheet_tib$pOOBAH_cg_2_pass_perc_0[1]
+    if (poob1_val<opt$minOobPerc) poob_val <- TRUE
+    if (poob2_val<opt$minOobPerc) poob_val <- TRUE
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_pOOBAH=poob_val)
     
+    negs_val  <- FALSE
     negs1_val <- ssheet_tib$PnegEcdf_cg_1_pass_perc_0[1]
     negs2_val <- ssheet_tib$PnegEcdf_cg_2_pass_perc_0[1]
+    if (negs1_val<opt$minNegPerc) negs_val <- TRUE
+    if (negs2_val<opt$minNegPerc) negs_val <- TRUE
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_PnegEcdf=negs_val)
     
-    ssheet_tib <- ssheet_tib %>% dplyr::mutate(
-      Requeue_Flag_pOOBAH=dplyr::case_when(
-        poob1_val < opt$minOobPerc | poob2_val < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
-      Requeue_Flag_PnegEcdf=dplyr::case_when(
-        negs1_val < opt$minNegPerc | negs2_val < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
-    ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+    ssheet_tib <- ssheet_tib %>% 
+      dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+    
+    # ssheet_tib <- ssheet_tib %>% dplyr::mutate(
+    #   Requeue_Flag_pOOBAH=dplyr::case_when(
+    #     poob1_val < opt$minOobPerc | poob2_val < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
+    #   Requeue_Flag_PnegEcdf=dplyr::case_when(
+    #     negs1_val < opt$minNegPerc | negs2_val < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
+    # ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
 
     # ssheet_tib <- ssheet_tib %>% dplyr::mutate(
     #   Requeue_Flag_pOOBAH=dplyr::case_when(

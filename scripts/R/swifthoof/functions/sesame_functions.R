@@ -289,10 +289,9 @@ mutateSesame = function(sset, method,
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Mutate Sesame({method})...{RET}"))
   
-  # if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sset={RET}"))
-  # if (verbose>=vt+4) print(sset)
-  print(sset)
-  
+  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sset={RET}"))
+  if (verbose>=vt+4) print(sset)
+
   ctl_cnt <- sset@ctl %>% base::nrow()
   if (ctl_cnt==0 && method=='detectionPnegEcdf') {
     if (verbose>=vt) 
