@@ -89,11 +89,13 @@ ssetToPredictions = function(sset, del='_', fresh=FALSE,
                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!skn_key := !!skn_val))
 
-    phn_val <- NULL
-    phn_key <- 'AgePheno'
-    phn_val <- safePhenoAge(sesame::extra(sset)[['betas']], 
-                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!phn_key := !!phn_val))
+    if (FALSE) {
+      phn_val <- NULL
+      phn_key <- 'AgePheno'
+      phn_val <- safePhenoAge(sesame::extra(sset)[['betas']], 
+                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!phn_key := !!phn_val))
+    }
     
     ret_cnt <- ret_tib %>% base::nrow()
   })
