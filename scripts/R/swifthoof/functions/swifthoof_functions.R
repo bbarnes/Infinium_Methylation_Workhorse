@@ -320,11 +320,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
 
       if (verbose>=vt+4) {
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
-        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; call_dat={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; ret_dat_list[{work_name}]={RET}"))
+        ret_dat_list[[work_name]] %>% print()
+      }
+      if (verbose>=vt+4) {
+        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; call_dat({work_name})={RET}"))
         ret_dat_list[[work_name]]$call_dat %>% print()
       }
       if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; sam_sheet={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; sam_sheet({work_name})={RET}"))
         ret_dat_list[[work_name]]$sam_sheet %>% print()
       }
 
