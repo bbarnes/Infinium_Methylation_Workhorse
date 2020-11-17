@@ -286,7 +286,7 @@ if (args.dat[1]=='RStudio') {
   opt$single   <- TRUE
   opt$parallel <- FALSE
   opt$cluster  <- FALSE
-  opt$verbose  <- 3
+  opt$verbose  <- 6
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -587,10 +587,9 @@ if (opt$cluster) {
     par$funcTag <- 'sesamizeSingleSample-Parallel'
     par$retData <- FALSE
     
-    cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; ",
-                   "num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
-    # cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: chipPrefixes={RET}"))
-    # print(chipPrefixes)
+    if (opt$verbose>=1) 
+      cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; ",
+                     "num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
     
     # chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
@@ -608,11 +607,6 @@ if (opt$cluster) {
     rdat <- NULL
     for (prefix in names(chipPrefixes)) {
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
-      
-      par$retData <- TRUE
-      opt$verbose <- 3
-      opt$verbose <- 6
-      # workflows_vec <- c('i', 'ind')
       
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=1)
