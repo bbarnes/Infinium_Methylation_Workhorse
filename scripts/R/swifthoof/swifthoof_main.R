@@ -77,21 +77,19 @@ opt$platform  <- NULL
 opt$manifest  <- NULL
 
 # Run Options::
-opt$fresh       <- FALSE
-opt$buildSubDir <- FALSE
-opt$autoDetect  <- FALSE
-opt$skipSwap    <- FALSE
+opt$fresh        <- FALSE
+opt$buildSubDir  <- FALSE
+opt$auto_detect  <- FALSE
 
 opt$workflows   <- NULL
 opt$manDirName  <- 'core'
 
 # Output Options::
-opt$loadIdat    <- FALSE
-opt$saveIdat    <- FALSE
+opt$load_idat    <- FALSE
+opt$save_idat    <- FALSE
 
 opt$load_sset   <- FALSE
 opt$save_sset   <- FALSE
-opt$saveRawSset <- FALSE
 
 #
 # TBD: Add new variable names::
@@ -106,7 +104,7 @@ opt$addSentrixID <- FALSE
 # opt$writeSset    <- FALSE
 # opt$writeSsum    <- FALSE
 # opt$writeCalls   <- FALSE
-opt$writeAuto    <- FALSE
+opt$write_auto    <- FALSE
 
 opt$addRawCalls <- FALSE
 
@@ -196,7 +194,7 @@ if (args.dat[1]=='RStudio') {
   opt$workflows <- "nd,ind"
 
   opt$buildSubDir  <- FALSE
-  opt$autoDetect   <- FALSE
+  opt$auto_detect   <- FALSE
   opt$writeCalls   <- TRUE
 
   opt$platform   <- 'EPIC'
@@ -235,23 +233,23 @@ if (args.dat[1]=='RStudio') {
   if (par$local_runType=='COVID') {
     par$expRunStr  <- 'COVID-Direct-Set1'
     par$expChipNum <- '204756130014'
-    opt$autoDetect <- FALSE
+    opt$auto_detect <- FALSE
     
     opt$workflows <- 'i,nd,ndi,ind'
     
   } else if (par$local_runType=='COVIC') {
     par$expRunStr  <- 'COVIC-Set1-15052020'
     par$expChipNum <- '204500250013'
-    opt$autoDetect <- TRUE
+    opt$auto_detect <- TRUE
   } else if (par$local_runType=='GRCm38') {
     par$expRunStr <- 'MURMETVEP_mm10_betaTest_06082020'
     par$expRunStr <- 'VanAndel_mm10_betaTest_31082020'
     par$expRunStr <- 'ILMN_mm10_betaTest_17082020'
-    opt$autoDetect <- FALSE
+    opt$auto_detect <- FALSE
   } else if (par$local_runType=='qcMVP') {
     par$expRunStr  <- 'CNTL-Samples_VendA_10092020'
     par$expRunStr  <- 'CNTL-Samples_VendA_10092020_test'
-    opt$autoDetect <- TRUE
+    opt$auto_detect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='CORE') {
     par$expRunStr  <- 'BETA-8x1-EPIC-Core'
@@ -265,7 +263,7 @@ if (args.dat[1]=='RStudio') {
 
     par$expRunStr  <- 'EPIC-BETA-8x1-CoreCancer'
     par$expChipNum <- '201502830033'
-    opt$autoDetect <- TRUE
+    opt$auto_detect <- TRUE
   } else if (par$local_runType=='EXCBR') {
     par$expRunStr  <- 'Excalibur-Old-1609202'
     par$expChipNum <- '204076530053'
@@ -273,7 +271,7 @@ if (args.dat[1]=='RStudio') {
     
     par$expRunStr  <- 'Excalibur-New-1609202'
     par$expChipNum <- '202915460071'
-    opt$autoDetect <- TRUE
+    opt$auto_detect <- TRUE
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
@@ -333,28 +331,24 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to build fresh version of database files [default= %default]", metavar="boolean"),
     make_option(c("--buildSubDir"), action="store_true", default=opt$buildSubDir,
                 help="Boolean variable to build subdirectories based on Chip/BeadPool (for R&D purposes) [default= %default]", metavar="boolean"),
-    make_option(c("--autoDetect"), action="store_true", default=opt$autoDetect,
+    make_option(c("--auto_detect"), action="store_true", default=opt$auto_detect,
                 help="Boolean variable to auto detect reference samples. Must provide reference samples. [default= %default]", metavar="boolean"),
-    # make_option(c("--skipSwap"), action="store_true", default=opt$skipSwap,
-    #             help="Boolean variable to skpping appending swap percentages to sample sheet. [default= %default]", metavar="boolean"),
-    
+
     make_option(c("--workflows"), type="character", default=opt$workflows,
                 help="Order of operations comma seperated [ raw,ind,ndi,din ] [default= %default]", metavar="character"),
     make_option(c("--manDirName"), type="character", default=opt$manDirName,
                 help="Manifest directory name [default= %default]", metavar="character"),
     
     # Output Options::
-    make_option(c("--loadIdat"), action="store_true", default=opt$loadIdat,
+    make_option(c("--load_idat"), action="store_true", default=opt$load_idat,
                 help="Boolean variable to load existing IDAT from RDS file [default= %default]", metavar="boolean"),
-    make_option(c("--saveIdat"), action="store_true", default=opt$saveIdat,
+    make_option(c("--save_idat"), action="store_true", default=opt$save_idat,
                 help="Boolean variable to write IDAT RDS file [default= %default]", metavar="boolean"),
     
     make_option(c("--load_sset"), action="store_true", default=opt$load_sset,
                 help="Boolean variable to load existing Signal Set from RDS file [default= %default]", metavar="boolean"),
     make_option(c("--save_sset"), action="store_true", default=opt$save_sset,
                 help="Boolean variable to write Signal Set RDS file [default= %default]", metavar="boolean"),
-    make_option(c("--saveRawSset"), action="store_true", default=opt$saveRawSset,
-                help="Boolean variable to write Raw Signal Set RDS file [default= %default]", metavar="boolean"),
 
     # make_option(c("--addSentrixID"), action="store_true", default=opt$addSentrixID,
     #             help="Boolean variable to add Sentrix Name to calls output columns [default= %default]", metavar="boolean"),
@@ -362,7 +356,7 @@ if (args.dat[1]=='RStudio') {
     #
     # Old Versions to be deleted::
     #
-    make_option(c("--writeAuto"), action="store_true", default=opt$writeAuto,
+    make_option(c("--write_auto"), action="store_true", default=opt$write_auto,
                 help="Boolean variable to write Auto-Detection Matricies (Pval/Beta) file [default= %default]", metavar="boolean"),
 
     #
@@ -573,7 +567,7 @@ if (opt$cluster) {
   auto_ref_tib <- NULL
   auto_can_tib <- NULL
   
-  if (opt$autoDetect) {
+  if (opt$auto_detect) {
     if (is.null(opt$auto_sam_csv))
       opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
 

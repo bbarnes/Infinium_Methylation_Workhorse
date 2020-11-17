@@ -65,7 +65,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
     idat_rds  <- paste(out_prefix, 'idat.rds', sep=del)
     idat_list <- prefixToIdat(prefix=prefix, 
-                              load=opt$loadIdat, save=opt$saveIdat, rds=idat_rds,
+                              load=opt$load_idat, save=opt$save_idat, rds=idat_rds,
                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     # return(idat_list)
     
@@ -358,7 +358,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                             Auto-Detect Sample::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    if (opt$autoDetect) {
+    if (opt$auto_detect) {
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detecting Auto-Sample-Sheet: [SampleName, rsquared,deltaBeta].{RET}"))
       
@@ -367,7 +367,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         minPval=opt$minNegPval, minDelta=opt$minDeltaBeta,
         dname='Design_Type', pname='Probe_Type', ptype='cg',
         jval='Probe_ID', field=auto_beta_key, pval=auto_negs_key, suffix='beta', del=del,
-        outDir=opt$outDir, sname=out_name, plotMatrix=opt$plotAuto, writeMatrix=opt$writeAuto,
+        outDir=opt$outDir, sname=out_name, plotMatrix=opt$plotAuto, writeMatrix=opt$write_auto,
         dpi=opt$dpi, format=opt$plotFormat, datIdx=4, non.ref=non_ref,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
@@ -631,14 +631,6 @@ autoDetect_Wrapper = function(can, ref, man,
       outDir=outDir, sname=sname, plotMatrix=plotMatrix, writeMatrix=writeMatrix,
       dpi=dpi, format=format, datIdx=datIdx, non.ref=non.ref,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
-    # auto_data <- sampleDetect(
-    #   can=auto_can, ref=auto_ref, minPval=opt$minNegPval, minDelta=opt$minDeltaBeta,
-    #   dname='Design_Type', pname='Probe_Type', ptype='cg',
-    #   jval='Probe_ID', field=auto_beta_key, pval=auto_negs_key, suffix='beta', del=del,
-    #   outDir=opt$outDir, sname=out_name, plotMatrix=opt$plotAuto, writeMatrix=opt$writeAuto,
-    #   dpi=opt$dpi, format=opt$plotFormat, datIdx=4, non.ref=non_ref,
-    #   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     ret_cnt <- ret_tib %>% base::nrow()
   })
