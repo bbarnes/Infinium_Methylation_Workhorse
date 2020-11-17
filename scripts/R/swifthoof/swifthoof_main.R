@@ -615,9 +615,9 @@ if (opt$cluster) {
     for (prefix in names(chipPrefixes)) {
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
-      # par$retData <- TRUE
-      # opt$verbose <- 3
-      # opt$verbose <- 6
+      par$retData <- TRUE
+      opt$verbose <- 3
+      opt$verbose <- 6
       # workflows_vec <- c('i', 'ind')
       
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 

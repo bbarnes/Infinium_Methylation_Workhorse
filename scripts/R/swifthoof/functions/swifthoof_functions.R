@@ -313,31 +313,43 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         dplyr::bind_cols(ret_dat_list[[work_name]]$sam_sheet)
     }
     
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                             Add Requeue Flags::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    ssheet_tib %>% dplyr::mutate(
-      Requeue_Flag_pOOBAH=dplyr::case_when(
-        pOOBAH_cg_1_pass_perc_0 < opt$minOobPerc | pOOBAH_cg_2_pass_perc_0 < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
-      Requeue_Flag_PnegEcdf=dplyr::case_when(
-        PnegEcdf_cg_1_pass_perc_0 < opt$minNegPerc | PnegEcdf_cg_2_pass_perc_0 < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
-    ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
-    
     if (retData) {
       ret$rsum_list <- ret_dat_list
       ret$all_calls <- all_call_tib
       ret$ssheet_tib <- ssheet_tib
       # return(ret)
     }
-    
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                             Add Requeue Flags::
     #                          Join all Sample Sheets::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
+    poob1_val <- ssheet_tib$pOOBAH_cg_1_pass_perc_0[1]
+    poob2_val <- ssheet_tib$pOOBAH_cg_2_pass_perc_0[1]
     
-    #
-    # Write everything...
+    negs1_val <- ssheet_tib$PnegEcdf_cg_1_pass_perc_0[1]
+    negs2_val <- ssheet_tib$PnegEcdf_cg_2_pass_perc_0[1]
+    
+    ssheet_tib <- ssheet_tib %>% dplyr::mutate(
+      Requeue_Flag_pOOBAH=dplyr::case_when(
+        poob1_val < opt$minOobPerc | poob2_val < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
+      Requeue_Flag_PnegEcdf=dplyr::case_when(
+        negs1_val < opt$minNegPerc | negs2_val < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
+    ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+
+    # ssheet_tib <- ssheet_tib %>% dplyr::mutate(
+    #   Requeue_Flag_pOOBAH=dplyr::case_when(
+    #     pOOBAH_cg_1_pass_perc_0 < opt$minOobPerc | pOOBAH_cg_2_pass_perc_0 < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
+    #   Requeue_Flag_PnegEcdf=dplyr::case_when(
+    #     PnegEcdf_cg_1_pass_perc_0 < opt$minNegPerc | PnegEcdf_cg_2_pass_perc_0 < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
+    # ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+    
+    if (retData) {
+      ret$ssheet_tib <- ssheet_tib
+      # return(ret)
+    }
+    
     #
     # Add formatVCF
     # Sum formatVCF
