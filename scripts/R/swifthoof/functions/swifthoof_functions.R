@@ -240,14 +240,13 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ret$rsum_list <- ret_dat_list
       # return(ret)
     }
+    if (verbose>=vt) 
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ",
-                     "----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- -----.{RET}"))
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}"))
     
     auto_beta_key <- NULL
@@ -292,25 +291,41 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         by="Probe_ID", type="Probe_Type", des="Probe_Class",
         fresh=opt$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} ret_dat_list={RET}"))
+        print(ret_dat_list[[cur_workflow]])
+      }
 
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Done. ",
-                                      "cur_workflow={cur_workflow}...{RET}{RET}"))
+      if (verbose>=vt) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Done. cur_workflow={cur_workflow}...{RET}"))
+        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+      }
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                      Bind all Calls/Sample Sheets::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
+    if (verbose>=vt+4) {
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ret_dat_list={RET}"))
+      ret_dat_list %>% print()
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} names(ret_dat_list)={RET}"))
+      names(ret_dat_list) %>% print()
+      cat(glue::glue("{RET}[{funcTag}]:{RET}{RET}"))
+    }
+    
     all_call_tib <- NULL
     for (work_name in names(ret_dat_list)) {
 
       if (verbose>=vt+4) {
+        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; call_dat={RET}"))
-        ret_dat_list[[work_name]]$call_dat %>% head() %>% print()
+        ret_dat_list[[work_name]]$call_dat %>% print()
       }
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; sam_sheet={RET}"))
-        ret_dat_list[[work_name]]$sam_sheet %>% head() %>% print()
+        ret_dat_list[[work_name]]$sam_sheet %>% print()
       }
 
       if (is.null(all_call_tib)) {
@@ -321,7 +336,13 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       }
       ssheet_tib <- ssheet_tib %>% 
         dplyr::bind_cols(ret_dat_list[[work_name]]$sam_sheet)
+      
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} Done; work_name={work_name}{RET}"))
+        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+      }
     }
+    
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; all_call_tib={RET}"))
       all_call_tib %>% head() %>% print()
@@ -340,26 +361,48 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                             Add Requeue Flags::
-    #                          Join all Sample Sheets::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Requeue Flag...{RET}"))
     
     poob_val  <- FALSE
     poob1_val <- ssheet_tib$pOOBAH_cg_1_pass_perc_0[1]
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob1_val={poob1_val}.{RET}"))
+    
     poob2_val <- ssheet_tib$pOOBAH_cg_2_pass_perc_0[1]
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob2_val={poob2_val}.{RET}"))
+    
     if (poob1_val<opt$minOobPerc) poob_val <- TRUE
     if (poob2_val<opt$minOobPerc) poob_val <- TRUE
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob_val={poob_val}.{RET}"))
     ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_pOOBAH=poob_val)
     
     negs_val  <- FALSE
     negs1_val <- ssheet_tib$PnegEcdf_cg_1_pass_perc_0[1]
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs1_val={negs1_val}.{RET}"))
     negs2_val <- ssheet_tib$PnegEcdf_cg_2_pass_perc_0[1]
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs2_val={negs2_val}.{RET}"))
+    
     if (negs1_val<opt$minNegPerc) negs_val <- TRUE
     if (negs2_val<opt$minNegPerc) negs_val <- TRUE
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs_val={negs_val}.{RET}"))
     ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_PnegEcdf=negs_val)
     
     ssheet_tib <- ssheet_tib %>% 
       dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
-    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ssheet_tib={RET}"))
+      ssheet_tib %>% print()
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    }
+
     # ssheet_tib <- ssheet_tib %>% dplyr::mutate(
     #   Requeue_Flag_pOOBAH=dplyr::case_when(
     #     poob1_val < opt$minOobPerc | poob2_val < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),

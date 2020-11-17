@@ -677,6 +677,10 @@ if (!is.null(opt$pre_man_csv)) {
 
 }
 
+# Mouse Manifest::
+#
+# '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-C18.manifest.sesame-base.cpg-sorted.csv.gz'
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         1.0 Process AQP/PQC Data::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
