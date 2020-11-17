@@ -303,6 +303,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     all_call_tib <- NULL
     for (work_name in names(ret_dat_list)) {
+
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; call_dat={RET}"))
+        ret_dat_list[[work_name]]$call_dat %>% head() %>% print()
+      }
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; sam_sheet={RET}"))
+        ret_dat_list[[work_name]]$sam_sheet %>% head() %>% print()
+      }
+
       if (is.null(all_call_tib)) {
         all_call_tib <- ret_dat_list[[work_name]]$call_dat
       } else {
@@ -312,6 +322,14 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ssheet_tib <- ssheet_tib %>% 
         dplyr::bind_cols(ret_dat_list[[work_name]]$sam_sheet)
     }
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; all_call_tib={RET}"))
+      all_call_tib %>% head() %>% print()
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; ssheet_tib={RET}"))
+      ssheet_tib %>% head() %>% print()
+    }
+          
     
     if (retData) {
       ret$rsum_list <- ret_dat_list
