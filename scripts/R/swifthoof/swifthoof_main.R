@@ -15,6 +15,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietl
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("readr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
