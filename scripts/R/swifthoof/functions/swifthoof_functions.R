@@ -57,7 +57,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     stampEnd_txt <- file.path(opt$outDir, paste(out_name, 'timestamp.end.txt', sep=del) )
     stampBeg_cmd <- glue::glue('touch {stampBeg_txt}')
     stampEnd_cmd <- glue::glue('touch {stampEnd_txt}')
-    if (verbose>=vt+3) system(stampBeg_cmd)
+    system(stampBeg_cmd)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           Extract Raw idat::
@@ -497,7 +497,13 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     readr::write_csv(all_call_tib, calls_csv)
     readr::write_csv(time_tib, times_csv)
     
-    if (verbose>=vt+3) system(stampEnd_cmd)
+    cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} calls_csv={calls_csv}={RET}"))
+    all_call_tib %>% print()
+    cat(glue::glue("[{funcTag}]:{RET}{RET}"))
+    cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+
+    system(stampEnd_cmd)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (verbose>=vt+10) tTracker %>% print()
@@ -508,7 +514,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     ret$time       <- tTracker
     return(ret)
   }
-  
+
   ssheet_tib
 }
 
