@@ -400,6 +400,7 @@ sigsTibToSummary = function(tib, man=NULL,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      system(glue::glue("touch {csv}"))
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
@@ -469,8 +470,6 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
     pval_names <- sesame::extra(sset)[['pvals']] %>% names()
     for (pval_name in pval_names) {
       out_name <- pval_name
-      # if (pval_name=='pOOBAH') out_name <- 'poob'
-      # if (pval_name=='PnegEcdf') out_name <- 'negs'
       out_name <- paste(workflow,out_name, sep='_')
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval_name={pval_name}, out_name={out_name}...{RET}"))
@@ -491,6 +490,7 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      system(glue::glue("touch {csv}"))
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))
@@ -546,6 +546,7 @@ ssetToSigsTib = function(sset, man=NULL,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      system(glue::glue("touch {csv}"))
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
