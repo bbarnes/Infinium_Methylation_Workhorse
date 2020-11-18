@@ -506,7 +506,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     cat(glue::glue("Running; Writing; calls_csv={calls_csv}{RET}"))
     readr::write_csv(ssheet_tib, ssheet_csv)
-    readr::write_csv(all_call_tib, calls_csv)
+    readr::write_csv(all_call_tib %>% head(), calls_csv)
     readr::write_csv(time_tib, times_csv)
     
     cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
