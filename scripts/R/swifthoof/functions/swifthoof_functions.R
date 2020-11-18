@@ -348,9 +348,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         all_call_tib <- cur_data
       } else {
         all_call_tib <- all_call_tib %>% 
-          dplyr::left_join(cur_data, by="Probe_ID")
+        #  dplyr::left_join(cur_data, by="Probe_ID")
         #  dplyr::full_join(cur_data, by="Probe_ID")
-        #  dplyr::inner_join(cur_data, by="Probe_ID")
+          dplyr::inner_join(cur_data, by="Probe_ID")
       }
       ssheet_tib <- ssheet_tib %>% 
         dplyr::bind_cols(cur_sheet)
