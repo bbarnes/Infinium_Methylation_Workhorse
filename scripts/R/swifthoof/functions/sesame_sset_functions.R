@@ -641,10 +641,11 @@ newSset = function(prefix, platform, manifest,
   stime <- system.time({
     
     if (load && !is.null(rds) && file.exists(rds)) {
-      if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={rds}.{RET}"))
+      if (verbose>=vt+1) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={rds}.{RET}"))
       sset <- readr::read_rds(rds)
     } else {
-      if (verbose>=vt+3) {
+      if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr} manifest={RET}"))
         manifest %>% head() %>% print()
       }
@@ -657,7 +658,7 @@ newSset = function(prefix, platform, manifest,
     }
     
     ret_cnt <- sset %>% slotNames() %>% length()
-    if (verbose>=vt+2) {
+    if (verbose>=vt+5) {
       cat(glue::glue("[{funcTag}]:{tabsStr} sset(slots={ret_cnt})={RET}"))
       print(sset)
     }
