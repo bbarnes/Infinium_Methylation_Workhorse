@@ -174,8 +174,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     out_prefix <- file.path(opt$outDir, out_name)
     
     ssheet_csv <- paste(out_prefix, 'AutoSampleSheet.csv.gz', sep=del)
-    calls_csv  <- paste(out_prefix, 'calls.csv.gz', sep=del)
-    # calls_csv  <- paste(out_prefix, 'calls.csv', sep=del)
+    # calls_csv  <- paste(out_prefix, 'calls.csv.gz', sep=del)
+    calls_csv  <- paste(out_prefix, 'calls.csv', sep=del)
     times_csv  <- paste(out_prefix, 'run-times.csv.gz', sep=del)
     
     raw_sset_csv <- paste(out_prefix, 'raw-sset.csv.gz', sep=del)
@@ -501,12 +501,14 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     t_cmd <- glue::glue("touch {calls_csv}")
     cat(glue::glue("Running; t_cmd={t_cmd}!{RET}{RET}"))
-    system(t_cmd)
+    # system(t_cmd)
     all_call_tib %>% tail() %>% print()
     
-    cat(glue::glue("Running; Writing; calls_csv={calls_csv}{RET}"))
-    readr::write_csv(ssheet_tib, ssheet_csv)
+    cat(glue::glue("Beg; Writing; calls_csv={calls_csv}{RET}"))
     readr::write_csv(all_call_tib %>% head(), calls_csv)
+    cat(glue::glue("End; Writing; calls_csv={calls_csv}{RET}"))
+    
+    readr::write_csv(ssheet_tib, ssheet_csv)
     readr::write_csv(time_tib, times_csv)
     
     cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))

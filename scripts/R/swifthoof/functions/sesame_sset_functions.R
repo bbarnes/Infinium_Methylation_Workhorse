@@ -490,9 +490,7 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      unlink(csv)
-      system(glue::glue("touch {csv}"))
-      
+
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))
       readr::write_csv(ret_tib, csv, append = TRUE)
