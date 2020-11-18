@@ -355,6 +355,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       }
     }
+    all_call_tib <- all_call_tib %>% dplyr::arrange(Probe_ID)
     
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; all_call_tib={RET}"))
@@ -497,6 +498,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     # Format Time Table
     time_tib <- tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
+    
+    all_call_tib %>% tail() %>% print()
     
     readr::write_csv(ssheet_tib, ssheet_csv)
     readr::write_csv(all_call_tib, calls_csv)
