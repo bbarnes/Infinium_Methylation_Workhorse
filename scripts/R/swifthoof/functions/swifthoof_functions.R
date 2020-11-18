@@ -175,7 +175,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     ssheet_csv <- paste(out_prefix, 'AutoSampleSheet.csv.gz', sep=del)
     # calls_csv  <- paste(out_prefix, 'calls.csv.gz', sep=del)
-    calls_csv  <- paste(out_prefix, 'calls.csv.gz', sep=del)
+    calls_csv  <- paste(out_prefix, 'calls.csv', sep=del)
     times_csv  <- paste(out_prefix, 'run-times.csv.gz', sep=del)
     
     raw_sset_csv <- paste(out_prefix, 'raw-sset.csv.gz', sep=del)
