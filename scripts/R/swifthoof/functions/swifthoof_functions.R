@@ -375,86 +375,81 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     #                             Add Requeue Flags::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (FALSE) {
-
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Requeue Flag",
-                       "(minOobPerc={opt$minOobPerc},minNegPerc={opt$minNegPerc})...{RET}"))
-      
-      poob_val  <- FALSE
-      poob1_val <- ssheet_tib$pOOBAH_cg_1_pass_perc_0[1]
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob1_val={poob1_val}.{RET}"))
-      
-      poob2_val <- ssheet_tib$pOOBAH_cg_2_pass_perc_0[1]
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob2_val={poob2_val}.{RET}"))
-      
-      if (poob1_val<opt$minOobPerc) poob_val <- TRUE
-      if (poob2_val<opt$minOobPerc) poob_val <- TRUE
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob_val[{poob1_val},{poob2_val}]<{opt$minOobPerc}={poob_val}.{RET}"))
-      ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_pOOBAH=poob_val)
-      if (verbose>=vt+4) {
-        cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ssheet_tib(requeue-poob added)={RET}"))
-        ssheet_tib %>% print()
-        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-      }
-      
-      negs_val  <- FALSE
-      negs1_val <- ssheet_tib$PnegEcdf_cg_1_pass_perc_0[1]
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs1_val={negs1_val}.{RET}"))
-      negs2_val <- ssheet_tib$PnegEcdf_cg_2_pass_perc_0[1]
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs2_val={negs2_val}.{RET}"))
-      
-      if (negs1_val<opt$minNegPerc) negs_val <- TRUE
-      if (negs2_val<opt$minNegPerc) negs_val <- TRUE
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs_val[{negs1_val},{negs2_val}]<{opt$minNegPerc}={negs_val}.{RET}"))
-      ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_PnegEcdf=negs_val)
-      if (verbose>=vt+4) {
-        cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ssheet_tib(requeue-negs added)={RET}"))
-        ssheet_tib %>% print()
-        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-      }
-      
-      
-      ssheet_tib <- ssheet_tib %>% 
-        dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
-      
-      if (verbose>=vt+4) {
-        cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ssheet_tib(all requeue added)={RET}"))
-        ssheet_tib %>% print()
-        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-      }
-      
-      # ssheet_tib <- ssheet_tib %>% dplyr::mutate(
-      #   Requeue_Flag_pOOBAH=dplyr::case_when(
-      #     poob1_val < opt$minOobPerc | poob2_val < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
-      #   Requeue_Flag_PnegEcdf=dplyr::case_when(
-      #     negs1_val < opt$minNegPerc | negs2_val < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
-      # ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
-      
-      # ssheet_tib <- ssheet_tib %>% dplyr::mutate(
-      #   Requeue_Flag_pOOBAH=dplyr::case_when(
-      #     pOOBAH_cg_1_pass_perc_0 < opt$minOobPerc | pOOBAH_cg_2_pass_perc_0 < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
-      #   Requeue_Flag_PnegEcdf=dplyr::case_when(
-      #     PnegEcdf_cg_1_pass_perc_0 < opt$minNegPerc | PnegEcdf_cg_2_pass_perc_0 < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
-      # ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
-      
-      if (retData) {
-        ret$ssheet_tib <- ssheet_tib
-        # return(ret)
-      }
-      
-      #
-      # Add formatVCF
-      # Sum formatVCF
-      #
-      
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Requeue Flag",
+                     "(minOobPerc={opt$minOobPerc},minNegPerc={opt$minNegPerc})...{RET}"))
+    
+    poob_val  <- FALSE
+    poob1_val <- ssheet_tib$pOOBAH_cg_1_pass_perc_0[1]
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob1_val={poob1_val}.{RET}"))
+    
+    poob2_val <- ssheet_tib$pOOBAH_cg_2_pass_perc_0[1]
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob2_val={poob2_val}.{RET}"))
+    
+    if (poob1_val<opt$minOobPerc) poob_val <- TRUE
+    if (poob2_val<opt$minOobPerc) poob_val <- TRUE
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} poob_val[{poob1_val},{poob2_val}]<{opt$minOobPerc}={poob_val}.{RET}"))
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_pOOBAH=poob_val)
+    if (verbose>=vt+4) {
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ssheet_tib(requeue-poob added)={RET}"))
+      ssheet_tib %>% print()
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
     }
+    
+    negs_val  <- FALSE
+    negs1_val <- ssheet_tib$PnegEcdf_cg_1_pass_perc_0[1]
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs1_val={negs1_val}.{RET}"))
+    negs2_val <- ssheet_tib$PnegEcdf_cg_2_pass_perc_0[1]
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs2_val={negs2_val}.{RET}"))
+    
+    if (negs1_val<opt$minNegPerc) negs_val <- TRUE
+    if (negs2_val<opt$minNegPerc) negs_val <- TRUE
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs_val[{negs1_val},{negs2_val}]<{opt$minNegPerc}={negs_val}.{RET}"))
+    ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_PnegEcdf=negs_val)
+    if (verbose>=vt+4) {
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ssheet_tib(requeue-negs added)={RET}"))
+      ssheet_tib %>% print()
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    }
+    
+    ssheet_tib <- ssheet_tib %>% 
+      dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ssheet_tib(all requeue added)={RET}"))
+      ssheet_tib %>% print()
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    }
+    
+    # ssheet_tib <- ssheet_tib %>% dplyr::mutate(
+    #   Requeue_Flag_pOOBAH=dplyr::case_when(
+    #     poob1_val < opt$minOobPerc | poob2_val < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
+    #   Requeue_Flag_PnegEcdf=dplyr::case_when(
+    #     negs1_val < opt$minNegPerc | negs2_val < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
+    # ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+    
+    # ssheet_tib <- ssheet_tib %>% dplyr::mutate(
+    #   Requeue_Flag_pOOBAH=dplyr::case_when(
+    #     pOOBAH_cg_1_pass_perc_0 < opt$minOobPerc | pOOBAH_cg_2_pass_perc_0 < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
+    #   Requeue_Flag_PnegEcdf=dplyr::case_when(
+    #     PnegEcdf_cg_1_pass_perc_0 < opt$minNegPerc | PnegEcdf_cg_2_pass_perc_0 < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
+    # ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+    
+    if (retData) {
+      ret$ssheet_tib <- ssheet_tib
+      # return(ret)
+    }
+    
+    #
+    # Add formatVCF
+    # Sum formatVCF
+    #
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                             Auto-Detect Sample::
