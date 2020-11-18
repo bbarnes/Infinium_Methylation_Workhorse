@@ -359,11 +359,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; all_call_tib={RET}"))
-      all_call_tib %>% head() %>% print()
+      all_call_tib %>% print()
       cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       
       cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; ssheet_tib={RET}"))
-      ssheet_tib %>% head() %>% print()
+      ssheet_tib %>% print()
       
       cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
     }
@@ -621,19 +621,19 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
     } else {
       tib <- suppressMessages(suppressWarnings(readr::read_csv(file)) )
     }
-    if (verbose>=vt+4) head(tib) %>% print()
+    if (verbose>=vt+4) tib %>% print()
     
     if (retRaw && !is.null(datKey)) {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} IS_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       tib <- tib %>% dplyr::select(!!selKey,ends_with(paste0(del,datKey)) )
-      if (verbose>=vt+4) head(tib) %>% print()
+      if (verbose>=vt+4) tib %>% print()
     } else {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NOT_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       
       if (!is.null(minVal) && !is.null(datKey)) {
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} USE_PVAL minVal={minVal}, SELECT=[selKey={selKey}, minKey={minKey}, datKey={datKey}].{RET}"))
         tib <- tib %>% dplyr::select(!!selKey,!!minKey, !!datKey)
-        if (verbose>=vt+4) head(tib) %>% print()
+        if (verbose>=vt+4) tib %>% print()
         
         tot_cnt  <- tib %>% base::nrow()
         pre_cnt  <- tib %>% dplyr::filter(is.na(!!datKey)) %>% base::nrow()
@@ -649,7 +649,7 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
       } else {
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NO_PVAL.{RET}"))
         if (!is.null(datKey)) tib <- tib %>% dplyr::select(!!selKey,!!datKey)
-        if (verbose>=vt+4) head(tib) %>% print()
+        if (verbose>=vt+4) tib %>% print()
       }
       if (!is.null(prefix)) tib <- tib %>% purrr::set_names(paste(prefix,names(tib), sep='.') ) %>% dplyr::rename(!!selKey := 1)
     }

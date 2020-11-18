@@ -349,7 +349,7 @@ sigsTibToSummary = function(tib, man=NULL,
     if (!is.null(man)) {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will use provided manifest...{RET}"))
-      if (verbose>=vt+3) man %>% head() %>% print()
+      if (verbose>=vt+3) man %>% print()
       
       tib_cols <- names(tib)
       if (!(des %in% tib_cols)) {
@@ -454,7 +454,7 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
       ret_tib <- dplyr::mutate_if(ret_tib, purrr::is_double,round,percision_beta)
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Current Table(betas)={RET}"))
-      ret_tib %>% head() %>% print()
+      ret_tib %>% print()
     }
 
     #
@@ -479,7 +479,7 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
     }
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Current Table(pvals)={RET}"))
-      ret_tib %>% head() %>% print()
+      ret_tib %>% print()
     }
     
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
@@ -647,7 +647,7 @@ newSset = function(prefix, platform, manifest,
     } else {
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr} manifest={RET}"))
-        manifest %>% head() %>% print()
+        manifest %>% print()
       }
       
       sset <- sesame::readIDATpair(prefix, platform=platform, manifest=manifest)
