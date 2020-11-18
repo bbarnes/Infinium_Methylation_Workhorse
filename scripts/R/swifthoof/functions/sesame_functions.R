@@ -178,7 +178,7 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     #
     pred_sum_tib <- NULL
     pred_sum_tib <- ssetToPredictions(
-      sset=sset, fresh=fresh,
+      sset=sset, # fresh=fresh,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # Gather all sample sheets::

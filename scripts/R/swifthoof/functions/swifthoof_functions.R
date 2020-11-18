@@ -323,7 +323,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     all_call_tib <- NULL
     for (work_name in names(ret_dat_list)) {
-      cur_list <- ret_dat_list[[work_name]]
+      cur_list  <- ret_dat_list[[work_name]]
+      cur_data  <- cur_list$call_dat
+      cur_sheet <- cur_list$sam_sheet
 
       if (verbose>=vt+5) {
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
@@ -333,22 +335,24 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       if (verbose>=vt+5) {
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; call_dat({work_name})={RET}"))
-        cur_list$call_dat %>% print()
+        cur_data %>% print()
       }
       if (verbose>=vt+5) {
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; sam_sheet({work_name})={RET}"))
-        cur_list$sam_sheet %>% print()
+        cur_sheet %>% print()
       }
 
       if (is.null(all_call_tib)) {
-        all_call_tib <- cur_list$call_dat
+        all_call_tib <- cur_data
       } else {
         all_call_tib <- all_call_tib %>% 
-          dplyr::inner_join(cur_list$call_dat, by="Probe_ID")
+          dplyr::left_join(cur_data, by="Probe_ID")
+        #  dplyr::full_join(cur_data, by="Probe_ID")
+        #  dplyr::inner_join(cur_data, by="Probe_ID")
       }
       ssheet_tib <- ssheet_tib %>% 
-        dplyr::bind_cols(cur_list$sam_sheet)
+        dplyr::bind_cols(cur_sheet)
       
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr} Done; work_name={work_name}{RET}"))
@@ -506,7 +510,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     all_call_tib %>% print()
     all_call_tib <- all_call_tib %>% 
       dplyr::mutate(p_len=stringr::str_length(Probe_ID)) %>%
-      dplyr::filter(p_len>1) %>% dplyr::arrange(p_len)
+      dplyr::filter(p_len>1) %>% dplyr::arrange(-p_len)
     
     cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
     cat(glue::glue("Beg; Writing; calls_csv={calls_csv}{RET}"))
