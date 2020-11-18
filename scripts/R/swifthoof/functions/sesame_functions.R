@@ -111,7 +111,7 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     #
     call_dat_tib <- NULL
     call_dat_tib <- ssetToCallTib(
-      sset=sset, workflow=workflow, 
+      sset=sset, workflow=workflow, fresh=fresh,
       save=write_call, csv=call_csv, 
       percision_beta=percision_beta, 
       percision_pval=percision_pval, 
@@ -227,31 +227,31 @@ mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL,
     if (workflow=='r' || workflow=='raw') {
     } else if (workflow=='i') {
       sset <- sset %>% 
-        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
     } else if (workflow=='n') {
       sset <- sset %>% 
         mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='d') {
       sset <- sset %>% 
-        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
     } else if (workflow=='nd') {
       sset <- sset %>% 
         mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
     } else if (workflow=='dn') {
       sset <- sset %>% 
-        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'noob', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
     } else if (workflow=='ind') {
       sset <- sset %>% 
         mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        mutateSesame(method = 'noob', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
     } else if (workflow=='ndi') {
       sset <- sset %>% 
         mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
     } else if (workflow=='din') {
       sset <- sset %>% 
         mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
@@ -259,9 +259,9 @@ mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL,
         mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='dni') {
       sset <- sset %>% 
-        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        mutateSesame(method = 'noob', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        mutateSesame(method = 'dyeBiasCorrTypeINorm', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'inferTypeIChannel', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt) %>%
+        mutateSesame(method = 'noob', verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
     } else {
       stop(glue::glue("[{funcTag}]: ERROR: Unsupported workflow={workflow}!{RET}{RET}"))
     }

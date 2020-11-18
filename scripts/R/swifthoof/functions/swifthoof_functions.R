@@ -125,8 +125,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
                        CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), 
                        CG_Bead_AvgRep=round(CG_Bead_Total/CG_Bead_Count/2),1,
                        .groups='drop')
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bead_sum_tib built.{RET}"))
-    if (verbose>=vt+10) head(bead_sum_tib) %>% print()
+    if (verbose>=vt+5) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bead_sum_tib={RET}"))
+    if (verbose>=vt+5) bead_sum_tib %>% print()
     
     pool_sum_tib <- ses_man_tib %>% dplyr::filter(Probe_Type=='cg' | Probe_Type=='ch' | Probe_Type=='rs') %>% 
       dplyr::mutate(Probe_Type=stringr::str_to_upper(Probe_Type)) %>%
@@ -135,8 +135,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       tidyr::spread(Probe_Type,Count) %>% 
       purrr::set_names(paste(names(.),'Manifest_Count',sep='_') ) %>% 
       addBeadPoolToSampleSheet(field='CG_Manifest_Count') %>% dplyr::ungroup()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pool_sum_tib built.{RET}"))
-    if (verbose>=vt+10) head(pool_sum_tib) %>% print()
+    if (verbose>=vt+5) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pool_sum_tib={RET}"))
+    if (verbose>=vt+5) pool_sum_tib %>% print()
     
     chipFormat <- idat_list$ann %>% dplyr::select(Chip_Format) %>% dplyr::pull()
     beadPool   <- pool_sum_tib %>% dplyr::select(Bead_Pool) %>% dplyr::pull()
@@ -514,7 +514,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     system(stampEnd_cmd)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
-  if (verbose>=vt+10) tTracker %>% print()
+  if (verbose>=vt+3) tTracker %>% print()
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. elasped={etime}.{RET}{RET}"))
   
   if (retData) {
@@ -869,7 +869,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     can_nrows <- base::nrow(can)
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} can_nrows={can_nrows}.{RET}"))
     
-    if (verbose>=vt+4) {
+    if (verbose>=vt+6) {
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Pre-join. dname={dname}, pname={pname}, pval={pval}, field={field}, jval={jval}.{RET}"))
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref=={RET}"))
       head(ref) %>% print()
@@ -884,7 +884,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     tib <- can %>% dplyr::select(!!jval,!!dname,!!pname,!!pval,!!field) %>%
       purrr::set_names(can_names) %>%
       dplyr::left_join(ref, by=jval_char)
-    if (verbose>=vt+2) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Joined.{RET}"))
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Joined.{RET}"))
     
     # 3. Filter on P-value
     tib <- maskTibs(tib, id=jval, field=field, pval=pval, minPval=minPval, del=del,
