@@ -111,7 +111,7 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     #
     call_dat_tib <- NULL
     call_dat_tib <- ssetToCallTib(
-      sset=sset, workflow=workflow, fresh=fresh,
+      sset=sset, workflow=workflow, # fresh=fresh,
       save=write_call, csv=call_csv, 
       percision_beta=percision_beta, 
       percision_pval=percision_pval, 
