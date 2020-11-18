@@ -499,8 +499,12 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # Format Time Table
     time_tib <- tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
     
+    t_cmd <- glue::glue("touch {calls_csv}")
+    cat(glue::glue("Running; t_cmd={t_cmd}!{RET}{RET}"))
+    system(t_cmd)
     all_call_tib %>% tail() %>% print()
     
+    cat(glue::glue("Running; Writing; calls_csv={calls_csv}{RET}"))
     readr::write_csv(ssheet_tib, ssheet_csv)
     readr::write_csv(all_call_tib, calls_csv)
     readr::write_csv(time_tib, times_csv)
