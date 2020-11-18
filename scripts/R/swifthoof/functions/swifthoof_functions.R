@@ -226,9 +226,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       write_call=opt$write_call, call_csv=cur_call_csv, ret_call=retData,
       
       minNegPval=opt$minNegPval,minOobPval=opt$minOobPval,
-      percision_sigs=opt$percisionSigs,
-      percision_beta=opt$percisionBeta,
-      percision_pval=opt$percisionPval,
+      percision_sigs=opt$percision_sigs,
+      percision_beta=opt$percision_beta,
+      percision_pval=opt$percision_pval,
       
       by="Probe_ID", type="Probe_Type", des="Probe_Class",
       fresh=opt$fresh,
@@ -247,7 +247,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}{RET}"))
     
     auto_beta_key <- NULL
     auto_negs_key <- NULL
@@ -255,24 +256,28 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     for (ww in seq(1,workflow_cnt)) {
       cur_workflow <- workflows[ww]
       cur_sset_rds <- paste(out_prefix, paste0(cur_workflow,'-sset.rds'), sep=del)
-      cur_sigs_csv <- NULL
-      cur_ssum_csv <- NULL
-      cur_call_csv <- NULL
       
       if (is.null(auto_beta_key)) auto_beta_key <- paste(cur_workflow,'beta', sep=del)
       if (is.null(auto_negs_key)) auto_negs_key <- paste(cur_workflow,'PnegEcdf', sep=del)
       
       cur_sset <- NULL
       if (opt$load_sset && file.exists(cur_sset_rds)) {
-        if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Loading RDS={cur_sset_rds}.{RET}"))
+        if (verbose>=vt+1) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={cur_sset_rds}.{RET}"))
         cur_sset <- readr::read_rds(cur_sset_rds)
       } else {
         stopifnot(!is.null(raw_sset))
-        cur_sset <- mutateSSET_workflow(sset=raw_sset, workflow=cur_workflow, 
-                                        save=opt$save_sset, rds=cur_sset_rds,
-                                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+        cur_sset <- mutateSSET_workflow(
+          sset=raw_sset, workflow=cur_workflow, 
+          save=opt$save_sset, rds=cur_sset_rds,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       }
       stopifnot(!is.null(cur_sset))
+      
+      cur_sset_rds <- NULL
+      cur_sigs_csv <- NULL
+      cur_ssum_csv <- NULL
+      cur_call_csv <- NULL
       
       ret_dat_list[[cur_workflow]] <- ssetToSummary(
         sset=cur_sset, man=ses_man_tib, idx=ww, workflow=cur_workflow,
@@ -284,21 +289,21 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         write_call=opt$write_call, call_csv=cur_call_csv, ret_call=retData,
         
         minNegPval=opt$minNegPval,minOobPval=opt$minOobPval,
-        percision_sigs=opt$percisionSigs,
-        percision_beta=opt$percisionBeta,
-        percision_pval=opt$percisionPval,
+        percision_sigs=opt$percision_sigs,
+        percision_beta=opt$percision_beta,
+        percision_pval=opt$percision_pval,
         
         by="Probe_ID", type="Probe_Type", des="Probe_Class",
         fresh=opt$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
       if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} ret_dat_list={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat_list={RET}"))
         print(ret_dat_list[[cur_workflow]])
       }
 
       if (verbose>=vt) {
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Done. cur_workflow={cur_workflow}...{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}...{RET}"))
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       }
     }
@@ -319,17 +324,18 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     for (work_name in names(ret_dat_list)) {
       cur_list <- ret_dat_list[[work_name]]
 
-      if (verbose>=vt+4) {
+      if (verbose>=vt+5) {
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; ret_dat_list[{work_name}]={RET}"))
         cur_list %>% print()
       }
-      if (verbose>=vt+4) {
+      if (verbose>=vt+5) {
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; call_dat({work_name})={RET}"))
         cur_list$call_dat %>% print()
       }
-      if (verbose>=vt+4) {
+      if (verbose>=vt+5) {
+        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; sam_sheet({work_name})={RET}"))
         cur_list$sam_sheet %>% print()
       }
@@ -370,7 +376,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Requeue Flag...{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Requeue Flag",
+                     "(minOobPerc={opt$minOobPerc},minNegPerc={opt$minNegPerc})...{RET}"))
     
     poob_val  <- FALSE
     poob1_val <- ssheet_tib$pOOBAH_cg_1_pass_perc_0[1]

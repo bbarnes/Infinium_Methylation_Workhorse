@@ -2203,18 +2203,27 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
   stime <- system.time({
     paths <- NULL
     if (!is.null(path) && file.exists(path)) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match 1; path={path}.{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Matched path={path}.{RET}"))
+      
       paths <- list.files(base::dirname(path), pattern=base::basename(path), full.names=TRUE)
+      
     } else if (!is.null(platform) && !is.null(manifest) && !is.null(dir) ) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match 2.{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Searching for platform={platform}, ",
+                       "manifest={manifest}, dir={dir}.{RET}"))
+      
       fileName <- paste0(platform,'-',manifest,'.manifest.sesame-base.cpg-sorted.csv.gz')
       filePath <- file.path(dir, fileName)
       stopifnot(file.exists(filePath))
       paths <- list.files(dir, pattern=fileName, full.names=TRUE)
       
     } else if ( !is.null(path) && !is.null(dir) && path=='auto' ) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} path={path}; dir={dir}.{RET}"))
-      paths <- list.files( file.path(dir), pattern=paste0('.manifest.sesame-base.cpg-sorted.csv.gz'), full.names=TRUE )
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} path={path}; dir={dir}.{RET}"))
+      
+      pat_str <- paste0('.manifest.sesame-base.cpg-sorted.csv.gz')
+      paths   <- list.files(file.path(dir), pattern=pat_str, full.names=TRUE)
       
     } else {
       stop(glue::glue("[{funcTag}]: ERROR: Path, platform, manifest, dir FAILED CHECK!{RET}{RET}"))
@@ -2229,7 +2238,8 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
     
     man_tibs <- NULL
     for (ii in c(1:paths_len)) {
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading manifest={paths[ii]}...{RET}"))
+      if (verbose>=vt+4) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading manifest={paths[ii]}...{RET}"))
       
       cur_key_tib <- paths[ii] %>% base::basename() %>% 
         stringr::str_remove('\\.manifest.*$') %>% 
@@ -2341,7 +2351,7 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
                         'Strand_FR', 'Strand_CO')
         
       } else {
-        cat(glue::glue("[{funcTag}]:{tabsStr} ERROR; Unknown Genome Studio Manifest Type!!!{RET}{RET}"))
+        stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR; Unknown Genome Studio Manifest Type!!!{RET}{RET}"))
         return(NULL)
       }
     }
@@ -2375,42 +2385,45 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
 }
 
 # TBD:: Should be renamed loadManifestSource -> loadManifestSesame
-loadManifestSource = function(file,addSource=FALSE, verbose=0,vt=4,tc=1,tt=NULL) {
+loadManifestSource = function(file,addSource=FALSE, 
+                              verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'loadManifestSource'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading file={file}.{RET}"))
   
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
-    tib <- NULL
     if ( stringr::str_ends(file, '.tsv') || stringr::str_ends(file, '.tsv.gz') ) {
-      tib <- suppressMessages(suppressWarnings(readr::read_tsv(file)))
+      ret_tib <- suppressMessages(suppressWarnings(readr::read_tsv(file)))
       source <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.tsv$')
     } else if ( stringr::str_ends(file, '.csv') || stringr::str_ends(file, '.csv.gz') ) {
-      tib <- suppressMessages(suppressWarnings(readr::read_csv(file)))
+      ret_tib <- suppressMessages(suppressWarnings(readr::read_csv(file)))
       source <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.csv$')
     } else if ( stringr::str_ends(file, '.rds')) {
-      tib <- suppressMessages(suppressWarnings(readr::read_rds(file)))
+      ret_tib <- suppressMessages(suppressWarnings(readr::read_rds(file)))
       source <- base::basename(file) %>% stringr::str_remove('\\.rds$')
     } else {
       stop("{RET}[{funcTag}]: ERROR: Unsupported manifest format suffix (only csv/csv.gz or rds): file={file}!!!{RET}{RET}")
     }
     
     # Fix Genecode Fields if its Genecode...
-    if ( length( grep('genesUniq', names(tib) ) ) > 0 && 
-         length( grep('distToTSS', names(tib) ) ) > 0)
-      tib <- tib %>% dplyr::mutate(genesUniq=as.character(genesUniq), distToTSS=as.integer(distToTSS) )
+    if ( length( grep('genesUniq', names(ret_tib) ) ) > 0 && 
+         length( grep('distToTSS', names(ret_tib) ) ) > 0)
+      ret_tib <- ret_tib %>% dplyr::mutate(genesUniq=as.character(genesUniq), distToTSS=as.integer(distToTSS) )
     
     if (addSource) {
-      tib <- tib %>% dplyr::mutate(Man_Source=!!source)
+      ret_tib <- ret_tib %>% dplyr::mutate(Man_Source=!!source)
     }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
   })
-  if (verbose>vt+4) print(tib)
-  
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
   
-  tib
+  ret_tib
 }
 
 loadAddressSource = function(file, man, fresh=FALSE, save=TRUE, split=FALSE,

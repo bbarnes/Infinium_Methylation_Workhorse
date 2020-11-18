@@ -5,6 +5,7 @@
 
 rm(list=ls(all=TRUE))
 
+# suppressPackageStartupMessages(base::require() )
 # Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
 suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("dbplyr") ))
@@ -99,14 +100,7 @@ opt$write_sigs  <- FALSE
 opt$write_ssum  <- FALSE
 opt$write_call  <- FALSE
 opt$write_csum  <- FALSE
-
-opt$addSentrixID <- FALSE
-# opt$writeSset    <- FALSE
-# opt$writeSsum    <- FALSE
-# opt$writeCalls   <- FALSE
-opt$write_auto    <- FALSE
-
-opt$addRawCalls <- FALSE
+opt$write_auto  <- FALSE
 
 # Threshold Options::
 opt$minNegPval   <- 0.02
@@ -115,9 +109,9 @@ opt$minNegPerc   <- 98
 opt$minOobPerc   <- 90
 opt$minDeltaBeta <- 0.2
 
-opt$percisionSigs <- 1
-opt$percisionBeta <- 4
-opt$percisionPval <- 6
+opt$percision_sigs <- 1
+opt$percision_beta <- 4
+opt$percision_pval <- 6
 
 # Parallel/Cluster Options::
 opt$single   <- FALSE
@@ -140,6 +134,7 @@ opt$plotSub <- 5000
 
 opt$opt_csv  <- NULL
 opt$par_csv  <- NULL
+
 opt$time_csv <- NULL
 opt$time_org_txt <- NULL
 
@@ -195,7 +190,6 @@ if (args.dat[1]=='RStudio') {
 
   opt$buildSubDir  <- FALSE
   opt$auto_detect   <- FALSE
-  opt$writeCalls   <- TRUE
 
   opt$platform   <- 'EPIC'
   opt$manifest   <- 'B4'
@@ -350,9 +344,6 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--save_sset"), action="store_true", default=opt$save_sset,
                 help="Boolean variable to write Signal Set RDS file [default= %default]", metavar="boolean"),
 
-    # make_option(c("--addSentrixID"), action="store_true", default=opt$addSentrixID,
-    #             help="Boolean variable to add Sentrix Name to calls output columns [default= %default]", metavar="boolean"),
-    
     #
     # Old Versions to be deleted::
     #
@@ -387,11 +378,11 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--minDeltaBeta"), type="double", default=opt$minDeltaBeta,
                 help="Minimum passing delta-beta. Used in AutoSampleSheet cacluclations [default= %default]", metavar="double"),
     
-    make_option(c("--percisionSigs"), type="integer", default=opt$percisionSigs,
+    make_option(c("--percision_sigs"), type="integer", default=opt$percision_sigs,
                 help="Rounding percision for signal values in calls output files [default= %default]", metavar="double"),
-    make_option(c("--percisionBeta"), type="integer", default=opt$percisionBeta,
+    make_option(c("--percision_beta"), type="integer", default=opt$percision_beta,
                 help="Rounding percision for beta values in calls output files [default= %default]", metavar="double"),
-    make_option(c("--percisionPval"), type="integer", default=opt$percisionPval,
+    make_option(c("--percision_pval"), type="integer", default=opt$percision_pval,
                 help="Rounding percision for detection p-values in calls output files [default= %default]", metavar="double"),
     
     # Parallel/Cluster Parameters::
