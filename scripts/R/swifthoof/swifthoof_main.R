@@ -584,6 +584,7 @@ if (opt$cluster) {
     
     # chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
+      
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
                                    retData=par$retData, workflows=workflows_vec, tc=1)

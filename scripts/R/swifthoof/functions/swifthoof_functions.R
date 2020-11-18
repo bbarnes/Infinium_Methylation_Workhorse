@@ -359,9 +359,12 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; all_call_tib={RET}"))
       all_call_tib %>% head() %>% print()
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       
       cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; ssheet_tib={RET}"))
       ssheet_tib %>% head() %>% print()
+      
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
     }
           
     
@@ -513,6 +516,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
   
   if (retData) {
     ret$ssheet_tib <- ssheet_tib
+    ret$all_calls  <- all_call_tib
     ret$time       <- tTracker
     return(ret)
   }

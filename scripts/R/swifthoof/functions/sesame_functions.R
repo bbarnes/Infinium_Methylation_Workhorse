@@ -176,7 +176,6 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     
     # Predicted and Inferred Data::
     #
-    
     pred_sum_tib <- NULL
     pred_sum_tib <- ssetToPredictions(
       sset=sset, fresh=fresh,
@@ -208,7 +207,8 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
   
   ret_dat
 }
