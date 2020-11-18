@@ -174,8 +174,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     out_prefix <- file.path(opt$outDir, out_name)
     
     ssheet_csv <- paste(out_prefix, 'AutoSampleSheet.csv.gz', sep=del)
-    # calls_csv  <- paste(out_prefix, 'calls.csv.gz', sep=del)
-    calls_csv  <- paste(out_prefix, 'calls.csv', sep=del)
+    calls_csv  <- paste(out_prefix, 'calls.csv.gz', sep=del)
+    # calls_csv  <- paste(out_prefix, 'calls.csv', sep=del)
     times_csv  <- paste(out_prefix, 'run-times.csv.gz', sep=del)
     
     raw_sset_csv <- paste(out_prefix, 'raw-sset.csv.gz', sep=del)
@@ -413,6 +413,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} negs_val[{negs1_val},{negs2_val}]<{opt$minNegPerc}={negs_val}.{RET}"))
     ssheet_tib <- ssheet_tib %>% tibble::add_column(Requeue_Flag_PnegEcdf=negs_val)
+    
     if (verbose>=vt+4) {
       cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ssheet_tib(requeue-negs added)={RET}"))
       ssheet_tib %>% print()
