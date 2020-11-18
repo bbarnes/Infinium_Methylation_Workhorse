@@ -322,6 +322,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     }
     
     all_call_tib <- NULL
+    all_call_tib <- ses_man_tib %>% dplyr::select(Probe_ID)
     for (work_name in names(ret_dat_list)) {
       cur_list  <- ret_dat_list[[work_name]]
       cur_data  <- cur_list$call_dat

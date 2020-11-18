@@ -480,8 +480,8 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
       if (percision_pval!=-1) 
         cur_tib <- dplyr::mutate_if(cur_tib, purrr::is_double,round,percision_pval)
       
-      ret_tib <- ret_tib %>% dplyr::left_join(cur_tib,by="Probe_ID", copy=TRUE)
-      # ret_tib <- ret_tib %>% dplyr::inner_join(cur_tib,by="Probe_ID")
+      # ret_tib <- ret_tib %>% dplyr::left_join(cur_tib,by="Probe_ID", copy=TRUE)
+      ret_tib <- ret_tib %>% dplyr::inner_join(cur_tib,by="Probe_ID")
     }
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Current Table(pvals)={RET}"))
