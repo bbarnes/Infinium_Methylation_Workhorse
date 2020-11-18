@@ -502,11 +502,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     t_cmd <- glue::glue("touch {calls_csv}")
     cat(glue::glue("Running; t_cmd={t_cmd}!{RET}{RET}"))
     # system(t_cmd)
-    all_call_tib %>% tail() %>% print()
+    
+    all_call_tib %>% print()
+    all_call_tib <- all_call_tib %>% dplyr::mutate(p_len=stringr::str_length(Probe_ID)) %>%
+      dplyr::filter(p_len>1)
     
     cat(glue::glue("Beg; Writing; calls_csv={calls_csv}{RET}"))
-    readr::write_csv(all_call_tib %>% head(), calls_csv)
-    cat(glue::glue("End; Writing; calls_csv={calls_csv}{RET}"))
+    all_call_tib %>% print()
+    # readr::write_csv(all_call_tib %>% head(), calls_csv)
+    readr::write_csv(all_call_tib, calls_csv)
+    cat(glue::glue("End; Writing; calls_csv={calls_csv}{RET}{RET}{RET}"))
     
     readr::write_csv(ssheet_tib, ssheet_csv)
     readr::write_csv(time_tib, times_csv)
