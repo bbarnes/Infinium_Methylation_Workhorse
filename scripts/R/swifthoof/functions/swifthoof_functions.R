@@ -198,6 +198,10 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     # Current goal:: build out FIXED raw_sset + workflow -> calls file + ssheet update
     #
     
+    calls_tib <- NULL
+    calls_tib <- ses_man_tib %>% dplyr::select(Probe_ID) %>% 
+      dplyr::arrange(Probe_ID)
+      
     raw_sset <- NULL
     raw_sset <- newSset(prefix=prefix, 
                         platform=platform_key, manifest=ses_man_tib,
@@ -217,7 +221,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     cur_call_csv <- NULL
     
     ret_dat_list <- NULL
-    ret_dat_list[['raw']] <- ssetToSummary(
+    cur_dat_list <- NULL
+    
+    cur_dat_list = ssetToSummary(
       sset=cur_sset, man=ses_man_tib, idx=ww, workflow=cur_workflow,
       name=out_name, outDir=opt$outDir,
       
@@ -235,6 +241,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       fresh=opt$fresh,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
+    ret_dat_list[['raw']] = cur_dat_list
+    calls_tib = dplyr::left_join(calls_tib, cur_dat_list$call_dat, by="Probe_ID")
+
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Built RAW Data.{RET}{RET}"))
     
     if (retData) {
@@ -280,7 +289,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       cur_ssum_csv <- NULL
       cur_call_csv <- NULL
       
-      cur_dat_list <- ssetToSummary(
+      cur_dat_list = ssetToSummary(
         sset=cur_sset, man=ses_man_tib, idx=ww, workflow=cur_workflow,
         name=out_name, outDir=opt$outDir,
         
@@ -299,7 +308,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
       ret_dat_list[[cur_workflow]] = cur_dat_list
-      
+      calls_tib = dplyr::left_join(calls_tib, cur_dat_list$call_dat, by="Probe_ID")
+
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat_list={RET}"))
         print(ret_dat_list[[cur_workflow]])
@@ -310,6 +320,21 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       }
     }
+    cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; calls_tib={RET}"))
+    
+    all_call_cnt3 <- calls_tib %>% base::nrow()
+    
+    calls3_csv <- paste(calls_csv,".3.csv", sep='')
+    cat(glue::glue("Beg; Writing; calls3_csv({all_call_cnt3})={calls3_csv}{RET}"))
+    calls_tib %>% print()
+    readr::write_csv(calls_tib, calls3_csv)
+    # readr::write_csv(calls_tib %>% head(n=all_call_cnt3), calls3_csv)
+    # calls_tib %>% print()
+    cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    if (verbose>=vt) 
+      cat(glue::glue("{RET}Done Workflows...{RET}{RET}{RET}{RET}{RET}"))
+    
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                      Bind all Calls/Sample Sheets::
@@ -391,6 +416,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       
       cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
     }
+    if (verbose>=vt) 
+      cat(glue::glue("{RET}Done Mergeing...{RET}{RET}{RET}{RET}{RET}"))
           
     
     if (retData) {
