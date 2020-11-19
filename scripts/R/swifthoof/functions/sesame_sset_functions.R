@@ -394,14 +394,14 @@ sigsTibToSummary = function(tib, man=NULL,
         dplyr::summarise_all(list(pass_perc=cntPer_lte), min=cutoff)
     }
 
-    if (percision!=-1) ret_tib <- ret_tib %>% 
+    if (percision >= 0) ret_tib <- ret_tib %>% 
       dplyr::mutate_if(is.numeric, list(round), percision)
     
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      # system(glue::glue("touch {csv}"))
-      
+      csv <- clean_file(csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
       if (verbose>=vt+4) ret_tib %>% print()
@@ -492,7 +492,8 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-
+      csv <- clean_file(csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))
       if (verbose>=vt+4) ret_tib %>% print()
@@ -548,7 +549,7 @@ ssetToSigsTib = function(sset, man=NULL,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      # system(glue::glue("touch {csv}"))
+      csv <- clean_file(csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))

@@ -64,10 +64,10 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
       if (is.null(csum_csv)) 
         csum_csv <- file.path(outDir, paste(out_name,'call.sum.csv.gz', sep='.'))
       
-      if (write_sigs) call_csv <- clean_file(sigs_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      if (write_ssum) call_csv <- clean_file(ssum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (write_sigs) sigs_csv <- clean_file(sigs_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (write_ssum) ssum_csv <- clean_file(ssum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       if (write_call) call_csv <- clean_file(call_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      if (write_csum) call_csv <- clean_file(csum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (write_csum) csum_csv <- clean_file(csum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
     
     # Set/Update Pvals and Betas::
@@ -175,9 +175,10 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
       call_pval_ssheet_tib <- call_pval_ssheet_tib %>% 
         dplyr::bind_cols(cur_pval_ssheet)
     }
-    if (verbose>=vt+4)
+    if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_pval_ssheet_tib={RET}"))
-    if (verbose>=vt+4) print(call_pval_ssheet_tib)
+      print(call_pval_ssheet_tib)
+    }
     
     # Predicted and Inferred Data::
     #
