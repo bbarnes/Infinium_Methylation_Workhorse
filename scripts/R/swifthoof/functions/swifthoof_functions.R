@@ -280,7 +280,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       cur_ssum_csv <- NULL
       cur_call_csv <- NULL
       
-      ret_dat_list[[cur_workflow]] <- ssetToSummary(
+      cur_dat_list <- ssetToSummary(
         sset=cur_sset, man=ses_man_tib, idx=ww, workflow=cur_workflow,
         name=out_name, outDir=opt$outDir,
         
@@ -297,6 +297,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         by="Probe_ID", type="Probe_Type", des="Probe_Class",
         fresh=opt$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      
+      ret_dat_list[[cur_workflow]] = cur_dat_list
       
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat_list={RET}"))
@@ -329,11 +331,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       cur_data  <- cur_list$call_dat
       cur_sheet <- cur_list$sam_sheet
 
-      if (verbose>=vt+5) {
-        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
-        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; ret_dat_list[{work_name}]={RET}"))
-        cur_list %>% print()
-      }
+      # if (verbose>=vt+5) {
+      #   cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
+      #   cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; ret_dat_list[{work_name}]={RET}"))
+      #   cur_list %>% print()
+      # }
       if (verbose>=vt+5) {
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; call_dat({work_name})={RET}"))
@@ -346,15 +348,24 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       }
 
       if (is.null(all_call_tib)) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} Initialize; all_call_tib({work_name})={RET}"))
+        
         all_call_tib <- cur_data
       } else {
-        all_call_tib <- all_call_tib %>% 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Joining; all_call_tib({work_name})={RET}"))
+        
+        all_call_tib <- all_call_tib %>% dplyr::inner_join(cur_data, by="Probe_ID")
         #  dplyr::left_join(cur_data, by="Probe_ID")
         #  dplyr::full_join(cur_data, by="Probe_ID")
-          dplyr::inner_join(cur_data, by="Probe_ID")
       }
       ssheet_tib <- ssheet_tib %>% 
         dplyr::bind_cols(cur_sheet)
+      
+      if (verbose>=vt+5) {
+        cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; all_call_tib({work_name})={RET}"))
+        all_call_tib %>% print()
+      }
       
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr} Done; work_name={work_name}{RET}"))
@@ -365,6 +376,13 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Full Join; all_call_tib={RET}"))
+      
+      all_call_cnt2 <- all_call_tib %>% base::nrow()
+      
+      calls2_csv <- paste(calls_csv,".2.csv", sep='')
+      cat(glue::glue("Beg; Writing; calls2_csv({all_call_cnt2})={calls2_csv}{RET}"))
+      all_call_tib %>% print()
+      readr::write_csv(all_call_tib %>% head(n=all_call_cnt), calls2_csv)
       all_call_tib %>% print()
       cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       
@@ -515,13 +533,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       dplyr::filter(p_len>1) %>% dplyr::arrange(-p_len)
     
     cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-    all_call_cnt <- all_call_tib %>% base::nrow()
-    
-    calls2_csv <- paste(calls_csv,".2.csv")
-    cat(glue::glue("Beg; Writing; calls2_csv({all_call_cnt})={calls2_csv}{RET}"))
-    all_call_tib %>% print()
-    readr::write_csv(all_call_tib %>% head(n=all_call_cnt), calls2_csv)
-    
     all_call_cnt <- all_call_tib %>% base::nrow()
     cat(glue::glue("Beg; Writing; calls_csv({all_call_cnt})={calls_csv}{RET}"))
     readr::write_csv(all_call_tib, calls_csv)
