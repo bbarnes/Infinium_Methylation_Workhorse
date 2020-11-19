@@ -290,7 +290,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         write_sset=opt$write_sset, sset_rds=cur_sset_rds, ret_sset=retData,
         write_sigs=opt$write_sigs, sigs_csv=cur_sigs_csv, ret_sigs=retData,
         write_ssum=opt$write_ssum, ssum_csv=cur_ssum_csv, ret_ssum=retData,
-        write_call=opt$write_call, call_csv=cur_call_csv, ret_call=retData,
+        write_call=opt$write_call, call_csv=cur_call_csv, ret_call=TRUE,
         
         minNegPval=opt$minNegPval,minOobPval=opt$minOobPval,
         percision_sigs=opt$percision_sigs,
