@@ -322,7 +322,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     }
     
     all_call_tib <- NULL
-    all_call_tib <- ses_man_tib %>% dplyr::select(Probe_ID)
+    all_call_tib <- ses_man_tib %>% dplyr::select(Probe_ID) %>% 
+      dplyr::arrange(Probe_ID)
     for (work_name in names(ret_dat_list)) {
       cur_list  <- ret_dat_list[[work_name]]
       cur_data  <- cur_list$call_dat
@@ -514,9 +515,10 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       dplyr::filter(p_len>1) %>% dplyr::arrange(-p_len)
     
     cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-    cat(glue::glue("Beg; Writing; calls_csv={calls_csv}{RET}"))
+    all_call_cnt <- all_call_tib
+    cat(glue::glue("Beg; Writing; calls_csv({all_call_cnt})={calls_csv}{RET}"))
     all_call_tib %>% print()
-    # readr::write_csv(all_call_tib %>% head(), calls_csv)
+    readr::write_csv(all_call_tib %>% head(n=all_call_cnt), paste(calls_csv,".2.csv"))
     readr::write_csv(all_call_tib, calls_csv)
     cat(glue::glue("End; Writing; calls_csv={calls_csv}{RET}{RET}{RET}"))
     cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
