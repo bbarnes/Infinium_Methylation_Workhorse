@@ -400,10 +400,11 @@ sigsTibToSummary = function(tib, man=NULL,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      system(glue::glue("touch {csv}"))
+      # system(glue::glue("touch {csv}"))
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
+      if (verbose>=vt+4) ret_tib %>% print()
       readr::write_csv(ret_tib, csv)
     }
     ret_cnt <- ret_tib %>% base::nrow()
@@ -494,7 +495,8 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
 
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))
-      readr::write_csv(ret_tib, csv, append = TRUE)
+      if (verbose>=vt+4) ret_tib %>% print()
+      readr::write_csv(ret_tib, csv)
     }
     ret_cnt <- ret_tib %>% base::nrow()
   })
@@ -546,10 +548,11 @@ ssetToSigsTib = function(sset, man=NULL,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      system(glue::glue("touch {csv}"))
+      # system(glue::glue("touch {csv}"))
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
+      if (verbose>=vt+4) ret_tib %>% print()
       readr::write_csv(ret_tib, csv)
     }
     ret_cnt <- ret_tib %>% base::nrow()
@@ -660,6 +663,7 @@ newSset = function(prefix, platform, manifest,
       sset <- sesame::readIDATpair(prefix, platform=platform, manifest=manifest)
       if (save && !is.null(rds)) {
         if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS={rds}.{RET}"))
+        if (verbose>=vt+4) sset %>% print()
         readr::write_rds(sset, rds, compress="gz")
       }
     }
