@@ -203,13 +203,16 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     if (ret_csum) ret_dat$beta_sum <- call_beta_sum_tib
     if (ret_csum) ret_dat$pval_sum <- call_pval_sum_tib
     
-    if (is.null(ret_dat)) {
-      ret_dat <- sam_sheet
-      ret_cnt <- ret_dat %>% base::ncol()
-    } else {
-      ret_dat$sam_sheet <- sam_sheet
-      ret_cnt <- ret_dat %>% names %>% length()
-    }
+    ret_dat$sam_sheet <- sam_sheet
+    ret_cnt <- ret_dat %>% names %>% length()
+    
+    # if (is.null(ret_dat)) {
+    #   ret_dat <- sam_sheet
+    #   ret_cnt <- ret_dat %>% base::ncol()
+    # } else {
+    #   ret_dat$sam_sheet <- sam_sheet
+    #   ret_cnt <- ret_dat %>% names %>% length()
+    # }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)

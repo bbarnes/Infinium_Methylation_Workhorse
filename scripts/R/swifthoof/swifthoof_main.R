@@ -277,6 +277,7 @@ if (args.dat[1]=='RStudio') {
   
   opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, par$expRunStr)
 
+  opt$auto_detect <- TRUE
   par$retData  <- TRUE
   opt$single   <- TRUE
   opt$parallel <- FALSE

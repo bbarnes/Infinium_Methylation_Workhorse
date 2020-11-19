@@ -1,4 +1,64 @@
 
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Bind all Calls/Sample Sheets::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (verbose>=vt+4) {
+  cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ret_dat_list={RET}"))
+  ret_dat_list %>% print()
+  cat(glue::glue("{RET}[{funcTag}]:{tabsStr} names(ret_dat_list)={RET}"))
+  names(ret_dat_list) %>% print()
+  cat(glue::glue("{RET}[{funcTag}]:{RET}{RET}"))
+}
+
+# all_call_tib <- NULL
+# all_call_tib <- ses_man_tib %>% dplyr::select(Probe_ID) %>% 
+#   dplyr::arrange(Probe_ID)
+for (work_name in names(ret_dat_list)) {
+  cur_list  <- ret_dat_list[[work_name]]
+  cur_data  <- cur_list$call_dat
+  cur_sheet <- cur_list$sam_sheet
+  
+  if (verbose>=vt+5) {
+    cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; call_dat({work_name})={RET}"))
+    cur_data %>% print()
+  }
+  if (verbose>=vt+5) {
+    cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; sam_sheet({work_name})={RET}"))
+    cur_sheet %>% print()
+  }
+  
+  ssheet_tib <- ssheet_tib %>% 
+    dplyr::bind_cols(cur_sheet)
+  
+  # if (verbose>=vt+5) {
+  #   cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
+  #   cat(glue::glue("[{funcTag}]:{tabsStr} Cur Join; all_call_tib({work_name})={RET}"))
+  #   all_call_tib %>% print()
+  # }
+  
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; work_name={work_name}{RET}"))
+    cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  }
+}
+# all_call_tib <- all_call_tib %>% dplyr::arrange(Probe_ID)
+
+if (verbose>=vt) 
+  cat(glue::glue("{RET}Done Mergeing...{RET}{RET}{RET}{RET}{RET}"))
+
+
+if (retData) {
+  ret$rsum_list <- ret_dat_list
+  # ret$all_calls <- all_call_tib
+  ret$ssheet_tib <- ssheet_tib
+  # return(ret)
+}
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Old Test Code::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
