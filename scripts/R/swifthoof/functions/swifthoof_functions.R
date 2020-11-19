@@ -327,7 +327,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     calls3_csv <- paste(calls_csv,".3.csv", sep='')
     cat(glue::glue("Beg; Writing; calls3_csv({all_call_cnt3})={calls3_csv}{RET}"))
     calls_tib %>% print()
-    calls3_csv <- clean_file(calls3_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    calls3_csv <- clean_file(calls3_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     readr::write_csv(calls_tib, calls3_csv)
     # readr::write_csv(calls_tib %>% head(n=all_call_cnt3), calls3_csv)
     # calls_tib %>% print()
