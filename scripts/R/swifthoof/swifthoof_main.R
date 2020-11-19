@@ -60,7 +60,7 @@ par$prgmDir <- 'swifthoof'
 par$prgmTag <- paste(par$prgmDir,'main', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
-par$retData     <- FALSE
+ar$retData     <- FALSE
 
 # Executables::
 opt$Rscript <- NULL
@@ -220,10 +220,10 @@ if (args.dat[1]=='RStudio') {
   
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
-  par$local_runType <- 'qcMVP'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
   par$local_runType <- 'COVIC'
+  par$local_runType <- 'qcMVP'
   
   if (par$local_runType=='COVID') {
     par$expRunStr  <- 'COVID-Direct-Set1'
@@ -275,7 +275,7 @@ if (args.dat[1]=='RStudio') {
   if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_'),  par$expChipNum)
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
-  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag, par$expRunStr, 'manifest-C1')
+  opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, par$expRunStr)
 
   par$retData  <- TRUE
   opt$single   <- TRUE

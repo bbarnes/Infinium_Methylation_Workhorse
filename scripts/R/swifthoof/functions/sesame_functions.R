@@ -63,6 +63,11 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
         call_csv <- file.path(outDir, paste(out_name,'call.dat.csv.gz', sep='.'))
       if (is.null(csum_csv)) 
         csum_csv <- file.path(outDir, paste(out_name,'call.sum.csv.gz', sep='.'))
+      
+      if (write_sigs) call_csv <- clean_file(sigs_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (write_ssum) call_csv <- clean_file(ssum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (write_call) call_csv <- clean_file(call_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (write_csum) call_csv <- clean_file(csum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
     
     # Set/Update Pvals and Betas::

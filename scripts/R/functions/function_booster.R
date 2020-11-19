@@ -36,6 +36,41 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Clean Files for docker::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+clean_file = function(file,
+                      verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'clean_file'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    cmd <- NULL
+    if (file.exists(file)) unlink(file)
+    cmd <- glue::glue("touch {file}")
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Running cmd='{cmd}'...{RET}"))
+    base::system(cmd)
+    
+    if (!file.exists(file)) {
+      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: File doesn't exist; file={file}!!!{RET}"))
+    }
+
+    ret_cnt <- 1
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  file
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                General Program Initialization Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 

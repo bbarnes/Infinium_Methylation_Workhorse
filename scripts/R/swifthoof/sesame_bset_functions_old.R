@@ -43,6 +43,10 @@ if (FALSE) {
   platform <- rdat$platform
   man_tib <- rdat$sman
   
+  ww <- 0
+  cur_workflow <- 'raw2'
+  out_name <- 'test'
+  
   opt$load_sset <- FALSE
   opt$save_sset <- FALSE
   
@@ -52,16 +56,34 @@ if (FALSE) {
                       load=opt$load_sset, save=opt$save_sset,rds=sset_rds,
                       verbose=4)
   
+  
+  
+  raw_call_tib <- ssetToCallTib(sset=raw_sset, workflow = 'raw', verbose = 10)
+  
+  cur_sset_rds <- NULL
+  cur_sigs_csv <- NULL
+  cur_ssum_csv <- NULL
+  cur_call_csv <- NULL
+  retData <- FALSE
+  
   cdat <- 
-    ssetToSummary(sset=raw_sset, man=rdat$sman, idx=0, workflow='raw',
-                  write_call=TRUE, call_csv=NULL, ret_call=TRUE,
-                  
-                  percision_sigs=opt$percisionSigs,
-                  percision_beta=opt$percisionBeta,
-                  percision_pval=opt$percisionPval,
-                  by="Probe_ID", type="Probe_Type", des="Probe_Class",
-                  fresh=opt$fresh,
-                  verbose=4)
+    ssetToSummary(
+      sset=raw_sset, man=man_tib, idx=ww, workflow=cur_workflow,
+      name=out_name, outDir=opt$outDir,
+      
+      write_sset=opt$write_sset, sset_rds=cur_sset_rds, ret_sset=retData,
+      write_sigs=opt$write_sigs, sigs_csv=cur_sigs_csv, ret_sigs=retData,
+      write_ssum=opt$write_ssum, ssum_csv=cur_ssum_csv, ret_ssum=retData,
+      write_call=opt$write_call, call_csv=cur_call_csv, ret_call=TRUE,
+      
+      minNegPval=opt$minNegPval,minOobPval=opt$minOobPval,
+      percision_sigs=opt$percision_sigs,
+      percision_beta=opt$percision_beta,
+      percision_pval=opt$percision_pval,
+      
+      by="Probe_ID", type="Probe_Type", des="Probe_Class",
+      fresh=opt$fresh,
+      verbose=4)
   
   
   
