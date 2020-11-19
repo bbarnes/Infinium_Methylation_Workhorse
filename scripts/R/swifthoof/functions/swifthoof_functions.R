@@ -515,10 +515,15 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       dplyr::filter(p_len>1) %>% dplyr::arrange(-p_len)
     
     cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-    all_call_cnt <- all_call_tib
-    cat(glue::glue("Beg; Writing; calls_csv({all_call_cnt})={calls_csv}{RET}"))
+    all_call_cnt <- all_call_tib %>% base::nrow()
+    
+    calls2_csv <- paste(calls_csv,".2.csv")
+    cat(glue::glue("Beg; Writing; calls2_csv({all_call_cnt})={calls2_csv}{RET}"))
     all_call_tib %>% print()
-    readr::write_csv(all_call_tib %>% head(n=all_call_cnt), paste(calls_csv,".2.csv"))
+    readr::write_csv(all_call_tib %>% head(n=all_call_cnt), calls2_csv)
+    
+    all_call_cnt <- all_call_tib %>% base::nrow()
+    cat(glue::glue("Beg; Writing; calls_csv({all_call_cnt})={calls_csv}{RET}"))
     readr::write_csv(all_call_tib, calls_csv)
     cat(glue::glue("End; Writing; calls_csv={calls_csv}{RET}{RET}{RET}"))
     cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
