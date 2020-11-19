@@ -60,7 +60,7 @@ par$prgmDir <- 'swifthoof'
 par$prgmTag <- paste(par$prgmDir,'main', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
-ar$retData     <- FALSE
+par$retData     <- FALSE
 
 # Executables::
 opt$Rscript <- NULL
