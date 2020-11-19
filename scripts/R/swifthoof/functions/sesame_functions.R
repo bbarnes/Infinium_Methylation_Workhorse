@@ -55,14 +55,14 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
         sset_rds <- file.path(outDir, paste(out_name,'sset.rds', sep='.'))
       
       if (is.null(sigs_csv)) 
-        sigs_csv <- file.path(outDir, paste(out_name,'sigs.dat.csv.gz', sep='.'))
+        sigs_csv <- file.path(outDir, paste(out_name,'sigs.dat.csv', sep='.'))
       if (is.null(ssum_csv)) 
-        ssum_csv <- file.path(outDir, paste(out_name,'sigs.sum.csv.gz', sep='.'))
+        ssum_csv <- file.path(outDir, paste(out_name,'sigs.sum.csv', sep='.'))
       
       if (is.null(call_csv)) 
-        call_csv <- file.path(outDir, paste(out_name,'call.dat.csv.gz', sep='.'))
+        call_csv <- file.path(outDir, paste(out_name,'call.dat.csv', sep='.'))
       if (is.null(csum_csv)) 
-        csum_csv <- file.path(outDir, paste(out_name,'call.sum.csv.gz', sep='.'))
+        csum_csv <- file.path(outDir, paste(out_name,'call.sum.csv', sep='.'))
       
       if (write_sigs) sigs_csv <- clean_file(sigs_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       if (write_ssum) ssum_csv <- clean_file(ssum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
