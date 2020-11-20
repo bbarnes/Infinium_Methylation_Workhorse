@@ -72,19 +72,18 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     
     # Set/Update Pvals and Betas::
     #
-    # sesame::extra(sset) <- NULL
     sesame::extra(sset)[['betas']] <- NULL
     sesame::extra(sset)[['pvals']] <- NULL
     
-    sset <- mutateSesame(sset=sset, method="betas", 
+    sset_dat <- mutateSesame(sset=sset, method="betas", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    sset <- mutateSesame(sset=sset, method="pOOBAH", 
+    sset_dat <- mutateSesame(sset=sset_dat, method="pOOBAH", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    sset <- mutateSesame(sset=sset, method="detectionPnegEcdf", 
+    sset_dat <- mutateSesame(sset=sset_dat, method="detectionPnegEcdf", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     if (write_sset && !is.null(sset_rds))
-      readr::write_rds(sset, sset_rds, compress="gz")
+      readr::write_rds(sset_dat, sset_rds, compress="gz")
     
     # Initialize Sample Sheet::
     #
@@ -97,14 +96,14 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     #
     pred_sum_tib <- NULL
     pred_sum_tib <- ssetToPredictions(
-      sset=sset, # fresh=fresh,
+      sset=sset_dat,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
 
     # Signal Summary
     #
     sigs_dat_tib <- NULL
     sigs_dat_tib <- ssetToSigsTib(
-      sset=sset, man=man,
+      sset=sset_dat, man=man,
       percision=percision_sigs, sort=FALSE, 
       save=write_sigs, csv=sigs_csv, 
       by=by, type=type, des="Probe_Class", 
@@ -128,7 +127,7 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     #
     call_dat_tib <- NULL
     call_dat_tib <- ssetToCallTib(
-      sset=sset, workflow=workflow,
+      sset=sset_dat, workflow=workflow,
       save=write_call, csv=call_csv, 
       percision_beta=percision_beta, 
       percision_pval=percision_pval, 
@@ -209,7 +208,7 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     
     # Set Outputs::
     #
-    if (ret_sset) ret_dat$sset_dat <- sset
+    if (ret_sset) ret_dat$sset_dat <- sset_dat
     if (ret_sigs) ret_dat$sigs_dat <- sigs_dat_tib
     if (ret_ssum) ret_dat$sigs_sum <- sigs_sum_tib
     
