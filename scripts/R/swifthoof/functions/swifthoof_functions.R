@@ -128,7 +128,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     if (verbose>=vt+5) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bead_sum_tib={RET}"))
     if (verbose>=vt+5) bead_sum_tib %>% print()
     
-    pool_sum_tib <- ses_man_tib %>% dplyr::filter(Probe_Type=='cg' | Probe_Type=='ch' | Probe_Type=='rs') %>% 
+    pool_sum_tib <- ses_man_tib %>% 
+      dplyr::filter(Probe_Type=='cg' | Probe_Type=='ch' | Probe_Type=='rs') %>% 
       dplyr::mutate(Probe_Type=stringr::str_to_upper(Probe_Type)) %>%
       dplyr::group_by(Probe_Type) %>%
       dplyr::summarise(Count=n(), .groups='drop') %>% 

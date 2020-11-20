@@ -714,6 +714,21 @@ man_prb_list <- NULL
 man_raw_list <- man_raw_dat_tib %>% split(.$Probe_Type)
 
 # man_unq_keys <- NULL
+
+prb_cols <- 
+  c("Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col","Next_Base","Seq_ID",
+    "Probe_Type","Probe_Source","Version","Strand_TB","Strand_CO","Infinium_Design",
+    "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Probe_Class",
+    "AlleleA_Probe_Sequence_MIX","AlleleB_Probe_Sequence_MIX",
+    "Normalization_Bin","PD",
+    "Address_Seq_A","Decode_Status_A","Address_Seq_B","Decode_Status_B",
+    "BP","AQP","AlleleA_Probe_Length","AlleleB_Probe_Length","Di",
+    "Seq_48U,platform","version","FR","Rep_Cnt","ValidID","Assay_Class",
+    "Top_Sequence","Design_ID","PIDX,Design_Base_ID","Design_Base_AB",
+    "Control_Group","Control_Group_Str","DiNuc","N1","N2",
+    "COLOR_CHANNEL_A","COLOR_CHANNEL_B")
+
+
 for (probe_type in rev(names(man_raw_list)) ) {
   
   if (opt$verbose>=1)
@@ -802,6 +817,7 @@ if (opt$verbose>=1) {
 # TBD:: The binding should be piped into a general function to add
 #   inferred columns
 #
+
 
 # man_all_prb_tib <- NULL
 # for (ptype in names(man_prb_list)) {

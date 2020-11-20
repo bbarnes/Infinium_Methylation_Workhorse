@@ -130,6 +130,16 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
       percision_pval=percision_pval, 
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_dat_tib(workflow={workflow})={RET}"))
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}{RET}"))
+      
+      call_dat_tib %>% print()
+      
+      cat(glue::glue("{RET}{RET}{RET}"))
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    }
+    
     # Calls Summary:: betas
     #
     beta_metric <- 'mean'

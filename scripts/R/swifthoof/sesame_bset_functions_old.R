@@ -1,5 +1,17 @@
 
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Sex Karyotypes Investigation::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  man_tib <- rdat$sman
+  raw_sset <- newSset(rdat$prefix, platform = rdat$platform, manifest = man_tib, verbose = 20)
+  
+  safeSexKaryo(sset = raw_sset, verbose = 20)
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Bind all Calls/Sample Sheets::
