@@ -630,9 +630,6 @@ if (opt$cluster) {
   # readr::write_csv(time_tib, opt$time_csv)
 }
 
-# readr::write_csv(tmp_tib, "/repo/tmp_tib.csv.gz")
-# tmp_tib <- readr::read_csv(list.files("/repo/Infinium_Methylation_Workhorse/dat/ref", full.names=TRUE)[6])
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
