@@ -74,9 +74,9 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     #
     sset <- mutateSesame(sset=sset, method="betas", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    sset <- mutateSesame(sset=sset, method="detectionPnegEcdf", 
-                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     sset <- mutateSesame(sset=sset, method="pOOBAH", 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    sset <- mutateSesame(sset=sset, method="detectionPnegEcdf", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     if (write_sset && !is.null(sset_rds))
@@ -89,6 +89,13 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
       Method_Idx=idx
     )
     
+    # Predicted and Inferred Data::
+    #
+    pred_sum_tib <- NULL
+    pred_sum_tib <- ssetToPredictions(
+      sset=sset, # fresh=fresh,
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
     # Signal Summary
     #
     sigs_dat_tib <- NULL
@@ -179,13 +186,6 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_pval_ssheet_tib={RET}"))
       print(call_pval_ssheet_tib)
     }
-    
-    # Predicted and Inferred Data::
-    #
-    pred_sum_tib <- NULL
-    pred_sum_tib <- ssetToPredictions(
-      sset=sset, # fresh=fresh,
-      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # Gather all sample sheets::
     #
