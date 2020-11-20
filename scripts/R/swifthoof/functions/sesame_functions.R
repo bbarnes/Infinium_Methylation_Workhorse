@@ -109,6 +109,7 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     sigs_sum_tib <- NULL
     sigs_sum_tib <- sigsTibToSummary(
       tib=sigs_dat_tib,
+      percision=percision_sigs,
       save=write_ssum, csv=ssum_csv, 
       by=by, type=type, des="Probe_Class", 
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
@@ -137,7 +138,8 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     
     call_beta_sum_tib <- call_dat_tib %>% 
       dplyr::select(dplyr::all_of(betas_cols)) %>%
-      sigsTibToSummary(man=man, by=by, type=type, des="Probe_Design", 
+      sigsTibToSummary(man=man, percision=percision_beta,
+                       by=by, type=type, des="Probe_Design",
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     call_beta_ssheet_tib <- sigsSumToSSheet(
@@ -165,8 +167,9 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
       if (verbose>=vt+4) print(call_pval_sel_tib)
       
       call_pval_sum_tib <- call_pval_sel_tib %>%
-        sigsTibToSummary(man=man, by=by, type=type, des="Probe_Design", 
-                         cutoff=minNegPval,
+        sigsTibToSummary(man=man, cutoff=minNegPval, 
+                         percision=percision_pval,
+                         by=by, type=type, des="Probe_Design", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       if (verbose>=vt+4)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_pval_sum_tib={RET}"))

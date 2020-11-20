@@ -186,9 +186,6 @@ if (args.dat[1]=='RStudio') {
   opt$outDir <- file.path(par$topDir, 'scratch')
   locIdatDir <- file.path(par$topDir, 'data/idats')
   
-  opt$workflows <- 'ind'
-  opt$workflows <- "nd,ind"
-
   opt$buildSubDir  <- FALSE
   opt$auto_detect   <- FALSE
 
@@ -212,12 +209,7 @@ if (args.dat[1]=='RStudio') {
   opt$write_ssum  <- TRUE
   opt$write_call  <- TRUE
   opt$write_csum  <- TRUE
-  #
-  #
-  
-  opt$manDirName  <- 'base'
-  opt$manDirName  <- 'core'
-  
+
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'GRCm38'
@@ -279,9 +271,22 @@ if (args.dat[1]=='RStudio') {
 
   opt$auto_detect <- TRUE
   par$retData  <- TRUE
+  
+  opt$single   <- FALSE
   opt$single   <- TRUE
+  
+  opt$parallel <- TRUE
   opt$parallel <- FALSE
+  
+  opt$cluster  <- TRUE
   opt$cluster  <- FALSE
+  
+  opt$manDirName  <- 'core'
+  opt$manDirName  <- 'base'
+  
+  opt$workflows <- 'ind'
+  opt$workflows <- "nd,ind"
+
   opt$verbose  <- 6
   
 } else {

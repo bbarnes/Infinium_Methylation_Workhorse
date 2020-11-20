@@ -187,8 +187,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                          Initialize RAW SSET::
-    #
-    #  - Required for initial phenotype calcs before channel inference
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     #
@@ -213,6 +211,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     ret_dat_list <- NULL
     cur_dat_list <- NULL
     
+    auto_beta_key <- NULL
+    auto_negs_key <- NULL
+
     calls_tib <- NULL
     cur_dat_list = ssetToSummary(
       sset=cur_sset, man=ses_man_tib, idx=idx, workflow=cur_workflow,
@@ -236,6 +237,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     sheet_tib = cur_dat_list$sam_sheet
     ssheet_tib <- dplyr::bind_cols(ssheet_tib, sheet_tib)
     
+    if (is.null(auto_beta_key)) auto_beta_key <- paste(cur_workflow,'beta', sep=del)
+    if (is.null(auto_negs_key)) auto_negs_key <- paste(cur_workflow,'PnegEcdf', sep=del)
+
     if (verbose>=vt) {
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}{RET}"))
       cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
@@ -253,8 +257,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}{RET}"))
     
-    auto_beta_key <- NULL
-    auto_negs_key <- NULL
     workflow_cnt <- length(workflows)
     for (idx in seq(1,workflow_cnt)) {
       cur_workflow <- workflows[idx]
@@ -300,6 +302,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
         by="Probe_ID", type="Probe_Type", des="Probe_Class",
         fresh=opt$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_dat_list={RET}"))
+      cur_dat_list %>% print()
       
       sheet_tib = cur_dat_list$sam_sheet
       ssheet_tib <- dplyr::bind_cols(ssheet_tib, sheet_tib)

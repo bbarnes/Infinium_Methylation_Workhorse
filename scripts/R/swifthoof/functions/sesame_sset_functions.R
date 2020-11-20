@@ -386,7 +386,8 @@ sigsTibToSummary = function(tib, man=NULL,
     if (is.null(cutoff)) {
       ret_tib <- tib %>%
         dplyr::group_by(!!type_sym, !!des_sym) %>%
-        summarise_if(is.numeric, list(min=min, median=median, mean=mean, sd=sd, max=max), na.rm=TRUE) %>% dplyr::ungroup()
+        summarise_if(is.numeric, list(min=min, median=median, mean=mean, sd=sd, max=max), na.rm=TRUE) %>% 
+        dplyr::ungroup()
     } else {
       ret_tib <- tib %>% 
         dplyr::group_by(!!type_sym, !!des_sym) %>%
