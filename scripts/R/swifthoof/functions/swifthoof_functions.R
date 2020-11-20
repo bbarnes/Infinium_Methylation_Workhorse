@@ -255,7 +255,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (verbose>=vt) 
+    if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}{RET}"))
     
     workflow_cnt <- length(workflows)
@@ -311,6 +311,12 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
       ssheet_tib <- dplyr::bind_cols(ssheet_tib, sheet_tib)
       
       if (verbose>=vt) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} sheet_tib={RET}"))
+        print(sheet_tib)
+
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ssheet_tib={RET}"))
+        print(ssheet_tib)
+        
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}{RET}"))
         cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       }
