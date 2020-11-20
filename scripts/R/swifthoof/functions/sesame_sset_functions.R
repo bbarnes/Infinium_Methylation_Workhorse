@@ -353,8 +353,14 @@ sigsTibToSummary = function(tib, man=NULL,
       
       tib_cols <- names(tib)
       if (!(des %in% tib_cols)) {
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} right_join3(by,type,des)...{RET}"))
+        
         tib <- dplyr::select(man, !!by, !!type, !!des) %>% dplyr::right_join(tib, by=by)
       } else {
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} right_join2(by,type)...{RET}"))
+        
         tib <- dplyr::select(man, !!by, !!type) %>% dplyr::right_join(tib, by=by)
       }
 

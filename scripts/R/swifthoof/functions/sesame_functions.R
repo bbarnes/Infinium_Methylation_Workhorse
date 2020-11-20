@@ -124,20 +124,17 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     #
     call_dat_tib <- NULL
     call_dat_tib <- ssetToCallTib(
-      sset=sset, workflow=workflow, # fresh=fresh,
+      sset=sset, workflow=workflow,
       save=write_call, csv=call_csv, 
       percision_beta=percision_beta, 
       percision_pval=percision_pval, 
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     if (verbose>=vt) {
+      cat(glue::glue("{RET}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_dat_tib(workflow={workflow})={RET}"))
-      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}{RET}"))
-      
       call_dat_tib %>% print()
-      
-      cat(glue::glue("{RET}{RET}{RET}"))
-      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+      cat(glue::glue("{RET}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}{RET}"))
     }
     
     # Calls Summary:: betas

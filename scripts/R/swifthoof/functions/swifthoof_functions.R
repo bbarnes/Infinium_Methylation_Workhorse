@@ -322,22 +322,23 @@ sesamizeSingleSample = function(prefix, man, add, ref, opt, workflows,
     #                             Add Requeue Flags::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (verbose>=vt) 
+    if (verbose>=vt+4) {
+      cat(glue::glue("{RET}{RET}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Requeue Flag",
                      "(minOobPerc={opt$minOobPerc},minNegPerc={opt$minNegPerc})...{RET}"))
+    }
     
     ssheet_tib <- ssheet_tib %>% dplyr::mutate(
       Requeue_Flag_pOOBAH=dplyr::case_when(
         pOOBAH_cg_1_pass_perc_0 < opt$minOobPerc | pOOBAH_cg_2_pass_perc_0 < opt$minOobPerc ~ TRUE, TRUE ~ FALSE),
       Requeue_Flag_PnegEcdf=dplyr::case_when(
         PnegEcdf_cg_1_pass_perc_0 < opt$minNegPerc | PnegEcdf_cg_2_pass_perc_0 < opt$minNegPerc ~ TRUE, TRUE ~ FALSE)
-    ) %>% 
-      dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+    ) %>% dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
 
     if (verbose>=vt+4) {
-      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ssheet_tib(all requeue added)={RET}"))
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} Done. ssheet_tib(all requeue added)={RET}"))
       ssheet_tib %>% print()
-      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}{RET}"))
     }
     
     if (retData) {
