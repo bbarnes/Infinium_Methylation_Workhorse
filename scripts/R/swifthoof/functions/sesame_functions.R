@@ -72,6 +72,8 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     
     # Set/Update Pvals and Betas::
     #
+    sesame::extra(sset) <- NULL
+    
     sset <- mutateSesame(sset=sset, method="betas", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     sset <- mutateSesame(sset=sset, method="pOOBAH", 
