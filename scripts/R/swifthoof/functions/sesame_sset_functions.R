@@ -180,7 +180,8 @@ safeSexKaryo = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
     try_str <- ''
     val = tryCatch({
       try_str <- 'Pass'
-      suppressWarnings(sesame::inferSexKaryotypes(sset) )
+      suppressWarnings(inferSexKaryotypes2(sset) )
+      # suppressWarnings(sesame::inferSexKaryotypes(sset) )
     }, warning = function(w) {
       try_str <- paste('warning',funcTag, sep='-')
       NA
@@ -209,7 +210,8 @@ safeSex = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
     try_str <- ''
     val = tryCatch({
       try_str <- 'Pass'
-      suppressWarnings(sesame::inferSex(sset) )
+      suppressWarnings(inferSex2(sset) )
+      # suppressWarnings(sesame::inferSex(sset) )
     }, warning = function(w) {
       try_str <- paste('warning',funcTag, sep='-')
       NA
@@ -690,5 +692,148 @@ newSset = function(prefix, platform, manifest,
   sset
 }
 
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Extracted Sesame Functions:: Betas
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE) 
+{
+  if (is(sset, "SigSetList")) {
+    return(do.call(cbind, lapply(sset, getBetas2, mask = mask, 
+                                 sum.TypeI = sum.TypeI)))
+  }
+  stopifnot(is(sset, "SigSet"))
+  IGs <- IG(sset)
+  IRs <- IR(sset)
+  if (sum.TypeI) {
+    IGs <- IGs + oobR2(sset)
+    IRs <- IRs + oobG2(sset)
+  }
+  else if (!is.null(sset@extra$IGG) && !is.null(sset@extra$IRR)) {
+    IGs[!sset@extra$IGG, ] <- sset@oobR[!sset@extra$IGG, ]
+    IRs[!sset@extra$IRR, ] <- sset@oobG[!sset@extra$IRR, ]
+  }
+  betas <- c(pmax(IGs[, "M"], 1)/pmax(IGs[, "M"] + IGs[, "U"], 2), 
+             pmax(IRs[, "M"], 1)/pmax(IRs[, "M"] + IRs[, "U"], 2), 
+             pmax(II(sset)[, "M"], 1)/pmax(II(sset)[, "M"] + II(sset)[, "U"], 2))
+  if (mask) 
+    betas[!is.na(match(names(betas), sset@extra$mask))] <- NA
+  betas
+}
+
+pOOBAH2 = function (sset, force = FALSE) 
+{
+  stopifnot(is(sset, "SigSet"))
+  method <- "pOOBAH"
+  if (!force && method %in% names(extra(sset)$pvals)) {
+    cat("Retuning original sset\n")
+    return(sset)
+  }
+  funcG <- ecdf(oobG(sset))
+  funcR <- ecdf(oobR(sset))
+  # funcR <- ecdf(oobR(sset) %>% head())
+  
+  pIR <- 1 - apply(cbind(funcR(IR(sset)[, "M"]), funcR(IR(sset)[, 
+                                                                "U"])), 1, max)
+  pIG <- 1 - apply(cbind(funcG(IG(sset)[, "M"]), funcG(IG(sset)[, 
+                                                                "U"])), 1, max)
+  pII <- 1 - apply(cbind(funcG(II(sset)[, "M"]), funcR(II(sset)[, 
+                                                                "U"])), 1, max)
+  names(pIR) <- rownames(IR(sset))
+  names(pIG) <- rownames(IG(sset))
+  names(pII) <- rownames(II(sset))
+  if (!("pvals" %in% names(extra(sset)))) {
+    cat("Creating fresh list\n")
+    extra(sset)[["pvals"]] <- list()
+  }
+  cat(glue::glue("Setting method={method}{RET}{RET}"))
+  pIR %>% head() %>% print()
+  IR(sset) %>% head() %>% print()
+  # oobR(sset) %>% head() %>% print()
+  print(funcR)
+  
+  extra(sset)[["pvals"]][[method]] <- c(pIR, pIG, pII)
+  sset
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Extracted Sesame Functions:: Sex
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+inferSexKaryotypes2 = function (sset) 
+{
+  stopifnot(is(sset, "SigSet"))
+  sex.info <- getSexInfo2(sset)
+  auto.median <- median(sex.info[paste0("chr", seq_len(22))], 
+                        na.rm = TRUE)
+  XdivAuto <- sex.info["medianX"]/auto.median
+  YdivAuto <- sex.info["medianY"]/auto.median
+  if (XdivAuto > 1.2) {
+    if (sex.info["fracXlinked"] >= 0.5) 
+      sexX <- "XaXi"
+    else if (sex.info["fracXmeth"] > sex.info["fracXunmeth"]) 
+      sexX <- "XiXi"
+    else sexX <- "XaXa"
+  }
+  else {
+    if (sex.info["fracXmeth"] > sex.info["fracXunmeth"]) 
+      sexX <- "Xi"
+    else sexX <- "Xa"
+  }
+  if ((sexX == "Xi" || sexX == "Xa") && XdivAuto >= 1 && sex.info["fracXlinked"] >= 
+      0.5) 
+    sexX <- "XaXi"
+  if (YdivAuto > 0.3 || sex.info["medianY"] > 2000) 
+    sexY <- "Y"
+  else sexY <- ""
+  karyotype <- paste0(sexX, sexY)
+  karyotype
+}
+
+inferSex2 = function (sset) 
+{
+  stopifnot(is(sset, "SigSet"))
+  sex.info <- getSexInfo2(sset)[seq_len(3)]
+  as.character(predict(sesameDataGet("sex.inference"), sex.info))
+}
+
+# 
+# sesameData::sesameDataGet(paste0(rdat$raw_sset@platform, '.probeInfo'))$chrY.clean
+# sex_info <- getSexInfo_Copy(sset=rdat$raw_sset)
+# kar_info <- sesame::inferSexKaryotypes(sset=rdat$raw_sset)
+getSexInfo2 = function (sset) 
+{
+  if (is(sset, "SigSetList")) 
+    return(do.call(cbind, lapply(sset, getSexInfo)))
+  stopifnot(is(sset, "SigSet"))
+  cleanY <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrY.clean
+  # cleanY %>% length() %>% print()
+  
+  xLinked <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrX.xlinked
+  # xLinked %>% length() %>% print()
+  
+  probe2chr <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$probe2chr.hg19
+  # print(probe2chr)
+  
+  # xLinkedBeta <- sesame::getBetas(sset=sesame::subsetSignal(sset, xLinked))
+  xLinkedBeta <- getBetas2(sset=sesame::subsetSignal(sset, xLinked))
+  
+  intens <- sesame::totalIntensities(sset)
+  probes <- intersect(names(intens), names(probe2chr))
+  intens <- intens[probes]
+  probe2chr <- probe2chr[probes]
+  # print(probe2chr)
+  
+  # return( sesame::subsetSignal(sset, cleanY) )
+  # return( median(sesame::totalIntensities(sesame::subsetSignal(sset, cleanY))) )
+  
+  c(medianY = median(sesame::totalIntensities(sesame::subsetSignal(sset, cleanY)), na.rm=TRUE), 
+    medianX = median(sesame::totalIntensities(sesame::subsetSignal(sset, xLinked)), na.rm=TRUE), fracXlinked = 
+      (sum(xLinkedBeta > 0.3 & xLinkedBeta < 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta))) ), 
+    fracXmeth = (sum(xLinkedBeta > 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    fracXunmeth = (sum(xLinkedBeta < 0.3, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    tapply(intens, probe2chr, median, na.rm=TRUE))
+}
 
 # End of file

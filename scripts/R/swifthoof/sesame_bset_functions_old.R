@@ -11,6 +11,12 @@ if (FALSE) {
   
   safeSexKaryo(sset = raw_sset, verbose = 20)
   
+  inferSexKaryotypes2(sset=raw_sset)
+  
+  sesame::inferSexKaryotypes(sset=raw_sset)
+  
+  sesame::getSexInfo(sset=raw_sset)
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1717,6 +1723,27 @@ getSexInfo_Copy = function (sset)
     fracXmeth = (sum(xLinkedBeta > 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
     fracXunmeth = (sum(xLinkedBeta < 0.3, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
     tapply(intens, probe2chr, median, na.rm=TRUE))
+}
+
+getSexInfo_New = function (sset) {
+  if (is(sset, "SigSetList")) 
+    return(do.call(cbind, lapply(sset, getSexInfo)))
+  stopifnot(is(sset, "SigSet"))
+  cleanY <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrY.clean
+  xLinked <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrX.xlinked
+  probe2chr <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$probe2chr.hg19
+  xLinkedBeta <- getBetas(subsetSignal(sset, xLinked), mask = FALSE)
+  intens <- totalIntensities(sset)
+  probes <- intersect(names(intens), names(probe2chr))
+  intens <- intens[probes]
+  probe2chr <- probe2chr[probes]
+  c(medianY = median(totalIntensities(subsetSignal(sset, cleanY))), 
+    medianX = median(totalIntensities(subsetSignal(sset, 
+                                                   xLinked))), fracXlinked = (sum(xLinkedBeta > 0.3 & 
+                                                                                    xLinkedBeta < 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    fracXmeth = (sum(xLinkedBeta > 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    fracXunmeth = (sum(xLinkedBeta < 0.3, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
+    tapply(intens, probe2chr, median))
 }
 
 # End of file
