@@ -1,5 +1,4 @@
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Sex Karyotypes Investigation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -7,7 +6,43 @@
 if (FALSE) {
   
   man_tib <- rdat$sman
-  raw_sset <- newSset(rdat$prefix, platform = rdat$platform, manifest = man_tib, verbose = 20)
+  raw_sset <- newSset(rdat$prefix, platform = rdat$ssheet_tib$detect_platform[1], 
+                      manifest = man_tib, verbose = 20)
+  
+  cur_sset_rds <- NULL
+  cur_sigs_csv <- NULL
+  cur_ssum_csv <- NULL
+  cur_call_csv <- NULL
+  
+  idx <- 2
+  cur_workflow <- 'ind'
+  retData <- FALSE
+  out_name <- 'test'
+  
+  ind_sset <- mutateSSET_workflow(
+    sset=raw_sset, workflow=cur_workflow, 
+    save=opt$save_sset, rds=cur_sset_rds,
+    verbose=10)
+  
+  ind_lst = ssetToSummary(
+    sset=ind_sset, man=man_tib, idx=idx, workflow=cur_workflow,
+    name=out_name, outDir=opt$outDir,
+    
+    write_sset=opt$write_sset, sset_rds=cur_sset_rds, ret_sset=retData,
+    write_sigs=opt$write_sigs, sigs_csv=cur_sigs_csv, ret_sigs=retData,
+    write_ssum=opt$write_ssum, ssum_csv=cur_ssum_csv, ret_ssum=retData,
+    write_call=opt$write_call, call_csv=cur_call_csv, ret_call=retData,
+    
+    minNegPval=opt$minNegPval,minOobPval=opt$minOobPval,
+    percision_sigs=opt$percision_sigs,
+    percision_beta=opt$percision_beta,
+    percision_pval=opt$percision_pval,
+    
+    by="Probe_ID", type="Probe_Type", des="Probe_Class",
+    fresh=opt$fresh,
+    verbose=10
+  )
+  
   
   safeSexKaryo(sset = raw_sset, verbose = 20)
   
@@ -16,6 +51,457 @@ if (FALSE) {
   sesame::inferSexKaryotypes(sset=raw_sset)
   
   sesame::getSexInfo(sset=raw_sset)
+  
+}
+
+
+if (FALSE) {
+  ses_dat <- idat2manifest(sigs=idat_list$sig, mans=mans,
+                           verbose=verbose,tc=tc+1,tt=tTracker)
+  
+  # Make sure we have unique names::
+  ses_dat$man <- ses_dat$man %>% dplyr::distinct(Probe_ID, .keep_all=TRUE)
+  ses_man_tib <- ses_dat$man
+  
+  ses_add_tib <- ses_dat$add
+  platform_key <- ses_dat$platform
+  version_key  <- ses_dat$manifest
+  
+  bead_sum_tib <- ses_add_tib %>% 
+    dplyr::filter(Probe_Type=='cg') %>% 
+    dplyr::select(Address) %>% dplyr::left_join(idat_list$sig, by="Address") %>% 
+    dplyr::summarise(CG_Bead_Count=n(),
+                     CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), 
+                     CG_Bead_AvgRep=round(CG_Bead_Total/CG_Bead_Count/2),
+                     .groups='drop')
+  if (verbose>=vt+5) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} bead_sum_tib={RET}"))
+  if (verbose>=vt+5) bead_sum_tib %>% print()
+  
+  pool_sum_tib <- ses_man_tib %>% 
+    dplyr::filter(Probe_Type=='cg' | Probe_Type=='ch' | Probe_Type=='rs') %>% 
+    dplyr::mutate(Probe_Type=stringr::str_to_upper(Probe_Type)) %>%
+    dplyr::group_by(Probe_Type) %>%
+    dplyr::summarise(Count=n(), .groups='drop') %>% 
+    tidyr::spread(Probe_Type,Count) %>% 
+    purrr::set_names(paste(names(.),'Manifest_Count',sep='_') ) %>% 
+    addBeadPoolToSampleSheet(field='CG_Manifest_Count') %>% dplyr::ungroup()
+  if (verbose>=vt+5) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pool_sum_tib={RET}"))
+  if (verbose>=vt+5) pool_sum_tib %>% print()
+  
+  if (retData) {
+    ret$sman  <- ses_man_tib
+    ret$sadd  <- ses_add_tib
+    ret$sbead <- bead_sum_tib
+    ret$spool <- pool_sum_tib
+  }
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Initializing Auto-Sample-Sheet: [idat/bead/pheno].{RET}"))
+  
+  chipFormat <- idat_list$ann %>% dplyr::select(Chip_Format) %>% dplyr::pull()
+  beadPool   <- pool_sum_tib %>% dplyr::select(Bead_Pool) %>% dplyr::pull()
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} chipFormat={chipFormat}, beadPool={beadPool}.{RET}"))
+  
+  ssheet_tib <- NULL
+  ssheet_tib <- idat_list$ann
+  if (!is.null(pool_sum_tib)) ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(pool_sum_tib)
+  if (!is.null(bead_sum_tib)) ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(bead_sum_tib)
+  ssheet_tib <- ssheet_tib %>% tibble::add_column(minNegPval   = opts$minNegPval)
+  ssheet_tib <- ssheet_tib %>% tibble::add_column(minOobPval   = opts$minOobPval)
+  ssheet_tib <- ssheet_tib %>% tibble::add_column(minDeltaBeta = opts$minDeltaBeta)
+  ssheet_tib <- ssheet_tib %>% tibble::add_column(platformUsed = platform_key)
+  ssheet_tib <- ssheet_tib %>% tibble::add_column(platVersUsed = version_key)
+}
+
+if (FALSE) {
+  
+  tar_types <- c('cg','ch','rs')
+  tmp_tab <- getManifestBeadStats(dat=tdat$idat$sig, man=tdat$sman, types=tar_types, verbose=10)
+  
+  
+  pool_sum_tib <- tdat$sman %>% 
+    dplyr::filter(Probe_Type=='cg' | Probe_Type=='ch' | Probe_Type=='rs') %>% 
+    dplyr::mutate(Probe_Type=stringr::str_to_upper(Probe_Type)) %>%
+    dplyr::group_by(Probe_Type) %>%
+    dplyr::summarise(Count=n(), .groups='drop') %>% 
+    tidyr::spread(Probe_Type,Count) %>% 
+    purrr::set_names(paste(names(.),'Manifest_Count',sep='_') ) %>% 
+    addBeadPoolToSampleSheet(field='CG_Manifest_Count') %>% dplyr::ungroup()
+  
+  
+  tar_types <- c('cg','ch','rs')
+  idatAddToSsheet(dat=tdat$idat$sig, add=tdat$tadd, types=tar_types, verbose=10)
+  
+  
+  tar_types <- c('cg','ch','rs')
+  getManifestBeadStats(dat=tdat$idat$sig, man=tdat$tman, types=tar_types, verbose=10)
+  
+  
+  tmp_tab <- tdat$tadd %>% 
+    dplyr::select(Address,Probe_Type) %>% 
+    dplyr::left_join(tdat$idat$sig, by="Address") %>% 
+    dplyr::group_by(Probe_Type) %>%
+    dplyr::summarise(Bead_Count=n(), 
+                     Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), 
+                     Bead_AvgRep=round(Bead_Total/Bead_Count/2),
+                     .groups='drop') %>% 
+    tidyr::gather(name, value, -Probe_Type) %>% 
+    tidyr::unite(name, Probe_Type,name, sep='_') %>% 
+    tidyr::spread(name, value)
+  
+  
+  #
+  # Difference between Address Calculations::
+  #
+  tdat$tadd %>% 
+    dplyr::filter(Probe_Type=='cg') %>% 
+    dplyr::select(Probe_ID,Design_Type,Probe_Type,Address) %>% 
+    dplyr::left_join(tdat$idat$sig, by="Address") %>% 
+    dplyr::filter(is.na(Raw_Grn_sig)) %>%
+    as.data.frame()
+  
+  tdat$sadd %>% 
+    dplyr::filter(Probe_Type=='cg') %>% 
+    dplyr::select(Probe_ID,Design_Type,Probe_Type,Address) %>% 
+    dplyr::left_join(tdat$idat$sig, by="Address") %>% 
+    dplyr::filter(is.na(Raw_Grn_sig)) %>%
+    as.data.frame()
+  
+  tdat$tadd %>% dplyr::mutate(Add_Len=stringr::str_length(Address)) %>% 
+    dplyr::group_by(Add_Len) %>% dplyr::summarise(Len_Count=n(), .groups='drop')
+  tdat$sadd %>% dplyr::mutate(Add_Len=stringr::str_length(Address)) %>% 
+    dplyr::group_by(Add_Len) %>% dplyr::summarise(Len_Count=n(), .groups='drop')
+  
+  
+  tdat$sadd %>% dplyr::mutate(Add_Len=stringr::str_length(Address)) %>% 
+    dplyr::filter(Add_Len==7) %>% dplyr::left_join(tdat$sman, by="Probe_ID")
+  
+
+  
+  tdat$tadd %>% 
+    dplyr::filter(Probe_Type=='cg') %>% 
+    dplyr::select(Address) %>% 
+    dplyr::left_join(tdat$idat$sig, by="Address") %>% 
+    dplyr::summarise(CG_Bead_Count=n(), 
+                     CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), 
+                     CG_Bead_AvgRep=round(CG_Bead_Total/CG_Bead_Count/2),
+                     .groups='drop')
+  
+    
+  tdat$sadd %>% 
+    dplyr::filter(Probe_Type=='cg') %>% 
+    dplyr::select(Address) %>% dplyr::left_join(tdat$idat$sig, by="Address") %>% 
+    dplyr::summarise(CG_Bead_Count=n(), 
+                     CG_Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), 
+                     CG_Bead_AvgRep=round(CG_Bead_Total/CG_Bead_Count/2),
+                     .groups='drop')
+  
+  
+  
+  
+  tadd2 <- sesameManToAdd(rdat$tman, verbose = 20)
+  
+  tadd <- rdat$tman %>% 
+    dplyr::select(M,U, Probe_ID, Probe_Type, col) %>% 
+    dplyr::mutate(
+      Design_Type=dplyr::case_when(
+        is.na(M) ~ 'II',
+        !is.na(M) & !is.na(col) ~ paste0('I',col),
+        TRUE ~ NA_character_)
+    ) %>%
+    tidyr::gather(MU, Address, -Probe_ID, -col, -Design_Type, -Probe_Type) %>% 
+    dplyr::filter(!is.na(Address)) %>%
+    dplyr::select(Probe_ID,Address,col,Design_Type,Probe_Type) %>%
+    dplyr::arrange(Probe_ID)
+  
+  
+  rdat$tman %>% 
+    dplyr::select(M,U, Probe_ID, Probe_Type, col) %>% 
+    dplyr::rename(Design_Type=DESIGN, Man_Col=col)
+  
+  
+  
+  tadd <- rdat$tman %>% 
+    dplyr::select(M,U, Probe_ID, DESIGN, Probe_Type, col) %>% 
+    dplyr::rename(Design_Type=DESIGN, Man_Col=col) %>% 
+    tidyr::gather(MU, Address, -Probe_ID, -Man_Col, -Design_Type, -Probe_Type) %>% 
+    dplyr::filter(!is.na(Address)) %>% 
+    dplyr::select(Probe_ID,Address,Man_Col,Design_Type,Probe_Type,MU) %>% 
+    dplyr::arrange(Probe_ID)
+  
+  
+  rdat$sadd %>% dplyr::filter(!is.na(Man_Col))
+  tadd %>% dplyr::filter(!is.na(Man_Col))
+  
+  
+  
+  rdat$tman %>% 
+    dplyr::select(M,U, Probe_ID, DESIGN, Probe_Type, col) %>% 
+    dplyr::rename(Design_Type=DESIGN, Man_Col=col) %>% 
+    tidyr::gather(MU, Address, -Probe_ID, -Man_Col, -Design_Type, -Probe_Type) %>% 
+    dplyr::filter(!is.na(Address))
+  
+  
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Build Documentation::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  doc_dir <- '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/docs'
+  doc_dir <- '/Users/bretbarnes/Documents/tools/docs'
+  
+  
+  sheet_desc_csv <- file.path(doc_dir, 'AutoSampleSheet_description-table.csv')
+  
+  stmp_tab <- getSsheetDataTab(tib = rdat$ssheet_tib, 
+                               minOobPval=opt$minOobPval, minOobPerc=opt$minOobPerc,
+                               minNegPval=opt$minNegPval, minNegPerc=opt$minNegPerc,
+                               verbose = 1)
+  
+  
+  # Determine Number of Workflows::
+  #
+  max_idx <- rdat$ssheet_tib %>% 
+    dplyr::select(dplyr::starts_with('Method_Idx')) %>% 
+    tidyr::gather() %>% dplyr::arrange(-value) %>% 
+    head(n=1) %>% dplyr::pull(value)
+  
+  # Build Description Sheet
+  #
+  ssheet_desc_tib <- getSsheetCoreAnnoTib()
+  for (idx in c(0:max_idx)) {
+    ssheet_desc_tib <- ssheet_desc_tib %>% dplyr::bind_cols(getSsheetIndexAnnoTib(idx=idx))
+  }
+  
+  getSsheetDescTib(rdat$ssheet_tib)
+  
+
+  # Build Current Sample Sheet Table::
+  #
+  sheet_data_tab <- dplyr::inner_join(
+    rdat$ssheet_tib %>% tidyr::gather(Variable, Example),
+    tibble::enframe( unlist( sapply(rdat$ssheet_tib, class) ), name="Variable", value="Data_Type" ),
+    by="Variable"
+  )
+  sheet_data_tab %>% print(n=base::nrow(sheet_data_tab))
+  # readr::write_csv(sheet_data_tab,sheet_desc_csv)
+  
+  sheet_anno_tab
+  
+  # Join
+  sheet_anno_tab <- dplyr::bind_cols(
+    getSsheetCoreAnnoTib(),
+    getSsheetIndexAnnoTib(idx=0),
+    getSsheetIndexAnnoTib(idx=1),
+  ) %>% gather(Variable, Description)
+  sheet_anno_tab %>% print(n=base::nrow(sheet_anno_tab))
+  
+  sheet_desc_tab <- sheet_data_tab %>% dplyr::left_join(sheet_anno_tab, by="Variable")
+  sheet_desc_tab %>% print(n=base::nrow(sheet_desc_tab))
+  
+  
+  # CG_Bead_Total, CG_Bead_AvgRep
+  
+  
+  
+  sheet_anno_tib <- tibble::tibble(
+    # Sample Requeue Suggestion::
+    #
+    Requeue_Flag_pOOBAH = 
+      glue::glue("Flag to automatically requeue a faild sample based on percent loci with pOOBAH detection p-value < {opt$minOobPval}. Percent threshold = {opt$minOobPerc}."),
+    Requeue_Flag_PnegEcdf = 
+      glue::glue("Flag to automatically requeue a faild sample based on percent loci with PnegEcdf detection p-value < {opt$minNegPval}. Percent threshold = {opt$minNegPerc}."),
+    
+    # Sample Identification::
+    #
+    Sentrix_Name = "Unique Sentrix Name: Sentrix_Barcode + Sentrix_Poscode.",
+    Sentrix_Barcode = "Sentrix Bar Code (AKA Sentrix_ID).",
+    Sentrix_Poscode = "Sentrix Position Code (AKA Sentrix_Position).",
+    Sentrix_Row = "Sentrix Row on chip.",
+    Sentrix_Col = "Sentrix Column on Chip.",
+    Chip_Type = "Idat Chip Type.",
+    Chip_Format = "Idat Chip Format (e.g. 8x1, 12x1, 24x1, etc.).",
+    Bead_Pool = "Automatically identified bead pool based on address overlap (e.g. HM450, EPIC, etc.).",
+    
+    # Bead and Manifest Loci Summary::
+    #
+    CG_Manifest_Count = "Total number of sample cg# loci overlapping manifest based on address presence NOT detection p-value.",
+    CH_Manifest_Count = "Total number of sample ch# loci overlapping manifest based on address presence NOT detection p-value.",
+    RS_Manifest_Count = "Total number of sample rs# loci overlapping manifest based on address presence NOT detection p-value.",
+    CG_Bead_Count     = "Total number of sample cg# bead-types found overlapping manifest based on address presence NOT number of bead types.",
+    CH_Bead_Count     = "Total number of sample ch# bead-types found overlapping manifest based on address presence NOT number of bead types.",
+    RS_Bead_Count     = "Total number of sample rs# bead-types found overlapping manifest based on address presence NOT number of bead types.",
+    
+    # Parameters Used::
+    #
+    minNegPval = "Minimum Negative (PnegEcdf) detection p-value threshold used.",
+    minOobPval = "Minimum Out-Of-Band (pOOBAH) detection p-value threshold used.",
+    minDeltaBeta = "Minimum delta-Beta cutoff used for Sample-Auto-Detection calculations.",
+    platformUsed = "Platform name used. Identified during Auto-Manifest-Detection.",
+    platVersUsed = "Platform version used. Identified during Auto-Manifest-Detection.",
+    
+    # Inference and Predictions::
+    #
+    Method_Key_XXX = glue::glue("Method workflow name used for metrics ending with XXX."),
+    Method_Idx_XXX = glue::glue("Method workflow index used for metrics ending with XXX."),
+    GCT_XXX = glue::glue("GCT Score for method index XXX. ",
+                         "See Bioconductor Package sesame::GCT(sset): ",
+                         "Compute GCT score for internal bisulfite conversion control. ",
+                         "The function takes a SigSet as input. The higher the GCT score, the more likely the incomplete conversion."),
+    
+    Sex_XXX = glue::glue("Sex call for method index XXX. ",
+                         "See Bioconductor Package ‘sesame’ sesame::inferSex(sset)."),
+    SexKaryotype_XXX = glue::glue("Sex Karyotype call for method index XXX. ",
+                                  "See Bioconductor Package ‘sesame’ sesame::inferSexKaryotypes(sset)."),
+    
+    Ethnicity_XXX = glue::glue("Ethnicity call for method index XXX. ",
+                               "See Bioconductor Package ‘sesame’ sesame::inferEthnicity(sset).",
+                               "This function uses both the built-in rsprobes as well as the type I Color-Channel-Switching probes to infer ethnicity."),
+    
+    SwapCntIGR_XXX = glue::glue("Number of Grn to Red swapped channels for method index XXX. ",
+                                "See Bioconductor Package ‘sesame’ sesame::inferTypeIChannel(sset).",
+                                "Infer and reset color channel for Type-I probes instead of using what is specified in manifest."),
+    SwapCntIRG_XXX = glue::glue("Number of Red to Grn swapped channels for method index XXX. ",
+                                "See Bioconductor Package ‘sesame’ sesame::inferTypeIChannel(sset).",
+                                "Infer and reset color channel for Type-I probes instead of using what is specified in manifest."),
+    
+    AgeSkinBlood_XXX = glue::glue("Horvath Skin and Blood age predictor call for method index XXX. ",
+                                  "See Bioconductor Package ‘sesame’ sesame::predictAgeSkinBlood(betas)."),
+    
+    # Detection P-values:: pOOBAH
+    #
+    pOOBAH_cg_1_pass_perc_XXX = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {opt$minOobPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+    pOOBAH_cg_2_pass_perc_XXX = glue::glue("Percent cg Infinium II loci with pOOBAH detection p-value < {opt$minOobPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+
+    pOOBAH_ch_1_pass_perc_XXX = glue::glue("Percent ch Infinium I loci with pOOBAH detection p-value < {opt$minOobPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+    pOOBAH_ch_2_pass_perc_XXX = glue::glue("Percent ch Infinium II loci with pOOBAH detection p-value < {opt$minOobPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+
+    pOOBAH_rs_1_pass_perc_XXX = glue::glue("Percent rs Infinium I loci with pOOBAH detection p-value < {opt$minOobPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+    pOOBAH_rs_2_pass_perc_XXX = glue::glue("Percent rs Infinium II loci with pOOBAH detection p-value < {opt$minOobPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+    
+    # Detection P-values:: PnegEcdf
+    #
+    PnegEcdf_cg_1_pass_perc_XXX = glue::glue("Percent cg Infinium I loci with PnegEcdf detection p-value < {opt$minNegPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+    PnegEcdf_cg_2_pass_perc_XXX = glue::glue("Percent cg Infinium II loci with PnegEcdf detection p-value < {opt$minNegPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+    
+    PnegEcdf_ch_1_pass_perc_XXX = glue::glue("Percent ch Infinium I loci with PnegEcdf detection p-value < {opt$minNegPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+    PnegEcdf_ch_2_pass_perc_XXX = glue::glue("Percent ch Infinium II loci with PnegEcdf detection p-value < {opt$minNegPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+    
+    PnegEcdf_rs_1_pass_perc_XXX = glue::glue("Percent rs Infinium I loci with PnegEcdf detection p-value < {opt$minNegPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+    PnegEcdf_rs_2_pass_perc_XXX = glue::glue("Percent rs Infinium II loci with PnegEcdf detection p-value < {opt$minNegPval} for method index XXX. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+    
+
+    # Average Beta Values::
+    #
+    cg_1_mean_XXX = glue::glue("Mean beta-value of cg Infinium I loci for method XXX."),
+    cg_2_mean_XXX = glue::glue("Mean beta-value of cg Infinium II loci for method XXX."),
+    
+    ch_1_mean_XXX = glue::glue("Mean beta-value of ch Infinium I loci for method XXX."),
+    ch_2_mean_XXX = glue::glue("Mean beta-value of ch Infinium II loci for method XXX."),
+    
+    rs_1_mean_XXX = glue::glue("Mean beta-value of rs Infinium I loci for method XXX."),
+    rs_2_mean_XXX = glue::glue("Mean beta-value of rs Infinium II loci for method XXX."),
+    
+    # Average Intensities::
+    #
+    BISULFITE_CONVERSION_I_2_M_mean_XXX = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Grn loci for method XXX."),
+    BISULFITE_CONVERSION_I_2_U_mean_XXX = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Red loci for method XXX."),
+    
+    BISULFITE_CONVERSION_II_2_M_mean_XXX = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Grn loci for method XXX."),
+    BISULFITE_CONVERSION_II_2_U_mean_XXX = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Red loci for method XXX."),
+    
+    cg_2_M_mean_XXX = glue::glue("Mean intensity of cg Infinium II Grn (methylated) loci for method XXX."),
+    cg_2_U_mean_XXX = glue::glue("Mean intensity of cg Infinium II Red (unmethylated) loci for method XXX."),
+    
+    cg_IG_M_mean_XXX = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (methylated) loci for method XXX."),
+    cg_IG_U_mean_XXX = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (unmethylated) loci for method XXX."),
+    cg_IR_M_mean_XXX = glue::glue("Mean intensity of cg Infinium I In-Bound Red (methylated) loci for method XXX."),
+    cg_IR_U_mean_XXX = glue::glue("Mean intensity of cg Infinium I In-Bound Red (unmethylated) loci for method XXX."),
+    
+    cg_OG_M_mean_XXX = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (methylated) loci for method XXX."),
+    cg_OG_U_mean_XXX = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (unmethylated) loci for method XXX."),
+    cg_OR_M_mean_XXX = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (methylated) loci for method XXX."),
+    cg_OR_U_mean_XXX = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (unmethylated) loci for method XXX."),
+    
+    ch_2_M_mean_XXX = glue::glue("Mean intensity of ch Infinium II Grn (methylated) loci for method XXX."),
+    ch_2_U_mean_XXX = glue::glue("Mean intensity of ch Infinium II Red (unmethylated) loci for method XXX."),
+    
+    EXTENSION_2_M_mean_XXX = glue::glue("Mean intensity of EXTENSION Grn loci for method XXX."),
+    EXTENSION_2_U_mean_XXX = glue::glue("Mean intensity of EXTENSION Red loci for method XXX."),
+    
+    HYBRIDIZATION_2_M_mean_XXX = glue::glue("Mean intensity of HYBRIDIZATION Grn loci for method XXX."),
+    HYBRIDIZATION_2_U_mean_XXX = glue::glue("Mean intensity of HYBRIDIZATION Red loci for method XXX."),
+    
+    NEGATIVE_2_M_mean_XXX = glue::glue("Mean intensity of NEGATIVE Grn loci for method XXX."),
+    NEGATIVE_2_U_mean_XXX = glue::glue("Mean intensity of NEGATIVE Red loci for method XXX."),
+
+    NON_POLYMORPHIC_2_M_mean_XXX = glue::glue("Mean intensity of NON_POLYMORPHIC Grn loci for method XXX."),
+    NON_POLYMORPHIC_2_U_mean_XXX = glue::glue("Mean intensity of NON_POLYMORPHIC Red loci for method XXX."),
+    
+    NORM_A_2_M_mean_XXX = glue::glue("Mean intensity of NORM_A Grn loci for method XXX."),
+    NORM_A_2_U_mean_XXX = glue::glue("Mean intensity of NORM_A Red loci for method XXX."),
+    
+    NORM_C_2_M_mean_XXX = glue::glue("Mean intensity of NORM_C Grn loci for method XXX."),
+    NORM_C_2_U_mean_XXX = glue::glue("Mean intensity of NORM_C Red loci for method XXX."),
+    
+    NORM_G_2_M_mean_XXX = glue::glue("Mean intensity of NORM_G Grn loci for method XXX."),
+    NORM_G_2_U_mean_XXX = glue::glue("Mean intensity of NORM_G Red loci for method XXX."),
+    
+    NORM_T_2_M_mean_XXX = glue::glue("Mean intensity of NORM_T Grn loci for method XXX."),
+    NORM_T_2_U_mean_XXX = glue::glue("Mean intensity of NORM_T Red loci for method XXX."),
+    
+    RESTORATION_2_M_mean_XXX = glue::glue("Mean intensity of RESTORATION Grn loci for method XXX."),
+    RESTORATION_2_U_mean_XXX = glue::glue("Mean intensity of RESTORATION Red loci for method XXX."),
+    
+    rs_2_M_mean_XXX = glue::glue("Mean intensity of rs Infinium II Grn (methylated) loci for method XXX."),
+    rs_2_U_mean_XXX = glue::glue("Mean intensity of rs Infinium II Red (unmethylated) loci for method XXX."),
+    
+    rs_IG_M_mean_XXX = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (methylated) loci for method XXX."),
+    rs_IG_U_mean_XXX = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (unmethylated) loci for method XXX."),
+    rs_IR_M_mean_XXX = glue::glue("Mean intensity of rs Infinium I In-Bound Red (methylated) loci for method XXX."),
+    rs_IR_U_mean_XXX = glue::glue("Mean intensity of rs Infinium I In-Bound Red (unmethylated) loci for method XXX."),
+    
+    rs_OG_M_mean_XXX = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (methylated) loci for method XXX."),
+    rs_OG_U_mean_XXX = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (unmethylated) loci for method XXX."),
+    rs_OR_M_mean_XXX = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (methylated) loci for method XXX."),
+    rs_OR_U_mean_XXX = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (unmethylated) loci for method XXX."),
+    
+    SPECIFICITY_I_2_M_mean_XXX = glue::glue("Mean intensity of SPECIFICITY_I Grn loci for method XXX."),
+    SPECIFICITY_I_2_U_mean_XXX = glue::glue("Mean intensity of SPECIFICITY_I Red loci for method XXX."),
+    
+    SPECIFICITY_II_2_M_mean_XXX = glue::glue("Mean intensity of SPECIFICITY_II Grn loci for method XXX."),
+    SPECIFICITY_II_2_U_mean_XXX = glue::glue("Mean intensity of SPECIFICITY_II Red loci for method XXX."),
+    
+    STAINING_2_M_mean_XXX = glue::glue("Mean intensity of STAINING Grn loci for method XXX."),
+    STAINING_2_U_mean_XXX = glue::glue("Mean intensity of STAINING Red loci for method XXX."),
+
+    TARGET_REMOVAL_2_M_mean_XXX = glue::glue("Mean intensity of TARGET_REMOVAL Grn loci for method XXX."),
+    TARGET_REMOVAL_2_U_mean_XXX = glue::glue("Mean intensity of TARGET_REMOVAL Red loci for method XXX.")
+  )
+  
+  sheet_anno_tib %>% gather(Variable, Description) %>% print(n=base::ncol(sheet_anno_tib))
+  
+  sheet_data_tab %>% print(n=57)
+  
+  
+    
+  
+  sheet_data_tab
+  sheet_data_tab %>% print(n=base::nrow(sheet_data_tab))
   
 }
 

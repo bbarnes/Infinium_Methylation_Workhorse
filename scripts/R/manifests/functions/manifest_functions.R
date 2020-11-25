@@ -367,7 +367,7 @@ bindProbeDesignList = function(list, platform, version,
                     AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
                     Top_Sequence, dplyr::everything()) %>%
       dplyr::arrange(Probe_ID)
-
+    
     # Matched Group Summary::
     sum_tib <- ret_tib %>% 
       dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
@@ -1030,7 +1030,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           #   dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Seq_48U, everything())
           # }
         }
-
+        
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                              Load AQP Data::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1056,7 +1056,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           #     dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Seq_48U, everything())
           # }
         }
-
+        
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                  QC Sanity Checks for AQP/PQC if present::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1087,7 +1087,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           stop(glue::glue("{RET}[{funcTag}]: ERROR: Niether PQC or AQP tibble exists!!!}{RET}{RET}"))
           return(NULL)
         }
-
+        
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                       Fix Adhoc Probe_ID/Probe_Type::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1111,7 +1111,7 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
             cat(glue::glue("[{funcTag}]: Writing Probe Type Summary Manifest={sum_csv}...{RET}") )
           readr::write_csv(sum_tib,sum_csv)
         }
-
+        
         rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         if (!is.null(rep_csv)) {
           if (verbose>=vt) 
@@ -1336,7 +1336,7 @@ inferOrderFields = function(tib, sidx=2, plen=50,
           !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) ~ 1,
           !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) ~ 2,
           TRUE ~ NA_real_)
-        ) %>%
+      ) %>%
       dplyr::filter(!is.na(Infinium_Design)) %>%
       dplyr::mutate(
         Seq_48U=dplyr::case_when(
@@ -1452,7 +1452,7 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_tib={RET}"))
       if (verbose>=vt+4) cur_tib %>% head(n=2) %>% print()
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
-
+      
       if (type=='cg' || type=='ch' || type=='rp') {
         cur_tib <- cur_tib %>% 
           dplyr::mutate(
@@ -1834,7 +1834,7 @@ decodeToManifest = function(ord, mat, pqc,
                             pqcFormat='pqc', pqcSkip=7,  pqcGuess=1000,
                             
                             sidx=2, plen=50,
-
+                            
                             matCols=NULL,
                             full=FALSE, trim=TRUE,
                             verbose=0,vt=4,tc=1,tt=NULL) {
@@ -2026,11 +2026,11 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             Manifest I/O::
+#                        Manifest Merging Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-idatToManifestMap = function(tib, mans, field='Address', sortMax=TRUE,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
+                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'idatToManifestMap'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -2047,7 +2047,7 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=TRUE,
     can_cnt <- can_tib %>% base::nrow()
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr} Idat Address Count={can_cnt}.{RET}"))
-
+    
     man_keys <- names(mans)
     man_cnts <- length(man_keys)
     
@@ -2090,16 +2090,13 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=TRUE,
             stringr::str_remove('^0+') %>% as.numeric() %>% as.integer() )
       }
       ref_cnt <- ref_tib %>% dplyr::distinct(!!field_sym) %>% base::nrow()
-      if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest Address Count={ref_cnt}.{RET}"))
-      
-      # Get intersection::
-      #
-      # if (verbose>=vt+4) print(can_tib)
-      # if (verbose>=vt+4) print(ref_tib)
       
       mat_tib <- dplyr::inner_join(can_tib,ref_tib, by=field)
       mat_cnt <- mat_tib %>% base::nrow()
-      rec_per <- round(100*mat_cnt / base::min(can_cnt,ref_cnt), 3)
+      rec_per <- base::round(100*mat_cnt / base::min(can_cnt,ref_cnt), 3)
+      
+      if (verbose>=vt+1) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest Address Count={ref_cnt}, RCP={rec_per}.{RET}"))
       
       # Update tables::
       #
@@ -2114,6 +2111,39 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=TRUE,
       ret_tib <- dplyr::bind_rows(ret_tib, rec_tib)
     }
     ret_tib <- ret_tib %>% dplyr::arrange(-rc_per)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+sesameManToAdd = function(tib,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'sesameManToAdd'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_tib <- tib %>% 
+      dplyr::select(M,U, Probe_ID, Probe_Type, col) %>% 
+      dplyr::mutate(
+        Design_Type=dplyr::case_when(
+          is.na(M) ~ 'II',
+          !is.na(M) & !is.na(col) ~ paste0('I',col),
+          TRUE ~ NA_character_)
+      ) %>%
+      tidyr::gather(MU, Address, -Probe_ID, -col, -Design_Type, -Probe_Type) %>% 
+      dplyr::filter(!is.na(Address)) %>%
+      dplyr::select(Probe_ID,Address,col,Design_Type,Probe_Type) %>%
+      dplyr::arrange(Probe_ID)
     
     ret_cnt <- ret_tib %>% base::nrow()
   })
@@ -2189,6 +2219,91 @@ idat2manifest = function(sigs, mans, verbose=0,vt=4,tc=1,tt=NULL) {
   
   ret
 }
+
+getManifestBeadStats = function(dat, man, types=NULL,
+                                verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'getManifestBeadStats'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    add <- sesameManToAdd(tib=man, 
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    if (!is.null(types)) {
+      add <- add %>% dplyr::filter(Probe_Type %in% types)
+      man <- man %>% dplyr::filter(Probe_Type %in% types)
+    }
+    
+    add_tib <- add %>% 
+      dplyr::select(Address,Probe_Type) %>% 
+      dplyr::left_join(dat, by="Address") %>% 
+      dplyr::group_by(Probe_Type) %>%
+      dplyr::summarise(Bead_Count=n(), 
+                       Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), 
+                       Bead_AvgRep=round(Bead_Total/Bead_Count/2),
+                       .groups='drop') %>% 
+      tidyr::gather(name, value, -Probe_Type) %>% 
+      tidyr::unite(name, name,Probe_Type, sep='_')
+    
+    man_tib <- man %>% 
+      dplyr::rename(name=Probe_Type) %>% 
+      dplyr::mutate(name=paste('Loci_Count',name, sep='_')) %>%
+      dplyr::group_by(name) %>%
+      dplyr::summarise(value=n(), .groups='drop')
+    
+    ret_tib <- dplyr::bind_rows(man_tib,add_tib)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+idatAddToSsheet = function(dat, add, types=NULL,
+                           verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'idatAddToSsheet'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    if (!is.null(types)) add <- add %>% dplyr::filter(Probe_Type %in% types)
+    
+    ret_tib <- add %>% 
+      dplyr::select(Address,Probe_Type) %>% 
+      dplyr::left_join(dat, by="Address") %>% 
+      dplyr::group_by(Probe_Type) %>%
+      dplyr::summarise(Bead_Count=n(), 
+                       Bead_Total=sum(Bead_Grn,Bead_Red, na.rm=TRUE), 
+                       Bead_AvgRep=round(Bead_Total/Bead_Count/2),
+                       .groups='drop') %>% 
+      tidyr::gather(name, value, -Probe_Type) %>% 
+      tidyr::unite(name, name,Probe_Type, sep='_') %>% 
+      tidyr::spread(name, value)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Manifest I/O::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL, 
                            verbose=0,vt=4,tc=1,tt=NULL) {

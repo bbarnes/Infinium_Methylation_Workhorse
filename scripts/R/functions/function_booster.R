@@ -74,7 +74,8 @@ clean_file = function(file,
 #                General Program Initialization Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-program_init = function(name,opts,opt_reqs=NULL,pars,par_reqs=NULL,
+program_init = function(name,defs=NULL,
+                        opts,opt_reqs=NULL,pars,par_reqs=NULL,
                         libs=TRUE,rcpp=FALSE,
                         verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'program_init'
@@ -108,10 +109,12 @@ program_init = function(name,opts,opt_reqs=NULL,pars,par_reqs=NULL,
     opts <- load_libraries(opts=opts, pars=pars, rcpp=rcpp,
                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
   }
-  par_tib <- dplyr::bind_rows(pars) %>% tidyr::gather("Params", "Value")
+  # if (!is.null(defs))
+  #   def_tib <- dplyr::bind_rows(defs) %>% tidyr::gather("Params", "Value")
   opt_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
-  if (opts$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
+  par_tib <- dplyr::bind_rows(pars) %>% tidyr::gather("Params", "Value")
   if (opts$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
+  if (opts$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                            Build Directories::

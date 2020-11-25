@@ -133,14 +133,18 @@ opt$dpi <- 120
 opt$plotMax <- 10000
 opt$plotSub <- 5000
 
-opt$opt_csv  <- NULL
-opt$par_csv  <- NULL
+# opt$opt_csv  <- NULL
+# opt$par_csv  <- NULL
+# opt$time_csv <- NULL
 
-opt$time_csv <- NULL
 opt$time_org_txt <- NULL
 
 # verbose Options::
 opt$verbose <- 3
+
+# Set Default Options::
+#
+def <- opt
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                               Parse Options::
@@ -284,8 +288,8 @@ if (args.dat[1]=='RStudio') {
   opt$manDirName  <- 'core'
   opt$manDirName  <- 'base'
   
-  opt$workflows <- 'ind'
   opt$workflows <- "nd,ind"
+  opt$workflows <- 'ind'
 
   opt$verbose  <- 6
   
@@ -418,12 +422,13 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--plotSub"), type="double", default=opt$plotSub, 
                 help="Sub Sample Display Count for Plotting [default= %default]", metavar="double"),
     
-    make_option(c("--opt_csv"), type="character", default=opt$opt_csv, 
-                help="Unused variable opt_csv [default= %default]", metavar="character"),
-    make_option(c("--par_csv"), type="character", default=opt$par_csv, 
-                help="Unused variable par_csv [default= %default]", metavar="character"),
-    make_option(c("--time_csv"), type="character", default=opt$time_csv, 
-                help="Unused variable time_csv [default= %default]", metavar="character"),
+    # make_option(c("--opt_csv"), type="character", default=opt$opt_csv, 
+    #             help="Unused variable opt_csv [default= %default]", metavar="character"),
+    # make_option(c("--par_csv"), type="character", default=opt$par_csv, 
+    #             help="Unused variable par_csv [default= %default]", metavar="character"),
+    # make_option(c("--time_csv"), type="character", default=opt$time_csv, 
+    #             help="Unused variable time_csv [default= %default]", metavar="character"),
+    
     make_option(c("--time_org_txt"), type="character", default=opt$time_org_txt, 
                 help="Unused variable time_org_txt [default= %default]", metavar="character"),
     # verbose::
@@ -452,19 +457,24 @@ opt <- program_init(name=par$prgmTag,
                     libs=TRUE,rcpp=FALSE,
                     verbose=opt$verbose,vt=3,tc=0,tt=NULL)
 
-par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
+par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
+
+# def_tib <- dplyr::bind_rows(def) %>% tidyr::gather("Option", "Value")
+# dplyr::left_join(opt_tib, def_tib, by="Option", suffix=c("_Run", "_Default"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (!dir.exists(opt$idatsDir)) stop(glue::glue("{RET}[{par$prgmTag}]: idatsDir={opt$idatsDir} does not exist!!!{RET}{RET}"))
+if (!dir.exists(opt$idatsDir))
+  stop(glue::glue("{RET}[{par$prgmTag}]: idatsDir={opt$idatsDir} does not exist!!!{RET}{RET}"))
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Output Directory (TOP)={opt$outDir}...{RET}"))
 
 workflows_vec <- NULL
-if (!is.null(opt$workflows)) workflows_vec <- opt$workflows %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$workflows)) 
+  workflows_vec <- opt$workflows %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
@@ -593,7 +603,8 @@ if (opt$cluster) {
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
       
       rdat <- NULL
-      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], 
+                                   man=mans, ref=auto_sam_tib, opts=opt, defs=def,
                                    retData=par$retData, workflows=workflows_vec, tc=1)
       rdat
     }
@@ -608,8 +619,15 @@ if (opt$cluster) {
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
       rdat <- NULL
-      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], man=mans, ref=auto_sam_tib, opt=opt, 
+      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], 
+                                   man=mans, ref=auto_sam_tib, opts=opt, defs=def,
                                    retData=par$retData, workflows=workflows_vec, tc=1)
+      
+      if (FALSE) {
+        tdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], 
+                                     man=mans, ref=auto_sam_tib, opts=opt, defs=def,
+                                     retData=par$retData, workflows=workflows_vec, tc=1)
+      }
       
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
@@ -617,17 +635,18 @@ if (opt$cluster) {
     cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   }
   
-  opt$opt_csv  <- file.path(opt$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )
-  opt$par_csv  <- file.path(opt$outDir, paste(par$prgmTag,'program-parameters.csv', sep='.') )
-  opt$time_csv <- file.path(opt$outDir, paste(par$prgmTag,'time-tracker.csv.gz', sep='.') )
+  opt_csv <- file.path(opt$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )
+  par_csv <- file.path(opt$outDir, paste(par$prgmTag,'program-parameters.csv', sep='.') )
   
-  opt_tib  <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value") %>% dplyr::arrange(Option)
-  par_tib  <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value") %>% dplyr::arrange(Params)
-  # time_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+  opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value") %>% dplyr::arrange(Option)
+  par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value") %>% dplyr::arrange(Params)
   
-  readr::write_csv(opt_tib, opt$opt_csv)
-  readr::write_csv(par_tib, opt$par_csv)
-  # readr::write_csv(time_tib, opt$time_csv)
+  readr::write_csv(opt_tib, opt_csv)
+  readr::write_csv(par_tib, par_csv)
+  
+  # tim_csv <- file.path(opt$outDir, paste(par$prgmTag,'time-tracker.csv.gz', sep='.') )
+  # tim_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
+  # readr::write_csv(tim_tib, tim_csv)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

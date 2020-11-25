@@ -151,7 +151,8 @@ safeEthnicity = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
     try_str <- ''
     val = tryCatch({
       try_str <- 'Pass'
-      suppressWarnings(sesame::inferEthnicity(sset) )
+      suppressWarnings(inferEthnicity2(sset) )
+      # suppressWarnings(sesame::inferEthnicity(sset) )
     }, warning = function(w) {
       try_str <- paste('warning',funcTag, sep='-')
       NA
@@ -692,12 +693,11 @@ newSset = function(prefix, platform, manifest,
   sset
 }
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Extracted Sesame Functions:: Betas
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE) 
+getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE, extra=TRUE) 
 {
   if (is(sset, "SigSetList")) {
     return(do.call(cbind, lapply(sset, getBetas2, mask = mask, 
@@ -710,7 +710,7 @@ getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE)
     IGs <- IGs + oobR2(sset)
     IRs <- IRs + oobG2(sset)
   }
-  else if (!is.null(sset@extra$IGG) && !is.null(sset@extra$IRR)) {
+  else if (extra && !is.null(sset@extra$IGG) && !is.null(sset@extra$IRR)) {
     IGs[!sset@extra$IGG, ] <- sset@oobR[!sset@extra$IGG, ]
     IRs[!sset@extra$IRR, ] <- sset@oobG[!sset@extra$IRR, ]
   }
@@ -727,7 +727,7 @@ pOOBAH2 = function (sset, force = FALSE)
   stopifnot(is(sset, "SigSet"))
   method <- "pOOBAH"
   if (!force && method %in% names(extra(sset)$pvals)) {
-    cat("Retuning original sset\n")
+    # cat("Retuning original sset\n")
     return(sset)
   }
   funcG <- ecdf(oobG(sset))
@@ -744,10 +744,10 @@ pOOBAH2 = function (sset, force = FALSE)
   names(pIG) <- rownames(IG(sset))
   names(pII) <- rownames(II(sset))
   if (!("pvals" %in% names(extra(sset)))) {
-    cat("Creating fresh list\n")
+    # cat("Creating fresh list\n")
     extra(sset)[["pvals"]] <- list()
   }
-  cat(glue::glue("Setting method={method}{RET}{RET}"))
+  # cat(glue::glue("Setting method={method}{RET}{RET}"))
   pIR %>% head() %>% print()
   IR(sset) %>% head() %>% print()
   # oobR(sset) %>% head() %>% print()
@@ -798,35 +798,42 @@ inferSex2 = function (sset)
   as.character(predict(sesameDataGet("sex.inference"), sex.info))
 }
 
-# 
-# sesameData::sesameDataGet(paste0(rdat$raw_sset@platform, '.probeInfo'))$chrY.clean
-# sex_info <- getSexInfo_Copy(sset=rdat$raw_sset)
-# kar_info <- sesame::inferSexKaryotypes(sset=rdat$raw_sset)
 getSexInfo2 = function (sset) 
 {
   if (is(sset, "SigSetList")) 
     return(do.call(cbind, lapply(sset, getSexInfo)))
   stopifnot(is(sset, "SigSet"))
   cleanY <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrY.clean
+  # cat("length(cleanY)=\n")
   # cleanY %>% length() %>% print()
+  # cleanY %>% head() %>% print()
   
   xLinked <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$chrX.xlinked
+  # cat("length(xLinked)=\n")
   # xLinked %>% length() %>% print()
+  # xLinked %>% head() %>% print()
+  # cat("\n\n\n")
   
   probe2chr <- sesameDataGet(paste0(sset@platform, ".probeInfo"))$probe2chr.hg19
-  # print(probe2chr)
+  # cat("length(probe2chr)=\n")
+  # probe2chr %>% length() %>% print()
+  # probe2chr %>% head() %>% print()
+  # cat("\n\n\n")
   
   # xLinkedBeta <- sesame::getBetas(sset=sesame::subsetSignal(sset, xLinked))
-  xLinkedBeta <- getBetas2(sset=sesame::subsetSignal(sset, xLinked))
+  xLinkedBeta <- getBetas2(sset=sesame::subsetSignal(sset, xLinked), extra=FALSE)
+  # cat("head(xLinkedBeta)=\n")
+  # xLinkedBeta %>% length() %>% print()
+  # xLinkedBeta %>% head() %>% print()
   
   intens <- sesame::totalIntensities(sset)
   probes <- intersect(names(intens), names(probe2chr))
   intens <- intens[probes]
   probe2chr <- probe2chr[probes]
   # print(probe2chr)
-  
   # return( sesame::subsetSignal(sset, cleanY) )
   # return( median(sesame::totalIntensities(sesame::subsetSignal(sset, cleanY))) )
+  # cat("\n\n\n")
   
   c(medianY = median(sesame::totalIntensities(sesame::subsetSignal(sset, cleanY)), na.rm=TRUE), 
     medianX = median(sesame::totalIntensities(sesame::subsetSignal(sset, xLinked)), na.rm=TRUE), fracXlinked = 
@@ -834,6 +841,21 @@ getSexInfo2 = function (sset)
     fracXmeth = (sum(xLinkedBeta > 0.7, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
     fracXunmeth = (sum(xLinkedBeta < 0.3, na.rm = TRUE)/sum(!(is.na(xLinkedBeta)))), 
     tapply(intens, probe2chr, median, na.rm=TRUE))
+}
+
+inferEthnicity2 = function (sset) 
+{
+  if (is(sset, "SigSetList")) 
+    return(vapply(sset, inferEthnicity2, character(1)))
+  stopifnot(is(sset, "SigSet"))
+  stopifnot(sset@platform %in% c("EPIC", "HM450"))
+  ethnicity.inference <- sesameDataGet("ethnicity.inference")
+  ccsprobes <- ethnicity.inference$ccs.probes
+  rsprobes <- ethnicity.inference$rs.probes
+  ethnicity.model <- ethnicity.inference$model
+  af <- c(getBetas2(sset, mask = FALSE)[rsprobes], 
+          getAFTypeIbySumAlleles(subsetSignal(sset,ccsprobes)))
+  as.character(predict(ethnicity.model, af))
 }
 
 # End of file
