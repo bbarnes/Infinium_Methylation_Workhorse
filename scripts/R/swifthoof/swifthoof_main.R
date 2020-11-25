@@ -623,12 +623,6 @@ if (opt$cluster) {
                                    man=mans, ref=auto_sam_tib, opts=opt, defs=def,
                                    retData=par$retData, workflows=workflows_vec, tc=1)
       
-      if (FALSE) {
-        tdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], 
-                                     man=mans, ref=auto_sam_tib, opts=opt, defs=def,
-                                     retData=par$retData, workflows=workflows_vec, tc=1)
-      }
-      
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
     }

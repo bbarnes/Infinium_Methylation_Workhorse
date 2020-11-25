@@ -416,7 +416,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Compressing Outputs (CSV)...{RET}"))
     gzip_list <- lapply(list.files(opt$outDir, pattern='.csv$', full.names=TRUE), 
-                        function(x) { system(glue::glue("gzip {x}")) } )
+                        function(x) { system(glue::glue("gzip -f {x}")) } )
 
     readr::write_lines(x=date(),file=stampEnd_txt,sep='\n',append=FALSE)
   })

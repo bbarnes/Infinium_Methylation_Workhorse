@@ -1,4 +1,30 @@
 
+
+
+if (FALSE) {
+  
+  # doc_dir <- '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/docs'
+  doc_dir <- '/Users/bretbarnes/Documents/tools/docs'
+  
+  # ssh_csv <- file.path(doc_dir, 'AutoSampleSheet_description-table.csv')
+  ssh_csv <- '/Users/bretbarnes/Documents/scratch/docker-v.3.46/swifthoof/Customer-Facing/swifthoof/swifthoof_main/202761400007_R01C01_EPIC_B4_AutoSampleSheet.csv.gz'
+  
+  # ssh_tib <- rdat$ssheet_tib
+  ssh_tib <- readr::read_csv(ssh_csv)
+  
+  sheet_desc_csv <- file.path(doc_dir, 'AutoSampleSheetDescriptionTable.docker.v.3.46.csv.gz')
+  sheet_desc_tib <- getSsheetDataTab(tib=ssh_tib, 
+                                     minOobPval=opt$minOobPval, minOobPerc=opt$minOobPerc,
+                                     minNegPval=opt$minNegPval, minNegPerc=opt$minNegPerc,
+                                     verbose = 1) %>%
+    dplyr::rename(Example_Value=Value)
+  
+  sheet_desc_tib %>% print(n=base::nrow(sheet_desc_tib))
+  
+  readr::write_csv(sheet_desc_tib, sheet_desc_csv)
+  
+}
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Sex Karyotypes Investigation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

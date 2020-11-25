@@ -887,7 +887,7 @@ getSsheetDataTab = function(tib,
     
     ret_tib <- suppressMessages( suppressWarnings(
       dplyr::inner_join(
-        tib %>% tidyr::gather(Variable, Example),
+        tib %>% tidyr::gather(Variable, Value),
         tibble::enframe( unlist( sapply(tib, class) ), name="Variable", value="Data_Type" ),
         by="Variable"
       )
