@@ -40,26 +40,15 @@ ssetToPredictions = function(sset, del='_', fresh=FALSE,
   ret_tib <- NULL
   stime <- system.time({
     
-    gct_val <- NULL
-    gct_key <- 'GCT'
-    gct_val <- safeGCT(sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!gct_key := !!gct_val))
-
-    sex_val <- NULL
-    sex_key <- 'Sex'
-    sex_val <- safeSex(sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!sex_key := !!sex_val))
-
-    kar_val <- NULL
-    kar_key <- 'SexKaryotype'
-    kar_val <- safeSexKaryo(sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!kar_key := !!kar_val))
-
-    eth_val <- NULL
-    eth_key <- 'Ethnicity'
-    eth_val <- safeEthnicity(sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!eth_key := !!eth_val))
-
+    platform <- NULL
+    platform <- sset@platform
+    if (verbose>=vt+1)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Using platform={platform} for Inference/Prediction calls.{RET}{RET}"))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                   Sesame Channel Swap Methods:: Extra(sset)
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
     igr_cnt <- 0
     irg_cnt <- 0
     igr_key <- 'SwapCntIGR'
@@ -73,28 +62,61 @@ ssetToPredictions = function(sset, del='_', fresh=FALSE,
     ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!irg_key := !!irg_cnt))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                    Sesame SSET Prediction Methods::
+    #                       Sesame Inference Methods:: SSET
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (fresh || is.null(sesame::extra(sset)[['betas']]) ) {
-      # sesame::extra(sset)[['betas']] <-
-      #   sesame::getBetas(sset=sset, mask = quality.mask,sum.TypeI = sum.TypeI)
-      sesame::extra(sset)[['betas']] <-
-        getBetas2(sset=sset, mask = quality.mask,sum.TypeI = sum.TypeI)
+    if (platform=='EPIC' || platform=='HM450') {
+      gct_val <- NULL
+      gct_key <- 'GCT'
+      gct_val <- safeGCT(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!gct_key := !!gct_val))
+      
+      sex_val <- NULL
+      sex_key <- 'Sex'
+      sex_val <- safeSex(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!sex_key := !!sex_val))
+      
+      kar_val <- NULL
+      kar_key <- 'SexKaryotype'
+      kar_val <- safeSexKaryo(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!kar_key := !!kar_val))
+      
+      eth_val <- NULL
+      eth_key <- 'Ethnicity'
+      eth_val <- safeEthnicity(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!eth_key := !!eth_val))
     }
-    
-    skn_val <- NULL
-    skn_key <- 'AgeSkinBlood'
-    skn_val <- safeSkinAge(sesame::extra(sset)[['betas']], 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!skn_key := !!skn_val))
 
-    if (FALSE) {
-      phn_val <- NULL
-      phn_key <- 'AgePheno'
-      phn_val <- safePhenoAge(sesame::extra(sset)[['betas']], 
-                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!phn_key := !!phn_val))
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                      Sesame Predictions Methods:: Beta
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (platform=='EPIC' || platform=='HM450') {
+      if (fresh || is.null(sesame::extra(sset)[['betas']]) ) {
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr} Generating beta calls...{RET}"))
+        
+        # sesame::extra(sset)[['betas']] <-
+        #   sesame::getBetas(sset=sset, mask = quality.mask,sum.TypeI = sum.TypeI)
+        sesame::extra(sset)[['betas']] <-
+          getBetas2(sset=sset, mask = quality.mask,sum.TypeI = sum.TypeI)
+      }
+      
+      if (platform=='EPIC') {
+        skn_val <- NULL
+        skn_key <- 'AgeSkinBlood'
+        skn_val <- safeSkinAge(beta=sesame::extra(sset)[['betas']], 
+                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!skn_key := !!skn_val))
+      }
+      
+      if (platform=='HM450') {
+        phn_val <- NULL
+        phn_key <- 'AgePheno'
+        phn_val <- safePhenoAge(beta=sesame::extra(sset)[['betas']], 
+                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!phn_key := !!phn_val))
+      }
     }
     
     ret_cnt <- ret_tib %>% base::nrow()
@@ -102,13 +124,14 @@ ssetToPredictions = function(sset, del='_', fresh=FALSE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     Sesame Predictions Methods:: SSET
+#                       Sesame Inference Methods:: SSET
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 safeGCT = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -116,11 +139,11 @@ safeGCT = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  ret_val <- NA
   stime <- system.time({
-    val <- NULL
-    
+
     try_str <- ''
-    val = tryCatch({
+    ret_val = tryCatch({
       try_str <- 'Pass'
       suppressWarnings(sesame::bisConversionControl(sset) )
     }, warning = function(w) {
@@ -134,10 +157,13 @@ safeGCT = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
       NA
     })
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Value={val}, try_str={try_str}. Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  
-  val
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Val={ret_val}; try_str={try_str}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+
+  ret_val
 }
 
 safeEthnicity = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -145,11 +171,11 @@ safeEthnicity = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  ret_val <- NA
   stime <- system.time({
-    val <- NULL
-    
+
     try_str <- ''
-    val = tryCatch({
+    ret_val = tryCatch({
       try_str <- 'Pass'
       suppressWarnings(inferEthnicity2(sset) )
       # suppressWarnings(sesame::inferEthnicity(sset) )
@@ -164,10 +190,13 @@ safeEthnicity = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
       NA
     })
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Value={val}, try_str={try_str}. Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Val={ret_val}; try_str={try_str}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  val
+  ret_val
 }
 
 safeSexKaryo = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -175,11 +204,11 @@ safeSexKaryo = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  ret_val <- NA
   stime <- system.time({
-    val <- NULL
-    
+
     try_str <- ''
-    val = tryCatch({
+    ret_val = tryCatch({
       try_str <- 'Pass'
       suppressWarnings(inferSexKaryotypes2(sset) )
       # suppressWarnings(sesame::inferSexKaryotypes(sset) )
@@ -194,10 +223,13 @@ safeSexKaryo = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
       NA
     })
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Value={val}, try_str={try_str}. Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Val={ret_val}; try_str={try_str}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  val
+  ret_val
 }
 
 safeSex = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -205,11 +237,11 @@ safeSex = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  ret_val <- NA
   stime <- system.time({
-    val <- NULL
-    
+
     try_str <- ''
-    val = tryCatch({
+    ret_val = tryCatch({
       try_str <- 'Pass'
       suppressWarnings(inferSex2(sset) )
       # suppressWarnings(sesame::inferSex(sset) )
@@ -224,14 +256,17 @@ safeSex = function(sset, verbose=0,vt=3,tc=1,tt=NULL) {
       NA
     })
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Value={val}, try_str={try_str}. Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Val={ret_val}; try_str={try_str}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  val
+  ret_val
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     Sesame Predictions Methods:: Beta
+#                      Sesame Predictions Methods:: Beta
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 safeSkinAge = function(beta, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -239,11 +274,11 @@ safeSkinAge = function(beta, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  ret_val <- NA
   stime <- system.time({
-    val <- NULL
-    
+
     try_str <- ''
-    val = tryCatch({
+    ret_val = tryCatch({
       try_str <- 'Pass'
       suppressWarnings(sesame::predictAgeSkinBlood(betas=beta) )
     }, warning = function(w) {
@@ -257,10 +292,13 @@ safeSkinAge = function(beta, verbose=0,vt=3,tc=1,tt=NULL) {
       NA
     })
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Value={val}, try_str={try_str}. Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Val={ret_val}; try_str={try_str}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  val
+  ret_val
 }
 
 safePhenoAge = function(beta, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -268,11 +306,11 @@ safePhenoAge = function(beta, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  ret_val <- NA
   stime <- system.time({
-    val <- NULL
-    
+
     try_str <- ''
-    val = tryCatch({
+    ret_val = tryCatch({
       try_str <- 'Pass'
       suppressWarnings(sesame::predictAgePheno(betas=beta) )
     }, warning = function(w) {
@@ -286,10 +324,13 @@ safePhenoAge = function(beta, verbose=0,vt=3,tc=1,tt=NULL) {
       NA
     })
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Value={val}, try_str={try_str}. Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Val={ret_val}; try_str={try_str}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  val
+  ret_val
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -323,7 +364,8 @@ sigsSumToSSheet = function(tib, metric='mean',
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -395,22 +437,22 @@ sigsTibToSummary = function(tib, man=NULL,
     if (is.null(cutoff)) {
       ret_tib <- tib %>%
         dplyr::group_by(!!type_sym, !!des_sym) %>%
-        summarise_if(is.numeric, list(min=min, median=median, mean=mean, sd=sd, max=max), na.rm=TRUE) %>% 
-        dplyr::ungroup()
+        summarise_if(is.numeric, list(min=min, median=median, mean=mean, sd=sd, max=max), na.rm=TRUE)
     } else {
       ret_tib <- tib %>% 
         dplyr::group_by(!!type_sym, !!des_sym) %>%
         dplyr::select(-dplyr::all_of(by)) %>%
         dplyr::summarise_all(list(pass_perc=cntPer_lte), min=cutoff)
     }
+    ret_tib <- ret_tib %>% dplyr::ungroup()
 
-    if (percision >= 0) ret_tib <- ret_tib %>% 
-      dplyr::mutate_if(is.numeric, list(round), percision)
+    if (percision >= 0) 
+      ret_tib <- dplyr::mutate_if(ret_tib, is.numeric, list(round), percision)
     
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      csv <- clean_file(csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      csv <- clean_file(csv, verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
 
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
@@ -422,7 +464,8 @@ sigsTibToSummary = function(tib, man=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -491,8 +534,8 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
       if (percision_pval!=-1) 
         cur_tib <- dplyr::mutate_if(cur_tib, purrr::is_double,round,percision_pval)
       
-      # ret_tib <- ret_tib %>% dplyr::left_join(cur_tib,by="Probe_ID", copy=TRUE)
-      ret_tib <- ret_tib %>% dplyr::inner_join(cur_tib,by="Probe_ID")
+      ret_tib <- ret_tib %>% dplyr::left_join(cur_tib,by="Probe_ID", copy=TRUE)
+      # ret_tib <- ret_tib %>% dplyr::inner_join(cur_tib,by="Probe_ID", copy=TRUE)
     }
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} Current Table(pvals)={RET}"))
@@ -502,7 +545,7 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      csv <- clean_file(csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      csv <- clean_file(csv, verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))
@@ -514,7 +557,8 @@ ssetToCallTib = function(sset, workflow, fresh=FALSE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -544,8 +588,10 @@ ssetToSigsTib = function(sset, man=NULL,
       
       sset@II   %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='2'),
       
-      sset@ctl  %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='2') %>%
-        dplyr::rename(M=G,U=R) %>% dplyr::select(Probe_ID,!!des_sym,M,U)
+      if (sset@ctl %>% base::nrow() != 0) {
+        sset@ctl  %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='2') %>%
+          dplyr::rename(M=G,U=R) %>% dplyr::select(Probe_ID,!!des_sym,M,U)
+      }
     ) %>% dplyr::select(!!by, !!des, dplyr::everything())
     
     if (percision!=-1) ret_tib <- ret_tib %>% 
@@ -559,7 +605,7 @@ ssetToSigsTib = function(sset, man=NULL,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       csv_dir <- base::basename(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      csv <- clean_file(csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      csv <- clean_file(csv, verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
@@ -571,7 +617,8 @@ ssetToSigsTib = function(sset, man=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -641,7 +688,8 @@ mutateSset = function(sset, method, force=TRUE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   sset
 }
@@ -688,7 +736,8 @@ newSset = function(prefix, platform, manifest,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   sset
 }

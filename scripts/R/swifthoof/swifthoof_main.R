@@ -213,25 +213,54 @@ if (args.dat[1]=='RStudio') {
   opt$write_ssum  <- TRUE
   opt$write_call  <- TRUE
   opt$write_csum  <- TRUE
-
+  
+  opt$workflows <- "nd,ind"
+  opt$workflows <- 'ind'
+  
+  opt$auto_detect <- TRUE
+  
+  par$retData  <- TRUE
+  
+  opt$single   <- FALSE
+  opt$single   <- TRUE
+  
+  opt$parallel <- TRUE
+  opt$parallel <- FALSE
+  
+  opt$cluster  <- TRUE
+  opt$cluster  <- FALSE
+  
+  opt$manDirName  <- 'core'
+  opt$manDirName  <- 'base'
+  
+  opt$verbose  <- 6
+  
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
-  par$local_runType <- 'COVID'
-  par$local_runType <- 'COVIC'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
+  par$local_runType <- 'COVID'
+  par$local_runType <- 'COVIC'
+  
+  opt$fresh <- TRUE
   
   if (par$local_runType=='COVID') {
     par$expRunStr  <- 'COVID-Direct-Set1'
     par$expChipNum <- '204756130014'
-    opt$auto_detect <- FALSE
     
-    opt$workflows <- 'i,nd,ndi,ind'
+    opt$auto_detect <- FALSE
+    # opt$single   <- FALSE
+    par$retData  <- TRUE
+    
+    opt$workflows <- "nd,ind"
+    opt$workflows <- NULL
     
   } else if (par$local_runType=='COVIC') {
     par$expRunStr  <- 'COVIC-Set1-15052020'
     par$expChipNum <- '204500250013'
     opt$auto_detect <- TRUE
+    opt$workflows <- "nd,ind"
+
   } else if (par$local_runType=='GRCm38') {
     par$expRunStr <- 'MURMETVEP_mm10_betaTest_06082020'
     par$expRunStr <- 'VanAndel_mm10_betaTest_31082020'
@@ -271,27 +300,8 @@ if (args.dat[1]=='RStudio') {
   if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_'),  par$expChipNum)
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
-  opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, par$expRunStr)
-
-  opt$auto_detect <- TRUE
-  par$retData  <- TRUE
-  
-  opt$single   <- FALSE
-  opt$single   <- TRUE
-  
-  opt$parallel <- TRUE
-  opt$parallel <- FALSE
-  
-  opt$cluster  <- TRUE
-  opt$cluster  <- FALSE
-  
-  opt$manDirName  <- 'core'
-  opt$manDirName  <- 'base'
-  
-  opt$workflows <- "nd,ind"
-  opt$workflows <- 'ind'
-
-  opt$verbose  <- 6
+  # opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, par$expRunStr)
+  opt$outDir <- file.path(par$topDir, 'scratch')
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -370,6 +380,8 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to write Signal Set file (CSV) [default= %default]", metavar="boolean"),
     make_option(c("--write_ssum"), action="store_true", default=opt$write_ssum,
                 help="Boolean variable to write Signal Set Summary file (CSV) [default= %default]", metavar="boolean"),
+    make_option(c("--write_csum"), action="store_true", default=opt$write_csum,
+                help="Boolean variable to write Calls Summary file (CSV) [default= %default]", metavar="boolean"),
     make_option(c("--write_call"), action="store_true", default=opt$write_call,
                 help="Boolean variable to write Calls (Pval/Beta) file (CSV) [default= %default]", metavar="boolean"),
 
@@ -459,9 +471,6 @@ opt <- program_init(name=par$prgmTag,
 
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
 par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
-
-# def_tib <- dplyr::bind_rows(def) %>% tidyr::gather("Option", "Value")
-# dplyr::left_join(opt_tib, def_tib, by="Option", suffix=c("_Run", "_Default"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Preprocessing::

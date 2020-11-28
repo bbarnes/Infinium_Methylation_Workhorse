@@ -64,18 +64,22 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
       if (is.null(csum_csv)) 
         csum_csv <- file.path(outDir, paste(out_name,'call.sum.csv', sep='.'))
       
-      if (write_sigs) sigs_csv <- clean_file(sigs_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      if (write_ssum) ssum_csv <- clean_file(ssum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      if (write_call) call_csv <- clean_file(call_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      if (write_csum) csum_csv <- clean_file(csum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (write_sigs) sigs_csv <- clean_file(sigs_csv, verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
+      if (write_ssum) ssum_csv <- clean_file(ssum_csv, verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
+      if (write_call) call_csv <- clean_file(call_csv, verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
+      if (write_csum) csum_csv <- clean_file(csum_csv, verbose=verbose,vt=vt+3,tc=tc+1,tt=tt)
     }
+    
+    # Clear sset to ensure there's no code mistakes
+    sset_dat <- sset
+    sset <- NULL
     
     # Set/Update Pvals and Betas::
     #
-    sesame::extra(sset)[['betas']] <- NULL
-    sesame::extra(sset)[['pvals']] <- NULL
+    sesame::extra(sset_dat)[['betas']] <- NULL
+    sesame::extra(sset_dat)[['pvals']] <- NULL
     
-    sset_dat <- mutateSesame(sset=sset, method="betas", 
+    sset_dat <- mutateSesame(sset=sset_dat, method="betas", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     sset_dat <- mutateSesame(sset=sset_dat, method="pOOBAH", 
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
@@ -132,14 +136,7 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
       percision_beta=percision_beta, 
       percision_pval=percision_pval, 
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
-    if (verbose>=vt) {
-      cat(glue::glue("{RET}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_dat_tib(workflow={workflow})={RET}"))
-      call_dat_tib %>% print()
-      cat(glue::glue("{RET}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}{RET}"))
-    }
-    
+
     # Calls Summary:: betas
     #
     beta_metric <- 'mean'
@@ -219,18 +216,17 @@ ssetToSummary = function(sset, man, idx, workflow, name=NULL, outDir=NULL,
     ret_dat$sam_sheet <- sam_sheet
     ret_cnt <- ret_dat %>% names %>% length()
     
-    # if (is.null(ret_dat)) {
-    #   ret_dat <- sam_sheet
-    #   ret_cnt <- ret_dat %>% base::ncol()
-    # } else {
-    #   ret_dat$sam_sheet <- sam_sheet
-    #   ret_cnt <- ret_dat %>% names %>% length()
-    # }
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat({ret_cnt})={RET}"))
+      print(ret_dat)
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+                   
   
   ret_dat
 }
@@ -241,6 +237,7 @@ mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; workflow={workflow}.{RET}"))
   
+  ret_cnt <- 0
   stime <- system.time({
     
     #
@@ -295,7 +292,9 @@ mutateSSET_workflow = function(sset, workflow, save=FALSE, rds=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   sset
 }
@@ -348,7 +347,8 @@ mutateSesame = function(sset, method,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   sset
 }

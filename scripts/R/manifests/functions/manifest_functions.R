@@ -49,7 +49,9 @@ template_func = function(tib,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -162,7 +164,9 @@ adhoc_desToMAN = function(man, des_csv, probe_type,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -225,7 +229,9 @@ loadAllGenomicByMAN = function(man, pos_tsv, pos_col=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -296,7 +302,8 @@ addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -385,7 +392,8 @@ bindProbeDesignList = function(list, platform, version,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -520,7 +528,9 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -617,7 +627,9 @@ man_join_prbs = function(man, prbs,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -685,7 +697,9 @@ seq48U_to_cgn = function(tib, imp_tsv,name=NULL, outDir=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -749,7 +763,9 @@ cgn_to_topSeq = function(tib, imp_tsv,name=NULL, outDir=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -821,7 +837,9 @@ intersect_tsv = function(man, man_tsv,imp_tsv,int_tsv,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -900,7 +918,9 @@ broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1133,7 +1153,8 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1232,7 +1253,9 @@ AQP_PQC_QC = function(aqp, pqc, aqp_vec, pqc_vec,aqp_fix, pqc_fix,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1309,7 +1332,9 @@ inferManifestFields = function(tib, sidx=2, plen=50, AQP=0,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1380,7 +1405,9 @@ inferOrderFields = function(tib, sidx=2, plen=50,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1529,7 +1556,9 @@ fixOrderProbeIDs = function(tib, field="Probe_Type",
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1602,7 +1631,9 @@ manifestCheckSummary = function(tib,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1719,7 +1750,9 @@ loadORD = function(file, format='old', skip=8, guess=50000, trim=FALSE,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1770,7 +1803,9 @@ loadMAT = function(file, format='new', skip=40, guess=1000, trim=FALSE,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1818,7 +1853,9 @@ loadPQC = function(file, format='pqc', skip=7, guess=1000, trim=FALSE,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -1912,7 +1949,9 @@ decodeToManifest = function(ord, mat, pqc,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -2015,12 +2054,16 @@ decodeToManifestWrapper = function(ords, mats, pqcs=NULL, aqps=NULL,
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Non-zero value for unique(U,M,PrbU,PrbM) tangos={non_unq_cnt}!!!{RET}{RET}"))
       return(NULL)
     }
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]: Valid QC Sanity; tan_mat_cnt={tan_mat_cnt}, non_unq_cnt={non_unq_cnt}.{RET}") )
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]: Valid QC Sanity; tan_mat_cnt={tan_mat_cnt}, non_unq_cnt={non_unq_cnt}.{RET}") )
     
+    ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -2037,6 +2080,12 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
   
   ret_cnt <- 0
   ret_tib <- NULL
+  
+  max_platform  <- NA
+  max_version   <- NA
+  max_match_cnt <- NA
+  max_rc_per    <- NA
+  
   stime <- system.time({
     
     field_sym <- rlang::sym(field)
@@ -2065,10 +2114,7 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
       # The correct way to intersect::
       #  - M,U,N
       #
-      
-      
-      
-      
+
       # Gather manifest M/U values and trim if greater than 10::
       #
       ref_tib <- man_tib %>% dplyr::select(M,U) %>% 
@@ -2096,29 +2142,36 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
       rec_per <- base::round(100*mat_cnt / base::min(can_cnt,ref_cnt), 3)
       
       if (verbose>=vt+1) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest Address Count={ref_cnt}, RCP={rec_per}.{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest({man_key}) Address Count={ref_cnt}, RCP={rec_per}.{RET}"))
       
       # Update tables::
       #
-      if (sortMax) {
-        rec_tib <- rec_tib %>% 
-          dplyr::mutate(manifest_cnt=ref_cnt, match_cnt=mat_cnt, rc_per=manifest_cnt)
-      } else {
-        rec_tib <- rec_tib %>% 
-          dplyr::mutate(manifest_cnt=ref_cnt, match_cnt=mat_cnt, rc_per=rec_per)
-      }
+      rec_tib <- rec_tib %>% 
+        dplyr::mutate(manifest_cnt=ref_cnt, match_cnt=mat_cnt, rc_per=rec_per)
       
       ret_tib <- dplyr::bind_rows(ret_tib, rec_tib)
     }
-    ret_tib <- ret_tib %>% dplyr::arrange(-rc_per)
+    if (sortMax) {
+      ret_tib <- ret_tib %>% dplyr::arrange(-match_cnt)
+    } else {
+      ret_tib <- ret_tib %>% dplyr::arrange(-rc_per)
+    }
     
+    max_platform  <- ret_tib$platform[1]
+    max_version   <- ret_tib$version[1]
+    max_match_cnt <- ret_tib$match_cnt[1]
+    max_rc_per    <- ret_tib$rc_per[1]
+
     ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
-  
+    cat(glue::glue("[{funcTag}]:{tabsStr} max(platform={max_platform}, version={max_version}, ",
+                   "match={max_match_cnt}, RCP={max_rc_per}){RET}",
+                   "[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+
   ret_tib
 }
 
@@ -2150,7 +2203,8 @@ sesameManToAdd = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -2160,7 +2214,8 @@ idat2manifest = function(sigs, mans, verbose=0,vt=4,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
-  ret <- NULL
+  ret_cnt <- 0
+  ret_dat <- NULL
   min_man_tib <- NULL
   min_add_tib <- NULL
   top_platform <- NULL
@@ -2207,17 +2262,19 @@ idat2manifest = function(sigs, mans, verbose=0,vt=4,tc=1,tt=NULL) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} platform={cur_platform}, manifest={cur_manifest}, ",
                                       "add_mat_cnt={add_mat_cnt}, add_rec_per={add_rec_per}.{RET}"))
     }
-    ret$man <- min_man_tib
-    ret$add <- min_add_tib
-    ret$platform <- top_platform
-    ret$manifest <- top_manifest
+    ret_dat$man <- min_man_tib
+    ret_dat$add <- min_add_tib
+    ret_dat$platform <- top_platform
+    ret_dat$manifest <- top_manifest
   })
-  if (verbose>vt+4) print(ret)
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; top_platform={top_platform}, top_manifest={top_manifest}, elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; ",
+                   "top_platform={top_platform}, top_manifest={top_manifest}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  ret
+  ret_dat
 }
 
 getManifestBeadStats = function(dat, man, types=NULL,
@@ -2262,7 +2319,8 @@ getManifestBeadStats = function(dat, man, types=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -2296,7 +2354,8 @@ idatAddToSsheet = function(dat, add, types=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -2316,6 +2375,7 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
     return(NULL)
   }
   
+  ret_cnt <- 0
   stime <- system.time({
     paths <- NULL
     if (!is.null(path) && file.exists(path)) {
@@ -2375,7 +2435,11 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
             !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
             TRUE ~ col),
           Probe_ID=stringr::str_replace_all( 
-            stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("\\W+"), " ")) ), " ","_"),
+            stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
+          
+          # Probe_ID=stringr::str_replace_all( 
+          #   stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("\\W+"), " ")) ), " ","_"),
+          
           Probe_Type=stringr::str_replace_all( 
             stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
           Probe_Design=dplyr::case_when(
@@ -2386,11 +2450,15 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done; Loading manifest.{RET}{RET}"))
       if (verbose>=vt+4) print(man_tibs[[cur_key]])
     }
+    
+    ret_cnt <- man_tibs %>% names %>% length()
   })
   if (verbose>vt+4) print(man_tibs)
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   man_tibs
 }
@@ -2403,6 +2471,7 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
   
   ctl_cols <- c('Address', 'Control_Group', 'Control_Color', 'Control_Name')
   
+  ret_cnt <- 0
   ret_dat <- NULL
   stime <- system.time({
     tib <- NULL
@@ -2480,10 +2549,13 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
     if (is.null(retType)) {
       ret_dat$man <- man_tib
       ret_dat$ctl <- ctl_tib
+      ret_cnt <- ret_dat %>% names %>% length()
     } else if (!is.null(retType) && retType=='man') {
       ret_dat <- man_tib
+      ret_cnt <- ret_dat %>% base::nrow()
     } else if (!is.null(retType) && retType=='ctl') {
       ret_dat <- ctl_tib
+      ret_cnt <- ret_dat %>% base::nrow()
     } else {
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr} Warning: Unsupported retType request={retType}. Defaulting to list.{RET}"))
@@ -2491,11 +2563,11 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
       ret_dat$ctl <- ctl_tib
     }
   })
-  if (verbose>vt+4) print(tib)
-  
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_dat
 }
@@ -2537,7 +2609,8 @@ loadManifestSource = function(file,addSource=FALSE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -2547,6 +2620,7 @@ loadAddressSource = function(file, man, fresh=FALSE, save=TRUE, split=FALSE,
   funcTag <- 'loadAddressSource'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
+  ret_cnt <- 0
   stime <- system.time({
     tibs <- NULL
     if (!fresh && file.exists(file)) {
@@ -2585,6 +2659,7 @@ loadAddressSource = function(file, man, fresh=FALSE, save=TRUE, split=FALSE,
         ) %>% dplyr::arrange(Probe_ID)
       }
       
+      ret_cnt <- tibs %>% base::nrow()
       if (save) {
         if (stringr::str_ends(file,'.rds')) {
           if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Saving file(RDS)={file}.{RET}"))
@@ -2596,11 +2671,11 @@ loadAddressSource = function(file, man, fresh=FALSE, save=TRUE, split=FALSE,
       }
     }
   })
-  if (verbose>=vt+4) print(tibs)
-  
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   tibs
 }
