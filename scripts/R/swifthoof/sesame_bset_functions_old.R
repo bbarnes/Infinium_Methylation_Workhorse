@@ -3,6 +3,312 @@
 
 if (FALSE) {
   
+  #
+  #
+  toDo_str= "Infinium I background and HMM-Meth Alignment"
+  #
+  #
+  #  - Rebuild all manifests::
+  #     - Include "Full_ID" Probe_ID in Product Manifests
+  #     - Reduce all uneeded fields (DESIGN, etc.)
+  #  - Signal based ML:: 
+  #     - Signal File Output:: Make sure sigs are swapped after inference
+  #     - multi-track HMM-meth alignments 
+  #
+  #  - Add pre-val appending
+  #  - 
+  
+  #
+  # This WORKS!!!!
+  #
+  report_vec <- c("Requeue","pass_perc","mean")
+  
+  sum_tab <- rdat$cur_list$sums_dat %>% 
+    tidyr::unite(key, Probe_Type,Probe_Design,Metric, sep='_') %>% 
+    tidyr::gather(metric, value, -key, -Workflow_key, -Workflow_idx) %>% 
+    dplyr::filter(!is.na(value)) %>% 
+    dplyr::filter(metric %in% report_vec) %>%
+    tidyr::unite(key, key,metric, sep='_') %>% 
+    dplyr::mutate(key=paste(key,Workflow_idx, sep='_'))
+  
+  sum_tab %>% print(n=base::nrow(sum_tab))
+  
+  sum_tab %>%
+    tidyr::pivot_wider(names_from="key", values_from="value") %>%
+    dplyr::select(dplyr::contains("_Requeue_"), 
+                  dplyr::contains("_pass_perc_"),
+                  dplyr::everything())
+  
+  #
+  # END OF WORKING!!!
+  #
+
+  
+  #
+  # Requeue Flags and Infinium I background calculation
+  #  - Split Infinium I/II look at Poob detection p-values
+  
+  verbose <- opt$verbose
+  vt <- 1
+  tc <- 0
+  tTracker <- NULL
+  
+  raw_sset <- rdat$raw_sset
+  call_dat <- rdat$raw_list$call_dat
+  sigs_dat <- rdat$raw_list$sigs_dat
+  
+  # Split Analytical and Controls::
+  #
+  raw_call_tib <- call_dat %>%
+    expand_ids(verbose=verbose,tc=tc+1,tt=tTracker)
+  raw_sigs_tib <- sigs_dat %>%
+    expand_ids(verbose=verbose,tc=tc+1,tt=tTracker)
+  
+  # Order of Operations::
+  #  - [i, n, d]
+  
+  # Requeue
+  
+  keys <- c('pOOBAH','PnegEcdf')
+  mins <- c(opt$minOobPerc, opt$minNegPerc)
+  
+  raw_sam_tib <- rdat$raw_list$sam_sheet
+  req_ssh_tib <- addRequeueFlags(tib=raw_sam_tib, keys=keys, mins=mins,
+                                 verbose=verbose,tc=tc+1,tt=tTracker)
+
+
+  rdat$raw_list$beta$beta_sum
+  rdat$raw_list$pval$pOOBAH$pval_sum
+  rdat$raw_list$pval$PnegEcdf$pval_sum
+  rdat$raw_list$sigs$sigs_sum
+  
+  
+  # Calls Summary:: pvals
+  #
+  funcTag <- 'testing'
+  tabsStr <- '\t'
+  by="Probe_ID"
+  type="Probe_Type"
+  des="Probe_Design"
+  
+  minNegPval <- 0.1
+  percision_pval <- 6
+  percision_beta <- 4
+  percision_sigs <- 2
+  
+  verbose <- opt$verbose
+  vt <- 1
+  tc <- 1
+  tt <- NULL
+  
+  man_tib  <- rdat$sman
+  # raw_sset <- rdat$raw_list$sset_dat
+  raw_sset <- rdat$raw_sset
+  
+  #
+  # LEFT OFF HERE
+  #
+  pvalN_tib <- ssetToTib(sset=raw_sset, source='pvals', name='PnegEcdf', 
+                         sort=TRUE,
+                         percision=6, verbose=4)
+  
+  pvalN_sum_tib <- ssetTibToSummary(
+    tib=pvalN_tib,man=man_tib,
+    pval=0.02, perc=98,
+    percision=percision_pval,
+    save=FALSE, csv=NULL,
+    by=by, type=type, des=des,
+    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  
+  pvalP_tib <- ssetToTib(sset=raw_sset, source='pvals', name='pOOBAH', 
+                         sort=TRUE,
+                         percision=6, verbose=4)
+  
+  pvalP_sum_tib <- ssetTibToSummary(
+    tib=pvalP_tib,man=man_tib,
+    pval=0.1, perc=90,
+    percision=percision_pval,
+    save=FALSE, csv=NULL,
+    by=by, type=type, des=des,
+    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  
+  betas_tib <- ssetToTib(sset=raw_sset, source='betas', 
+                         sort=TRUE,
+                         percision=6, verbose=4)
+  
+  betas_sum_tib <- ssetTibToSummary(
+    tib=betas_tib,man=man_tib,
+    percision=percision_beta,
+    save=FALSE, csv=NULL,
+    by=by, type=type, des=des,
+    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
+  sigsM_tib <- ssetToTib(sset=raw_sset, source='sigs', man=man_tib,
+                         sort=TRUE,
+                         percision=6, verbose=4)
+  
+  sigsM_sum_tib <- ssetTibToSummary(
+    tib=sigsM_tib,
+    percision=percision_sigs,
+    save=FALSE, csv=NULL,
+    by=by, type=type, des=des,
+    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  
+  
+  
+  
+  ssh_cur_tab <- 
+    dplyr::bind_rows(
+      pvalP_sum_tib,
+      pvalN_sum_tib,
+      betas_sum_tib,
+      sigsM_sum_tib
+    ) %>% 
+    tidyr::unite(Probe_Group, Probe_Type,Probe_Design,Metric, sep='_') %>% 
+    tidyr::gather(Metric, value, -Probe_Group) %>%
+    dplyr::filter(!is.na(value)) %>%
+    tidyr::unite(Group_Metric, Probe_Group,Metric, sep='_')
+  
+  ssh_cur_tib <- ssh_cur_tab %>%
+    tidyr::spread(Group_Metric, value)
+  
+  #
+  # 
+  #
+  betas_sum_tib
+  pvalP_sum_tib
+  pvalN_sum_tib
+  sigsM_sum_tib
+  
+  rdat$raw_list$beta$beta_sum
+  rdat$raw_list$pval$pOOBAH$pval_sum
+  rdat$raw_list$pval$PnegEcdf$pval_sum
+  rdat$raw_list$sigs$sigs_sum
+  
+  
+  
+  
+  
+  
+  
+  
+  #
+  # Gather/Summary investigation::
+  #
+  rdat$raw_list$sigs$sigs_dat %>% 
+    dplyr::group_by(Probe_Type, Probe_Design) %>%
+    summarise_if(is.numeric, list(min=min, median=median, mean=mean, sd=sd, max=max), na.rm=TRUE) %>%
+    dplyr::ungroup()
+  
+  rdat$raw_list$sigs$sigs_dat %>% 
+    dplyr::select(-Probe_ID) %>%
+    tidyr::gather(Metric, value, -Probe_Type, -Probe_Design) %>%
+    dplyr::group_by(Probe_Type, Probe_Design, Metric) %>%
+    summarise_if(is.numeric, list(min=min, median=median, mean=mean, sd=sd, max=max), na.rm=TRUE) %>%
+    dplyr::ungroup()
+  
+  
+    rdat$raw_list$pval$pOOBAH$pval_dat %>%
+      dplyr::select(-Probe_ID) %>%
+      # tidyr::gather(-Probe_Type, -Probe_Design)
+      # dplyr::group_by(Probe_Type, Probe_Design) %>%
+      tidyr::gather(Metric, value, -Probe_Type, -Probe_Design)
+    
+  
+  
+
+  tmp_sum_tib <- ssetToPvalSheet(sset=raw_sset, man=man_tib, 
+                                 key="pOOBAH", min=0.1, perc=90,
+                                 percision=6, verbose=4)
+  
+  cur_pval_ssheet <- 
+    sigsSumToSSheet(
+      tib=tmp_sum_tib, metric='pass_perc',
+      by="Probe_ID", type="Probe_Type", des="Probe_Design", 
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+    purrr::set_names(paste('pOOBAH',names(.), sep='_'))
+  
+  sigsSumToSSheet(
+    tib=tmp_sum_tib, metric='Requeue',
+    by="Probe_ID", type="Probe_Type", des="Probe_Design", 
+    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+    purrr::set_names(paste('pOOBAH',names(.), sep='_'))
+  
+  man <- rdat$sman
+  call_dat_tib <- rdat$raw_list$call_dat
+  
+  pval_metric <- 'pass_perc'
+  pvals_cols  <- call_dat_tib %>% 
+    dplyr::select(!dplyr::ends_with('_beta')) %>% names()
+  
+  call_pval_ssheet_tib <- NULL
+  if (TRUE) {
+    
+    pval_min_tib <- tibble::tibble(Method=pval_vec, min_pval=min_pval_vec, min_perc=min_perc_vec)
+    
+    for (pval_idx in c(2:length(pvals_cols)) ) {
+      pvals_col <- pvals_cols[pval_idx]
+      pvals_key <- pvals_col %>% stringr::str_remove('^[^_]+_')
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval_idx={pval_idx}; pvals_col={pvals_col}...{RET}"))
+      
+      call_pval_sel_tib <- call_dat_tib %>% 
+        dplyr::select(!!by,!!pvals_col)
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_pval_sel_tib={RET}"))
+      print(call_pval_sel_tib)
+      
+      call_pval_sum_tib <- call_pval_sel_tib %>%
+        sigsTibToSummary(man=man, cutoff=minNegPval, 
+                         percision=percision_pval,
+                         by=by, type=type, des="Probe_Design", 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_pval_sum_tib={RET}"))
+      print(call_pval_sum_tib)
+      
+      cur_pval_ssheet <- 
+        sigsSumToSSheet(
+          tib=call_pval_sum_tib, metric=pval_metric,
+          by="Probe_ID", type="Probe_Type", des="Probe_Design", 
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        purrr::set_names(paste(pvals_key,names(.), sep='_'))
+      
+      call_pval_ssheet_tib <- call_pval_ssheet_tib %>% 
+        dplyr::bind_cols(cur_pval_ssheet)
+    }
+    
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} call_pval_ssheet_tib={RET}"))
+    print(call_pval_ssheet_tib)
+  }
+  
+  raw_inf2_tib <- raw_sset@II %>% 
+    tibble::as_tibble(rownames = "Probe_ID") %>% 
+    dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2)) %>%
+    dplyr::filter(Probe_Type=='cg') %>%
+    tidyr::separate(Probe_ID, into=c("Seq_ID", "Seq_Pos", "Seq_Str"), 
+                    sep='_', remove=FALSE) %>% 
+    tidyr::separate(Seq_Str, into=c("Blank","Strand_TB", "Strand_CO", "Design_Type", "Rep_Num"), 
+                    sep="", convert=TRUE) %>% dplyr::select(-Blank) %>%
+    dplyr::mutate(Probe_Key=paste(Seq_ID,Seq_Pos,Strand_TB,Strand_CO, sep='_'),
+                  Probe_Key=as.factor(Probe_Key),
+                  Beta=M/(M+U)) %>%
+    # dplyr::group_by(Probe_Key) %>% 
+    dplyr::arrange(Beta)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  rdat$dat_list$sam_sheet$pOOBAH_cg_1_pass_perc_0
+  
+  rdat$dat_list$sam_sheet %>% addRequeueFlags(minOobPerc = opt$minOobPerc, minNegPerc = opt$minNegPerc)
+  
+  
   # doc_dir <- '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/docs'
   doc_dir <- '/Users/bretbarnes/Documents/tools/docs'
   
@@ -22,6 +328,405 @@ if (FALSE) {
   sheet_desc_tib %>% print(n=base::nrow(sheet_desc_tib))
   
   readr::write_csv(sheet_desc_tib, sheet_desc_csv)
+
+  
+  new_map <- idatToManifestMap(tib = rdat$isig, mans = mans, verbose = 10)  
+}
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   Old Direct code for calling RAW:: Removed
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  idx <- 0
+  cur_workflow <- 'raw'
+  cur_sset <- NULL
+  
+  cur_sset_rds <- paste(out_prefix, paste(cur_workflow,'sset.rds', sep='-'), sep='_')
+  
+  cur_sset <- mutateSSET_workflow(
+    sset=raw_sset, workflow=cur_workflow, pvals=pvals,
+    save=opts$save_sset, rds=cur_sset_rds,
+    verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+  
+  calls_tib <- NULL
+  cur_dat_list = ssetToSummary(
+    sset=cur_sset, man=top_man_tib, idx=idx, workflow=cur_workflow,
+    name=out_name, outDir=opts$outDir,
+    
+    pvals=pvals, min_pvals=min_pvals, min_percs=min_percs,
+    
+    write_sset=opts$write_sset, sset_rds=NULL, ret_sset=retData2,
+    
+    write_beta=opts$write_beta, beta_csv=NULL, ret_beta=retData2,
+    write_bsum=opts$write_bsum, bsum_csv=NULL, ret_bsum=retData2,
+    
+    write_pval=opts$write_pval, pval_csv=NULL, ret_pval=retData2,
+    write_psum=opts$write_psum, psum_csv=NULL, ret_psum=retData2,
+    
+    write_sigs=opts$write_sigs, sigs_csv=NULL, ret_sigs=retData2,
+    write_ssum=opts$write_ssum, ssum_csv=NULL, ret_ssum=retData2,
+    
+    write_call=opts$write_call, call_csv=NULL, ret_call=retData2,
+    write_csum=opts$write_csum, csum_csv=NULL, ret_csum=retData2,
+    
+    percision_sigs=opts$percision_sigs,
+    percision_beta=opts$percision_beta,
+    percision_pval=opts$percision_pval,
+    
+    by="Probe_ID", type="Probe_Type", des="Probe_Design",
+    fresh=opts$fresh,
+    verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+  
+  calls_tib = cur_dat_list$call_dat
+  sheet_tib = cur_dat_list$sam_sheet
+  ssheet_tib <- dplyr::bind_cols(ssheet_tib, sheet_tib)
+  
+  if (is.null(auto_beta_key)) auto_beta_key <- paste(cur_workflow,'beta', sep=del)
+  if (is.null(auto_negs_key)) auto_negs_key <- paste(cur_workflow,'PnegEcdf', sep=del)
+  
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}{RET}"))
+    cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  }
+  
+  if (retData) {
+    ret$raw_list <- cur_dat_list
+    # return(ret)
+  }
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Add Requeue Flags::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  #
+  # TBD:: Make function:: addRequeueFlags()
+  #
+  if (verbose>=vt) {
+    cat(glue::glue("{RET}{RET}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Requeue Flag",
+                   "(minOobPerc={opts$minOobPerc},minNegPerc={opts$minNegPerc})...{RET}"))
+  }
+  
+  ssheet_tib <- ssheet_tib %>% dplyr::mutate(
+    Requeue_Flag_pOOBAH=dplyr::case_when(
+      pOOBAH_cg_1_pass_perc_0 < opts$minOobPerc | pOOBAH_cg_2_pass_perc_0 < opts$minOobPerc ~ TRUE, TRUE ~ FALSE),
+    Requeue_Flag_PnegEcdf=dplyr::case_when(
+      PnegEcdf_cg_1_pass_perc_0 < opts$minNegPerc | PnegEcdf_cg_2_pass_perc_0 < opts$minNegPerc ~ TRUE, TRUE ~ FALSE)
+  )
+  
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done. ssheet_tib(all requeue added)={RET}"))
+    if (verbose>=vt+4) ssheet_tib %>% print()
+    cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}{RET}"))
+  }
+  
+  if (retData) {
+    ret$ssheet_tib <- ssheet_tib
+    # return(ret)
+  }
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Old Functions Removed::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  ssetToPredictions = function(sset, del='_', fresh=FALSE,
+                               quality.mask = FALSE, sum.TypeI = FALSE,
+                               verbose=0,vt=3,tc=1,tt=NULL) {
+    funcTag <- 'ssetToPredictions'
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- system.time({
+      
+      platform <- NULL
+      platform <- sset@platform
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Using platform={platform} for Inference/Prediction calls.{RET}{RET}"))
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                   Sesame Channel Swap Methods:: Extra(sset)
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      igr_cnt <- 0
+      irg_cnt <- 0
+      igr_key <- 'SwapCntIGR'
+      irg_key <- 'SwapCntIRG'
+      if (!is.null(sesame::extra(sset)[['IRR']]) && 
+          !is.null(sesame::extra(sset)[['IGG']])) {
+        igr_cnt <- length(which(!sesame::extra(sset)[['IGG']]))
+        irg_cnt <- length(which(!sesame::extra(sset)[['IRR']]))
+      }
+      ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!igr_key := !!igr_cnt))
+      ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!irg_key := !!irg_cnt))
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                       Sesame Inference Methods:: SSET
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      if (platform=='EPIC' || platform=='HM450') {
+        gct_val <- NULL
+        gct_key <- 'GCT'
+        gct_val <- safeGCT(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!gct_key := !!gct_val))
+        
+        sex_val <- NULL
+        sex_key <- 'Sex'
+        sex_val <- safeSex(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!sex_key := !!sex_val))
+        
+        kar_val <- NULL
+        kar_key <- 'SexKaryotype'
+        kar_val <- safeSexKaryo(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!kar_key := !!kar_val))
+        
+        eth_val <- NULL
+        eth_key <- 'Ethnicity'
+        eth_val <- safeEthnicity(sset=sset, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!eth_key := !!eth_val))
+      }
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                      Sesame Predictions Methods:: Beta
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      if (platform=='EPIC' || platform=='HM450') {
+        if (fresh || is.null(sesame::extra(sset)[['betas']]) ) {
+          if (verbose>=vt+1)
+            cat(glue::glue("[{funcTag}]:{tabsStr} Generating beta calls...{RET}"))
+          
+          # sesame::extra(sset)[['betas']] <-
+          #   sesame::getBetas(sset=sset, mask = quality.mask,sum.TypeI = sum.TypeI)
+          sesame::extra(sset)[['betas']] <-
+            getBetas2(sset=sset, mask = quality.mask,sum.TypeI = sum.TypeI)
+        }
+        
+        if (platform=='EPIC') {
+          skn_val <- NULL
+          skn_key <- 'AgeSkinBlood'
+          skn_val <- safeSkinAge(beta=sesame::extra(sset)[['betas']], 
+                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!skn_key := !!skn_val))
+        }
+        
+        if (platform=='HM450') {
+          phn_val <- NULL
+          phn_key <- 'AgePheno'
+          phn_val <- safePhenoAge(beta=sesame::extra(sset)[['betas']], 
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          ret_tib <- ret_tib %>% dplyr::bind_cols(tibble::tibble(!!phn_key := !!phn_val))
+        }
+      }
+      
+      ret_cnt <- ret_tib %>% base::nrow()
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+        print(ret_tib)
+      }
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                     "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    ret_tib
+  }
+  
+  ssetToPvalSheet = function(sset, key, min, perc, man=NULL,
+                             percision = -1,
+                             by="Probe_ID", type="Probe_Type", des="Probe_Class",
+                             verbose=0,vt=3,tc=1,tt=NULL) {
+    funcTag <- 'ssetToPvalSheet'
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- system.time({
+      
+      cur_tib <- sesame::extra(sset)[['pvals']][[key]] %>% 
+        tibble::enframe(name='Probe_ID', value=key)
+      
+      sum_tib <- sigsTibToSummary(tib=cur_tib, man=man, pval=min, perc=perc,
+                                  percision=percision,
+                                  by=by, type=type, des="Probe_Design", 
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      
+      
+      ret_tib <- sum_tib
+      ret_cnt <- ret_tib %>% base::nrow()
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                     "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    ret_tib
+  }
+
+  ssetToSigsTib = function(sset, man=NULL, 
+                           percision=-1, sort=FALSE, 
+                           save=FALSE, csv=NULL,
+                           by="Probe_ID", type="Probe_Type", des="Probe_Design", 
+                           verbose=0,vt=3,tc=1,tt=NULL) {
+    funcTag <- 'ssetToSigsTib'
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- system.time({
+      
+      by_sym  <- by %>% rlang::sym()
+      des_sym <- des %>% rlang::sym()
+      
+      ret_tib <- dplyr::bind_rows(
+        sset@IG   %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='IG'),
+        sset@oobG %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='OG'),
+        
+        sset@IR   %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='IR'),
+        sset@oobR %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='OR'),
+        
+        sset@II   %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='2'),
+        
+        if (sset@ctl %>% base::nrow() != 0) {
+          sset@ctl  %>% tibble::as_tibble(rownames='Probe_ID',.name_repair = "unique") %>% dplyr::mutate(!!des_sym:='2') %>%
+            dplyr::rename(M=G,U=R) %>% dplyr::select(Probe_ID,!!des_sym,M,U)
+        }
+      ) %>% dplyr::select(!!by, !!des, dplyr::everything())
+      
+      if (percision!=-1) ret_tib <- ret_tib %>% 
+        dplyr::mutate_if(is.numeric, list(round), percision)
+      
+      if (!is.null(man)) ret_tib <- dplyr::select(man, !!by, !!type) %>% 
+        dplyr::right_join(ret_tib, by=by)
+      
+      if (sort) ret_tib <- ret_tib %>% dplyr::arrange(!!by_sym)
+      
+      if (!is.null(save) && save==TRUE && !is.null(csv)) {
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
+        csv_dir <- base::basename(csv)
+        if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+        readr::write_csv(ret_tib, csv)
+      }
+      
+      ret_cnt <- ret_tib %>% base::nrow()
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+        print(ret_tib)
+      }
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                     "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    ret_tib
+  }
+  
+  ssetToCallTib = function(sset, workflow, fresh=FALSE,
+                           quality.mask = FALSE, sum.TypeI = FALSE,
+                           percision_beta=-1, percision_pval=-1,
+                           save=FALSE, csv=NULL,
+                           verbose=0,vt=3,tc=1,tt=NULL) {
+    funcTag <- 'ssetToCallTib'
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; workflow={workflow}.{RET}"))
+    if (verbose>=vt+4) print(sset)
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- system.time({
+      
+      # beta
+      #
+      name <- paste(workflow,'beta', sep='_')
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Mutating/Settting name={name}...{RET}"))
+      
+      #
+      #
+      # TBD:: Ensure we don't have Probe_ID of zero length...
+      #
+      #
+      
+      #
+      # ssetToBeta (provide return type=tib/dat)
+      #
+      if (fresh || is.null(sesame::extra(sset)[['betas']]) ) {
+        # sesame::extra(sset)[['betas']] <-
+        #   sesame::getBetas(sset=sset, mask = quality.mask,sum.TypeI = sum.TypeI)
+        sesame::extra(sset)[['betas']] <-
+          getBetas2(sset=sset, mask = quality.mask,sum.TypeI = sum.TypeI)
+      }
+      ret_tib <- tibble::enframe(sesame::extra(sset)[['betas']], 
+                                 name='Probe_ID', value=name)
+      if (percision_beta!=-1)
+        ret_tib <- dplyr::mutate_if(ret_tib, purrr::is_double,round,percision_beta)
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} Current Table(betas)={RET}"))
+        ret_tib %>% print()
+      }
+      
+      #
+      # Detection p-values::
+      #
+      pval_names <- sesame::extra(sset)[['pvals']] %>% names()
+      for (pval_name in pval_names) {
+        out_name <- pval_name
+        out_name <- paste(workflow,out_name, sep='_')
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval_name={pval_name}, out_name={out_name}...{RET}"))
+        
+        cur_tib <- sesame::extra(sset)[['pvals']][[pval_name]] %>% 
+          tibble::enframe(name='Probe_ID', value=out_name)
+        
+        if (percision_pval!=-1) 
+          cur_tib <- dplyr::mutate_if(cur_tib, purrr::is_double,round,percision_pval)
+        
+        ret_tib <- ret_tib %>% dplyr::left_join(cur_tib,by="Probe_ID")
+      }
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} Current Table(pvals)={RET}"))
+        ret_tib %>% print()
+      }
+      
+      if (!is.null(save) && save==TRUE && !is.null(csv)) {
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))
+        csv_dir <- base::basename(csv)
+        if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+        readr::write_csv(ret_tib, csv)
+      }
+      
+      ret_cnt <- ret_tib %>% base::nrow()
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+        print(ret_tib)
+      }
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                     "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    ret_tib
+  }
   
 }
 

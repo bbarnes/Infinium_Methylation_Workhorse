@@ -30,7 +30,8 @@ template_func = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -381,6 +382,55 @@ reduceSortedTib = function(tib, n=3,
   tib
 }
 
+joinTibbles = function(a, b, by, side="left", verbose=0,vt=3,tc=1) {
+  funcTag <- 'joinTibbles'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; platform={platform}.{RET}"))
+  
+  if (is.null(a)) return(b)
+  if (is.null(b)) return(a)
+  
+  if (side=='left')  return(dplyr::left_join(a,  b, by=by))
+  if (side=='right') return(dplyr::right_join(a, b, by=by))
+  if (side=='inner') return(dplyr::inner_join(a, b, by=by))
+  if (side=='full')  return(dplyr::full_join(a,  b, by=by))
+  stop(glue::glue("[$func]: ERROR: Unsupported join={side}!!!{RET}{RET}"))
+  
+  # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  
+  NULL
+}
+
+addColNames = function(tib, add, fix, prefix=TRUE, del='_',
+                       verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'addColNames'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_tib <- tib %>% dplyr::select(dplyr::all_of(fix), dplyr::everything())
+    new_col <- ret_tib %>% dplyr::select(-dplyr::all_of(fix)) %>% names()
+
+    if ( prefix) new_col <- paste(add,new_col, sep=del)
+    if (!prefix) new_col <- paste(new_col,add, sep=del)
+
+    new_col <- c(fix, new_col)
+    ret_tib <- ret_tib %>% purrr::set_names(new_col)
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Options to Script Commands::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -512,30 +562,6 @@ setLaunchExe = function(opts, pars, verbose=0,vt=3,tc=1,tt=NULL) {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                           Common Tibble Methods::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-joinTibbles = function(a, b, by, side="left", verbose=0,vt=3,tc=1) {
-  funcTag <- 'joinTibbles'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; platform={platform}.{RET}"))
-  
-  if (is.null(a)) return(b)
-  if (is.null(b)) return(a)
-  
-  if (side=='left')  return(dplyr::left_join(a,  b, by=by))
-  if (side=='right') return(dplyr::right_join(a, b, by=by))
-  if (side=='inner') return(dplyr::inner_join(a, b, by=by))
-  if (side=='full')  return(dplyr::full_join(a,  b, by=by))
-  stop(glue::glue("[$func]: ERROR: Unsupported join={side}!!!{RET}{RET}"))
-
-  # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
-  
-  NULL
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Summarizing Counting Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 cntPer_lte = function(x, min, prc=3) {
@@ -566,6 +592,21 @@ bool2int = function(x) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              String Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+splitStrToVec = function(x, del=',', unique=TRUE,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'splitStrToVec'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_vec <- NULL
+  if (!is.null(x)) 
+    ret_vec <- str_split(x, pattern=del, simplify=TRUE) %>% 
+    as.vector() %>% unique()
+
+  ret_vec
+}
+
 spaceToUnderscore = function(x) {
   x %>% stringr::str_replace_all(' ','_')
 }

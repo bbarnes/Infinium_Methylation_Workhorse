@@ -2136,13 +2136,13 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
             stringr::str_remove('^0+') %>% as.numeric() %>% as.integer() )
       }
       ref_cnt <- ref_tib %>% dplyr::distinct(!!field_sym) %>% base::nrow()
-      
-      mat_tib <- dplyr::inner_join(can_tib,ref_tib, by=field)
-      mat_cnt <- mat_tib %>% base::nrow()
+      mat_cnt <- dplyr::inner_join(can_tib,ref_tib, by=field) %>% 
+        dplyr::distinct(!!field_sym) %>% base::nrow()
       rec_per <- base::round(100*mat_cnt / base::min(can_cnt,ref_cnt), 3)
       
       if (verbose>=vt+1) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest({man_key}) Address Count={ref_cnt}, RCP={rec_per}.{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest({man_key}) ",
+                       "Address Count={ref_cnt}, Match Count={mat_cnt}, RCP={rec_per}.{RET}"))
       
       # Update tables::
       #
@@ -2436,15 +2436,13 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
             TRUE ~ col),
           Probe_ID=stringr::str_replace_all( 
             stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
-          
-          # Probe_ID=stringr::str_replace_all( 
-          #   stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("\\W+"), " ")) ), " ","_"),
-          
           Probe_Type=stringr::str_replace_all( 
-            stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
+            stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
+          # Probe_Type=stringr::str_replace_all( 
+          #   stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
           Probe_Design=dplyr::case_when(
-            is.na(M) ~ '1',
-            TRUE ~ '2'
+            is.na(M) ~ '2',
+            TRUE ~ '1'
           )
         )
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done; Loading manifest.{RET}{RET}"))

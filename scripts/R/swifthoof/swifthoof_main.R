@@ -83,7 +83,7 @@ opt$fresh        <- FALSE
 opt$buildSubDir  <- FALSE
 opt$auto_detect  <- FALSE
 
-opt$workflows   <- NULL
+opt$workflow   <- NULL
 opt$manDirName  <- 'core'
 
 # Output Options::
@@ -97,17 +97,31 @@ opt$save_sset   <- FALSE
 # TBD: Add new variable names::
 #
 opt$write_sset  <- FALSE
+
+opt$write_beta  <- FALSE
+opt$write_bsum  <- FALSE
+
+opt$write_pval  <- FALSE
+opt$write_psum  <- FALSE
+
 opt$write_sigs  <- FALSE
 opt$write_ssum  <- FALSE
+
 opt$write_call  <- FALSE
 opt$write_csum  <- FALSE
+
 opt$write_auto  <- FALSE
 
 # Threshold Options::
-opt$minNegPval   <- 0.02
-opt$minOobPval   <- 0.1
-opt$minNegPerc   <- 98
-opt$minOobPerc   <- 90
+opt$pval <- "pOOBAH,PnegEcdf"
+opt$minPval <- "0.1,0.02"
+opt$minPerc <- "90,98"
+
+# opt$minNegPval   <- 0.02
+# opt$minOobPval   <- 0.1
+# opt$minNegPerc   <- 98
+# opt$minOobPerc   <- 90
+
 opt$minDeltaBeta <- 0.2
 
 opt$percision_sigs <- 1
@@ -202,20 +216,22 @@ if (args.dat[1]=='RStudio') {
   par$expChipNum <- NULL
   
   # Writing Options::
-  opt$write_sset  <- FALSE
-  opt$write_sigs  <- FALSE
-  opt$write_ssum  <- FALSE
-  opt$write_call  <- FALSE
-  opt$write_csum  <- FALSE
-  
   opt$write_sset  <- TRUE
+
+  opt$write_beta  <- FALSE
+  opt$write_bsum  <- TRUE
+  
+  opt$write_pval  <- FALSE
+  opt$write_psum  <- TRUE
+  
   opt$write_sigs  <- TRUE
   opt$write_ssum  <- TRUE
+  
   opt$write_call  <- TRUE
   opt$write_csum  <- TRUE
   
-  opt$workflows <- "nd,ind"
-  opt$workflows <- 'ind'
+  opt$workflow <- "nd,ind"
+  opt$workflow <- 'ind'
   
   opt$auto_detect <- TRUE
   
@@ -242,7 +258,7 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVID'
   par$local_runType <- 'COVIC'
   
-  opt$fresh <- TRUE
+  # opt$fresh <- TRUE
   
   if (par$local_runType=='COVID') {
     par$expRunStr  <- 'COVID-Direct-Set1'
@@ -252,15 +268,16 @@ if (args.dat[1]=='RStudio') {
     # opt$single   <- FALSE
     par$retData  <- TRUE
     
-    opt$workflows <- "nd,ind"
-    opt$workflows <- NULL
+    opt$workflow <- "nd,ind"
+    # opt$workflows <- NULL
     
   } else if (par$local_runType=='COVIC') {
     par$expRunStr  <- 'COVIC-Set1-15052020'
     par$expChipNum <- '204500250013'
     opt$auto_detect <- TRUE
-    opt$workflows <- "nd,ind"
-
+    opt$workflow <- "ind"
+    opt$workflow <- "nd,ind"
+    
   } else if (par$local_runType=='GRCm38') {
     par$expRunStr <- 'MURMETVEP_mm10_betaTest_06082020'
     par$expRunStr <- 'VanAndel_mm10_betaTest_31082020'
@@ -349,8 +366,8 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--auto_detect"), action="store_true", default=opt$auto_detect,
                 help="Boolean variable to auto detect reference samples. Must provide reference samples. [default= %default]", metavar="boolean"),
 
-    make_option(c("--workflows"), type="character", default=opt$workflows,
-                help="Order of operations comma seperated [ raw,ind,ndi,din ] [default= %default]", metavar="character"),
+    make_option(c("--workflow"), type="character", default=opt$workflow,
+                help="Workflows to run i.e. order of operations comma seperated [ raw,ind,ndi,din, etc. ] [default= %default]", metavar="character"),
     make_option(c("--manDirName"), type="character", default=opt$manDirName,
                 help="Manifest directory name [default= %default]", metavar="character"),
     
@@ -376,27 +393,48 @@ if (args.dat[1]=='RStudio') {
     #
     make_option(c("--write_sset"), action="store_true", default=opt$write_sset,
                 help="Boolean variable to write Signal Set file (RDS) [default= %default]", metavar="boolean"),
+    
+    make_option(c("--write_beta"), action="store_true", default=opt$write_beta,
+                help="Boolean variable to write Beta Set file (CSV) [default= %default]", metavar="boolean"),
+    make_option(c("--write_bsum"), action="store_true", default=opt$write_bsum,
+                help="Boolean variable to write Beta Set Summary file (CSV) [default= %default]", metavar="boolean"),
+    
+    make_option(c("--write_pval"), action="store_true", default=opt$write_pval,
+                help="Boolean variable to write Pval Set file (CSV) [default= %default]", metavar="boolean"),
+    make_option(c("--write_psum"), action="store_true", default=opt$write_psum,
+                help="Boolean variable to write Pval Set Summary file (CSV) [default= %default]", metavar="boolean"),
+    
     make_option(c("--write_sigs"), action="store_true", default=opt$write_sigs,
                 help="Boolean variable to write Signal Set file (CSV) [default= %default]", metavar="boolean"),
     make_option(c("--write_ssum"), action="store_true", default=opt$write_ssum,
                 help="Boolean variable to write Signal Set Summary file (CSV) [default= %default]", metavar="boolean"),
-    make_option(c("--write_csum"), action="store_true", default=opt$write_csum,
-                help="Boolean variable to write Calls Summary file (CSV) [default= %default]", metavar="boolean"),
+    
     make_option(c("--write_call"), action="store_true", default=opt$write_call,
                 help="Boolean variable to write Calls (Pval/Beta) file (CSV) [default= %default]", metavar="boolean"),
-
+    make_option(c("--write_csum"), action="store_true", default=opt$write_csum,
+                help="Boolean variable to write Calls Summary file (CSV) [default= %default]", metavar="boolean"),
+    
     #
     # Threshold Options::
     #
-    make_option(c("--minNegPval"), type="double", default=opt$minNegPval, 
-                help="Minimum passing detection p-value using Negative Controls [default= %default]", metavar="double"),
-    make_option(c("--minOobPval"), type="double", default=opt$minOobPval,
-                help="Minimum passing detection p-value using Negative Out-Of-Band [default= %default]", metavar="double"),
+    make_option(c("--pval"), type="character", default=opt$pval, 
+                help="Detection p-value methods (commas seperated list)  [default= %default]", metavar="character"),
+    make_option(c("--minPval"), type="character", default=opt$minPval, 
+                help="Minimum passing detection p-value for each pval method (commas seperated list)  [default= %default]", metavar="character"),
+    make_option(c("--minPerc"), type="character", default=opt$minPerc, 
+                help="Minimum percentage of loci passing detection p-value for each pval method (commas seperated list)  [default= %default]", metavar="character"),
     
-    make_option(c("--minNegPerc"), type="double", default=opt$minNegPerc, 
-                help="Minimum percentage of loci passing detection p-value using Negative Controls to flag Requeue of sample. [default= %default]", metavar="double"),
-    make_option(c("--minOobPerc"), type="double", default=opt$minOobPerc, 
-                help="Minimum percentage of loci passing detection p-value using Out-Of-Band to flag Requeue of sample. [default= %default]", metavar="double"),
+    # Old methods::
+    #
+    # make_option(c("--minNegPval"), type="double", default=opt$minNegPval, 
+    #             help="Minimum passing detection p-value using Negative Controls [default= %default]", metavar="double"),
+    # make_option(c("--minOobPval"), type="double", default=opt$minOobPval,
+    #             help="Minimum passing detection p-value using Negative Out-Of-Band [default= %default]", metavar="double"),
+    # 
+    # make_option(c("--minNegPerc"), type="double", default=opt$minNegPerc, 
+    #             help="Minimum percentage of loci passing detection p-value using Negative Controls to flag Requeue of sample. [default= %default]", metavar="double"),
+    # make_option(c("--minOobPerc"), type="double", default=opt$minOobPerc, 
+    #             help="Minimum percentage of loci passing detection p-value using Out-Of-Band to flag Requeue of sample. [default= %default]", metavar="double"),
     
     make_option(c("--minDeltaBeta"), type="double", default=opt$minDeltaBeta,
                 help="Minimum passing delta-beta. Used in AutoSampleSheet cacluclations [default= %default]", metavar="double"),
@@ -481,9 +519,13 @@ if (!dir.exists(opt$idatsDir))
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Output Directory (TOP)={opt$outDir}...{RET}"))
 
-workflows_vec <- NULL
-if (!is.null(opt$workflows)) 
-  workflows_vec <- opt$workflows %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+pval_vec <- splitStrToVec(opt$pval)
+min_pval_vec <- splitStrToVec(opt$minPval)
+min_perc_vec <- splitStrToVec(opt$minPerc)
+workflow_vec <- splitStrToVec(opt$workflow)
+
+# Remove "r/raw" and force "raw" to be first::
+workflow_vec <- c("raw",workflow_vec[!workflow_vec %in% c("r","raw")])
 
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
@@ -614,7 +656,14 @@ if (opt$cluster) {
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], 
                                    man=mans, ref=auto_sam_tib, opts=opt, defs=def,
-                                   retData=par$retData, workflows=workflows_vec, tc=1)
+                                   
+                                   pvals=pval_vec,
+                                   min_pvals=min_pval_vec,
+                                   min_percs=min_perc_vec,
+                                   workflows=workflow_vec, 
+                                   
+                                   retData=par$retData,
+                                   verbose=opt$verbose, vt=3,tc=1)
       rdat
     }
     cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
@@ -627,11 +676,26 @@ if (opt$cluster) {
     for (prefix in names(chipPrefixes)) {
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
-      rdat <- NULL
-      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], 
-                                   man=mans, ref=auto_sam_tib, opts=opt, defs=def,
-                                   retData=par$retData, workflows=workflows_vec, tc=1)
+      opt$save_idat <- TRUE
+      opt$load_idat <- TRUE
       
+      opt$save_sset <- TRUE
+      opt$load_sset <- TRUE
+      
+      opt$fresh <- FALSE
+      
+      rdat <- NULL
+      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
+                                   man=mans, ref=auto_sam_tib, opts=opt, defs=def,
+                                   
+                                   pvals=pval_vec,
+                                   min_pvals=min_pval_vec,
+                                   min_percs=min_perc_vec,
+                                   workflows=workflow_vec,
+                                   
+                                   retData=par$retData,
+                                   verbose=opt$verbose, vt=3,tc=1)
+
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
     }

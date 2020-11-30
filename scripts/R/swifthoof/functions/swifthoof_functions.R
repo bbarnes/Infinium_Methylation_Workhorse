@@ -32,12 +32,16 @@ RET <- "\n"
 #                       Single Sample Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
-                                workflows, btypes=c('cg','ch','rs'),
-                                retData=FALSE, non_ref=FALSE, 
-                                del='_', vt=3,tc=0) {
+                                pvals=NULL, min_pvals=NULL, min_percs=NULL,
+                                workflows=NULL, 
+                                
+                                btypes=c('cg','ch','rs'),
+                                retData=FALSE, retData2=FALSE, non_ref=FALSE, 
+                                del='_', 
+                                verbose=0, vt=3,tc=0) {
   funcTag <- 'sesamizeSingleSample'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  verbose <- opts$verbose
+  
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; prefix={prefix}...{RET}{RET}"))
   
@@ -66,7 +70,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     stampBeg_txt <- file.path(opts$outDir, paste(out_name, 'timestamp.beg.txt', sep=del) )
     stampEnd_txt <- file.path(opts$outDir, paste(out_name, 'timestamp.end.txt', sep=del) )
-    readr::write_lines(x=date(),file=stampBeg_txt,sep='\n',append=FALSE)
+    if (!file.exists(stampBeg_txt))
+      readr::write_lines(x=date(),file=stampBeg_txt,sep='\n',append=FALSE)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                      Write Run Options/Defaults::
@@ -79,13 +84,14 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         by="Option") %>% 
         purrr::set_names(c("Option","Value","Default"))
     }
-    if (verbose>=vt) 
+    if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr} Writing opts_csv={opts_csv}...{RET}"))
     readr::write_csv(opts_tib, opts_csv)
     
-    opt_ssh_tib <- tibble::tibble(minNegPval   = opts$minNegPval,
-                                  minOobPval   = opts$minOobPval,
-                                  minDeltaBeta = opts$minDeltaBeta)
+    # opt_ssh_tib <- tibble::tibble(minNegPval   = opts$minNegPval,
+    #                               minOobPval   = opts$minOobPval,
+    #                               minDeltaBeta = opts$minDeltaBeta)
+    opt_ssh_tib <- tibble::tibble(minDeltaBeta = opts$minDeltaBeta)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           Extract Raw idat::
@@ -184,13 +190,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     times_csv    <- paste(out_prefix, 'run-times.csv.gz', sep=del)
     ssheet_csv   <- paste(out_prefix, 'AutoSampleSheet.csv.gz', sep=del)
     dsheet_csv   <- paste(out_prefix, 'AutoSampleSheetDescriptionTable.csv.gz', sep=del)
-    raw_sset_csv <- paste(out_prefix, 'raw-sset.csv.gz', sep=del)
-    raw_sset_rds <- paste(out_prefix, 'raw-sset.rds', sep=del)
+    new_sset_rds <- paste(out_prefix, 'new.sset.rds', sep=del)
     
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Defined output files: out_prefix={out_prefix}, basecode={basecode}, out_name={out_name}.{RET}"))
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Defined output files: platform_key={platform_key}, version_key={version_key}, outDir={opts$outDir}.{RET}"))
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  raw_sset_csv={raw_sset_csv}.{RET}") )
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  raw_sset_rds={raw_sset_rds}.{RET}") )
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  new_sset_rds={new_sset_rds}.{RET}") )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}    ssheet_csv={ssheet_csv}.{RET}") )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}    dsheet_csv={dsheet_csv}.{RET}") )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}     times_csv={times_csv}.{RET}{RET}{RET}") )
@@ -201,89 +205,23 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building RAW SSET...{RET}"))
 
-    raw_sset <- NULL
-    raw_sset <- newSset(prefix=prefix, 
+    new_sset <- NULL
+    new_sset <- newSset(prefix=prefix, 
                         platform=platform_key, manifest=top_man_tib,
-                        load=opts$load_sset,save=opts$save_sset,rds=sset_rds,
+                        load=opts$load_sset,save=opts$save_sset,rds=new_sset_rds,
                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     if (retData) {
-      ret$raw_sset <- raw_sset
+      ret$new_sset <- new_sset
       # return(ret)
     }
-    
-    idx <- 0
-    cur_workflow <- 'raw'
-    cur_sset <- raw_sset
     
     ret_dat_list <- NULL
     cur_dat_list <- NULL
     
     auto_beta_key <- NULL
     auto_negs_key <- NULL
-    
-    calls_tib <- NULL
-    cur_dat_list = ssetToSummary(
-      sset=cur_sset, man=top_man_tib, idx=idx, workflow=cur_workflow,
-      name=out_name, outDir=opts$outDir,
-      
-      write_sset=opts$write_sset, sset_rds=NULL, ret_sset=retData,
-      write_sigs=opts$write_sigs, sigs_csv=NULL, ret_sigs=retData,
-      write_ssum=opts$write_ssum, ssum_csv=NULL, ret_ssum=retData,
-      write_call=opts$write_call, call_csv=NULL, ret_call=retData,
-      
-      minNegPval=opts$minNegPval,minOobPval=opts$minOobPval,
-      percision_sigs=opts$percision_sigs,
-      percision_beta=opts$percision_beta,
-      percision_pval=opts$percision_pval,
-      
-      by="Probe_ID", type="Probe_Type", des="Probe_Class",
-      fresh=opts$fresh,
-      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-    
-    calls_tib = cur_dat_list$call_dat
-    sheet_tib = cur_dat_list$sam_sheet
-    ssheet_tib <- dplyr::bind_cols(ssheet_tib, sheet_tib)
-    
-    if (is.null(auto_beta_key)) auto_beta_key <- paste(cur_workflow,'beta', sep=del)
-    if (is.null(auto_negs_key)) auto_negs_key <- paste(cur_workflow,'PnegEcdf', sep=del)
-    
-    if (verbose>=vt) {
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}{RET}"))
-      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-    }
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                             Add Requeue Flags::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    #
-    # TBD:: Make function:: addRequeueFlags()
-    #
-    if (verbose>=vt) {
-      cat(glue::glue("{RET}{RET}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Requeue Flag",
-                     "(minOobPerc={opts$minOobPerc},minNegPerc={opts$minNegPerc})...{RET}"))
-    }
-    
-    ssheet_tib <- ssheet_tib %>% dplyr::mutate(
-      Requeue_Flag_pOOBAH=dplyr::case_when(
-        pOOBAH_cg_1_pass_perc_0 < opts$minOobPerc | pOOBAH_cg_2_pass_perc_0 < opts$minOobPerc ~ TRUE, TRUE ~ FALSE),
-      Requeue_Flag_PnegEcdf=dplyr::case_when(
-        PnegEcdf_cg_1_pass_perc_0 < opts$minNegPerc | PnegEcdf_cg_2_pass_perc_0 < opts$minNegPerc ~ TRUE, TRUE ~ FALSE)
-    )
-    
-    if (verbose>=vt) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} Done. ssheet_tib(all requeue added)={RET}"))
-      if (verbose>=vt+4) ssheet_tib %>% print()
-      cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}{RET}"))
-    }
-    
-    if (retData) {
-      ret$ssheet_tib <- ssheet_tib
-      # return(ret)
-    }
-    
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -299,7 +237,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting idx={idx}, cur_workflow={cur_workflow}.{RET}"))
       }
 
-      cur_sset_rds <- paste(out_prefix, paste(cur_workflow,'-sset.rds'), sep='_')
+      cur_sset_rds <- paste(out_prefix, paste(cur_workflow,'sset.rds', sep='.'), sep=del)
       if (is.null(auto_beta_key)) auto_beta_key <- paste(cur_workflow,'beta', sep=del)
       if (is.null(auto_negs_key)) auto_negs_key <- paste(cur_workflow,'PnegEcdf', sep=del)
       
@@ -309,10 +247,10 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={cur_sset_rds}.{RET}"))
         cur_sset <- readr::read_rds(cur_sset_rds)
       } else {
-        stopifnot(!is.null(raw_sset))
+        stopifnot(!is.null(new_sset))
         
         cur_sset <- mutateSSET_workflow(
-          sset=raw_sset, workflow=cur_workflow, 
+          sset=new_sset, workflow=cur_workflow, pvals=pvals,
           save=opts$save_sset, rds=cur_sset_rds,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       }
@@ -320,40 +258,57 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       
       cur_dat_list = ssetToSummary(
         sset=cur_sset, man=top_man_tib, idx=idx, workflow=cur_workflow,
-        name=out_name, outDir=opts$outDir,
+        name=out_name, outDir=opts$outDir, pre=cur_dat_list,
         
-        write_sset=opts$write_sset, sset_rds=NULL, ret_sset=retData,
-        write_sigs=opts$write_sigs, sigs_csv=NULL, ret_sigs=retData,
-        write_ssum=opts$write_ssum, ssum_csv=NULL, ret_ssum=retData,
-        write_call=opts$write_call, call_csv=NULL, ret_call=retData,
+        pvals=pvals, min_pvals=min_pvals, min_percs=min_percs,
         
-        minNegPval=opts$minNegPval,minOobPval=opts$minOobPval,
+        write_sset=opts$write_sset, sset_rds=NULL, ret_sset=retData2,
+        
+        write_beta=opts$write_beta, beta_csv=NULL, ret_beta=retData2,
+        write_bsum=opts$write_bsum, bsum_csv=NULL, ret_bsum=retData2,
+        
+        write_pval=opts$write_pval, pval_csv=NULL, ret_pval=retData2,
+        write_psum=opts$write_psum, psum_csv=NULL, ret_psum=retData2,
+        
+        write_sigs=opts$write_sigs, sigs_csv=NULL, ret_sigs=retData2,
+        write_ssum=opts$write_ssum, ssum_csv=NULL, ret_ssum=retData2,
+        
+        write_call=opts$write_call, call_csv=NULL, ret_call=retData2,
+        write_csum=opts$write_csum, csum_csv=NULL, ret_csum=retData2,
+        
         percision_sigs=opts$percision_sigs,
         percision_beta=opts$percision_beta,
         percision_pval=opts$percision_pval,
         
-        by="Probe_ID", type="Probe_Type", des="Probe_Class",
+        by="Probe_ID", type="Probe_Type", des="Probe_Design",
         fresh=opts$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
 
-      sheet_tib = cur_dat_list$sam_sheet
-      ssheet_tib <- dplyr::bind_cols(ssheet_tib, sheet_tib)
+      # sheet_tib = cur_dat_list$sam_sheet
+      # ssheet_tib <- dplyr::bind_cols(ssheet_tib, sheet_tib)
       
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} sheet_tib={RET}"))
-        print(sheet_tib)
-      }
+      # if (verbose>=vt+4) {
+      #   cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} sheet_tib={RET}"))
+      #   print(sheet_tib)
+      # }
 
       if (verbose>=vt) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}"))
         cat(glue::glue("{tabsStr}{TAB}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       }
+      
+      break
     }
     if (verbose>=vt) {
       cat(glue::glue("Done Workflows...{RET}"))
       cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
     }
     
+    if (retData) {
+      ret$cur_list <- cur_dat_list
+      return(ret)
+    }
+
     #
     # Add formatVCF
     # Sum formatVCF
@@ -417,8 +372,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Compressing Outputs (CSV)...{RET}"))
-    gzip_list <- lapply(list.files(opt$outDir, pattern='.csv$', full.names=TRUE), 
-                        function(x) { system(glue::glue("gzip -f {x}")) } )
+    
+    # gzip_list <- lapply(list.files(opt$outDir, pattern='.csv$', full.names=TRUE), 
+    #                     function(x) { system(glue::glue("gzip -f {x}")) } )
     
     readr::write_lines(x=date(),file=stampEnd_txt,sep='\n',append=FALSE)
   })
