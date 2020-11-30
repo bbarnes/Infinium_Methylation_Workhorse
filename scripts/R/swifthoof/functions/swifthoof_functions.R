@@ -297,7 +297,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         cat(glue::glue("{tabsStr}{TAB}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       }
       
-      break
+      # break
     }
     if (verbose>=vt) {
       cat(glue::glue("Done Workflows...{RET}"))

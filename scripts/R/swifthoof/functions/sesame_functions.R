@@ -224,7 +224,8 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
     pred_dat_tib <- NULL
     pred_dat_tib <- ssetToPredictions(
       sset=sset_dat,
-      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+      purrr::set_names(paste(workflow,names(.), sep='_'))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                Update Calls, Signal and Summary Headers::
@@ -258,10 +259,10 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Join with previous data...{RET}"))
         
-      ret_dat$sigs_dat <- dplyr::left_join(pre$sigs_dat, sigs_dat_tib, by=by)
+      ret_dat$sigs_dat <- dplyr::left_join(pre$sigs_dat, sigs_dat_tib, by=c(by,type,des))
       ret_dat$call_dat <- dplyr::left_join(pre$call_dat, call_dat_tib, by=by)
-      ret_dat$sums_dat <- dplyr::left_join(pre$sums_dat, sums_dat_tib, by=by)
-      ret_dat$pred_dat <- dplyr::left_join(pre$pred_dat, pred_dat_tib, by=by)
+      ret_dat$sums_dat <- dplyr::bind_rows(pre$sums_dat, sums_dat_tib)
+      ret_dat$pred_dat <- dplyr::bind_cols(pre$pred_dat, pred_dat_tib)
     }
     
     ret_cnt <- ret_dat %>% names %>% length()
