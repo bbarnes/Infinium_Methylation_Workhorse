@@ -312,6 +312,8 @@ if (args.dat[1]=='RStudio') {
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
+  
+  opt$auto_detect <- FALSE
 
   opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_') )
   if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_'),  par$expChipNum)

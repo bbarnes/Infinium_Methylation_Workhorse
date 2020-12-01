@@ -306,7 +306,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     if (retData) {
       ret$cur_list <- cur_dat_list
-      return(ret)
+      # return(ret)
     }
 
     #
@@ -322,7 +322,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detecting Auto-Sample-Sheet: [SampleName, rsquared,deltaBeta].{RET}"))
       
       auto_sheet <- autoDetect_Wrapper(
-        can=calls_tib, ref=ref, man=top_man_tib,
+        can=cur_dat_list$call_dat, ref=ref, man=top_man_tib,
         minPval=opts$minNegPval, minDelta=opts$minDeltaBeta,
         dname='Design_Type', pname='Probe_Type', ptype='cg',
         jval='Probe_ID', field=auto_beta_key, pval=auto_negs_key, suffix='beta', del=del,
@@ -344,15 +344,15 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # Arrange the Sample Sheet Columns
     ssheet_tib <- ssheet_tib %>% 
       dplyr::select(-starts_with('Iscan_'), starts_with('Iscan_')) %>% 
-      dplyr::mutate_if(is.numeric, list(round), 4) %>% 
-      dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+      dplyr::mutate_if(is.numeric, list(round), 4) # %>% 
+      # dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
     
     # Add Description Sample Sheet Table:: dsheet_tab
-    dsheet_tab <- 
-      getSsheetDataTab(tib = ssheet_tib, 
-                       minOobPval=opts$minOobPval, minOobPerc=opts$minOobPerc,
-                       minNegPval=opts$minNegPval, minNegPerc=opts$minNegPerc,
-                       verbose = 1)
+    dsheet_tab <- NULL
+      # getSsheetDataTab(tib = ssheet_tib, 
+      #                  minOobPval=opts$minOobPval, minOobPerc=opts$minOobPerc,
+      #                  minNegPval=opts$minNegPval, minNegPerc=opts$minNegPerc,
+      #                  verbose = 1)
     
     # Format Time Table
     time_tib <- tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
@@ -363,9 +363,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Outputs.{RET}"))
     
-    readr::write_csv(ssheet_tib, ssheet_csv)
-    readr::write_csv(dsheet_tab, dsheet_csv)
-    readr::write_csv(time_tib, times_csv)
+    if (!is.null(ssheet_tib)) readr::write_csv(ssheet_tib, ssheet_csv)
+    if (!is.null(dsheet_tab)) readr::write_csv(dsheet_tab, dsheet_csv)
+    if (!is.null(time_tib))   readr::write_csv(time_tib, times_csv)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                            Compress Outputs::
