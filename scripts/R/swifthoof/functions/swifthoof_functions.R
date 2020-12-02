@@ -88,14 +88,12 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr} Writing opts_csv={opts_csv}...{RET}"))
     readr::write_csv(opts_tib, opts_csv)
     
-    # opt_ssh_tib <- tibble::tibble(minNegPval   = opts$minNegPval,
-    #                               minOobPval   = opts$minOobPval,
-    #                               minDeltaBeta = opts$minDeltaBeta)
     opt_ssh_tib <- tibble::tibble(minDeltaBeta = opts$minDeltaBeta)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           Extract Raw idat::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
     if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
     idat_rds  <- paste(out_prefix, 'idat.rds', sep=del)
     idat_list <- prefixToIdat(prefix=prefix, 
@@ -146,14 +144,17 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                            Build Sample Sheet::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Initializing Auto-Sample-Sheet: [idat/bead/pheno].{RET}"))
+    
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Initializing Auto-Sample-Sheet: [idat/bead/pheno].{RET}"))
     
     beadPool     <- bead_ssh_tib  %>% head(n=1) %>% dplyr::select(Bead_Pool)   %>% dplyr::pull()
     chipFormat   <- idat_list$ann %>% head(n=1) %>% dplyr::select(Chip_Format) %>% dplyr::pull()
     version_key  <- man_map_tib$version[1]
     platform_key <- man_map_tib$platform[1]
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} chipFormat={chipFormat}, beadPool={beadPool}.{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} chipFormat={chipFormat}, beadPool={beadPool}.{RET}"))
     
     ssheet_tib <- NULL
     ssheet_tib <- dplyr::bind_cols(
@@ -168,7 +169,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       
       # Manifest-Detection Sample Sheet Stats::
       man_map_tib %>% purrr::set_names(paste('detect',names(.), sep='_')) %>% head(n=1)
-      
     )
     
     if (retData) {
@@ -178,6 +178,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                            Output Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Defining outputs...{RET}"))
     
     if (opts$buildSubDir) opts$outDir <- file.path(opts$outDir, chipFormat, beadPool)
@@ -203,7 +204,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                          Initialize RAW SSET::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building RAW SSET...{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building RAW SSET...{RET}"))
 
     new_sset <- NULL
     new_sset <- newSset(prefix=prefix, 
@@ -226,14 +228,15 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (verbose>=vt)
+    if (verbose>=vt) {
+      cat(glue::glue("{tabsStr}{TAB}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}{RET}"))
+    }
     
     workflow_cnt <- length(workflows)
     for (idx in seq(1,workflow_cnt)) {
       cur_workflow <- workflows[idx]
       if (verbose>=vt) {
-        cat(glue::glue("{tabsStr}{TAB}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting idx={idx}, cur_workflow={cur_workflow}.{RET}"))
       }
 
@@ -283,14 +286,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         by="Probe_ID", type="Probe_Type", des="Probe_Design",
         fresh=opts$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-
-      # sheet_tib = cur_dat_list$sam_sheet
-      # ssheet_tib <- dplyr::bind_cols(ssheet_tib, sheet_tib)
-      
-      # if (verbose>=vt+4) {
-      #   cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} sheet_tib={RET}"))
-      #   print(sheet_tib)
-      # }
 
       if (verbose>=vt) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}"))
@@ -408,7 +403,8 @@ maskTibs = function(tib, id, field, pval, minPval, del='_',
     for (sname in snames) {
       fstr <- paste(sname,field, sep=del)
       pstr <- paste(sname,pval, sep=del)
-      tib <- maskTib(tib, field=fstr, id=id, pval=pstr, minPval=minPval, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      tib <- maskTib(tib, field=fstr, id=id, pval=pstr, minPval=minPval, 
+                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
   }
   if (only.field) tib <- tib %>% dplyr::select(1,ends_with(field))
@@ -496,16 +492,19 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NOT_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       
       if (!is.null(minVal) && !is.null(datKey)) {
-        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} USE_PVAL minVal={minVal}, SELECT=[selKey={selKey}, minKey={minKey}, datKey={datKey}].{RET}"))
         tib <- tib %>% dplyr::select(!!selKey,!!minKey, !!datKey)
-        if (verbose>=vt+4) tib %>% print()
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} USE_PVAL minVal={minVal}, ",
+                         "SELECT=[selKey={selKey}, minKey={minKey}, datKey={datKey}].{RET}"))
+          tib %>% print()
+        }
         
         tot_cnt  <- tib %>% base::nrow()
         pre_cnt  <- tib %>% dplyr::filter(is.na(!!datKey)) %>% base::nrow()
         
-        tib <- maskTib(tib=tib, id=selKey, field=datKey, pval=minKey, minPval=minVal, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        # tib <- maskCall(tib=tib, field=datKey, minKey=minKey, minVal=minVal, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        
+        tib <- maskTib(tib=tib, id=selKey, field=datKey, pval=minKey, minPval=minVal, 
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
         pos_cnt  <- tib %>% dplyr::filter(is.na(!!datKey)) %>% base::nrow()
         pos_per  <- round(100*pos_cnt/tot_cnt,3)
         
@@ -771,7 +770,8 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     r2m_tib <- r2m %>% tibble::as_tibble(rownames='Sample')
     
     # 6. Build Deleta Matrix
-    dbm <- deltaMatrix(mat, minDelta=minDelta, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    dbm <- deltaMatrix(mat, minDelta=minDelta,
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     dbm_tib <- dbm %>% tibble::as_tibble(rownames='Sample')
     
     # cat("Building sss r2m/dbm:\n")
