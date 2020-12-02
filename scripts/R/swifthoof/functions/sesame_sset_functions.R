@@ -135,6 +135,43 @@ ssetToPredictions = function(sset, del='_', fresh=FALSE,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Sesame SNP Methods:: VCF
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+safeVCF = function(sset, vcf, verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'safeVCF'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_val <- NA
+  stime <- system.time({
+    
+    try_str <- ''
+    ret_val = tryCatch({
+      try_str <- 'Pass'
+      sesame::formatVCF(sset=sset, vcf=vcf)
+      try_str
+    }, warning = function(w) {
+      try_str <- paste('warning',funcTag, sep='-')
+      NA
+    }, error = function(e) {
+      try_str <- paste('error',funcTag, sep='-')
+      NA
+    }, finally = {
+      try_str <- paste('cleanup',funcTag, sep='-')
+      NA
+    })
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Val={ret_val}; try_str={try_str}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_val
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Sesame Inference Methods:: SSET
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -560,12 +597,12 @@ ssetTibToSummary = function(tib, man=NULL,
       
       tib_cols <- names(tib)
       if (!(des %in% tib_cols)) {
-        if (verbose>=vt+1)
+        if (verbose>=vt+5)
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} right_join3(by,type,des)...{RET}"))
         
         tib <- dplyr::select(man, !!by, !!type, !!des) %>% dplyr::right_join(tib, by=by)
       } else {
-        if (verbose>=vt+1)
+        if (verbose>=vt+5)
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} right_join2(by,type)...{RET}"))
         
         tib <- dplyr::select(man, !!by, !!type) %>% dplyr::right_join(tib, by=by)
@@ -614,9 +651,9 @@ ssetTibToSummary = function(tib, man=NULL,
       if (!is.null(perc))
         cut_tib <- cut_tib %>% 
           dplyr::mutate( Requeue=dplyr::case_when(
-            pass_perc>=perc ~ FALSE, 
-            pass_perc<perc ~ TRUE, 
-            TRUE ~ TRUE) )
+            pass_perc>=perc ~ "FALSE", 
+            pass_perc<perc ~ "TRUE",
+            TRUE ~ "TRUE") )
       cut_tib <- dplyr::ungroup(cut_tib)
 
       ret_tib <- dplyr::inner_join(ret_tib,cut_tib, by=c(type, des))
@@ -628,7 +665,7 @@ ssetTibToSummary = function(tib, man=NULL,
     if (!is.null(save) && save==TRUE && !is.null(csv)) {
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
-      csv_dir <- base::basename(csv)
+      csv_dir <- base::dirname(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
       readr::write_csv(ret_tib, csv)
     }
@@ -720,10 +757,10 @@ ssetToTib = function(sset, source, name=NULL, man=NULL,
     if (!is.null(man)) ret_tib <- dplyr::right_join(man_tib, ret_tib, by=by)
     if (sort) ret_tib <- dplyr::arrange(ret_tib, !!by_sym)
     
-    if (!is.null(save) && save==TRUE && !is.null(csv)) {
+    if (save && !is.null(csv)) {
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
-      csv_dir <- base::basename(csv)
+      csv_dir <- base::dirname(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
       readr::write_csv(ret_tib, csv)
     }

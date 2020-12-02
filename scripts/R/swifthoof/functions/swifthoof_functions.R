@@ -36,6 +36,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
                                 workflows=NULL, 
                                 
                                 btypes=c('cg','ch','rs'),
+                                report_vec=c("Requeue","pass_perc","mean"),
+                                
                                 retData=FALSE, retData2=FALSE, non_ref=FALSE, 
                                 del='_', 
                                 verbose=0, vt=3,tc=0) {
@@ -200,13 +202,13 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}    dsheet_csv={dsheet_csv}.{RET}") )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}     times_csv={times_csv}.{RET}{RET}{RET}") )
     if (verbose>=vt) cat(glue::glue("# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                          Initialize RAW SSET::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building RAW SSET...{RET}"))
-
+    
     new_sset <- NULL
     new_sset <- newSset(prefix=prefix, 
                         platform=platform_key, manifest=top_man_tib,
@@ -223,7 +225,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     auto_beta_key <- NULL
     auto_negs_key <- NULL
-
+    
+    opts$write_snps <- TRUE
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -239,7 +243,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       if (verbose>=vt) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting idx={idx}, cur_workflow={cur_workflow}.{RET}"))
       }
-
+      
       cur_sset_rds <- paste(out_prefix, paste(cur_workflow,'sset.rds', sep='.'), sep=del)
       if (is.null(auto_beta_key)) auto_beta_key <- paste(cur_workflow,'beta', sep=del)
       if (is.null(auto_negs_key)) auto_negs_key <- paste(cur_workflow,'PnegEcdf', sep=del)
@@ -279,6 +283,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         write_call=opts$write_call, call_csv=NULL, ret_call=retData2,
         write_csum=opts$write_csum, csum_csv=NULL, ret_csum=retData2,
         
+        write_snps=opts$write_snps, snps_csv=NULL, ret_snps=retData2,
+        
         percision_sigs=opts$percision_sigs,
         percision_beta=opts$percision_beta,
         percision_pval=opts$percision_pval,
@@ -286,7 +292,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         by="Probe_ID", type="Probe_Type", des="Probe_Design",
         fresh=opts$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-
+      
       if (verbose>=vt) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}"))
         cat(glue::glue("{tabsStr}{TAB}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
@@ -303,7 +309,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       ret$cur_list <- cur_dat_list
       # return(ret)
     }
-
+    
     #
     # Add formatVCF
     # Sum formatVCF
@@ -329,7 +335,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       
       ssheet_ncols <- ssheet_tib %>% base::ncol()
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet (with auto-detect-sample) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet ",
+                       "(with auto-detect-sample) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -337,17 +344,25 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     # Arrange the Sample Sheet Columns
-    ssheet_tib <- ssheet_tib %>% 
+    #   cur_dat_list
+    ssheet_tib <- dplyr::bind_cols(ssheet_tib, cur_dat_list$sums_ssh) %>%
       dplyr::select(-starts_with('Iscan_'), starts_with('Iscan_')) %>% 
-      dplyr::mutate_if(is.numeric, list(round), 4) # %>% 
-      # dplyr::select(Requeue_Flag_pOOBAH,Requeue_Flag_PnegEcdf, dplyr::everything())
+      dplyr::mutate_if(is.numeric, list(round), 4)
     
     # Add Description Sample Sheet Table:: dsheet_tab
     dsheet_tab <- NULL
-      # getSsheetDataTab(tib = ssheet_tib, 
-      #                  minOobPval=opts$minOobPval, minOobPerc=opts$minOobPerc,
-      #                  minNegPval=opts$minNegPval, minNegPerc=opts$minNegPerc,
-      #                  verbose = 1)
+    dsheet_tab <- getSsheetDataTab(
+      tib=ssheet_tib,
+      minOobPval=min_pvals[1], minOobPerc=min_percs[1], 
+      minNegPval=min_pvals[2], minNegPerc=min_percs[2], 
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    
+    # OLD CODE::
+    #
+    # getSsheetDataTab(tib = ssheet_tib, 
+    #                  minOobPval=opts$minOobPval, minOobPerc=opts$minOobPerc,
+    #                  minNegPval=opts$minNegPval, minNegPerc=opts$minNegPerc,
+    #                  verbose = 1)
     
     # Format Time Table
     time_tib <- tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
@@ -504,7 +519,7 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
         
         tib <- maskTib(tib=tib, id=selKey, field=datKey, pval=minKey, minPval=minVal, 
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+        
         pos_cnt  <- tib %>% dplyr::filter(is.na(!!datKey)) %>% base::nrow()
         pos_per  <- round(100*pos_cnt/tot_cnt,3)
         

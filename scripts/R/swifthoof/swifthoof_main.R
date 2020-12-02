@@ -269,8 +269,7 @@ if (args.dat[1]=='RStudio') {
     par$retData  <- TRUE
     
     opt$workflow <- "nd,ind"
-    # opt$workflows <- NULL
-    
+
   } else if (par$local_runType=='COVIC') {
     par$expRunStr  <- 'COVIC-Set1-15052020'
     par$expChipNum <- '204500250013'
@@ -313,6 +312,12 @@ if (args.dat[1]=='RStudio') {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
   
+  opt$save_idat <- TRUE
+  opt$load_idat <- TRUE
+  
+  opt$save_sset <- TRUE
+  opt$load_sset <- TRUE
+
   opt$auto_detect <- FALSE
 
   opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_') )
@@ -656,13 +661,13 @@ if (opt$cluster) {
     chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
       
       rdat <- NULL
-      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]], 
+      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
                                    man=mans, ref=auto_sam_tib, opts=opt, defs=def,
                                    
                                    pvals=pval_vec,
                                    min_pvals=min_pval_vec,
                                    min_percs=min_perc_vec,
-                                   workflows=workflow_vec, 
+                                   workflows=workflow_vec,
                                    
                                    retData=par$retData,
                                    verbose=opt$verbose, vt=3,tc=1)
@@ -677,14 +682,6 @@ if (opt$cluster) {
     rdat <- NULL
     for (prefix in names(chipPrefixes)) {
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
-      
-      opt$save_idat <- TRUE
-      opt$load_idat <- TRUE
-      
-      opt$save_sset <- TRUE
-      opt$load_sset <- TRUE
-      
-      opt$fresh <- FALSE
       
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],

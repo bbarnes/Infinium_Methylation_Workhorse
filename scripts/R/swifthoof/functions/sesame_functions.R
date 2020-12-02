@@ -26,6 +26,7 @@ RET <- "\n"
 
 ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
                          pvals=NULL, min_pvals=NULL, min_percs=NULL,
+                         report_vec=c("Requeue","pass_perc","mean"),
                          
                          write_sset=FALSE, sset_rds=NULL, ret_sset=FALSE,
                          
@@ -41,9 +42,11 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
                          write_call=FALSE, call_csv=NULL, ret_call=FALSE,
                          write_csum=FALSE, csum_csv=NULL, ret_csum=FALSE,
                          
+                         write_snps=FALSE, snps_csv=NULL, ret_snps=FALSE,
+                         
                          percision_sigs=-1,percision_beta=-1,percision_pval=-1,
                          by="Probe_ID", type="Probe_Type", des="Probe_Design",
-                         fresh=FALSE,
+                         fresh=FALSE, del='_',
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'ssetToSummary'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -71,7 +74,10 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
   sigs_dat_tib <- NULL
   call_dat_tib <- NULL
   sums_dat_tib <- NULL
-  
+  sums_ssh_tib <- NULL
+  pred_dat_tib <- NULL
+  data_ssh_tib <- NULL
+
   stime <- system.time({
     
     # Initialize Outputs::
@@ -79,7 +85,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
     if (!is.null(name) && !is.null(outDir)) {
       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
       
-      out_name <- paste(name,workflow, sep='_')
+      out_name <- paste(name,workflow, sep=del)
       if (is.null(sset_rds)) 
         sset_rds <- file.path(outDir, paste(out_name,'sset.rds', sep='.'))
       
@@ -98,15 +104,11 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
       if (is.null(csum_csv)) 
         csum_csv <- file.path(outDir, paste(out_name,'call.sum.csv.gz', sep='.'))
       
+      if (is.null(snps_csv))
+        snps_csv <- file.path(outDir, paste(out_name,'snps.vcf', sep='.'))
+      
       # if (write_sigs) sigs_csv <- clean_file(sigs_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
-    
-    # Initialize Sample Sheet::
-    #
-    # sam_sheet <- tibble::tibble(
-    #   Method_Key=workflow,
-    #   Method_Idx=idx
-    # )
     
     # Clear sset to ensure there's no code mistakes
     sset_dat <- sset
@@ -191,6 +193,12 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
     if (write_call && !is.null(call_csv))
       readr::write_csv(call_dat_tib, call_csv)
     
+    # Write VCF SNPs calls::
+    #
+    if (write_snps && !is.null(snps_csv))
+      vcf_ret <- safeVCF(sset=sset_dat, vcf=snps_csv,
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                            Set/Summarize:: Sigs
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -218,33 +226,58 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
     sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(sigs_sum_tib)
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                       Predicted and Inferred Data::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    pred_dat_tib <- NULL
-    pred_dat_tib <- ssetToPredictions(
-      sset=sset_dat,
-      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-      purrr::set_names(paste(workflow,names(.), sep='_'))
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                Update Calls, Signal and Summary Headers::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     fix_cols <- c(by,type,des)
     sigs_dat_tib <- addColNames(sigs_dat_tib, add=workflow, fix=fix_cols,
                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     fix_cols <- c(by)
     call_dat_tib <- addColNames(call_dat_tib, add=workflow, fix=fix_cols,
                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     sums_dat_tib <- sums_dat_tib %>%
       dplyr::mutate(Workflow_key=workflow, Workflow_idx=idx) %>% 
       dplyr::select(Workflow_key, Workflow_idx, dplyr::everything())
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                    Gather/Merge Results:: Sample Sheet
+    #                       Predicted and Inferred Data::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    # Initialize Sample Sheet::
+    #
+    sums_ssh_tib <- tibble::tibble(Method_Key=workflow,Method_Idx=idx)
+    pred_dat_tib <- ssetToPredictions(
+      sset=sset_dat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # purrr::set_names(paste(workflow,names(.), sep=del))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                           Make Sample Sheet::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    data_ssh_tib <- sums_dat_tib %>% 
+      tidyr::unite(key, Probe_Type,Probe_Design,Metric, sep=del) %>% 
+      tidyr::gather(metric, value, -key, -Workflow_key, -Workflow_idx) %>% 
+      dplyr::filter(!is.na(value)) %>% 
+      dplyr::filter(metric %in% report_vec) %>%
+      tidyr::unite(key, key,metric, sep=del) %>% 
+      dplyr::select(-Workflow_key, -Workflow_idx) %>% 
+      tidyr::spread(key, value) %>%
+      dplyr::select(dplyr::contains("_Requeue_"), 
+                    dplyr::contains("_pass_perc_"),
+                    dplyr::everything())
+    
+    sums_ssh_tib <- dplyr::bind_cols(sums_ssh_tib,pred_dat_tib,data_ssh_tib) %>%
+      purrr::set_names(paste(names(.),idx, sep=del))
+    
+    #
+    #  NOT NEEDED::
+    #    tidyr::pivot_wider(id_cols=c(Workflow_key, Workflow_idx), 
+    #                       names_from="key", values_from="value")
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     Gather/Merge Results:: Sample Sheet
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     if (is.null(pre)) {
@@ -254,7 +287,8 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
       ret_dat$sigs_dat <- sigs_dat_tib
       ret_dat$call_dat <- call_dat_tib
       ret_dat$sums_dat <- sums_dat_tib
-      ret_dat$pred_dat <- pred_dat_tib
+      ret_dat$sums_ssh <- sums_ssh_tib
+      # ret_dat$pred_dat <- pred_dat_tib
     } else {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Join with previous data...{RET}"))
@@ -262,7 +296,8 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
       ret_dat$sigs_dat <- dplyr::left_join(pre$sigs_dat, sigs_dat_tib, by=c(by,type,des))
       ret_dat$call_dat <- dplyr::left_join(pre$call_dat, call_dat_tib, by=by)
       ret_dat$sums_dat <- dplyr::bind_rows(pre$sums_dat, sums_dat_tib)
-      ret_dat$pred_dat <- dplyr::bind_cols(pre$pred_dat, pred_dat_tib)
+      ret_dat$sums_ssh <- dplyr::bind_cols(pre$sums_ssh, sums_ssh_tib)
+      # ret_dat$pred_dat <- dplyr::bind_cols(pre$pred_dat, pred_dat_tib)
     }
     
     ret_cnt <- ret_dat %>% names %>% length()
@@ -409,9 +444,11 @@ mutateSesame = function(sset, method,
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Mutate Sesame({method})...{RET}"))
   
-  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sset={RET}"))
-  if (verbose>=vt+4) print(sset)
-
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} sset={RET}"))
+    print(sset)
+  }
+  
   ctl_cnt <- sset@ctl %>% base::nrow()
   if (ctl_cnt==0 && method=='detectionPnegEcdf') {
     if (verbose>=vt) 
@@ -422,28 +459,34 @@ mutateSesame = function(sset, method,
   
   ret_cnt <- 0
   stime <- system.time({
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt})={RET}"))
-    if (verbose>=vt+4) print(sset)
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt})={RET}"))
+      print(sset)
+    }
     
-    if (is.null(method)) stop(glue::glue("{RET}[{funcTag}]: ERROR: Missing method!!!{RET}{RET}"))
-    else if (method=='open') 
+    if (is.null(method)) {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Missing method!!!{RET}{RET}"))
+    } else if (method=='open') {
       sset <- sset %>% sesame::pOOBAH(force=force) %>% sesame::noob() %>% sesame::dyeBiasCorrTypeINorm()
-    else if (method=='dyeBiasCorrTypeINorm') 
+    } else if (method=='dyeBiasCorrTypeINorm') {
       sset <- sset %>% sesame::dyeBiasCorrTypeINorm()
-    else if (method=='detectionPnegEcdf' || method=='PnegEcdf') 
+    } else if (method=='detectionPnegEcdf' || method=='PnegEcdf') {
       sset <- sset %>% sesame::detectionPnegEcdf(force=force)
-    else if (method=='pOOBAH') 
+    } else if (method=='pOOBAH') {
       sset <- sset %>% sesame::pOOBAH(force=force)
-    else if (method=='noob') 
+    } else if (method=='noob') {
       sset <- sset %>% sesame::noob()
-    else if (method=='noobsb') 
+    } else if (method=='noobsb') {
       sset <- sset %>% sesame::noobsb()
-    else if (method=='inferTypeIChannel') 
+    } else if (method=='inferTypeIChannel') {
       sset <- sset %>% sesame::inferTypeIChannel(switch_failed=FALSE, verbose=FALSE)
-    else if (method=='betas') 
+    } else if (method=='betas') {
       sesame::extra(sset)[[method]] <- getBetas2(sset=sset, mask=quality.mask,sum.TypeI=sum.TypeI)
-    else if (method=='raw') { } # sset <- sset
-    else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported method={method}!!!{RET}{RET}"))
+    } else if (method=='r' || method=='raw') {
+      # sset <- sset
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported method={method}!!!{RET}{RET}"))
+    }
     
     ret_cnt <- sset %>% slotNames() %>% length()
     if (verbose>=vt+4) {
