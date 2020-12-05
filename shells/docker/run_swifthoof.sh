@@ -5,11 +5,16 @@ EXE_A=/repo/${EXE_NAME}
 EXE_B=/Users/bretbarnes/Documents/tools/${EXE_NAME}
 
 RSCRIPT_A=/usr/local/bin/Rscript
-RSCRIPT_B=/usr/local/bin/Rscript
+RSCRIPT_B=/usr/bin/Rscript
+
+if [ -e ${RSCRIPT_A} ]; then
+    RSCRIPT=${RSCRIPT_A}
+elif
+    RSCRIPT=${RSCRIPT_B}
+    
 
 if [ -e ${EXE_A} ]; then
     EXE=${EXE_A}
-    RSCRIPT=${RSCRIPT_A}
 
     INP=/input
     OUT=/output
@@ -19,7 +24,6 @@ if [ -e ${EXE_A} ]; then
     
 elif [ -e ${EXE_B} ]; then
     EXE=${EXE_B}
-    RSCRIPT=${RSCRIPT_B}
 
     # INP=$1
     # OUT=$2

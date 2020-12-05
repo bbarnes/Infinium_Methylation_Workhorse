@@ -5,6 +5,24 @@
 
 rm(list=ls(all=TRUE))
 
+# Without Warnings for Testing::
+#
+# base::require("sesame")
+# base::require("dbplyr")
+# 
+# base::require("optparse",quietly=TRUE)
+# 
+# base::require("tidyverse")
+# base::require("plyr")
+# base::require("stringr")
+# base::require("readr")
+# base::require("glue")
+# 
+# base::require("matrixStats")
+# base::require("scales")
+#
+# base::require("doParallel")
+
 # suppressPackageStartupMessages(base::require() )
 # Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
 suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
@@ -255,8 +273,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
-  par$local_runType <- 'COVID'
   par$local_runType <- 'COVIC'
+  par$local_runType <- 'COVID'
   
   # opt$fresh <- TRUE
   

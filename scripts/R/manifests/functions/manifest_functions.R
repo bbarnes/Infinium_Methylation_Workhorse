@@ -459,6 +459,10 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
                                    colA=4,colB=3,
                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} imp_s48_tib={RET}"))
+      print(imp_s48_tib)
+      cat(glue::glue("{RET}{RET}"))
+      
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                             3. CGN to Top::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -468,6 +472,10 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
                                    colA=1,colB=1,
                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         dplyr::mutate(!!design_prb_sym := probe_type)
+      
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} imp_top_tib={RET}"))
+      print(imp_top_tib)
+      cat(glue::glue("{RET}{RET}"))
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                           4. Top to Probes::
@@ -1278,7 +1286,7 @@ inferManifestFields = function(tib, sidx=2, plen=50, AQP=0,
   ret_tib <- NULL
   stime <- system.time({
     
-    # key  <- rlang::sym(key)
+    key_sym  <- rlang::sym(key)
     seqA_sym <- rlang::sym(seqA)
     seqB_sym <- rlang::sym(seqB)
     
@@ -1313,7 +1321,7 @@ inferManifestFields = function(tib, sidx=2, plen=50, AQP=0,
         col=dplyr::case_when(
           Infinium_Design==1 ~ stringr::str_sub(Color_Channel, 1,2),
           TRUE ~ NA_character_),
-        Probe_Type=stringr::str_sub(!!key,1,2) %>%
+        Probe_Type=stringr::str_sub(!!key_sym,1,2) %>%
           stringr::str_replace('^ne','NE'),
         Probe_Source=NA_character_,
         AlleleA_Probe_Length=stringr::str_length(!!seqA_sym),

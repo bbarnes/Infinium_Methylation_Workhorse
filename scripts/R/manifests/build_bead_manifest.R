@@ -184,8 +184,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVID'
   par$local_runType <- 'GENK'
-  par$local_runType <- 'COVIC'
   par$local_runType <- 'GRCm38'
+  par$local_runType <- 'COVIC'
   
   if (par$local_runType=='COVID') {
     # opt$fresh  <- TRUE
@@ -687,6 +687,7 @@ if (!is.null(opt$pre_man_csv)) {
 
 opt$verbose <- 40
 opt$verbose <- 3
+opt$verbose <- 5
 
 # aqps_vec   <- NULL
 # opt$fresh  <- TRUE
@@ -715,19 +716,18 @@ man_raw_list <- man_raw_dat_tib %>% split(.$Probe_Type)
 
 # man_unq_keys <- NULL
 
-prb_cols <- 
-  c("Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col","Next_Base","Seq_ID",
-    "Probe_Type","Probe_Source","Version","Strand_TB","Strand_CO","Infinium_Design",
-    "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Probe_Class",
-    "AlleleA_Probe_Sequence_MIX","AlleleB_Probe_Sequence_MIX",
-    "Normalization_Bin","PD",
-    "Address_Seq_A","Decode_Status_A","Address_Seq_B","Decode_Status_B",
-    "BP","AQP","AlleleA_Probe_Length","AlleleB_Probe_Length","Di",
-    "Seq_48U,platform","version","FR","Rep_Cnt","ValidID","Assay_Class",
-    "Top_Sequence","Design_ID","PIDX,Design_Base_ID","Design_Base_AB",
-    "Control_Group","Control_Group_Str","DiNuc","N1","N2",
-    "COLOR_CHANNEL_A","COLOR_CHANNEL_B")
-
+# prb_cols <- 
+#   c("Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col","Next_Base","Seq_ID",
+#     "Probe_Type","Probe_Source","Version","Strand_TB","Strand_CO","Infinium_Design",
+#     "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Probe_Class",
+#     "AlleleA_Probe_Sequence_MIX","AlleleB_Probe_Sequence_MIX",
+#     "Normalization_Bin","PD",
+#     "Address_Seq_A","Decode_Status_A","Address_Seq_B","Decode_Status_B",
+#     "BP","AQP","AlleleA_Probe_Length","AlleleB_Probe_Length","Di",
+#     "Seq_48U,platform","version","FR","Rep_Cnt","ValidID","Assay_Class",
+#     "Top_Sequence","Design_ID","PIDX,Design_Base_ID","Design_Base_AB",
+#     "Control_Group","Control_Group_Str","DiNuc","N1","N2",
+#     "COLOR_CHANNEL_A","COLOR_CHANNEL_B")
 
 for (probe_type in rev(names(man_raw_list)) ) {
   
@@ -786,7 +786,7 @@ for (probe_type in rev(names(man_raw_list)) ) {
           design_srs=opt$design_srs,design_cos=opt$design_cos,
           parallel=opt$parallel,fresh=opt$fresh,
           
-          verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
+          verbose=opt$verbose+10,vt=3,tc=0,tt=pTracker)
     }
   } else {
     if (opt$verbose>=1)
@@ -799,6 +799,7 @@ if (opt$verbose>=1) {
   cat(glue::glue("[{par$prgmTag}]: Done. Building Probes.{RET}{RET}"))
 }
 
+# names(man_prb_list$ch)[which(!man_prb_list$ch %>% names() %in% names(man_prb_list$rs))]
 # '/Users/bretbarnes/Documents/scratch/manifests/GRCh38-COVIC-B0/design/cg/GRCh38-COVIC-B0.clean_manifest_probes.cg.Top_Sequence.mat-probes.rds'
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1121,16 +1122,22 @@ print(man_prd_sum_tib,n=base::nrow(man_prd_sum_tib))
 # QC Checks::
 #
 man_prd_all_tib %>% dplyr::group_by(DESIGN,COLOR_CHANNEL,col,Next_Base) %>% 
-  dplyr::summarise(Count=n()) %>% as.data.frame()
+  dplyr::summarise(Count=n(), .groups='drop') %>% as.data.frame()
 
 #
 # Write Sesame Output Full::
 #
 readr::write_csv(man_prd_all_tib,ses_base_csv)
 
-tar_col <- dplyr::filter(man_prd_all_tib, is.na(COLOR_CHANNEL)) %>% dplyr::pull(U)
-man_pqc_dat_tib %>% dplyr::filter(U %in%  tar_col)
+# Extra QC::
+if (FALSE) {
+  tar_col <- dplyr::filter(man_prd_all_tib, is.na(COLOR_CHANNEL)) %>% dplyr::pull(U)
+  man_pqc_dat_tib %>% dplyr::filter(U %in%  tar_col)
+}
 
+#
+# Write minimal Sesame::
+#
 
 
 #
