@@ -273,8 +273,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
-  par$local_runType <- 'COVIC'
   par$local_runType <- 'COVID'
+  par$local_runType <- 'COVIC'
   
   # opt$fresh <- TRUE
   
