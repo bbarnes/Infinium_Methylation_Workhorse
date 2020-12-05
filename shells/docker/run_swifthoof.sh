@@ -9,9 +9,12 @@ RSCRIPT_B=/usr/bin/Rscript
 
 if [ -e ${RSCRIPT_A} ]; then
     RSCRIPT=${RSCRIPT_A}
-elif
+elif [ -e ${RSCRIPT_B} ]; then
     RSCRIPT=${RSCRIPT_B}
-    
+else
+    echo "Unrecognized Rscript EXE!"
+    exit
+fi
 
 if [ -e ${EXE_A} ]; then
     EXE=${EXE_A}
