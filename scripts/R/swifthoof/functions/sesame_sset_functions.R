@@ -892,10 +892,10 @@ mutateSset = function(sset, method, full=TRUE,
     } else if (method=='pOOBAH') {
       sset <- sset %>% sesame::pOOBAH(force=force)
     } else if (method=='noob') {
-      sset <- noob2(sset=sset,
-                    oobRprobes=oobR_ids, oobGprobes=oobG_ids,
-                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      # sset <- sset %>% sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids)
+      # sset <- noob2(sset=sset,
+      #               oobRprobes=oobR_ids, oobGprobes=oobG_ids,
+      #               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- sset %>% sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids)
     } else if (method=='noobsb') {
       sset <- sset %>% sesame::noobsb()
     } else if (method=='inferTypeIChannel') {
