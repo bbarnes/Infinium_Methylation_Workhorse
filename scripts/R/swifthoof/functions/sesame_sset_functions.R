@@ -1149,11 +1149,11 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
     
     oobRprobes_cnt <- oobRprobes %>% length()
     cat(glue::glue("[{funcTag}]:{tabsStr} oobRprobes({oobRprobes_cnt})={RET}"))
-    oobRprobes %>% head() %>% print()
+    oobRprobes %>% unique() %>% head() %>% print()
     
     oobGprobes_cnt <- oobGprobes %>% length()
     cat(glue::glue("[{funcTag}]:{tabsStr} oobGprobes({oobGprobes_cnt})={RET}"))
-    oobGprobes %>% head() %>% print()
+    oobGprobes %>% unique() %>% head() %>% print()
   }
   
   stime <- system.time({
@@ -1165,18 +1165,18 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
     ibG <- c(sesame::IG(sset), sesame::II(sset)[, "M"])
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ibR(1)={RET}"))
-      ibR %>% names() %>% print()
+      ibR %>% names() %>% unique() %>% head() %>% print()
       cat(glue::glue("[{funcTag}]:{tabsStr} ibG(1)={RET}"))
-      ibG %>% names() %>% print()
+      ibG %>% names() %>% unique() %>% head() %>% print()
     }
     
     ibR[ibR == 0] <- 1
     ibG[ibG == 0] <- 1
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ibR(2)={RET}"))
-      ibR %>% names() %>% print()
+      ibR %>% names() %>% unique() %>% head() %>% print()
       cat(glue::glue("[{funcTag}]:{tabsStr} ibG(2)={RET}"))
-      ibG %>% names() %>% print()
+      ibG %>% names() %>% unique() %>% head() %>% print()
     }
     
     sesame::oobR(sset)[sesame::oobR(sset) == 0] <- 1
