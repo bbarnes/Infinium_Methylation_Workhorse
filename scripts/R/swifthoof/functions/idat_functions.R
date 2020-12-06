@@ -95,11 +95,11 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
       
       ret_dat$sig <- sigs
       ret_dat$ann <- grn_ann
-      if (verbose>=vt+10) print(ret_dat)
-      
+
       if (save && !is.null(rds)) {
         if (verbose>=vt+1) 
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS={rds}.{RET}"))
+        if (file.exists(rds)) unlink(rds)
         readr::write_rds(ret_dat, rds, compress="gz")
       }
     }

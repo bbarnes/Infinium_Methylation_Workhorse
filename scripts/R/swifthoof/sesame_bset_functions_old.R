@@ -1,6 +1,38 @@
 
 if (FALSE) {
   
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                               Non-CpG Repair::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  rs_imp_tsv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/rs-repair/rs_swap_improbe_input.tsv.gz'
+  rs_imp_tib <- readr::read_tsv(rs_imp_tsv)
+  
+  ch_imp_csv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/ch-repair/HumanMethylation450_15017482_v.1.2.ch-noAnnotation.csv.gz'
+  ch_imp_tib <- readr::read_csv(ch_imp_csv)
+  
+  
+  rs_des_tib <- rs_imp_tib %>% 
+    dplyr::select(-CpG_Island) %>% 
+    dplyr::mutate(DiNuc=stringr::str_remove(Seq_ID,'^.*_'), 
+                  Forward_Sequence=stringr::str_replace(Sequence, "\\[CG\\]", paste0("[",DiNuc,"]")), 
+                  Seq_ID=stringr::str_remove(Seq_ID, '_.*$')) %>%
+    dplyr::select(Seq_ID,Forward_Sequence)
+  
+  desSeq_to_prbs(tib=rs_des_tib,  verbose=20)
+  
+  
+  ch_imp_tib %>% 
+    dplyr::rename(Seq_ID=IlmnID) %>%
+    dplyr::select(-Infinium_Design_Type, -Strand, -Name) %>%
+    dplyr::select(Seq_ID, Forward_Sequence, everything() )
+  
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                                Noob Repair::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
   new_sset <- rdat$new_sset
   inf_sset <- rdat$new_sset %>% mutateSset(method='inferTypeIChannel', verbose=4)
   
