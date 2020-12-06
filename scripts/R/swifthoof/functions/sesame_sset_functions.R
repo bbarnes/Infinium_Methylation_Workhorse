@@ -1220,13 +1220,13 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
                                             offset = offset)
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ibR.nl={RET}"))
-      ibR.nl %>% head() %>% print()
+      ibR.nl %>% names() %>% print()
     }
     ibG.nl <- backgroundCorrectionNoobCh1_2(ibG, real_oobG, sesame::ctl(sset)$G, 
                                             offset = offset)
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ibG.nl={RET}"))
-      ibG.nl %>% head() %>% print()
+      ibG.nl %>% names() %>% print()
     }
     
     if (length(sesame::IG(sset)) > 0) {
@@ -1254,13 +1254,19 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
     }
     
     if (nrow(sesame::II(sset)) > 0) {
+      if (verbose>=vt+4)
+        cat(glue::glue("[{funcTag}]:{tabsStr} nrow(sesame::II(sset)) > 0 == TRUE{RET}"))
+        
       sesame::II(sset) <- 
-      as.matrix(data.frame(M = ibG.nl$i[(length(sesame::IG(sset)) + 
-                                           1):length(ibG)], U = ibR.nl$i[(length(sesame::IR(sset)) + 
-                                                                            1):length(ibR)], row.names = rownames(sesame::II(sset))))
+        as.matrix(data.frame(M = ibG.nl$i[(length(sesame::IG(sset)) + 1):length(ibG)], 
+                             U = ibR.nl$i[(length(sesame::IR(sset)) + 1):length(ibR)], 
+                             row.names = rownames(sesame::II(sset))))
     } else {
-      sesame::II(sset) <- matrix(ncol = 2, nrow = 0, dimnames = list(NULL, 
-                                                                     c("M", "U")))
+      if (verbose>=vt+4)
+        cat(glue::glue("[{funcTag}]:{tabsStr} nrow(sesame::II(sset)) > 0 == FALSE{RET}"))
+      
+      sesame::II(sset) <- 
+        matrix(ncol = 2, nrow = 0, dimnames = list(NULL, c("M", "U")))
     }
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} II={RET}"))
