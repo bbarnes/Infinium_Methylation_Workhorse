@@ -100,7 +100,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     idat_rds  <- paste(out_prefix, 'idat.rds', sep=del)
     idat_list <- prefixToIdat(prefix=prefix, 
                               load=opts$load_idat, save=opts$save_idat, rds=idat_rds,
-                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+                              verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
     # return(idat_list)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -108,21 +108,21 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     man_map_tib <- idatToManifestMap(tib=idat_list$sig, mans=mans, sortMax=TRUE,
-                                     verbose=verbose,tc=tc+1,tt=tTracker)
+                                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     top_man_tib <- mans[[man_map_tib[1,]$manifest]] %>% 
       dplyr::distinct(Probe_ID, .keep_all=TRUE)
     
     bead_sum_tib <- 
       getManifestBeadStats(dat=idat_list$sig, man=top_man_tib, types=btypes, 
-                           verbose=verbose,tc=tc+1,tt=tTracker)
+                           verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
     
     #
     # TBD:: Replace or improve addBeadPoolToSampleSheet()
     #
     bead_ssh_tib <- bead_sum_tib %>% tidyr::spread(name, value) %>%
       addBeadPoolToSampleSheet(field="Loci_Count_cg",
-                               verbose=verbose,tc=tc+1,tt=tTracker)
+                               verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
     
     if (retData) {
       ret$prefix <- prefix
@@ -181,7 +181,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     #                            Output Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Defining outputs...{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Defining outputs...{RET}"))
     
     if (opts$buildSubDir) opts$outDir <- file.path(opts$outDir, chipFormat, beadPool)
     if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)

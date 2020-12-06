@@ -231,11 +231,11 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
     
     fix_cols <- c(by,type,des)
     sigs_dat_tib <- addColNames(sigs_dat_tib, add=workflow, fix=fix_cols,
-                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                                verbose=verbose,vt=vt+5,tc=tc+1,tt=tt)
     
     fix_cols <- c(by)
     call_dat_tib <- addColNames(call_dat_tib, add=workflow, fix=fix_cols,
-                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                                verbose=verbose,vt=vt+5,tc=tc+1,tt=tt)
     
     sums_dat_tib <- sums_dat_tib %>%
       dplyr::mutate(Workflow_key=workflow, Workflow_idx=idx) %>% 
