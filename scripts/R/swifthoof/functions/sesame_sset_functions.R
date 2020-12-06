@@ -1165,18 +1165,18 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
     ibG <- c(sesame::IG(sset), sesame::II(sset)[, "M"])
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ibR(1)={RET}"))
-      print(ibR)
+      ibR %>% names() %>% print()
       cat(glue::glue("[{funcTag}]:{tabsStr} ibG(1)={RET}"))
-      print(ibG)
+      ibG %>% names() %>% print()
     }
     
     ibR[ibR == 0] <- 1
     ibG[ibG == 0] <- 1
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ibR(2)={RET}"))
-      print(ibR)
+      ibR %>% names() %>% print()
       cat(glue::glue("[{funcTag}]:{tabsStr} ibG(2)={RET}"))
-      print(ibG)
+      ibG %>% names() %>% print()
     }
     
     sesame::oobR(sset)[sesame::oobR(sset) == 0] <- 1
@@ -1216,25 +1216,28 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
       real_oobG %>% head() %>% print()
     }
     
-    ibR.nl <- backgroundCorrectionNoobCh1_2(ibR, real_oobR, sesame::ctl(sset)$R, 
-                                            offset = offset)
+    ibR.nl <- 
+      backgroundCorrectionNoobCh1_2(ibR, real_oobR, sesame::ctl(sset)$R, offset = offset)
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ibR.nl={RET}"))
       ibR.nl %>% names() %>% print()
     }
-    ibG.nl <- backgroundCorrectionNoobCh1_2(ibG, real_oobG, sesame::ctl(sset)$G, 
-                                            offset = offset)
+    
+    ibG.nl <- 
+      backgroundCorrectionNoobCh1_2(ibG, real_oobG, sesame::ctl(sset)$G, offset = offset)
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ibG.nl={RET}"))
       ibG.nl %>% names() %>% print()
     }
     
     if (length(sesame::IG(sset)) > 0) {
-      sesame::IG(sset) <- matrix(ibG.nl$i[seq_along(sesame::IG(sset))], nrow = nrow(sesame::IG(sset)), 
-                                 dimnames = dimnames(sesame::IG(sset)))
+      sesame::IG(sset) <- 
+        matrix(ibG.nl$i[seq_along(sesame::IG(sset))], 
+               nrow = nrow(sesame::IG(sset)), 
+               dimnames = dimnames(sesame::IG(sset)))
     } else {
-      sesame::IG(sset) <- matrix(ncol = 2, nrow = 0, dimnames = list(NULL, 
-                                                                     c("M", "U")))
+      sesame::IG(sset) <- 
+        matrix(ncol = 2, nrow = 0, dimnames = list(NULL, c("M", "U")))
     }
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} IG={RET}"))
