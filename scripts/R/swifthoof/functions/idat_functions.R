@@ -93,14 +93,30 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Passed idat pair validation!{RET}"))
       }
       
-      ret_dat$sig <- sigs
-      ret_dat$ann <- grn_ann
+      ret_dat$sig = sigs
+      ret_dat$ann = grn_ann
 
       if (save && !is.null(rds)) {
+        if (file.exists(rds)) unlink(rds)
         if (verbose>=vt+1) 
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS={rds}.{RET}"))
-        if (file.exists(rds)) unlink(rds)
         readr::write_rds(ret_dat, rds, compress="gz")
+        
+        rds2 <- paste0(rds,'.no-compression.rds')
+        if (file.exists(rds2)) unlink(rds2)
+        if (verbose>=vt+1) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS(2)={rds2}.{RET}"))
+        readr::write_rds(ret_dat, rds2)
+        
+        sig_csv <- paste0(rds,'.no-compression.sig.csv.gz')
+        if (verbose>=vt+1) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={sig_csv}.{RET}"))
+        readr::write_csv(ret_dat$sig, sig_csv)
+        
+        ann_csv <- paste0(rds,'.no-compression.ann.csv.gz')
+        if (verbose>=vt+1) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={ann_csv}.{RET}"))
+        readr::write_csv(ret_dat$ann, ann_csv)
       }
     }
     
