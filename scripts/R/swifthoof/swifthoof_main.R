@@ -114,8 +114,6 @@ opt$save_sset   <- FALSE
 #
 # TBD: Add new variable names::
 #
-opt$write_sset  <- FALSE
-
 opt$write_beta  <- FALSE
 opt$write_bsum  <- FALSE
 
@@ -234,8 +232,6 @@ if (args.dat[1]=='RStudio') {
   par$expChipNum <- NULL
   
   # Writing Options::
-  opt$write_sset  <- TRUE
-
   opt$write_beta  <- FALSE
   opt$write_bsum  <- TRUE
   
@@ -418,9 +414,6 @@ if (args.dat[1]=='RStudio') {
     #
     # Current Versions::
     #
-    make_option(c("--write_sset"), action="store_true", default=opt$write_sset,
-                help="Boolean variable to write Signal Set file (RDS) [default= %default]", metavar="boolean"),
-    
     make_option(c("--write_beta"), action="store_true", default=opt$write_beta,
                 help="Boolean variable to write Beta Set file (CSV) [default= %default]", metavar="boolean"),
     make_option(c("--write_bsum"), action="store_true", default=opt$write_bsum,

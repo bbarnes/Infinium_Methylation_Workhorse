@@ -213,7 +213,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     new_sset <- NULL
     new_sset <- newSset(prefix=prefix, 
                         platform=platform_key, manifest=top_man_tib,
-                        load=opts$load_sset,save=opts$save_sset,rds=new_sset_rds,
+                        load=opts$load_sset,save=opt$save_sset,rds=new_sset_rds,
                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     if (retData) {
@@ -259,7 +259,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         
         cur_sset <- mutateSSET_workflow(
           sset=new_sset, workflow=cur_workflow, pvals=pvals,
-          save=opts$save_sset, rds=cur_sset_rds,
+          save=opt$save_sset, rds=cur_sset_rds,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       }
       stopifnot(!is.null(cur_sset))
@@ -270,7 +270,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         
         pvals=pvals, min_pvals=min_pvals, min_percs=min_percs,
         
-        write_sset=opts$write_sset, sset_rds=NULL, ret_sset=retData2,
+        write_sset=opt$save_sset, sset_rds=NULL, ret_sset=retData2,
         
         write_beta=opts$write_beta, beta_csv=NULL, ret_beta=retData2,
         write_bsum=opts$write_bsum, bsum_csv=NULL, ret_bsum=retData2,
@@ -295,7 +295,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
       if (verbose>=vt) {
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}{RET}"))
         cat(glue::glue("{tabsStr}{TAB}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
       }
       
@@ -310,11 +310,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       ret$cur_list <- cur_dat_list
       # return(ret)
     }
-    
-    #
-    # Add formatVCF
-    # Sum formatVCF
-    #
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                             Auto-Detect Sample::
@@ -357,13 +352,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       minOobPval=min_pvals[1], minOobPerc=min_percs[1], 
       minNegPval=min_pvals[2], minNegPerc=min_percs[2], 
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-    
-    # OLD CODE::
-    #
-    # getSsheetDataTab(tib = ssheet_tib, 
-    #                  minOobPval=opts$minOobPval, minOobPerc=opts$minOobPerc,
-    #                  minNegPval=opts$minNegPval, minNegPerc=opts$minNegPerc,
-    #                  verbose = 1)
     
     # Format Time Table
     time_tib <- tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
