@@ -814,8 +814,8 @@ mutateSset = function(sset, method, full=TRUE,
       print(sset)
     }
     
-    oobR_ids <- NULL
-    oobG_ids <- NULL
+    oobR_ids = NULL
+    oobG_ids = NULL
     if (!is.null(sset@extra$IGG) && !is.null(sset@extra$IRR)) {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will use inferred channels...{RET}"))
@@ -873,6 +873,9 @@ mutateSset = function(sset, method, full=TRUE,
     } else {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will NOT use inferred channels...{RET}"))
+      
+      stopifnot(is.null(oobR_ids))
+      stopifnot(is.null(oobG_ids))
     }
     
     if (is.null(method)) {
@@ -889,9 +892,10 @@ mutateSset = function(sset, method, full=TRUE,
     } else if (method=='pOOBAH') {
       sset <- sset %>% sesame::pOOBAH(force=force)
     } else if (method=='noob') {
-      # sset <- sset %>% noob2(oobRprobes=oobR_ids, oobGprobes=oobG_ids,
-      #                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- sset %>% sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids)
+      sset <- noob2(sset=sset,
+                    oobRprobes=oobR_ids, oobGprobes=oobG_ids,
+                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      # sset <- sset %>% sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids)
     } else if (method=='noobsb') {
       sset <- sset %>% sesame::noobsb()
     } else if (method=='inferTypeIChannel') {
