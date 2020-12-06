@@ -108,12 +108,12 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS(2)={rds2}.{RET}"))
         readr::write_rds(ret_dat, rds2)
         
-        sig_csv <- paste0(rds,'.no-compression.sig.csv.gz')
+        sig_csv <- paste0(rds,'.no-compression.sig.csv')
         if (verbose>=vt+1) 
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={sig_csv}.{RET}"))
         readr::write_csv(ret_dat$sig, sig_csv)
         
-        ann_csv <- paste0(rds,'.no-compression.ann.csv.gz')
+        ann_csv <- paste0(rds,'.no-compression.ann.csv')
         if (verbose>=vt+1) 
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={ann_csv}.{RET}"))
         readr::write_csv(ret_dat$ann, ann_csv)
