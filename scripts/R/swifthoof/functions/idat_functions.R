@@ -45,30 +45,38 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
                         verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'prefixToIdat'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading prefix={prefix}.{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Loading prefix={prefix}.{RET}"))
   
   ret_cnt <- 0
   ret_dat <- NULL
   stime <- system.time({
     if (load && !is.null(rds) && file.exists(rds)) {
-      if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={rds}.{RET}"))
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={rds}.{RET}"))
       ret_dat <- readr::read_rds(rds)
     } else {
-      grn_idat <- loadIdat(prefix, 'Grn', gzip=gzip, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      red_idat <- loadIdat(prefix, 'Red', gzip=gzip, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      grn_idat <- loadIdat(prefix, 'Grn', gzip=gzip, 
+                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      red_idat <- loadIdat(prefix, 'Red', gzip=gzip, 
+                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                          Extract Signal Data::
-      grn_sig <- getIdatSignalTib(grn_idat, channel='Grn', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      red_sig <- getIdatSignalTib(red_idat, channel='Red', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      grn_sig <- getIdatSignalTib(grn_idat, channel='Grn', 
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      red_sig <- getIdatSignalTib(red_idat, channel='Red', 
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
 
       sigs <- dplyr::full_join(grn_sig, red_sig, by="Address")
 
       grn_ann <- dplyr::bind_cols(
         getIdatBarcodeTib(grn_idat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),
         getIdatFormatTib(grn_idat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),
-        getIdatTimeStampTib(grn_idat, method='Decoding', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),
-        getIdatTimeStampTib(grn_idat, method='Extract', verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        getIdatTimeStampTib(grn_idat, method='Decoding', 
+                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),
+        getIdatTimeStampTib(grn_idat, method='Extract', 
+                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       )
 
       if (validate) {
@@ -81,7 +89,8 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
         
         unique_cnt <- dplyr::bind_rows(grn_ann, red_ann) %>% dplyr::distinct() %>% base::nrow()
         stopifnot(unique_cnt==1)
-        if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Passed idat pair validation!{RET}"))
+        if (verbose>=vt+1) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Passed idat pair validation!{RET}"))
       }
       
       ret_dat$sig <- sigs
