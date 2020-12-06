@@ -225,12 +225,12 @@ if (args.dat[1]=='RStudio') {
   opt$buildSubDir  <- FALSE
   opt$auto_detect   <- FALSE
 
+  opt$runName    <- NULL
   opt$platform   <- 'EPIC'
   opt$manifest   <- 'B4'
   opt$platform   <- NULL
   opt$manifest   <- NULL
   
-  par$expRunStr  <- NULL
   par$expChipNum <- NULL
   
   # Writing Options::
@@ -264,8 +264,8 @@ if (args.dat[1]=='RStudio') {
   opt$cluster  <- TRUE
   opt$cluster  <- FALSE
   
-  opt$manDirName  <- 'core'
   opt$manDirName  <- 'base'
+  opt$manDirName  <- 'core'
   
   opt$verbose  <- 6
   
@@ -276,10 +276,10 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVID'
   par$local_runType <- 'COVIC'
   
-  # opt$fresh <- TRUE
+  opt$fresh <- TRUE
   
   if (par$local_runType=='COVID') {
-    par$expRunStr  <- 'COVID-Direct-Set1'
+    opt$runName  <- 'COVID-Direct-Set1'
     par$expChipNum <- '204756130014'
     
     opt$auto_detect <- FALSE
@@ -289,41 +289,41 @@ if (args.dat[1]=='RStudio') {
     opt$workflow <- "nd,ind"
 
   } else if (par$local_runType=='COVIC') {
-    par$expRunStr  <- 'COVIC-Set1-15052020'
+    opt$runName  <- 'COVIC-Set1-15052020'
     par$expChipNum <- '204500250013'
     opt$auto_detect <- TRUE
     opt$workflow <- "ind"
     opt$workflow <- "nd,ind"
     
   } else if (par$local_runType=='GRCm38') {
-    par$expRunStr <- 'MURMETVEP_mm10_betaTest_06082020'
-    par$expRunStr <- 'VanAndel_mm10_betaTest_31082020'
-    par$expRunStr <- 'ILMN_mm10_betaTest_17082020'
+    opt$runName <- 'MURMETVEP_mm10_betaTest_06082020'
+    opt$runName <- 'VanAndel_mm10_betaTest_31082020'
+    opt$runName <- 'ILMN_mm10_betaTest_17082020'
     opt$auto_detect <- FALSE
   } else if (par$local_runType=='qcMVP') {
-    par$expRunStr  <- 'CNTL-Samples_VendA_10092020'
-    par$expRunStr  <- 'CNTL-Samples_VendA_10092020_test'
+    opt$runName  <- 'CNTL-Samples_VendA_10092020'
+    opt$runName  <- 'CNTL-Samples_VendA_10092020_test'
     opt$auto_detect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='CORE') {
-    par$expRunStr  <- 'BETA-8x1-EPIC-Core'
+    opt$runName  <- 'BETA-8x1-EPIC-Core'
     par$expChipNum <- '202761400007'
 
-    par$expRunStr  <- 'ADRN-blood-nonAtopic_EPIC'
+    opt$runName  <- 'ADRN-blood-nonAtopic_EPIC'
     par$expChipNum <- '201125090068'
 
-    par$expRunStr  <- 'GSE122126_EPIC'
+    opt$runName  <- 'GSE122126_EPIC'
     par$expChipNum <- '202410280180'
 
-    par$expRunStr  <- 'EPIC-BETA-8x1-CoreCancer'
+    opt$runName  <- 'EPIC-BETA-8x1-CoreCancer'
     par$expChipNum <- '201502830033'
     opt$auto_detect <- TRUE
   } else if (par$local_runType=='EXCBR') {
-    par$expRunStr  <- 'Excalibur-Old-1609202'
+    opt$runName  <- 'Excalibur-Old-1609202'
     par$expChipNum <- '204076530053'
     par$expChipNum <- '204076530110'
     
-    par$expRunStr  <- 'Excalibur-New-1609202'
+    opt$runName  <- 'Excalibur-New-1609202'
     par$expChipNum <- '202915460071'
     opt$auto_detect <- TRUE
   } else {
@@ -338,11 +338,11 @@ if (args.dat[1]=='RStudio') {
 
   opt$auto_detect <- FALSE
 
-  opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_') )
-  if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',par$expRunStr, sep='_'),  par$expChipNum)
+  opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
+  if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
-  # opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, par$expRunStr)
+  # opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, opt$runName)
   opt$outDir <- file.path(par$topDir, 'scratch')
   
 } else {
@@ -378,6 +378,8 @@ if (args.dat[1]=='RStudio') {
                 help="Path to auto detect beta values (CSV) [default= %default]", metavar="character"),
     
     # Platform/Method Parameters::
+    make_option(c("--runName"), type="character", default=opt$runName, 
+                help="Run Name [default= %default]", metavar="character"),
     make_option(c("--platform"), type="character", default=opt$platform, 
                 help="Forced platform [EPIC, 450k, 27k, NZT] otherwise auto-detect [default= %default]", metavar="character"),
     make_option(c("--manifest"), type="character", default=opt$manifest, 

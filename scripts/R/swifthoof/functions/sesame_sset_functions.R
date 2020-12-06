@@ -577,12 +577,12 @@ ssetTibToSummary = function(tib, man=NULL,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; by={by}, type={type}, des={des}...{RET}"))
-
+  
   if (verbose>=vt) {
     if (!is.null(pval)) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval={pval}...{RET}"))
     if (!is.null(perc)) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} perc={perc}...{RET}"))
   }
-
+  
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
@@ -615,7 +615,7 @@ ssetTibToSummary = function(tib, man=NULL,
     tib_cols <- names(tib)
     if (!(type %in% tib_cols)) 
       tib <- tib %>% dplyr::mutate(Probe_Type=stringr::str_sub(!!by_sym, 1,2))
-
+    
     # Check for all fields::
     #
     tib_cols <- names(tib)
@@ -631,14 +631,14 @@ ssetTibToSummary = function(tib, man=NULL,
       stop(glue::glue("{RET}[{funcTag}]:{tabsStr}{TAB} ERROR: Failed to find type={type}!!!{RET}{RET}"))
       return(ret_tib)
     }
-
+    
     ret_tib <- tib %>% 
       dplyr::select(-dplyr::all_of(!!by) ) %>%
       tidyr::gather(Metric, value, -dplyr::all_of(c(!!type, !!des)) ) %>%
       dplyr::group_by(!!type_sym, !!des_sym, Metric) %>%
       summarise_if(is.numeric, list(min=min, median=median, mean=mean, sd=sd, max=max), na.rm=TRUE) %>%
       dplyr::ungroup()
-
+    
     if (!is.null(pval)) {
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Applying pval cutoff={pval}...{RET}"))
@@ -647,15 +647,15 @@ ssetTibToSummary = function(tib, man=NULL,
         dplyr::group_by(!!type_sym, !!des_sym) %>%
         dplyr::select(-dplyr::all_of(by)) %>%
         dplyr::summarise_all(list(pass_perc=cntPer_lte), min=pval)
-
+      
       if (!is.null(perc))
         cut_tib <- cut_tib %>% 
-          dplyr::mutate( Requeue=dplyr::case_when(
-            pass_perc>=perc ~ "FALSE", 
-            pass_perc<perc ~ "TRUE",
-            TRUE ~ "TRUE") )
+        dplyr::mutate( Requeue=dplyr::case_when(
+          pass_perc>=perc ~ "FALSE", 
+          pass_perc<perc ~ "TRUE",
+          TRUE ~ "TRUE") )
       cut_tib <- dplyr::ungroup(cut_tib)
-
+      
       ret_tib <- dplyr::inner_join(ret_tib,cut_tib, by=c(type, des))
     }
     
@@ -724,19 +724,18 @@ ssetToTib = function(sset, source, name=NULL, man=NULL,
         }
       ) %>% dplyr::select(!!by, !!des, dplyr::everything())
       
-      #
-      # Left off here:: need to add signal to M/U
-      #   signal
+      # Add sig to the names::
       #
       ret_tib <- ret_tib %>% dplyr::rename(sig_M=M, sig_U=U)
       
-      # man_tib <- man_tib %>% dplyr::rename(Manifest_Design=!!des)
+      # Old Code to record original manifest reference designs::
+      #   man_tib <- man_tib %>% dplyr::rename(Manifest_Design=!!des)
       man_tib <- man_tib %>% dplyr::select(!!by, !!type)
     } else {
       if (is.null(name)) {
         if (fresh || is.null(sesame::extra(sset)[[source]]) ) {
-          sset <- mutateSesame(sset=sset, method=source,
-                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          sset <- mutateSset(sset=sset, method=source,
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         }
         ret_tib <- sesame::extra(sset)[[source]] %>% 
           tibble::enframe(name=by, value=source)
@@ -744,8 +743,8 @@ ssetToTib = function(sset, source, name=NULL, man=NULL,
         if (fresh || 
             is.null(sesame::extra(sset)[[source]]) || 
             is.null(sesame::extra(sset)[[source]][[name]]) ) {
-          sset <- mutateSesame(sset=sset, method=name,
-                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+          sset <- mutateSset(sset=sset, method=name,
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         }
         ret_tib <- sesame::extra(sset)[[source]][[name]] %>% 
           tibble::enframe(name=by, value=paste(source,name, sep=del))
@@ -784,13 +783,21 @@ ssetToTib = function(sset, source, name=NULL, man=NULL,
 #                      Sesame SSET Mutation Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-mutateSset = function(sset, method, force=TRUE,
-                      quality.mask=FALSE, sum.TypeI=FALSE, switch_failed=FALSE,
+mutateSset = function(sset, method, full=TRUE,
+                      quality.mask = FALSE, nondetection.mask = FALSE, 
+                      correct.switch = FALSE, mask.use.tcga = FALSE, 
+                      pval.threshold = 1, force=TRUE,
+                      pval.method = "pOOBAH", sum.TypeI = FALSE,
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'mutateSset'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Mutate Sesame({method})...{RET}"))
+  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Mutate Sesame({method})...{RET}"))
+  
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} sset={RET}"))
+    print(sset)
+  }
   
   ctl_cnt <- sset@ctl %>% base::nrow()
   if (ctl_cnt==0 && method=='detectionPnegEcdf') {
@@ -802,34 +809,69 @@ mutateSset = function(sset, method, force=TRUE,
   
   ret_cnt <- 0
   stime <- system.time({
-    if (verbose>=vt+2) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} Pre-sset(ctl={ctl_cnt})={RET}"))
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt})={RET}"))
       print(sset)
+    }
+    
+    oobR_ids <- NULL
+    oobG_ids <- NULL
+    if (!is.null(sset@extra$IGG) && !is.null(sset@extra$IRR)) {
+      pass_ids_g <- rownames( sset@oobG)[ sset@extra$IRR]
+      fail_ids_g <- rownames( sset@oobG)[!sset@extra$IRR]
+      
+      pass_ids_r <- rownames( sset@oobR)[ sset@extra$IGG]
+      fail_ids_r <- rownames( sset@oobR)[!sset@extra$IGG]
+      
+      if (full) {
+        oobG_ids <- c(pass_ids_g,fail_ids_g)
+        oobR_ids <- c(pass_ids_r,fail_ids_r)
+      } else {
+        oobG_ids <- c(pass_ids_g)
+        oobR_ids <- c(pass_ids_r)
+      }
+
+      if (verbose>=vt+4) {
+        inbR_cnt <- sset@IR %>% base::nrow()
+        inbG_cnt <- sset@IG %>% base::nrow()
+        inbT_cnt <- inbR_cnt+inbG_cnt
+        
+        oobR_cnt <- oobR_ids %>% length()
+        oobG_cnt <- oobG_ids %>% length()
+        oobT_cnt <- oobR_cnt+oobG_cnt
+        
+        cat(glue::glue("[{funcTag}]:{tabsStr} method={method}; ",
+                       "G={inbG_cnt}/{oobG_cnt}, ",
+                       "R={inbR_cnt}/{oobR_cnt}, ",
+                       "T={inbT_cnt}/{oobT_cnt}.{RET}{RET}"))
+      }
     }
     
     if (is.null(method)) {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Missing method!!!{RET}{RET}"))
     } else if (method=='open') {
-      sset <- sset %>% sesame::pOOBAH(force=force) %>% 
-        sesame::noob() %>% sesame::dyeBiasCorrTypeINorm()
+      sset <- sset %>% 
+        sesame::pOOBAH(force=force) %>% 
+        sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids) %>% 
+        sesame::dyeBiasCorrTypeINorm()
     } else if (method=='dyeBiasCorrTypeINorm') {
       sset <- sset %>% sesame::dyeBiasCorrTypeINorm()
-    } else if (method=='detectionPnegEcdf') {
+    } else if (method=='detectionPnegEcdf' || method=='PnegEcdf') {
       sset <- sset %>% sesame::detectionPnegEcdf(force=force)
     } else if (method=='pOOBAH') {
       sset <- sset %>% sesame::pOOBAH(force=force)
     } else if (method=='noob') {
-      sset <- sset %>% sesame::noob()
+      # sset <- sset %>% noob2(oobRprobes=oobR_ids, oobGprobes=oobG_ids,
+      #                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- sset %>% sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids)
     } else if (method=='noobsb') {
       sset <- sset %>% sesame::noobsb()
     } else if (method=='inferTypeIChannel') {
-      sset <- sset %>% 
-        sesame::inferTypeIChannel(switch_failed=FALSE, verbose=FALSE)
+      sset <- sset %>% sesame::inferTypeIChannel(switch_failed=correct.switch, verbose=FALSE)
     } else if (method=='betas') {
-      sesame::extra(sset)[[method]] <- NULL
-      sesame::extra(sset)[[method]] <- 
-        getBetas2(sset=sset, mask=quality.mask,sum.TypeI=sum.TypeI)
-    } else if (method=='raw') {
+      # sesame::extra(sset)[[method]] <- sesame::getBetas(sset=sset, mask=quality.mask,sum.TypeI=sum.TypeI)
+      sesame::extra(sset)[[method]] <- getBetas2(sset=sset, mask=quality.mask,sum.TypeI=sum.TypeI)
+    } else if (method=='r' || method=='raw') {
       # sset <- sset
     } else {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported method={method}!!!{RET}{RET}"))
@@ -837,7 +879,7 @@ mutateSset = function(sset, method, force=TRUE,
     
     ret_cnt <- sset %>% slotNames() %>% length()
     if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} Post-sset(slots={ret_cnt})={RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} sset(slots={ret_cnt})={RET}"))
       print(sset)
     }
   })
@@ -1061,6 +1103,141 @@ inferEthnicity2 = function (sset)
   af <- c(getBetas2(sset, mask = FALSE)[rsprobes], 
           getAFTypeIbySumAlleles(subsetSignal(sset,ccsprobes)))
   as.character(predict(ethnicity.model, af))
+}
+
+noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
+                  verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'noob2'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} sset={RET}"))
+    print(sset)
+    
+    oobRprobes_cnt <- oobRprobes %>% length()
+    cat(glue::glue("[{funcTag}]:{tabsStr} oobRprobes({oobRprobes_cnt})={RET}"))
+    oobRprobes %>% head() %>% print()
+    
+    oobGprobes_cnt <- oobGprobes %>% length()
+    cat(glue::glue("[{funcTag}]:{tabsStr} oobGprobes({oobGprobes_cnt})={RET}"))
+    oobGprobes %>% head() %>% print()
+  }
+  
+  stime <- system.time({
+    
+    if (all(sesame::oobG(sset) == 0) || all(oobR(sset) == 0)) {
+      return(sset)
+    }
+    ibR <- c(sesame::IR(sset), sesame::II(sset)[, "U"])
+    ibG <- c(sesame::IG(sset), sesame::II(sset)[, "M"])
+    ibR[ibR == 0] <- 1
+    ibG[ibG == 0] <- 1
+    sesame::oobR(sset)[sesame::oobR(sset) == 0] <- 1
+    sesame::oobG(sset)[sesame::oobG(sset) == 0] <- 1
+    
+    if (is.null(oobRprobes)) {
+      real_oobR <- sesame::oobR(sset)
+    } else {
+      real_oobR <- sesame::oobR(sset)[oobRprobes, ]
+    }
+    #
+    # Red Verbose::
+    #
+    real_oobR_cnt <- base::nrow(real_oobR)
+    cat(glue::glue("real_oobR({real_oobR_cnt})={RET}"))
+    real_oobR %>% head() %>% print()
+
+    if (is.null(oobGprobes)) {
+      real_oobG <- sesame::oobG(sset)
+    } else {
+      real_oobG <- sesame::oobG(sset)[oobGprobes, ]
+    }
+    #
+    # Grn Verbose::
+    #
+    real_oobG_cnt <- base::nrow(real_oobG)
+    cat(glue::glue("real_oobG({real_oobG_cnt})={RET}"))
+    real_oobG %>% head() %>% print()
+    
+    
+    ibR.nl <- backgroundCorrectionNoobCh1_2(ibR, real_oobR, sesame::ctl(sset)$R, 
+                                            offset = offset)
+    ibG.nl <- backgroundCorrectionNoobCh1_2(ibG, real_oobG, sesame::ctl(sset)$G, 
+                                            offset = offset)
+    if (length(sesame::IG(sset)) > 0) 
+      sesame::IG(sset) <- matrix(ibG.nl$i[seq_along(sesame::IG(sset))], nrow = nrow(sesame::IG(sset)), 
+                                 dimnames = dimnames(sesame::IG(sset)))
+    else sesame::IG(sset) <- matrix(ncol = 2, nrow = 0, dimnames = list(NULL, 
+                                                                        c("M", "U")))
+    if (length(sesame::IR(sset)) > 0) 
+      sesame::IR(sset) <- matrix(ibR.nl$i[seq_along(IR(sset))], nrow = nrow(sesame::IR(sset)), 
+                                 dimnames = dimnames(sesame::IR(sset)))
+    else sesame::IR(sset) <- matrix(ncol = 2, nrow = 0, dimnames = list(NULL, 
+                                                                        c("M", "U")))
+    if (nrow(sesame::II(sset)) > 0) 
+      sesame::II(sset) <- 
+      as.matrix(data.frame(M = ibG.nl$i[(length(sesame::IG(sset)) + 
+                                           1):length(ibG)], U = ibR.nl$i[(length(sesame::IR(sset)) + 
+                                                                            1):length(ibR)], row.names = rownames(sesame::II(sset))))
+    else sesame::II(sset) <- matrix(ncol = 2, nrow = 0, dimnames = list(NULL, 
+                                                                        c("M", "U")))
+    sesame::ctl(sset)$G <- ibG.nl$c
+    sesame::ctl(sset)$R <- ibR.nl$c
+    sesame::oobR(sset)  <- ibR.nl$o
+    sesame::oobG(sset)  <- ibG.nl$o
+    
+    ret_cnt <- sset %>% slotNames() %>% length()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} sset(slots={ret_cnt})={RET}"))
+      print(sset)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  sset
+}
+
+backgroundCorrectionNoobCh1_2 = function(ib, oob, ctl, offset=15) {
+  
+  e <- MASS::huber(oob)
+  mu <- e$mu
+  sigma <- e$s
+  alpha <- pmax(MASS::huber(ib)$mu-mu, 10)
+  list(
+    i=offset+normExpSignal2(mu, sigma, alpha, ib),
+    c=offset+normExpSignal2(mu, sigma, alpha, ctl),
+    o=offset+normExpSignal2(mu, sigma, alpha, oob))
+}
+
+normExpSignal2 <- function (mu, sigma, alpha, x)  {
+  
+  sigma2 <- sigma * sigma
+  
+  if (alpha <= 0)
+    stop("alpha must be positive")
+  if (sigma <= 0)
+    stop("sigma must be positive")
+  
+  mu.sf <- x - mu - sigma2/alpha
+  signal <- mu.sf + sigma2 * exp(
+    dnorm(0, mean = mu.sf, sd = sigma, log = TRUE) -
+      pnorm(
+        0, mean = mu.sf, sd = sigma,
+        lower.tail = FALSE, log.p = TRUE))
+  
+  o <- !is.na(signal)
+  if (any(signal[o] < 0)) {
+    warning("Limit of numerical accuracy reached with very
+low intensity or very high background:\nsetting adjusted intensities
+to small value")
+    signal[o] <- pmax(signal[o], 1e-06)
+  }
+  signal
 }
 
 # End of file

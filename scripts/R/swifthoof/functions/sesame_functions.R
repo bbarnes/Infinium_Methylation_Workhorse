@@ -32,7 +32,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
                          
                          write_beta=FALSE, beta_csv=NULL, ret_beta=FALSE,
                          write_bsum=FALSE, bsum_csv=NULL, ret_bsum=FALSE,
-
+                         
                          write_pval=FALSE, pval_csv=NULL, ret_pval=FALSE,
                          write_psum=FALSE, psum_csv=NULL, ret_psum=FALSE,
                          
@@ -52,10 +52,10 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; workflow={workflow}...{RET}"))
-
+  
   ret_cnt <- 0
   ret_dat <- NULL
-
+  
   # Validate Inputs::
   #
   pvals_cnt <- 0
@@ -77,7 +77,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
   sums_ssh_tib <- NULL
   pred_dat_tib <- NULL
   data_ssh_tib <- NULL
-
+  
   stime <- system.time({
     
     # Initialize Outputs::
@@ -127,7 +127,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
       pval_out_str <- paste('pval',pval_key, sep='-')
       pval_csv <- file.path(outDir, paste(out_name,pval_out_str,'dat.csv.gz', sep='.'))
       psum_csv <- file.path(outDir, paste(out_name,pval_out_str,'sum.csv.gz', sep='.'))
-
+      
       ret_pval_dat <- NULL
       pval_tib <- pval_cut_tib %>% dplyr::filter(Method==pval_key)
       min_pval <- pval_tib$min_pval[1]
@@ -182,7 +182,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
     
     call_dat_tib <- dplyr::left_join(call_dat_tib,beta_dat_tib, by=by)
     sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(beta_sum_tib)
-
+    
     # Write Updated SSET
     #
     if (write_sset && !is.null(sset_rds) && !file.exists(sset_rds))
@@ -220,11 +220,11 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
       by=by, type=type, des=des,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (ret_ssum) ret_sigs_dat$sigs_sum <- sigs_sum_tib
-
+    
     if (ret_sigs || ret_ssum) ret_dat$sigs <- ret_sigs_dat
     
     sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(sigs_sum_tib)
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                Update Calls, Signal and Summary Headers::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -283,7 +283,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
     if (is.null(pre)) {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building new data list...{RET}"))
-        
+      
       ret_dat$sigs_dat <- sigs_dat_tib
       ret_dat$call_dat <- call_dat_tib
       ret_dat$sums_dat <- sums_dat_tib
@@ -292,7 +292,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
     } else {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Join with previous data...{RET}"))
-        
+      
       ret_dat$sigs_dat <- dplyr::left_join(pre$sigs_dat, sigs_dat_tib, by=c(by,type,des))
       ret_dat$call_dat <- dplyr::left_join(pre$call_dat, call_dat_tib, by=by)
       ret_dat$sums_dat <- dplyr::bind_rows(pre$sums_dat, sums_dat_tib)
@@ -311,7 +311,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-                   
+  
   ret_dat
 }
 
@@ -336,52 +336,52 @@ mutateSSET_workflow = function(sset, workflow, pvals=NULL,
     if (workflow=='r' || workflow=='raw') {
       # Do nothing...
     } else if (workflow=='i') {
-      sset <- mutateSesame(sset=sset, method = 'inferTypeIChannel',
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'inferTypeIChannel',
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='n') {
-      sset <- mutateSesame(sset=sset, method = 'noob', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'noob', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='d') {
-      sset <- mutateSesame(sset=sset, method = 'dyeBiasCorrTypeINorm', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'dyeBiasCorrTypeINorm', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='nd') {
-      sset <- mutateSesame(sset=sset, method = 'noob', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'dyeBiasCorrTypeINorm', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'noob', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'dyeBiasCorrTypeINorm', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='dn') {
-      sset <- mutateSesame(sset=sset, method = 'dyeBiasCorrTypeINorm', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'noob', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'dyeBiasCorrTypeINorm', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'noob', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='ind') {
-      sset <- mutateSesame(sset=sset, method = 'inferTypeIChannel', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'noob', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'dyeBiasCorrTypeINorm', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'inferTypeIChannel', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'noob', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'dyeBiasCorrTypeINorm', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='ndi') {
-      sset <- mutateSesame(sset=sset, method = 'noob', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'dyeBiasCorrTypeINorm', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'inferTypeIChannel', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'noob', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'dyeBiasCorrTypeINorm', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'inferTypeIChannel', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='din') {
-      sset <- mutateSesame(sset=sset, method = 'dyeBiasCorrTypeINorm', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'inferTypeIChannel', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'noob', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'dyeBiasCorrTypeINorm', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'inferTypeIChannel', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'noob', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else if (workflow=='dni') {
-      sset <- mutateSesame(sset=sset, method = 'dyeBiasCorrTypeINorm', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'noob', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- mutateSesame(sset=sset, method = 'inferTypeIChannel', 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'dyeBiasCorrTypeINorm', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'noob', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method = 'inferTypeIChannel', 
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     } else {
       stop(glue::glue("[{funcTag}]: ERROR: Unsupported workflow={workflow}!{RET}{RET}"))
     }
@@ -394,8 +394,8 @@ mutateSSET_workflow = function(sset, workflow, pvals=NULL,
       if (verbose>=vt+2) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Mutating pval={pval}...{RET}"))
       
-      sset <- mutateSesame(sset=sset, method=pval,
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      sset <- mutateSset(sset=sset, method=pval,
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -405,8 +405,8 @@ mutateSSET_workflow = function(sset, workflow, pvals=NULL,
     if (verbose>=vt+2) 
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Mutating betas...{RET}"))
     
-    sset <- mutateSesame(sset=sset, method="betas",
-                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    sset <- mutateSset(sset=sset, method="betas",
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                              Save Output::
@@ -416,76 +416,6 @@ mutateSSET_workflow = function(sset, workflow, pvals=NULL,
       if (verbose>=vt+1) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS={rds}.{RET}"))
       readr::write_rds(sset, rds, compress="gz")
-    }
-    
-    ret_cnt <- sset %>% slotNames() %>% length()
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} sset(slots={ret_cnt})={RET}"))
-      print(sset)
-    }
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  sset
-}
-
-mutateSesame = function(sset, method, 
-                        quality.mask = FALSE, nondetection.mask = FALSE, 
-                        correct.switch = TRUE, mask.use.tcga = FALSE, 
-                        pval.threshold = 1, force=TRUE,
-                        pval.method = "pOOBAH", sum.TypeI = FALSE,
-                        verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'mutateSesame'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; Mutate Sesame({method})...{RET}"))
-  
-  if (verbose>=vt+4) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} sset={RET}"))
-    print(sset)
-  }
-  
-  ctl_cnt <- sset@ctl %>% base::nrow()
-  if (ctl_cnt==0 && method=='detectionPnegEcdf') {
-    if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Unable to mutate ctl_cnt={ctl_cnt} ",
-                     "for method={method}. Returning original sset...{RET}"))
-    return(sset)
-  }
-  
-  ret_cnt <- 0
-  stime <- system.time({
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} sset(ctl={ctl_cnt})={RET}"))
-      print(sset)
-    }
-    
-    if (is.null(method)) {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: Missing method!!!{RET}{RET}"))
-    } else if (method=='open') {
-      sset <- sset %>% sesame::pOOBAH(force=force) %>% sesame::noob() %>% sesame::dyeBiasCorrTypeINorm()
-    } else if (method=='dyeBiasCorrTypeINorm') {
-      sset <- sset %>% sesame::dyeBiasCorrTypeINorm()
-    } else if (method=='detectionPnegEcdf' || method=='PnegEcdf') {
-      sset <- sset %>% sesame::detectionPnegEcdf(force=force)
-    } else if (method=='pOOBAH') {
-      sset <- sset %>% sesame::pOOBAH(force=force)
-    } else if (method=='noob') {
-      sset <- sset %>% sesame::noob()
-    } else if (method=='noobsb') {
-      sset <- sset %>% sesame::noobsb()
-    } else if (method=='inferTypeIChannel') {
-      sset <- sset %>% sesame::inferTypeIChannel(switch_failed=FALSE, verbose=FALSE)
-    } else if (method=='betas') {
-      sesame::extra(sset)[[method]] <- getBetas2(sset=sset, mask=quality.mask,sum.TypeI=sum.TypeI)
-    } else if (method=='r' || method=='raw') {
-      # sset <- sset
-    } else {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported method={method}!!!{RET}{RET}"))
     }
     
     ret_cnt <- sset %>% slotNames() %>% length()

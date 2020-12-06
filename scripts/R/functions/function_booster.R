@@ -121,7 +121,9 @@ program_init = function(name,defs=NULL,
   #                            Build Directories::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  opts$outDir <- file.path(opts$outDir, par$prgmDir, name)
+  # opts$outDir <- file.path(opts$outDir, par$prgmDir, name)
+  opts$outDir <- file.path(opts$outDir, name)
+  if (!is.null(opts$runName)) opts$outDir <- file.path(opts$outDir, opts$runName)
   if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
 
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
