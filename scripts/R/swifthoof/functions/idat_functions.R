@@ -47,13 +47,13 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading prefix={prefix}.{RET}"))
   
+  ret_cnt <- 0
+  ret_dat <- NULL
   stime <- system.time({
     if (load && !is.null(rds) && file.exists(rds)) {
       if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={rds}.{RET}"))
-      dat <- readr::read_rds(rds)
+      ret_dat <- readr::read_rds(rds)
     } else {
-      dat <- NULL
-      
       grn_idat <- loadIdat(prefix, 'Grn', gzip=gzip, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       red_idat <- loadIdat(prefix, 'Red', gzip=gzip, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
@@ -84,21 +84,30 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
         if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Passed idat pair validation!{RET}"))
       }
       
-      dat$sig <- sigs
-      dat$ann <- grn_ann
-      if (verbose>=vt+10) print(dat)
+      ret_dat$sig <- sigs
+      ret_dat$ann <- grn_ann
+      if (verbose>=vt+10) print(ret_dat)
       
       if (save && !is.null(rds)) {
-        if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS={rds}.{RET}"))
-        readr::write_rds(dat, rds, compress="gz")
+        if (verbose>=vt+1) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS={rds}.{RET}"))
+        readr::write_rds(ret_dat, rds, compress="gz")
       }
+    }
+    
+    ret_cnt <- ret_dat %>% names() %>% length()
+    if (verbose>=vt+5) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat({ret_cnt})={RET}"))
+      print(ret_dat)
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  dat
+  ret_dat
 }
 
 loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -106,6 +115,8 @@ loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading prefix={prefix}.{RET}"))
   
+  ret_cnt <- 0
+  ret_dat <- NULL
   stime <- system.time({
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                        Ensure Idats are Gzipped::
@@ -122,13 +133,21 @@ loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
     if (!file.exists(idat_file)) stop(glue::glue("{RET}[{funcTag}]: ERROR: idat_file={idat_file} does NOT exist!!!{RET}{RET}"))
     stopifnot(file.exists(idat_file))
     
-    idat <- illuminaio::readIDAT(idat_file)
+    ret_dat <- illuminaio::readIDAT(idat_file)
+    
+    ret_cnt <- ret_dat %>% names() %>% length()
+    if (verbose>=vt+5) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat({ret_cnt})={RET}"))
+      print(ret_dat)
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  idat
+  ret_dat
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -138,7 +157,8 @@ loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
 getIdatSignalTib = function(idat, channel, del='_', verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getIdatSignalTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; channel={channel}...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; channel={channel}...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -152,11 +172,18 @@ getIdatSignalTib = function(idat, channel, del='_', verbose=0,vt=3,tc=1,tt=NULL)
     ret_tib <- idat$Quants %>% tibble::as_tibble(rownames="Address") %>%
       dplyr::mutate(Address=as.integer(Address)) %>%
       purrr::set_names(new_cnames)
-    ret_cnt <- base::nrow(ret_tib)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+5) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -164,29 +191,43 @@ getIdatSignalTib = function(idat, channel, del='_', verbose=0,vt=3,tc=1,tt=NULL)
 getIdatBarcodeTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getIdatBarcodeTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     sentrixName <- paste(idat$Barcode,idat$Unknowns$MostlyA, sep='_')
     rowcol_df <- idat$Unknowns$MostlyA %>% stringr::str_remove("^R") %>% stringr::str_split('C', simplify=TRUE, n=2) %>% as.numeric()
-    tib <- tibble::tibble(Sentrix_Name=sentrixName,
+    ret_tib <- tibble::tibble(Sentrix_Name=sentrixName,
                           Sentrix_Barcode=idat$Barcode,
                           Sentrix_Poscode=idat$Unknowns$MostlyA,
                           Sentrix_Row=as.integer(rowcol_df[1]),
                           Sentrix_Col=as.integer(rowcol_df[2]) )
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+5) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
   })
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done. Sentrix_Name(R{tib$Sentrix_Row}:C{tib$Sentrix_Col})={tib$Sentrix_Name}{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  tib
+  ret_tib
 }
 
 getIdatFormatTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getIdatFormatTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     chipType <- idat$ChipType
     if (chipType=='SLIDE.15028542.24X1X1') chipFormat <- '24x1'
@@ -196,21 +237,32 @@ getIdatFormatTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
     else if (chipType=='BeadChip 24x1x2') chipFormat  <- '24x1'
     else if (chipType=='Beadchip 24x1x2') chipFormat  <- '24x1'
     else stop(glue::glue("{RET}[{funcTag}]: ERROR: Unrecognized ChipType={chipType}!{RET}{RET}"))
-    tib <- tibble::tibble('Chip_Type'=chipType,'Chip_Format'=chipFormat)
+    
+    ret_tib <- tibble::tibble('Chip_Type'=chipType,'Chip_Format'=chipFormat)
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+5) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Chip_Type={chipType}, Chip_Format={chipFormat}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  tib
+  ret_tib
 }
 
 getIdatTimeStampTib = function(idat, method='Extract', sherlockID='sherlockID', order='latest', 
                                verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'getIdatTimeStampTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
 
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     time_tib  <- idat$RunInfo %>% tibble::as_tibble()
     method_idxs <- grep(method, time_tib$BlockType)
@@ -238,19 +290,27 @@ getIdatTimeStampTib = function(idat, method='Extract', sherlockID='sherlockID', 
     mach_key <- mach_var[1]
     mach_val <- mach_var[2]
     
-    time_tib <- date_str %>% stringr::str_split('[\\-\\/ \\:]') %>% BiocGenerics::unlist() %>% 
+    ret_tib <- date_str %>% stringr::str_split('[\\-\\/ \\:]') %>% BiocGenerics::unlist() %>% 
       purrr::set_names('Year','Mon','Day','Hour','Min','Sec') %>% 
       tibble::enframe() %>% spread(name, value) %>% dplyr::mutate_all(.funs = (as.integer)) %>%
       tibble::add_column('Date' = date_str) %>%
       tibble::add_column(!!mach_key := !!mach_val) %>%
       dplyr::select(!!mach_key, Date, Year, Mon, Day, Hour, Min, Sec) %>%
       purrr::set_names(paste(name_str, names(.), sep='_'))
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+5) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Date({method})={date_str}; elapsed={etime}.{RET}{RET}"))
-
-  time_tib
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
 }
 
 

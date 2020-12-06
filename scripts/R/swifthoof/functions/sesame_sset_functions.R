@@ -817,31 +817,34 @@ mutateSset = function(sset, method, full=TRUE,
     oobR_ids <- NULL
     oobG_ids <- NULL
     if (!is.null(sset@extra$IGG) && !is.null(sset@extra$IRR)) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will use inferred channels...{RET}"))
+      
       pass_ids_g <- rownames( sset@oobG)[ sset@extra$IRR]
       if (verbose>=vt+5) {
         pass_cnt_g <- pass_ids_g %>% length()
-        cat(glue::glue("[{funcTag}]:{tabsStr} pass_ids_g({pass_cnt_g})={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pass_ids_g({pass_cnt_g})={RET}"))
         pass_ids_g %>% head() %>% print()
       }
       
       fail_ids_g <- rownames( sset@oobG)[!sset@extra$IRR]
       if (verbose>=vt+5) {
         fail_cnt_g <- fail_ids_g %>% length()
-        cat(glue::glue("[{funcTag}]:{tabsStr} fail_ids_g({fail_cnt_g})={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} fail_ids_g({fail_cnt_g})={RET}"))
         fail_ids_g %>% head() %>% print()
       }
 
       pass_ids_r <- rownames( sset@oobR)[ sset@extra$IGG]
       if (verbose>=vt+5) {
         pass_cnt_r <- pass_ids_r %>% length()
-        cat(glue::glue("[{funcTag}]:{tabsStr} pass_ids_r({pass_cnt_r})={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pass_ids_r({pass_cnt_r})={RET}"))
         pass_ids_r %>% head() %>% print()
       }
       
       fail_ids_r <- rownames( sset@oobR)[!sset@extra$IGG]
       if (verbose>=vt+5) {
         fail_cnt_r <- fail_ids_r %>% length()
-        cat(glue::glue("[{funcTag}]:{tabsStr} fail_ids_r({fail_cnt_r})={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} fail_ids_r({fail_cnt_r})={RET}"))
         fail_ids_r %>% head() %>% print()
       }
       
@@ -862,11 +865,14 @@ mutateSset = function(sset, method, full=TRUE,
         oobG_cnt <- oobG_ids %>% length()
         oobT_cnt <- oobR_cnt+oobG_cnt
         
-        cat(glue::glue("[{funcTag}]:{tabsStr} method={method}; ",
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} method={method}; ",
                        "G={inbG_cnt}/{oobG_cnt}, ",
                        "R={inbR_cnt}/{oobR_cnt}, ",
                        "T={inbT_cnt}/{oobT_cnt}.{RET}{RET}"))
       }
+    } else {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will NOT use inferred channels...{RET}"))
     }
     
     if (is.null(method)) {
