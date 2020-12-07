@@ -18,10 +18,6 @@ suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 #                              Global Params::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-doParallel::registerDoParallel()
-num_cores   <- detectCores()
-num_workers <- getDoParWorkers()
-
 COM <- ","
 TAB <- "\t"
 RET <- "\n"

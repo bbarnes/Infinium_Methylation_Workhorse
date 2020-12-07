@@ -16,7 +16,7 @@
 #     - Add HSA/MUS Controls to database
 #  3. Requeue QC File Output
 #     - Confirm odd probes with new manifest
-#  4. 
+#  4. Expand Inferred Infinium I SNP calls
 #
 
 
