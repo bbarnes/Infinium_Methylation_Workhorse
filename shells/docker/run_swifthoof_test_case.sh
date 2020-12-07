@@ -1,32 +1,54 @@
-#!/bin/bash
+#!/bin/sh
 
-BRD=Infinium_Methylation_Workhorse_Centos
-EXP=TestCase
-VER=v.1.1
-SRC="bbarnesimdocker/im_workhorse:${BRD}.${VER}"
-CMD=run_swifthoof.sh
+EXE_NAME=Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
+EXE_A=/repo/${EXE_NAME}
+EXE_B=/Users/bretbarnes/Documents/tools/${EXE_NAME}
 
-DAT=/repo/Infinium_Methylation_Workhorse/dat/idats_${EXP}
-OUT=./docker-${BRD}-${VER}
+RSCRIPT_A=/usr/local/bin/Rscript
+RSCRIPT_B=/usr/bin/Rscript
 
-VERBOSE=4
-WORKFLOW="nd,ind"
+if [ -e ${RSCRIPT_A} ]; then
+    RSCRIPT=${RSCRIPT_A}
+elif [ -e ${RSCRIPT_B} ]; then
+    RSCRIPT=${RSCRIPT_B}
+else
+    echo "Unrecognized Rscript EXE!"
+    exit
+fi
 
-# mkdir -p ${OUT}
+if [ -e ${EXE_A} ]; then
+    EXE=${EXE_A}
 
-# docker run -i --rm -v ${DAT}:/input -v ${OUT}:/output -w /work ${SRC} ${CMD} \
-docker run -i --rm -v ${OUT}:/output -w /work ${SRC} ${CMD} \
-       --runName=${EXP} \
-       --workflow="${WORKFLOW}" \
-       --write_call \
-       --write_sigs \
-       --load_sset \
-       --load_idat \
-       --save_sset \
-       --save_idat \
-       --pval="pOOBAH,PnegEcdf" --minPval="0.1,0.02" --minPerc="90,98" \
-       --verbose=${VERBOSE}
+    INP=/input
+    OUT=/output
+    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --outDir=${OUT} $@"
 
-echo "swifthoof done..."
+    echo "Docker Run..."
+    
+elif [ -e ${EXE_B} ]; then
+    EXE=${EXE_B}
+
+    # INP=$1
+    # OUT=$2
+
+    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} $@"
+    echo "Local Run..."
+    
+else
+    echo "Unrecognized EXE directory!"
+    exit
+fi
+
+echo "RSC="${RSCRIPT}
+echo "EXE="${EXE}
+echo "INP="${INP}
+echo "OUT="${OUT}
+echo "CMD="${CMD}
+echo ""
+
+# echo ${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --idatsDir=${INP} --outDir=${OUT} $@
+${CMD}
+
+echo "done."
 
 # End of file
