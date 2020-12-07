@@ -41,7 +41,8 @@ prefixesToChipTib = function(prefixes) {
   tib
 }
 
-prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, validate=TRUE, 
+prefixToIdat = function(prefix, load=FALSE, save=FALSE, csv=NULL, ssh=NULL,
+                        gzip=TRUE, validate=TRUE, 
                         verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'prefixToIdat'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -49,17 +50,17 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
     cat(glue::glue("[{funcTag}]:{tabsStr} Loading prefix={prefix}.{RET}"))
   
   ret_cnt <- 0
-  ret_dat <- NULL
+  ret_tib <- NULL
   stime <- system.time({
-    if (load && !is.null(rds) && file.exists(rds)) {
+    if (load && !is.null(csv) && file.exists(csv)) {
       if (verbose>=vt+1)
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading RDS={rds}.{RET}"))
-      ret_dat <- readr::read_rds(rds)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading CSV={csv}.{RET}"))
+      ret_tib <- readr::read_csv(csv)
     } else {
       grn_idat <- loadIdat(prefix, 'Grn', gzip=gzip, 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                           verbose=verbose,vt=vt+4,tc=tc+1,tt=tt)
       red_idat <- loadIdat(prefix, 'Red', gzip=gzip, 
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                           verbose=verbose,vt=vt+4,tc=tc+1,tt=tt)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                          Extract Signal Data::
@@ -68,7 +69,7 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
       red_sig <- getIdatSignalTib(red_idat, channel='Red', 
                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
 
-      sigs <- dplyr::full_join(grn_sig, red_sig, by="Address")
+      ret_tib <- dplyr::full_join(grn_sig, red_sig, by="Address")
 
       grn_ann <- dplyr::bind_cols(
         getIdatBarcodeTib(grn_idat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),
@@ -93,39 +94,31 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Passed idat pair validation!{RET}"))
       }
       
-      ret_dat$sig = sigs
-      ret_dat$ann = grn_ann
-
-      if (save && !is.null(rds)) {
-        if (file.exists(rds)) unlink(rds)
-        if (verbose>=vt+1) 
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS={rds}.{RET}"))
-        readr::write_rds(ret_dat, rds, compress="gz")
+      if (save && !is.null(csv)) {
+        outDir <- base::dirname(csv)
+        if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
         
-        rds2 <- paste0(rds,'.no-compression.rds')
-        if (file.exists(rds2)) unlink(rds2)
+        if (file.exists(csv)) unlink(csv)
         if (verbose>=vt+1) 
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing RDS(2)={rds2}.{RET}"))
-        readr::write_rds(ret_dat, rds2)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Signal Table CSV={csv}.{RET}"))
+        readr::write_csv(ret_tib, csv)
+      }
+      
+      if (save && !is.null(ssh)) {
+        outDir <- base::dirname(ssh)
+        if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
         
-        sig_csv <- paste0(rds,'.no-compression.sig.csv')
+        if (file.exists(ssh)) unlink(ssh)
         if (verbose>=vt+1) 
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={sig_csv}.{RET}"))
-        readr::write_csv(sigs, sig_csv)
-        sigs %>% print()
-        
-        ann_csv <- paste0(rds,'.no-compression.ann.csv')
-        if (verbose>=vt+1) 
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={ann_csv}.{RET}"))
-        readr::write_csv(grn_ann, ann_csv)
-        grn_ann %>% print()
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Sample Sheet CSV={ssh}.{RET}"))
+        readr::write_csv(grn_ann, ssh)
       }
     }
     
-    ret_cnt <- ret_dat %>% names() %>% length()
-    if (verbose>=vt+5) {
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} names(ret_dat({ret_cnt}))={RET}"))
-      ret_dat %>% names() %>% print()
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -134,7 +127,7 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  ret_dat
+  ret_tib
 }
 
 loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {

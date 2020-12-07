@@ -1,6 +1,26 @@
 
 if (FALSE) {
   
+  idat_csv  <- paste('/Users/bretbarnes/Documents/tmp', 'idat.sigs.csv.gz', sep='_')
+  info_csv  <- paste('/Users/bretbarnes/Documents/tmp', 'idat.info.csv.gz', sep='_')
+  idat_sigs_tib <- 
+    prefixToIdat(prefix=rdat$prefix, load=TRUE, save=TRUE, 
+                 csv=idat_csv, ssh=info_csv,
+                 verbose = 20)
+  idat_info_tib <- 
+    suppressMessages(suppressWarnings( readr::read_csv(info_csv) ))
+  
+  
+  tmp_idat <- loadIdat(rdat$prefix, col='Grn', verbose=20)
+  
+  getIdatBarcodeTib(tmp_idat)
+  getIdatFormatTib(tmp_idat)
+  
+  getIdatTimeStampTib(tmp_idat, method='Decoding')
+  getIdatTimeStampTib(tmp_idat, method='Extract')
+  
+  tmp_idat$RunInfo
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                               Non-CpG Repair::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

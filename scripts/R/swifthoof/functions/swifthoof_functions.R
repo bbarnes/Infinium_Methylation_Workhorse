@@ -53,16 +53,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
   
   # Retrun Value::
   ret <- NULL
-  
-  tTracker <- timeTracker$new()
   stime <- system.time({
     
+    tTracker <- timeTracker$new()
+    if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
     if (opt$fresh) {
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr} Cleaning; prefix={prefix}.{RET}{RET}"))
       cleaned_files <- lapply(list.files(opt$outDir, pattern=prefix, full.names=TRUE), unlink)
     }
-    
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Initialize Starting Outputs::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -96,25 +96,27 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     #                           Extract Raw idat::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
-    idat_rds  <- paste(out_prefix, 'idat.rds', sep=del)
-    idat_list <- prefixToIdat(prefix=prefix, 
-                              load=opts$load_idat, save=opts$save_idat, rds=idat_rds,
-                              verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
-    # return(idat_list)
+    idat_sigs_csv <- paste(out_prefix, 'idat.sigs.csv.gz', sep=del)
+    idat_info_csv <- paste(out_prefix, 'idat.info.csv.gz', sep=del)
+    idat_sigs_tib <- 
+      prefixToIdat(prefix=prefix, load=opts$load_idat, save=opts$save_idat, 
+                   csv=idat_sigs_csv, ssh=idat_info_csv,
+                   verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
+    idat_info_tib <- 
+      suppressMessages(suppressWarnings( readr::read_csv(idat_info_csv) ))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Get Sesame Manifest/Address Tables::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    man_map_tib <- idatToManifestMap(tib=idat_list$sig, mans=mans, sortMax=TRUE,
+    man_map_tib <- idatToManifestMap(tib=idat_sigs_tib, mans=mans, sortMax=TRUE,
                                      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     top_man_tib <- mans[[man_map_tib[1,]$manifest]] %>% 
       dplyr::distinct(Probe_ID, .keep_all=TRUE)
     
     bead_sum_tib <- 
-      getManifestBeadStats(dat=idat_list$sig, man=top_man_tib, types=btypes, 
+      getManifestBeadStats(dat=idat_sigs_tib, man=top_man_tib, types=btypes, 
                            verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
     
     #
@@ -129,8 +131,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       
       ret$ossh <- opt_ssh_tib
       
-      ret$isig <- idat_list$sig
-      ret$issh <- idat_list$ann
+      ret$isig <- idat_sigs_tib
+      ret$issh <- idat_info_tib
       
       ret$mmap <- man_map_tib
       ret$sman <- top_man_tib
@@ -151,7 +153,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Initializing Auto-Sample-Sheet: [idat/bead/pheno].{RET}"))
     
     beadPool     <- bead_ssh_tib  %>% head(n=1) %>% dplyr::select(Bead_Pool)   %>% dplyr::pull()
-    chipFormat   <- idat_list$ann %>% head(n=1) %>% dplyr::select(Chip_Format) %>% dplyr::pull()
+    chipFormat   <- idat_info_tib %>% head(n=1) %>% dplyr::select(Chip_Format) %>% dplyr::pull()
     version_key  <- man_map_tib$version[1]
     platform_key <- man_map_tib$platform[1]
     
@@ -161,7 +163,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     ssheet_tib <- NULL
     ssheet_tib <- dplyr::bind_cols(
       # Idat Sample Sheet Stats::
-      idat_list$ann,
+      idat_info_tib,
       
       # Options Sample Sheet Stats::
       opt_ssh_tib,
@@ -187,7 +189,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     if (opts$buildSubDir) opts$outDir <- file.path(opts$outDir, chipFormat, beadPool)
     if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
     
-    basecode   <- idat_list$ann$Sentrix_Name[1]
+    basecode   <- idat_info_tib$Sentrix_Name[1]
     out_name   <- paste(basecode, platform_key, version_key, sep=del)
     out_prefix <- file.path(opts$outDir, out_name)
     
