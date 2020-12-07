@@ -254,8 +254,8 @@ if (args.dat[1]=='RStudio') {
   opt$single   <- FALSE
   opt$single   <- TRUE
   
-  opt$parallel <- TRUE
   opt$parallel <- FALSE
+  opt$parallel <- TRUE
   
   opt$cluster  <- TRUE
   opt$cluster  <- FALSE

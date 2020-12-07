@@ -1,4 +1,26 @@
 
+
+#
+#
+#  1. toDo_str= "Infinium I background and HMM-Meth Alignment"
+#  
+#  Dec 7 2020
+#
+#  0. Docker TestCase
+#  1. Sigularity Testing on sd-isilon
+#  2. Manifest Rebuild
+#     - Controls
+#     - Product Probes
+#     - Design Scores from Docker improbe
+#     - Add HSA CpH/SNPs to database
+#     - Add HSA/MUS Controls to database
+#  3. Requeue QC File Output
+#     - Confirm odd probes with new manifest
+#  4. 
+#
+
+
+
 if (FALSE) {
   
   idat_csv  <- paste('/Users/bretbarnes/Documents/tmp', 'idat.sigs.csv.gz', sep='_')
