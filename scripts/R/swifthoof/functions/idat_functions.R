@@ -111,19 +111,21 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, rds=NULL, gzip=TRUE, val
         sig_csv <- paste0(rds,'.no-compression.sig.csv')
         if (verbose>=vt+1) 
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={sig_csv}.{RET}"))
-        readr::write_csv(ret_dat$sig, sig_csv)
+        readr::write_csv(sigs, sig_csv)
+        sigs %>% print()
         
         ann_csv <- paste0(rds,'.no-compression.ann.csv')
         if (verbose>=vt+1) 
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={ann_csv}.{RET}"))
-        readr::write_csv(ret_dat$ann, ann_csv)
+        readr::write_csv(grn_ann, ann_csv)
+        grn_ann %>% print()
       }
     }
     
     ret_cnt <- ret_dat %>% names() %>% length()
     if (verbose>=vt+5) {
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat({ret_cnt})={RET}"))
-      print(ret_dat)
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} names(ret_dat({ret_cnt}))={RET}"))
+      ret_dat %>% names() %>% print()
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -162,8 +164,8 @@ loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
     
     ret_cnt <- ret_dat %>% names() %>% length()
     if (verbose>=vt+5) {
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat({ret_cnt})={RET}"))
-      print(ret_dat)
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} names(ret_dat({ret_cnt}))={RET}"))
+      ret_dat %>% names() %>% print()
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
