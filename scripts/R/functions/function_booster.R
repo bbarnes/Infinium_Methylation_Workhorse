@@ -125,7 +125,9 @@ program_init = function(name,defs=NULL,
   opts$outDir <- file.path(opts$outDir, name)
   if (!is.null(opts$runName)) opts$outDir <- file.path(opts$outDir, opts$runName)
   if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
-
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]: Output Directory (TOP)={opts$outDir}...{RET}"))
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                         Program Start Time Stamp::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

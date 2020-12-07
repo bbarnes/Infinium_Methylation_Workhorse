@@ -133,11 +133,6 @@ opt$pval <- "pOOBAH,PnegEcdf"
 opt$minPval <- "0.1,0.02"
 opt$minPerc <- "90,98"
 
-# opt$minNegPval   <- 0.02
-# opt$minOobPval   <- 0.1
-# opt$minNegPerc   <- 98
-# opt$minOobPerc   <- 90
-
 opt$minDeltaBeta <- 0.2
 
 opt$percision_sigs <- 1
@@ -162,10 +157,6 @@ opt$dpi <- 120
 
 opt$plotMax <- 10000
 opt$plotSub <- 5000
-
-# opt$opt_csv  <- NULL
-# opt$par_csv  <- NULL
-# opt$time_csv <- NULL
 
 opt$time_org_txt <- NULL
 
@@ -517,9 +508,28 @@ par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
 opt_reqs <- c('outDir','Rscript','verbose')
 
 par$gen_src_dir <- file.path(par$scrDir, 'functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
+if (!dir.exists(par$gen_src_dir)) 
+  stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
+
+for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', 
+                         full.names=TRUE, recursive=TRUE)) base::source(sfile)
+if (opt$verbose>=0)
+  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form ",
+                 "General Source={par$gen_src_dir}!{RET}{RET}") )
+
+# TestCase::
+if (is.null(opt$idatsDir) || !dir.exists(opt$idatsDir)) {
+  opt$runName  <- "TestCase"
+  opt$idatsDir <- file.path(par$datDir,"idats_TestCase")
+  
+  if (opt$verbose>0) {
+    cat(glue::glue("[{par$prgmTag}]: idatsDir does not exist or ",
+                   "is missing will use TestData={opt$idatsDir}!!!{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: Overriding runName={opt$runName}.{RET}{RET}"))
+  }
+  
+  # stop(glue::glue("{RET}[{par$prgmTag}]: idatsDir={opt$idatsDir} does not exist!!!{RET}{RET}"))
+}
 
 opt <- program_init(name=par$prgmTag,
                     opts=opt, opt_reqs=opt_reqs, 
@@ -534,12 +544,10 @@ par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 #                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (!dir.exists(opt$idatsDir))
-  stop(glue::glue("{RET}[{par$prgmTag}]: idatsDir={opt$idatsDir} does not exist!!!{RET}{RET}"))
-if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-cat(glue::glue("[{par$prgmTag}]: Output Directory (TOP)={opt$outDir}...{RET}"))
+# if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
+# cat(glue::glue("[{par$prgmTag}]: Output Directory (TOP)={opt$outDir}...{RET}"))
 
-pval_vec <- splitStrToVec(opt$pval)
+pval_vec     <- splitStrToVec(opt$pval)
 min_pval_vec <- splitStrToVec(opt$minPval)
 min_perc_vec <- splitStrToVec(opt$minPerc)
 workflow_vec <- splitStrToVec(opt$workflow)

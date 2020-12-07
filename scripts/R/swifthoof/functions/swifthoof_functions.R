@@ -101,7 +101,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     idat_sigs_tib <- 
       prefixToIdat(prefix=prefix, load=opts$load_idat, save=opts$save_idat, 
                    csv=idat_sigs_csv, ssh=idat_info_csv,
-                   verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
+                   verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
     idat_info_tib <- 
       suppressMessages(suppressWarnings( readr::read_csv(idat_info_csv) ))
     
@@ -122,9 +122,10 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     #
     # TBD:: Replace or improve addBeadPoolToSampleSheet()
     #
-    bead_ssh_tib <- bead_sum_tib %>% tidyr::spread(name, value) %>%
+    bead_ssh_tib <- bead_sum_tib %>% 
+      tidyr::spread(name, value) %>%
       addBeadPoolToSampleSheet(field="Loci_Count_cg",
-                               verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
+                               verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
     
     if (retData) {
       ret$prefix <- prefix

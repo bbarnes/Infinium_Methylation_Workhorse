@@ -14,7 +14,8 @@ WORKFLOW="nd,ind"
 
 # mkdir -p ${OUT}
 
-docker run -i --rm -v ${DAT}:/input -v ${OUT}:/output -w /work ${SRC} ${CMD} \
+# docker run -i --rm -v ${DAT}:/input -v ${OUT}:/output -w /work ${SRC} ${CMD} \
+docker run -i --rm -v ${OUT}:/output -w /work ${SRC} ${CMD} \
        --runName=${EXP} \
        --workflow="${WORKFLOW}" \
        --write_call \
