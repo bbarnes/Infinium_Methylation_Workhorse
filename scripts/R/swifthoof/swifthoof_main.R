@@ -678,8 +678,8 @@ if (opt$cluster) {
       cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; ",
                      "num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
     
-    # chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
-    chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
+    # chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
+    chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
       
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
