@@ -20,6 +20,89 @@ BNG <- "|"
 #                          Docker improbe Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+improbe_design_all = function(tib, ptype, outDir, gen,
+                              image, shell,
+                              sidx=2, plen=50,
+                              parse_din=FALSE, del='_',
+                              parallel=TRUE,
+                              verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'improbe_design_all'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; ptype={ptype}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
+
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    
+    imp_fwd_name <- paste(ptype,"improbe_fwd-seq.tsv.gz", sep=del)
+    imp_fwd_path <- file.path(outDir, imp_fwd_name)
+    imp_des_path <- file.path(outDir, paste(gen,"improbe-designOutput.tsv.gz", sep=del))
+    
+    imp_fwd_tib <- tib %>% 
+      dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island)
+    readr::write_tsv(imp_fwd_tib, imp_fwd_path)
+    
+    imp_des_tib <- improbe_docker(
+      dir=outDir, file=imp_fwd_name, 
+      name=gen, image=image, shell=shell, 
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+      dplyr::mutate(
+        Seq_48U_1=stringr::str_sub(UnMethyl_Probe_Sequence, idx1,len1) %>% 
+          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_replace_all('Y', 'T'),
+        
+        Seq_48U_2=stringr::str_sub(UnMethyl_Probe_Sequence, idx2,len2) %>% 
+          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_replace_all('Y', 'T'),
+        
+        Strand_SR=Methyl_Allele_FR_Strand,
+        Strand_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
+        Strand_CO=Methyl_Allele_CO_Strand)
+    
+    if (parse_din) imp_des_tib <- imp_des_tib %>%
+      tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
+    
+    # Build de-novo IUPAC designs
+    #
+    iup_des_tib <- desSeq_to_prbs(
+      tib=tib,
+      idsKey="Seq_ID",seqKey="IUPAC_Sequence",prbKey="Probe_Type",
+      strsSR="FR", parallel=parallel,
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+      dplyr::mutate(
+        Seq_48U_1=stringr::str_sub(PRB1_U_MAT, idx1,len1) %>% 
+          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_replace_all('Y', 'T'),
+        
+        Seq_48U_2=stringr::str_sub(PRB1_U_MAT, idx2,len2) %>% 
+          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_replace_all('Y', 'T'),
+      )
+    
+    if (parse_din) iup_des_tib <- iup_des_tib %>%
+      tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
+    
+    ret_tib$imp <- imp_des_tib
+    ret_tib$iup <- iup_des_tib
+    # ret_tib <- imp_des_tib
+    # ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
 improbe_docker = function(dir, file, name, image, shell, 
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'improbe_docker'
@@ -761,10 +844,18 @@ desSeq_to_prbs = function(tib, idsKey,seqKey,prbKey, strsSR='FR', strsCO='CO',
     # Update Keys::
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Updating keys and strands.{RET}"))
     ret_tib <- ret_tib %>% dplyr::mutate(
-      SR_Str=case_when(SR ~ sr_vec[1], !SR ~ sr_vec[2], TRUE ~ NA_character_),
-      CO_Str=case_when(CO ~ co_vec[1], !CO ~ co_vec[2], TRUE ~ NA_character_),
-      Seq_ID_Uniq=paste(Seq_ID,paste0(SR_Str,CO_Str), sep=del)
+      Strand_SR=case_when(SR ~ sr_vec[1], !SR ~ sr_vec[2], TRUE ~ NA_character_),
+      Strand_CO=case_when(CO ~ co_vec[1], !CO ~ co_vec[2], TRUE ~ NA_character_),
+      Seq_ID_Uniq=paste(Seq_ID,paste0(Strand_SR,Strand_CO), sep=del)
     ) %>% dplyr::arrange(Seq_ID_Uniq)
+    
+    # OLD Naming Scheme::
+    #
+    # ret_tib <- ret_tib %>% dplyr::mutate(
+    #   SR_Str=case_when(SR ~ sr_vec[1], !SR ~ sr_vec[2], TRUE ~ NA_character_),
+    #   CO_Str=case_when(CO ~ co_vec[1], !CO ~ co_vec[2], TRUE ~ NA_character_),
+    #   Seq_ID_Uniq=paste(Seq_ID,paste0(SR_Str,CO_Str), sep=del)
+    # ) %>% dplyr::arrange(Seq_ID_Uniq)
     
     # Add match probe sequences
     if (addMatSeq) {
@@ -824,119 +915,145 @@ des2prbs = function(tib, fwd, con, pr, mu, desSeq='DesSeqN', len=48, del='_',QC_
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; fwd={fwd}, con={con}, pr={pr}, mu={mu}, desSeq={desSeq}.{RET}"))
 
-  stopifnot(is.logical(fwd))
-  stopifnot(is.logical(con))
-  
-  if (mu!='N' && mu!='U' && mu!='M' && mu!='D')
-    stop(glue::glue("{RET}[{funcTag}]: ERROR: mu={mu} Only Supported=[N,U,M,D]!{RET}{RET}"))
-  if (pr!='cg' && pr!='ch' & pr!='rs' & pr!='rp')
-    stop(glue::glue("{RET}[{funcTag}]: ERROR: pr={pr} Only Supported=[cg,ch,rp,rs]!{RET}{RET}"))
-  
-  desSeq <- rlang::sym(desSeq)
-  if (pr=='rs') {
-    # $prb_F_C_I   = revCmp(substr($des_F_C, 60, 50));
-    # $prb_R_C_I   = revCmp(substr($des_R_C, 61, 50));
-    # $prb_F_C_II  = revCmp(substr($des_F_C, 60, 50));
-    # $prb_R_C_II  = revCmp(substr($des_R_C, 61, 50));
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+
+    stopifnot(is.logical(fwd))
+    stopifnot(is.logical(con))
+    
+    if (mu!='N' && mu!='U' && mu!='M' && mu!='D')
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: mu={mu} Only Supported=[N,U,M,D]!{RET}{RET}"))
+    if (pr!='cg' && pr!='ch' & pr!='rs' & pr!='rp')
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: pr={pr} Only Supported=[cg,ch,rp,rs]!{RET}{RET}"))
+    
+    desSeq <- rlang::sym(desSeq)
+    if (pr=='rs') {
+      # $prb_F_C_I   = revCmp(substr($des_F_C, 60, 50));
+      # $prb_R_C_I   = revCmp(substr($des_R_C, 61, 50));
+      # $prb_F_C_II  = revCmp(substr($des_F_C, 60, 50));
+      # $prb_R_C_II  = revCmp(substr($des_R_C, 61, 50));
+      #
+      # $prb_F_O_I   = revCmp(substr($des_F_O, 61, 50));
+      # $prb_R_O_I   = revCmp(substr($des_R_O, 62, 50));
+      # $prb_F_O_II  = revCmp(substr($des_F_O, 61, 50));
+      # $prb_R_O_II  = revCmp(substr($des_R_O, 62, 50));
+      if      ( fwd &&  con) nxb_pos <- 60
+      else if (!fwd &&  con) nxb_pos <- 61
+      else if ( fwd && !con) nxb_pos <- 61
+      else if (!fwd && !con) nxb_pos <- 60
+      # else if (!fwd && !con) nxb_pos <- 62  # Original 
+      else {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination fwd={fwd}, con={con}!!!{RET}{RET}"))
+      }
+    } else if (pr=='ch') {
+      # Originally thsi was identical to rs format above, but for forward sequences needs to be shifted
+      #  upstream for converted and downstream for opposite::
+      if      ( fwd &&  con) nxb_pos <- 61 # Previously = 60
+      else if (!fwd &&  con) nxb_pos <- 61
+      else if ( fwd && !con) nxb_pos <- 60 # Previously = 61
+      else if (!fwd && !con) nxb_pos <- 60
+      else {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination fwd={fwd}, con={con}!!!{RET}{RET}"))
+      }
+      
+      #
+      # NEW:: CpH Code::
+      #
+      if      ( fwd &&  con) nxb_pos <- 60 # Previously = 60
+      else if (!fwd &&  con) nxb_pos <- 61
+      else if ( fwd && !con) nxb_pos <- 61 # Previously = 61
+      else if (!fwd && !con) nxb_pos <- 60
+      else {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination fwd={fwd}, con={con}!!!{RET}{RET}"))
+      }
+
+    } else if (pr=='cg' || pr=='rp' || pr=='mu' || stringr::str_starts(pr,'ct')) {
+      # $prb_F_C_I  = revCmp(substr($des_F_C, 60, 50));
+      # $prb_F_O_I  = revCmp(substr($des_F_O, 61, 50));
+      # $prb_R_C_I  = revCmp(substr($des_R_C, 60, 50));
+      # $prb_R_O_I  = revCmp(substr($des_R_O, 61, 50));
+      # 
+      # $prb_F_C_II  = revCmp(substr($des_F_C, 61, 50));
+      # $prb_F_O_II  = revCmp(substr($des_F_O, 62, 50));
+      # $prb_R_C_II  = revCmp(substr($des_R_C, 61, 50));
+      # $prb_R_O_II  = revCmp(substr($des_R_O, 62, 50));
+      nxb_pos <- 60
+      if (!con) nxb_pos <- 61
+      
+    } else {
+      stop(glue::glue("[{funcTag}]: ERROR: Probe_Type={pr} is currently not supported!!!{RET}{RET}"))
+      
+    }
+    cpg_pos <- nxb_pos + 1
+    sec_pos <- cpg_pos + 1
+    bod_pos <- sec_pos + 1
+    end_pos <- bod_pos + len
+    
+    # Special consideration is needed for U/M strands at the query site. 
+    #  For CN (i.e. cg or ch) this is actually done naturally in U/M conversion
+    #  However, for  non-CN probes (i.e. rs) this needs to be forced to U/M
     #
-    # $prb_F_O_I   = revCmp(substr($des_F_O, 61, 50));
-    # $prb_R_O_I   = revCmp(substr($des_R_O, 62, 50));
-    # $prb_F_O_II  = revCmp(substr($des_F_O, 61, 50));
-    # $prb_R_O_II  = revCmp(substr($des_R_O, 62, 50));
-    if      ( fwd &&  con) nxb_pos <- 60
-    else if (!fwd &&  con) nxb_pos <- 61
-    else if ( fwd && !con) nxb_pos <- 61
-    else if (!fwd && !con) nxb_pos <- 60
-    # else if (!fwd && !con) nxb_pos <- 62  # Original 
-    else {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination fwd={fwd}, con={con}!!!{RET}{RET}"))
-    }
-  } else if (pr=='ch') {
-    # Originally thsi was identical to rs format above, but for forward sequences needs to be shifted
-    #  upstream for converted and downstream for opposite::
-    if      ( fwd &&  con) nxb_pos <- 61 # Previously = 60
-    else if (!fwd &&  con) nxb_pos <- 61
-    else if ( fwd && !con) nxb_pos <- 60 # Previously = 61
-    else if (!fwd && !con) nxb_pos <- 60
-    else {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination fwd={fwd}, con={con}!!!{RET}{RET}"))
+    # This is handled by the TAR (Target/Query Nucleotide). This should only change
+    #  for U/M (QMAP_U/QMAP_M) for D its just itself.
+    #
+    ret_tib <- tib %>% dplyr::mutate(
+      NXB=stringr::str_sub(!!desSeq, nxb_pos, nxb_pos),
+      CPN=stringr::str_sub(!!desSeq, cpg_pos, cpg_pos),
+      TAR=qmaps(CPN, mu=mu),
+      SEC=stringr::str_sub(!!desSeq, sec_pos, sec_pos),
+      BOD=stringr::str_sub(!!desSeq, bod_pos, end_pos-1),
+      END=stringr::str_sub(!!desSeq, end_pos, end_pos)
+    )
+    
+    #  QC TEST:: for CpN (cg or ch) verify that the probes are equal. Well call this
+    #   PRB0 (CGN) and PRB1 (TAR). After testing remove PRB0
+    #
+    if (QC_CPN && (pr=='cg')) {
+      ret_tib <- ret_tib %>%
+        tidyr::unite(PRB0, CPN,SEC,BOD, sep='', remove=FALSE) %>%
+        tidyr::unite(PRB1, TAR,SEC,BOD, sep='', remove=FALSE) %>%
+        tidyr::unite(PRB2, SEC,BOD,END, sep='', remove=FALSE) %>%
+        dplyr::mutate(PRB0=revCmp(PRB0), PRB1=revCmp(PRB1), PRB2=revCmp(PRB2))
+      
+      qc_tib <- ret_tib %>% filter(PRB0!=PRB1)
+      qc_len <- qc_tib %>% base::nrow()
+      if (qc_len != 0) {
+        qc_tib %>% dplyr::select(1,PRB0,PRB1) %>% print()
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: pr={pr}, qc_len={qc_len} != 0!!!{RET}{RET}"))
+      }
+    } else {
+      ret_tib <- ret_tib %>%
+        tidyr::unite(PRB1, TAR,SEC,BOD, sep='', remove=FALSE) %>%
+        tidyr::unite(PRB2, SEC,BOD,END, sep='', remove=FALSE) %>%
+        dplyr::mutate(PRB1=revCmp(PRB1), PRB2=revCmp(PRB2))
     }
     
-  } else if (pr=='cg' || pr=='rp') {
-    # $prb_F_C_I  = revCmp(substr($des_F_C, 60, 50));
-    # $prb_F_O_I  = revCmp(substr($des_F_O, 61, 50));
-    # $prb_R_C_I  = revCmp(substr($des_R_C, 60, 50));
-    # $prb_R_O_I  = revCmp(substr($des_R_O, 61, 50));
-    # 
-    # $prb_F_C_II  = revCmp(substr($des_F_C, 61, 50));
-    # $prb_F_O_II  = revCmp(substr($des_F_O, 62, 50));
-    # $prb_R_C_II  = revCmp(substr($des_R_C, 61, 50));
-    # $prb_R_O_II  = revCmp(substr($des_R_O, 62, 50));
-    nxb_pos <- 60
-    if (!con) nxb_pos <- 61
-
-  } else {
-    stop(glue::glue("[{funcTag}]: ERROR: Probe_Type={pr} is currently not supported!!!{RET}{RET}"))
-  }
-  cpg_pos <- nxb_pos + 1
-  sec_pos <- cpg_pos + 1
-  bod_pos <- sec_pos + 1
-  end_pos <- bod_pos + len
-  
-  # Special consideration is needed for U/M strands at the query site. 
-  #  For CN (i.e. cg or ch) this is actually done naturally in U/M conversion
-  #  However, for  non-CN probes (i.e. rs) this needs to be forced to U/M
-  #
-  # This is handled by the TAR (Target/Query Nucleotide). This should only change
-  #  for U/M (QMAP_U/QMAP_M) for D its just itself.
-  #
-  tib <- tib %>% dplyr::mutate(
-    NXB=stringr::str_sub(!!desSeq, nxb_pos, nxb_pos),
-    CPN=stringr::str_sub(!!desSeq, cpg_pos, cpg_pos),
-    TAR=qmaps(CPN, mu=mu),
-    SEC=stringr::str_sub(!!desSeq, sec_pos, sec_pos),
-    BOD=stringr::str_sub(!!desSeq, bod_pos, end_pos-1),
-    END=stringr::str_sub(!!desSeq, end_pos, end_pos)
-  )
-
-  #  QC TEST:: for CpN (cg or ch) verify that the probes are equal. Well call this
-  #   PRB0 (CGN) and PRB1 (TAR). After testing remove PRB0
-  #
-  if (QC_CPN && (pr=='cg')) {
-    tib <- tib %>%
-      tidyr::unite(PRB0, CPN,SEC,BOD, sep='', remove=FALSE) %>%
-      tidyr::unite(PRB1, TAR,SEC,BOD, sep='', remove=FALSE) %>%
-      tidyr::unite(PRB2, SEC,BOD,END, sep='', remove=FALSE) %>%
-      dplyr::mutate(PRB0=revCmp(PRB0), PRB1=revCmp(PRB1), PRB2=revCmp(PRB2))
+    # Add suffix to sequences for merging later
+    ret_tib <- ret_tib %>%
+      dplyr::select(PRB1,PRB2, NXB,CPN,TAR,BOD,END, everything()) %>%
+      dplyr::rename(!!paste('PRB1',mu, sep=del):=PRB1,
+                    !!paste('PRB2',mu, sep=del):=PRB2,
+                    !!paste('NXB', mu, sep=del):=NXB,
+                    !!paste('CPN', mu, sep=del):=CPN,
+                    !!paste('TAR', mu, sep=del):=TAR,
+                    !!paste('SEC', mu, sep=del):=SEC,
+                    !!paste('BOD', mu, sep=del):=BOD,
+                    !!paste('END', mu, sep=del):=END)
     
-    qc_tib <- tib %>% filter(PRB0!=PRB1)
-    qc_len <- qc_tib %>% base::nrow()
-    if (qc_len != 0) {
-      qc_tib %>% dplyr::select(1,PRB0,PRB1) %>% print()
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: pr={pr}, qc_len={qc_len} != 0!!!{RET}{RET}"))
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_dat({ret_cnt})={RET}"))
+      print(ret_tib)
     }
-  } else {
-    tib <- tib %>%
-      tidyr::unite(PRB1, TAR,SEC,BOD, sep='', remove=FALSE) %>%
-      tidyr::unite(PRB2, SEC,BOD,END, sep='', remove=FALSE) %>%
-      dplyr::mutate(PRB1=revCmp(PRB1), PRB2=revCmp(PRB2))
-  }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
 
-  # Add suffix to sequences for merging later
-  tib <- tib %>%
-    dplyr::select(PRB1,PRB2, NXB,CPN,TAR,BOD,END, everything()) %>%
-    dplyr::rename(!!paste('PRB1',mu, sep=del):=PRB1,
-                  !!paste('PRB2',mu, sep=del):=PRB2,
-                  !!paste('NXB', mu, sep=del):=NXB,
-                  !!paste('CPN', mu, sep=del):=CPN,
-                  !!paste('TAR', mu, sep=del):=TAR,
-                  !!paste('SEC', mu, sep=del):=SEC,
-                  !!paste('BOD', mu, sep=del):=BOD,
-                  !!paste('END', mu, sep=del):=END)
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
-  
-  tib
+  ret_tib
 }
 
 des2prbsNOTES = function(srd, desSeq,
@@ -1271,6 +1388,70 @@ addBrac = function(seq) {
   new_seq
 }
 
+addDesignSeqCG = function(tib, seq, add, din=NULL,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'addDesignSeqCG'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    add_sym <- add %>% rlang::sym()
+    seq_sym <- seq %>% rlang::sym()
+    
+    ret_tib <- tib %>% 
+      dplyr::mutate(!!add:=stringr::str_replace(!!seq_sym, "\\[[a-zA-Z][a-zA-Z]\\]", "[CG]"))
+    
+    if (!is.null(din))
+      ret_tib <- ret_tib %>% dplyr::mutate(
+        !!din := !!seq_sym %>%
+          stringr::str_remove("\\].*$") %>%
+          stringr::str_remove("^.*\\[") )
+
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+replaceDesignSeqCG = function(tib, seq, add, nuc,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'replaceDesignSeqCG'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    add_sym <- add %>% rlang::sym()
+    seq_sym <- seq %>% rlang::sym()
+    nuc_sym <- nuc %>% rlang::sym()
+    
+    ret_tib <- tib %>% 
+      dplyr::mutate(PreSeq=stringr::str_remove(!!seq_sym, "\\[.*$"),
+                    PosSeq=stringr::str_remove(!!seq_sym, "^.*\\]"),
+                    !!add:=paste0(PreSeq,"[",!!nuc_sym,"]",PosSeq) ) %>%
+      dplyr::select(-PreSeq, -PosSeq)
+
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Illumina Strand Methods:: TOP/BOT
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1338,16 +1519,16 @@ setTopBot_tib = function(tib, seqKey, srdKey, topKey=NULL, max=0,
     ret_tib <- tib %>% dplyr::mutate(!!srdKey := tb_vec)
     
     if (!is.null(topKey)) {
-      revCmp_vec <- ret_tib %>% dplyr::pull(!!seqKey) %>% shearBrac() %>% revCmp() %>% addBrac()
+      revCmp_vec <- ret_tib %>% 
+        dplyr::pull(!!seqKey) %>% shearBrac() %>% revCmp() %>% addBrac()
       ret_tib <- ret_tib %>% dplyr::mutate(TMP_REVCMP_SEQ=revCmp_vec)
       
       ret_tib <- ret_tib %>% dplyr::mutate(
         !!topKey:=dplyr::case_when(
           !!srdKey=='T' ~ !!seqKey,
           !!srdKey=='B' ~ TMP_REVCMP_SEQ,
-          TRUE ~ NA_character_
-        )
-      )
+          TRUE ~ NA_character_)
+      ) %>% dplyr::select(-TMP_REVCMP_SEQ)
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)

@@ -876,6 +876,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
 getSsheetDataTab = function(tib,
                             minOobPval,minOobPerc,
                             minNegPval,minNegPerc,
+                            minDb,
                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getSsheetDataTab'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -906,6 +907,7 @@ getSsheetDataTab = function(tib,
       getSsheetDescTib(tib, 
                        minOobPval=minOobPval,minOobPerc=minOobPerc,
                        minNegPval=minNegPval,minNegPerc=minNegPerc,
+                       minDb=minDb,
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
         gather(Variable, Description)
     ))
@@ -933,6 +935,7 @@ getSsheetDataTab = function(tib,
 getSsheetDescTib = function(tib,
                             minOobPval,minOobPerc,
                             minNegPval,minNegPerc,
+                            minDb,
                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getSsheetDescTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -963,6 +966,7 @@ getSsheetDescTib = function(tib,
     ret_tib <- suppressMessages( suppressWarnings( 
       getSsheetCoreAnnoTib(minOobPval,minOobPerc,
                            minNegPval,minNegPerc,
+                           minDb=minDb,
                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) ) )
     if (verbose>=vt+3) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
@@ -978,6 +982,7 @@ getSsheetDescTib = function(tib,
           getSsheetIndexAnnoTib(idx=idx, 
                                 minOobPval=minOobPval,minOobPerc=minOobPerc,
                                 minNegPval=minNegPval,minNegPerc=minNegPerc,
+                                minDb=minDb,
                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)) ) )
       
       if (verbose>=vt+4) {
@@ -1002,6 +1007,7 @@ getSsheetDescTib = function(tib,
 
 getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
                                 minNegPval,minNegPerc,
+                                minDb,
                                 verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getSsheetCoreAnnoTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -1093,8 +1099,8 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
       AutoSample_R2_Key = "Max auto-detect-sample name by R-Squared.",
       AutoSample_R2_Val = "Max auto-detect-sample R-Squared value.",
       AutoSample_dB_Key = "Max auto-detect-sample name by delta-Beta percent",
-      AutoSample_dB_Cnt = glue::glue("Count of loci with delta-Beta < {minDeltaBeta} between sample and max auto-detect-sample."),
-      AutoSample_dB_Val = glue::glue("Percent of loci with delta-Beta < {minDeltaBeta} between sample and max auto-detect-sample."),
+      AutoSample_dB_Cnt = glue::glue("Count of loci with delta-Beta < {minDb} between sample and max auto-detect-sample."),
+      AutoSample_dB_Val = glue::glue("Percent of loci with delta-Beta < {minDb} between sample and max auto-detect-sample."),
       
       # Iscan Decode and Extration Dates::
       #
@@ -1128,6 +1134,7 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
 getSsheetIndexAnnoTib = function(idx, 
                                  minOobPval,minOobPerc,
                                  minNegPval,minNegPerc,
+                                 minDb,
                                  verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'getSsheetIndexAnnoTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -1140,64 +1147,88 @@ getSsheetIndexAnnoTib = function(idx,
     ret_tib <- tibble::tibble(
       # Inference and Predictions::
       #
-      Method_Key = glue::glue("Method workflow name used for metrics ending with  {idx}."),
-      Method_Idx = glue::glue("Method workflow index used for metrics ending with  {idx}."),
-      GCT = glue::glue("GCT Score for method index  {idx}. ",
+      Method_Key = glue::glue("Method workflow name used for metrics ending with {idx}."),
+      Method_Idx = glue::glue("Method workflow index used for metrics ending with {idx}."),
+      
+      # Auto-Sample-Detection Results::
+      #
+      AutoSample_Total_Cnt = 
+        glue::glue("Loci overlap count with sample and max auto-detect-sample ",
+                   "for method index {idx}."),
+      AutoSample_R2_Key = 
+        glue::glue("Max auto-detect-sample name by R-Squared ",
+                   "for method index {idx}."),
+      AutoSample_R2_Val = 
+        glue::glue("Max auto-detect-sample R-Squared value ",
+                   "for method index {idx}."),
+      AutoSample_dB_Key = 
+        glue::glue("Max auto-detect-sample name by delta-Beta percent ",
+                   "for method index {idx}."),
+      AutoSample_dB_Cnt = 
+        glue::glue("Count of loci with delta-Beta < {minDb} between sample ",
+                   "and max auto-detect-sample for method index {idx}."),
+      AutoSample_dB_Val = 
+        glue::glue("Percent of loci with delta-Beta < {minDb} between sample ",
+                   "and max auto-detect-sample for method index {idx}."),
+      
+      # Predicted and Inferred Calls::
+      #
+      GCT = glue::glue("GCT Score for method index {idx}. ",
                        "See Bioconductor Package sesame::GCT(sset): ",
                        "Compute GCT score for internal bisulfite conversion control. ",
                        "The function takes a SigSet as input. The higher the GCT score, the more likely the incomplete conversion."),
       
-      Sex = glue::glue("Sex call for method index  {idx}. ",
+      Sex = glue::glue("Sex call for method index {idx}. ",
                        "See Bioconductor Package ‘sesame’ sesame::inferSex(sset)."),
-      SexKaryotype = glue::glue("Sex Karyotype call for method index  {idx}. ",
+      SexKaryotype = glue::glue("Sex Karyotype call for method index {idx}. ",
                                 "See Bioconductor Package ‘sesame’ sesame::inferSexKaryotypes(sset)."),
       
-      Ethnicity = glue::glue("Ethnicity call for method index  {idx}. ",
+      Ethnicity = glue::glue("Ethnicity call for method index {idx}. ",
                              "See Bioconductor Package ‘sesame’ sesame::inferEthnicity(sset).",
                              "This function uses both the built-in rsprobes as well as the type I Color-Channel-Switching probes to infer ethnicity."),
       
-      SwapCntIGR = glue::glue("Number of Grn to Red swapped channels for method index  {idx}. ",
+      SwapCntIGR = glue::glue("Number of Grn to Red swapped channels for method index {idx}. ",
                               "See Bioconductor Package ‘sesame’ sesame::inferTypeIChannel(sset).",
                               "Infer and reset color channel for Type-I probes instead of using what is specified in manifest."),
-      SwapCntIRG = glue::glue("Number of Red to Grn swapped channels for method index  {idx}. ",
+      SwapCntIRG = glue::glue("Number of Red to Grn swapped channels for method index {idx}. ",
                               "See Bioconductor Package ‘sesame’ sesame::inferTypeIChannel(sset).",
                               "Infer and reset color channel for Type-I probes instead of using what is specified in manifest."),
       
-      AgeSkinBlood = glue::glue("Horvath Skin and Blood age predictor call for method index  {idx}. ",
+      AgeSkinBlood = glue::glue("Horvath Skin and Blood age predictor call for method index {idx}. ",
                                 "See Bioconductor Package ‘sesame’ sesame::predictAgeSkinBlood(betas)."),
       
       # Detection P-values:: pOOBAH:: NEW
       #
-      cg_1_pvals_pOOBAH_pass_perc = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      cg_1_pvals_pOOBAH_pass_perc = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                                "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      cg_2_pvals_pOOBAH_pass_perc = glue::glue("Percent cg Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
-                                               "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      
-      ch_1_pvals_pOOBAH_pass_perc = glue::glue("Percent ch Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
-                                               "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      ch_2_pvals_pOOBAH_pass_perc = glue::glue("Percent ch Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      cg_2_pvals_pOOBAH_pass_perc = glue::glue("Percent cg Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                                "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
       
-      rs_1_pvals_pOOBAH_pass_perc = glue::glue("Percent rs Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      ch_1_pvals_pOOBAH_pass_perc = glue::glue("Percent ch Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                                "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      rs_2_pvals_pOOBAH_pass_perc = glue::glue("Percent rs Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      ch_2_pvals_pOOBAH_pass_perc = glue::glue("Percent ch Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
+                                               "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      
+      rs_1_pvals_pOOBAH_pass_perc = glue::glue("Percent rs Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
+                                               "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      rs_2_pvals_pOOBAH_pass_perc = glue::glue("Percent rs Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                                "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
       
       # Detection P-values:: pOOBAH:: NEW:: mean
       #
-      cg_1_pvals_pOOBAH_mean = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      cg_1_pvals_pOOBAH_mean = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      cg_2_pvals_pOOBAH_mean = glue::glue("Percent cg Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
-                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      
-      ch_1_pvals_pOOBAH_mean = glue::glue("Percent ch Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
-                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      ch_2_pvals_pOOBAH_mean = glue::glue("Percent ch Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      cg_2_pvals_pOOBAH_mean = glue::glue("Percent cg Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
       
-      rs_1_pvals_pOOBAH_mean = glue::glue("Percent rs Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      ch_1_pvals_pOOBAH_mean = glue::glue("Percent ch Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      rs_2_pvals_pOOBAH_mean = glue::glue("Percent rs Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      ch_2_pvals_pOOBAH_mean = glue::glue("Percent ch Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
+                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      
+      rs_1_pvals_pOOBAH_mean = glue::glue("Percent rs Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
+                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      rs_2_pvals_pOOBAH_mean = glue::glue("Percent rs Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                           "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
       
       # Detection P-values:: pOOBAH:: NEW:: Requeue
@@ -1231,53 +1262,53 @@ getSsheetIndexAnnoTib = function(idx,
       
       # Detection P-values:: pOOBAH:: OLD
       #
-      pOOBAH_cg_1_pass_perc = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      pOOBAH_cg_1_pass_perc = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      pOOBAH_cg_2_pass_perc = glue::glue("Percent cg Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
-                                         "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      
-      pOOBAH_ch_1_pass_perc = glue::glue("Percent ch Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
-                                         "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      pOOBAH_ch_2_pass_perc = glue::glue("Percent ch Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      pOOBAH_cg_2_pass_perc = glue::glue("Percent cg Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
       
-      pOOBAH_rs_1_pass_perc = glue::glue("Percent rs Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      pOOBAH_ch_1_pass_perc = glue::glue("Percent ch Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-      pOOBAH_rs_2_pass_perc = glue::glue("Percent rs Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index  {idx}. ",
+      pOOBAH_ch_2_pass_perc = glue::glue("Percent ch Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
+                                         "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      
+      pOOBAH_rs_1_pass_perc = glue::glue("Percent rs Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
+                                         "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      pOOBAH_rs_2_pass_perc = glue::glue("Percent rs Infinium II loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",
                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
       
       # Detection P-values:: PnegEcdf:: NEW
       #
-      cg_1_pvals_PnegEcdf_pass_perc = glue::glue("Percent cg Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      cg_1_pvals_PnegEcdf_pass_perc = glue::glue("Percent cg Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                                  "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      cg_2_pvals_PnegEcdf_pass_perc = glue::glue("Percent cg Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      
-      ch_1_pvals_PnegEcdf_pass_perc = glue::glue("Percent ch Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      ch_2_pvals_PnegEcdf_pass_perc = glue::glue("Percent ch Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      cg_2_pvals_PnegEcdf_pass_perc = glue::glue("Percent cg Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                                  "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
-      rs_1_pvals_PnegEcdf_pass_perc = glue::glue("Percent rs Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      ch_1_pvals_PnegEcdf_pass_perc = glue::glue("Percent ch Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                                  "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      rs_2_pvals_PnegEcdf_pass_perc = glue::glue("Percent rs Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      ch_2_pvals_PnegEcdf_pass_perc = glue::glue("Percent ch Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
+                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+      
+      rs_1_pvals_PnegEcdf_pass_perc = glue::glue("Percent rs Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
+                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+      rs_2_pvals_PnegEcdf_pass_perc = glue::glue("Percent rs Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                                  "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
       # Detection P-values:: PnegEcdf:: NEW:: mean
       #
-      cg_1_pvals_PnegEcdf_mean = glue::glue("Percent cg Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      cg_1_pvals_PnegEcdf_mean = glue::glue("Percent cg Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                                  "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      cg_2_pvals_PnegEcdf_mean = glue::glue("Percent cg Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      
-      ch_1_pvals_PnegEcdf_mean = glue::glue("Percent ch Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      ch_2_pvals_PnegEcdf_mean = glue::glue("Percent ch Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      cg_2_pvals_PnegEcdf_mean = glue::glue("Percent cg Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                                  "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
-      rs_1_pvals_PnegEcdf_mean = glue::glue("Percent rs Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      ch_1_pvals_PnegEcdf_mean = glue::glue("Percent ch Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                                  "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      rs_2_pvals_PnegEcdf_mean = glue::glue("Percent rs Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      ch_2_pvals_PnegEcdf_mean = glue::glue("Percent ch Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
+                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+      
+      rs_1_pvals_PnegEcdf_mean = glue::glue("Percent rs Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
+                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+      rs_2_pvals_PnegEcdf_mean = glue::glue("Percent rs Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                                  "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
       # Detection P-values:: PnegEcdf:: NEW:: Requeue
@@ -1310,190 +1341,190 @@ getSsheetIndexAnnoTib = function(idx,
                    "Percent threshold = {minOobPerc} for rs Infinium II loci."),      
       # Detection P-values:: PnegEcdf:: OLD
       #
-      PnegEcdf_cg_1_pass_perc = glue::glue("Percent cg Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      PnegEcdf_cg_1_pass_perc = glue::glue("Percent cg Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      PnegEcdf_cg_2_pass_perc = glue::glue("Percent cg Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
-                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      
-      PnegEcdf_ch_1_pass_perc = glue::glue("Percent ch Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
-                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      PnegEcdf_ch_2_pass_perc = glue::glue("Percent ch Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      PnegEcdf_cg_2_pass_perc = glue::glue("Percent cg Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
-      PnegEcdf_rs_1_pass_perc = glue::glue("Percent rs Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      PnegEcdf_ch_1_pass_perc = glue::glue("Percent ch Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
-      PnegEcdf_rs_2_pass_perc = glue::glue("Percent rs Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index  {idx}. ",
+      PnegEcdf_ch_2_pass_perc = glue::glue("Percent ch Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+      
+      PnegEcdf_rs_1_pass_perc = glue::glue("Percent rs Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
+                                           "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+      PnegEcdf_rs_2_pass_perc = glue::glue("Percent rs Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
       # Average Beta Values::
       #
-      cg_1_betas_mean = glue::glue("Mean beta-value of cg Infinium I loci for method  {idx}."),
-      cg_2_betas_mean = glue::glue("Mean beta-value of cg Infinium II loci for method  {idx}."),
-      cg_1_mean = glue::glue("Mean beta-value of cg Infinium I loci for method  {idx}."),
-      cg_2_mean = glue::glue("Mean beta-value of cg Infinium II loci for method  {idx}."),
+      cg_1_betas_mean = glue::glue("Mean beta-value of cg Infinium I loci for method {idx}."),
+      cg_2_betas_mean = glue::glue("Mean beta-value of cg Infinium II loci for method {idx}."),
+      cg_1_mean = glue::glue("Mean beta-value of cg Infinium I loci for method {idx}."),
+      cg_2_mean = glue::glue("Mean beta-value of cg Infinium II loci for method {idx}."),
       
-      ch_1_betas_mean = glue::glue("Mean beta-value of ch Infinium I loci for method  {idx}."),
-      ch_2_betas_mean = glue::glue("Mean beta-value of ch Infinium II loci for method  {idx}."),
-      ch_1_mean = glue::glue("Mean beta-value of ch Infinium I loci for method  {idx}."),
-      ch_2_mean = glue::glue("Mean beta-value of ch Infinium II loci for method  {idx}."),
+      ch_1_betas_mean = glue::glue("Mean beta-value of ch Infinium I loci for method {idx}."),
+      ch_2_betas_mean = glue::glue("Mean beta-value of ch Infinium II loci for method {idx}."),
+      ch_1_mean = glue::glue("Mean beta-value of ch Infinium I loci for method {idx}."),
+      ch_2_mean = glue::glue("Mean beta-value of ch Infinium II loci for method {idx}."),
       
-      rs_1_betas_mean = glue::glue("Mean beta-value of rs Infinium I loci for method  {idx}."),
-      rs_2_betas_mean = glue::glue("Mean beta-value of rs Infinium II loci for method  {idx}."),
-      rs_1_mean = glue::glue("Mean beta-value of rs Infinium I loci for method  {idx}."),
-      rs_2_mean = glue::glue("Mean beta-value of rs Infinium II loci for method  {idx}."),
+      rs_1_betas_mean = glue::glue("Mean beta-value of rs Infinium I loci for method {idx}."),
+      rs_2_betas_mean = glue::glue("Mean beta-value of rs Infinium II loci for method {idx}."),
+      rs_1_mean = glue::glue("Mean beta-value of rs Infinium I loci for method {idx}."),
+      rs_2_mean = glue::glue("Mean beta-value of rs Infinium II loci for method {idx}."),
       
       # Average Intensities:: NEW
       #
-      BISULFITE_CONVERSION_I_2_sig_M_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Grn loci for method  {idx}."),
-      BISULFITE_CONVERSION_I_2_sig_U_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Red loci for method  {idx}."),
+      BISULFITE_CONVERSION_I_2_sig_M_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Grn loci for method {idx}."),
+      BISULFITE_CONVERSION_I_2_sig_U_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Red loci for method {idx}."),
       
-      BISULFITE_CONVERSION_II_2_sig_M_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Grn loci for method  {idx}."),
-      BISULFITE_CONVERSION_II_2_sig_U_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Red loci for method  {idx}."),
+      BISULFITE_CONVERSION_II_2_sig_M_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Grn loci for method {idx}."),
+      BISULFITE_CONVERSION_II_2_sig_U_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Red loci for method {idx}."),
       
-      cg_2_sig_M_mean = glue::glue("Mean intensity of cg Infinium II Grn (methylated) loci for method  {idx}."),
-      cg_2_sig_U_mean = glue::glue("Mean intensity of cg Infinium II Red (unmethylated) loci for method  {idx}."),
+      cg_2_sig_M_mean = glue::glue("Mean intensity of cg Infinium II Grn (methylated) loci for method {idx}."),
+      cg_2_sig_U_mean = glue::glue("Mean intensity of cg Infinium II Red (unmethylated) loci for method {idx}."),
       
-      cg_IG_sig_M_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (methylated) loci for method  {idx}."),
-      cg_IG_sig_U_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (unmethylated) loci for method  {idx}."),
-      cg_IR_sig_M_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Red (methylated) loci for method  {idx}."),
-      cg_IR_sig_U_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Red (unmethylated) loci for method  {idx}."),
+      cg_IG_sig_M_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (methylated) loci for method {idx}."),
+      cg_IG_sig_U_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (unmethylated) loci for method {idx}."),
+      cg_IR_sig_M_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Red (methylated) loci for method {idx}."),
+      cg_IR_sig_U_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Red (unmethylated) loci for method {idx}."),
       
-      cg_OG_sig_M_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (methylated) loci for method  {idx}."),
-      cg_OG_sig_U_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (unmethylated) loci for method  {idx}."),
-      cg_OR_sig_M_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (methylated) loci for method  {idx}."),
-      cg_OR_sig_U_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (unmethylated) loci for method  {idx}."),
+      cg_OG_sig_M_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (methylated) loci for method {idx}."),
+      cg_OG_sig_U_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (unmethylated) loci for method {idx}."),
+      cg_OR_sig_M_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (methylated) loci for method {idx}."),
+      cg_OR_sig_U_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (unmethylated) loci for method {idx}."),
       
-      ch_2_sig_M_mean = glue::glue("Mean intensity of ch Infinium II Grn (methylated) loci for method  {idx}."),
-      ch_2_sig_U_mean = glue::glue("Mean intensity of ch Infinium II Red (unmethylated) loci for method  {idx}."),
+      ch_2_sig_M_mean = glue::glue("Mean intensity of ch Infinium II Grn (methylated) loci for method {idx}."),
+      ch_2_sig_U_mean = glue::glue("Mean intensity of ch Infinium II Red (unmethylated) loci for method {idx}."),
       
-      EXTENSION_2_sig_M_mean = glue::glue("Mean intensity of EXTENSION Grn loci for method  {idx}."),
-      EXTENSION_2_sig_U_mean = glue::glue("Mean intensity of EXTENSION Red loci for method  {idx}."),
+      EXTENSION_2_sig_M_mean = glue::glue("Mean intensity of EXTENSION Grn loci for method {idx}."),
+      EXTENSION_2_sig_U_mean = glue::glue("Mean intensity of EXTENSION Red loci for method {idx}."),
       
-      HYBRIDIZATION_2_sig_M_mean = glue::glue("Mean intensity of HYBRIDIZATION Grn loci for method  {idx}."),
-      HYBRIDIZATION_2_sig_U_mean = glue::glue("Mean intensity of HYBRIDIZATION Red loci for method  {idx}."),
+      HYBRIDIZATION_2_sig_M_mean = glue::glue("Mean intensity of HYBRIDIZATION Grn loci for method {idx}."),
+      HYBRIDIZATION_2_sig_U_mean = glue::glue("Mean intensity of HYBRIDIZATION Red loci for method {idx}."),
       
-      NEGATIVE_2_sig_M_mean = glue::glue("Mean intensity of NEGATIVE Grn loci for method  {idx}."),
-      NEGATIVE_2_sig_U_mean = glue::glue("Mean intensity of NEGATIVE Red loci for method  {idx}."),
+      NEGATIVE_2_sig_M_mean = glue::glue("Mean intensity of NEGATIVE Grn loci for method {idx}."),
+      NEGATIVE_2_sig_U_mean = glue::glue("Mean intensity of NEGATIVE Red loci for method {idx}."),
       
-      NON_POLYMORPHIC_2_sig_M_mean = glue::glue("Mean intensity of NON_POLYMORPHIC Grn loci for method  {idx}."),
-      NON_POLYMORPHIC_2_sig_U_mean = glue::glue("Mean intensity of NON_POLYMORPHIC Red loci for method  {idx}."),
+      NON_POLYMORPHIC_2_sig_M_mean = glue::glue("Mean intensity of NON_POLYMORPHIC Grn loci for method {idx}."),
+      NON_POLYMORPHIC_2_sig_U_mean = glue::glue("Mean intensity of NON_POLYMORPHIC Red loci for method {idx}."),
       
-      NORM_A_2_sig_M_mean = glue::glue("Mean intensity of NORM_A Grn loci for method  {idx}."),
-      NORM_A_2_sig_U_mean = glue::glue("Mean intensity of NORM_A Red loci for method  {idx}."),
+      NORM_A_2_sig_M_mean = glue::glue("Mean intensity of NORM_A Grn loci for method {idx}."),
+      NORM_A_2_sig_U_mean = glue::glue("Mean intensity of NORM_A Red loci for method {idx}."),
       
-      NORM_C_2_sig_M_mean = glue::glue("Mean intensity of NORM_C Grn loci for method  {idx}."),
-      NORM_C_2_sig_U_mean = glue::glue("Mean intensity of NORM_C Red loci for method  {idx}."),
+      NORM_C_2_sig_M_mean = glue::glue("Mean intensity of NORM_C Grn loci for method {idx}."),
+      NORM_C_2_sig_U_mean = glue::glue("Mean intensity of NORM_C Red loci for method {idx}."),
       
-      NORM_G_2_sig_M_mean = glue::glue("Mean intensity of NORM_G Grn loci for method  {idx}."),
-      NORM_G_2_sig_U_mean = glue::glue("Mean intensity of NORM_G Red loci for method  {idx}."),
+      NORM_G_2_sig_M_mean = glue::glue("Mean intensity of NORM_G Grn loci for method {idx}."),
+      NORM_G_2_sig_U_mean = glue::glue("Mean intensity of NORM_G Red loci for method {idx}."),
       
-      NORM_T_2_sig_M_mean = glue::glue("Mean intensity of NORM_T Grn loci for method  {idx}."),
-      NORM_T_2_sig_U_mean = glue::glue("Mean intensity of NORM_T Red loci for method  {idx}."),
+      NORM_T_2_sig_M_mean = glue::glue("Mean intensity of NORM_T Grn loci for method {idx}."),
+      NORM_T_2_sig_U_mean = glue::glue("Mean intensity of NORM_T Red loci for method {idx}."),
       
-      RESTORATION_2_sig_M_mean = glue::glue("Mean intensity of RESTORATION Grn loci for method  {idx}."),
-      RESTORATION_2_sig_U_mean = glue::glue("Mean intensity of RESTORATION Red loci for method  {idx}."),
+      RESTORATION_2_sig_M_mean = glue::glue("Mean intensity of RESTORATION Grn loci for method {idx}."),
+      RESTORATION_2_sig_U_mean = glue::glue("Mean intensity of RESTORATION Red loci for method {idx}."),
       
-      rs_2_sig_M_mean = glue::glue("Mean intensity of rs Infinium II Grn (methylated) loci for method  {idx}."),
-      rs_2_sig_U_mean = glue::glue("Mean intensity of rs Infinium II Red (unmethylated) loci for method  {idx}."),
+      rs_2_sig_M_mean = glue::glue("Mean intensity of rs Infinium II Grn (methylated) loci for method {idx}."),
+      rs_2_sig_U_mean = glue::glue("Mean intensity of rs Infinium II Red (unmethylated) loci for method {idx}."),
       
-      rs_IG_sig_M_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (methylated) loci for method  {idx}."),
-      rs_IG_sig_U_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (unmethylated) loci for method  {idx}."),
-      rs_IR_sig_M_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Red (methylated) loci for method  {idx}."),
-      rs_IR_sig_U_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Red (unmethylated) loci for method  {idx}."),
+      rs_IG_sig_M_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (methylated) loci for method {idx}."),
+      rs_IG_sig_U_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (unmethylated) loci for method {idx}."),
+      rs_IR_sig_M_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Red (methylated) loci for method {idx}."),
+      rs_IR_sig_U_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Red (unmethylated) loci for method {idx}."),
       
-      rs_OG_sig_M_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (methylated) loci for method  {idx}."),
-      rs_OG_sig_U_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (unmethylated) loci for method  {idx}."),
-      rs_OR_sig_M_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (methylated) loci for method  {idx}."),
-      rs_OR_sig_U_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (unmethylated) loci for method  {idx}."),
+      rs_OG_sig_M_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (methylated) loci for method {idx}."),
+      rs_OG_sig_U_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (unmethylated) loci for method {idx}."),
+      rs_OR_sig_M_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (methylated) loci for method {idx}."),
+      rs_OR_sig_U_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (unmethylated) loci for method {idx}."),
       
-      SPECIFICITY_I_2_sig_M_mean = glue::glue("Mean intensity of SPECIFICITY_I Grn loci for method  {idx}."),
-      SPECIFICITY_I_2_sig_U_mean = glue::glue("Mean intensity of SPECIFICITY_I Red loci for method  {idx}."),
+      SPECIFICITY_I_2_sig_M_mean = glue::glue("Mean intensity of SPECIFICITY_I Grn loci for method {idx}."),
+      SPECIFICITY_I_2_sig_U_mean = glue::glue("Mean intensity of SPECIFICITY_I Red loci for method {idx}."),
       
-      SPECIFICITY_II_2_sig_M_mean = glue::glue("Mean intensity of SPECIFICITY_II Grn loci for method  {idx}."),
-      SPECIFICITY_II_2_sig_U_mean = glue::glue("Mean intensity of SPECIFICITY_II Red loci for method  {idx}."),
+      SPECIFICITY_II_2_sig_M_mean = glue::glue("Mean intensity of SPECIFICITY_II Grn loci for method {idx}."),
+      SPECIFICITY_II_2_sig_U_mean = glue::glue("Mean intensity of SPECIFICITY_II Red loci for method {idx}."),
       
-      STAINING_2_sig_M_mean = glue::glue("Mean intensity of STAINING Grn loci for method  {idx}."),
-      STAINING_2_sig_U_mean = glue::glue("Mean intensity of STAINING Red loci for method  {idx}."),
+      STAINING_2_sig_M_mean = glue::glue("Mean intensity of STAINING Grn loci for method {idx}."),
+      STAINING_2_sig_U_mean = glue::glue("Mean intensity of STAINING Red loci for method {idx}."),
       
-      TARGET_REMOVAL_2_sig_M_mean = glue::glue("Mean intensity of TARGET_REMOVAL Grn loci for method  {idx}."),
-      TARGET_REMOVAL_2_sig_U_mean = glue::glue("Mean intensity of TARGET_REMOVAL Red loci for method  {idx}."),
+      TARGET_REMOVAL_2_sig_M_mean = glue::glue("Mean intensity of TARGET_REMOVAL Grn loci for method {idx}."),
+      TARGET_REMOVAL_2_sig_U_mean = glue::glue("Mean intensity of TARGET_REMOVAL Red loci for method {idx}."),
       
       
       # Average Intensities:: OLD
       #
-      BISULFITE_CONVERSION_I_2_M_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Grn loci for method  {idx}."),
-      BISULFITE_CONVERSION_I_2_U_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Red loci for method  {idx}."),
+      BISULFITE_CONVERSION_I_2_M_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Grn loci for method {idx}."),
+      BISULFITE_CONVERSION_I_2_U_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_I Red loci for method {idx}."),
       
-      BISULFITE_CONVERSION_II_2_M_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Grn loci for method  {idx}."),
-      BISULFITE_CONVERSION_II_2_U_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Red loci for method  {idx}."),
+      BISULFITE_CONVERSION_II_2_M_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Grn loci for method {idx}."),
+      BISULFITE_CONVERSION_II_2_U_mean = glue::glue("Mean intensity of BISULFITE_CONVERSION_II Red loci for method {idx}."),
       
-      cg_2_M_mean = glue::glue("Mean intensity of cg Infinium II Grn (methylated) loci for method  {idx}."),
-      cg_2_U_mean = glue::glue("Mean intensity of cg Infinium II Red (unmethylated) loci for method  {idx}."),
+      cg_2_M_mean = glue::glue("Mean intensity of cg Infinium II Grn (methylated) loci for method {idx}."),
+      cg_2_U_mean = glue::glue("Mean intensity of cg Infinium II Red (unmethylated) loci for method {idx}."),
       
-      cg_IG_M_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (methylated) loci for method  {idx}."),
-      cg_IG_U_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (unmethylated) loci for method  {idx}."),
-      cg_IR_M_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Red (methylated) loci for method  {idx}."),
-      cg_IR_U_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Red (unmethylated) loci for method  {idx}."),
+      cg_IG_M_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (methylated) loci for method {idx}."),
+      cg_IG_U_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Grn (unmethylated) loci for method {idx}."),
+      cg_IR_M_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Red (methylated) loci for method {idx}."),
+      cg_IR_U_mean = glue::glue("Mean intensity of cg Infinium I In-Bound Red (unmethylated) loci for method {idx}."),
       
-      cg_OG_M_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (methylated) loci for method  {idx}."),
-      cg_OG_U_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (unmethylated) loci for method  {idx}."),
-      cg_OR_M_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (methylated) loci for method  {idx}."),
-      cg_OR_U_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (unmethylated) loci for method  {idx}."),
+      cg_OG_M_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (methylated) loci for method {idx}."),
+      cg_OG_U_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Grn (unmethylated) loci for method {idx}."),
+      cg_OR_M_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (methylated) loci for method {idx}."),
+      cg_OR_U_mean = glue::glue("Mean intensity of cg Infinium I Out-Of-Bound Red (unmethylated) loci for method {idx}."),
       
-      ch_2_M_mean = glue::glue("Mean intensity of ch Infinium II Grn (methylated) loci for method  {idx}."),
-      ch_2_U_mean = glue::glue("Mean intensity of ch Infinium II Red (unmethylated) loci for method  {idx}."),
+      ch_2_M_mean = glue::glue("Mean intensity of ch Infinium II Grn (methylated) loci for method {idx}."),
+      ch_2_U_mean = glue::glue("Mean intensity of ch Infinium II Red (unmethylated) loci for method {idx}."),
       
-      EXTENSION_2_M_mean = glue::glue("Mean intensity of EXTENSION Grn loci for method  {idx}."),
-      EXTENSION_2_U_mean = glue::glue("Mean intensity of EXTENSION Red loci for method  {idx}."),
+      EXTENSION_2_M_mean = glue::glue("Mean intensity of EXTENSION Grn loci for method {idx}."),
+      EXTENSION_2_U_mean = glue::glue("Mean intensity of EXTENSION Red loci for method {idx}."),
       
-      HYBRIDIZATION_2_M_mean = glue::glue("Mean intensity of HYBRIDIZATION Grn loci for method  {idx}."),
-      HYBRIDIZATION_2_U_mean = glue::glue("Mean intensity of HYBRIDIZATION Red loci for method  {idx}."),
+      HYBRIDIZATION_2_M_mean = glue::glue("Mean intensity of HYBRIDIZATION Grn loci for method {idx}."),
+      HYBRIDIZATION_2_U_mean = glue::glue("Mean intensity of HYBRIDIZATION Red loci for method {idx}."),
       
-      NEGATIVE_2_M_mean = glue::glue("Mean intensity of NEGATIVE Grn loci for method  {idx}."),
-      NEGATIVE_2_U_mean = glue::glue("Mean intensity of NEGATIVE Red loci for method  {idx}."),
+      NEGATIVE_2_M_mean = glue::glue("Mean intensity of NEGATIVE Grn loci for method {idx}."),
+      NEGATIVE_2_U_mean = glue::glue("Mean intensity of NEGATIVE Red loci for method {idx}."),
       
-      NON_POLYMORPHIC_2_M_mean = glue::glue("Mean intensity of NON_POLYMORPHIC Grn loci for method  {idx}."),
-      NON_POLYMORPHIC_2_U_mean = glue::glue("Mean intensity of NON_POLYMORPHIC Red loci for method  {idx}."),
+      NON_POLYMORPHIC_2_M_mean = glue::glue("Mean intensity of NON_POLYMORPHIC Grn loci for method {idx}."),
+      NON_POLYMORPHIC_2_U_mean = glue::glue("Mean intensity of NON_POLYMORPHIC Red loci for method {idx}."),
       
-      NORM_A_2_M_mean = glue::glue("Mean intensity of NORM_A Grn loci for method  {idx}."),
-      NORM_A_2_U_mean = glue::glue("Mean intensity of NORM_A Red loci for method  {idx}."),
+      NORM_A_2_M_mean = glue::glue("Mean intensity of NORM_A Grn loci for method {idx}."),
+      NORM_A_2_U_mean = glue::glue("Mean intensity of NORM_A Red loci for method {idx}."),
       
-      NORM_C_2_M_mean = glue::glue("Mean intensity of NORM_C Grn loci for method  {idx}."),
-      NORM_C_2_U_mean = glue::glue("Mean intensity of NORM_C Red loci for method  {idx}."),
+      NORM_C_2_M_mean = glue::glue("Mean intensity of NORM_C Grn loci for method {idx}."),
+      NORM_C_2_U_mean = glue::glue("Mean intensity of NORM_C Red loci for method {idx}."),
       
-      NORM_G_2_M_mean = glue::glue("Mean intensity of NORM_G Grn loci for method  {idx}."),
-      NORM_G_2_U_mean = glue::glue("Mean intensity of NORM_G Red loci for method  {idx}."),
+      NORM_G_2_M_mean = glue::glue("Mean intensity of NORM_G Grn loci for method {idx}."),
+      NORM_G_2_U_mean = glue::glue("Mean intensity of NORM_G Red loci for method {idx}."),
       
-      NORM_T_2_M_mean = glue::glue("Mean intensity of NORM_T Grn loci for method  {idx}."),
-      NORM_T_2_U_mean = glue::glue("Mean intensity of NORM_T Red loci for method  {idx}."),
+      NORM_T_2_M_mean = glue::glue("Mean intensity of NORM_T Grn loci for method {idx}."),
+      NORM_T_2_U_mean = glue::glue("Mean intensity of NORM_T Red loci for method {idx}."),
       
-      RESTORATION_2_M_mean = glue::glue("Mean intensity of RESTORATION Grn loci for method  {idx}."),
-      RESTORATION_2_U_mean = glue::glue("Mean intensity of RESTORATION Red loci for method  {idx}."),
+      RESTORATION_2_M_mean = glue::glue("Mean intensity of RESTORATION Grn loci for method {idx}."),
+      RESTORATION_2_U_mean = glue::glue("Mean intensity of RESTORATION Red loci for method {idx}."),
       
-      rs_2_M_mean = glue::glue("Mean intensity of rs Infinium II Grn (methylated) loci for method  {idx}."),
-      rs_2_U_mean = glue::glue("Mean intensity of rs Infinium II Red (unmethylated) loci for method  {idx}."),
+      rs_2_M_mean = glue::glue("Mean intensity of rs Infinium II Grn (methylated) loci for method {idx}."),
+      rs_2_U_mean = glue::glue("Mean intensity of rs Infinium II Red (unmethylated) loci for method {idx}."),
       
-      rs_IG_M_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (methylated) loci for method  {idx}."),
-      rs_IG_U_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (unmethylated) loci for method  {idx}."),
-      rs_IR_M_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Red (methylated) loci for method  {idx}."),
-      rs_IR_U_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Red (unmethylated) loci for method  {idx}."),
+      rs_IG_M_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (methylated) loci for method {idx}."),
+      rs_IG_U_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Grn (unmethylated) loci for method {idx}."),
+      rs_IR_M_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Red (methylated) loci for method {idx}."),
+      rs_IR_U_mean = glue::glue("Mean intensity of rs Infinium I In-Bound Red (unmethylated) loci for method {idx}."),
       
-      rs_OG_M_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (methylated) loci for method  {idx}."),
-      rs_OG_U_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (unmethylated) loci for method  {idx}."),
-      rs_OR_M_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (methylated) loci for method  {idx}."),
-      rs_OR_U_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (unmethylated) loci for method  {idx}."),
+      rs_OG_M_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (methylated) loci for method {idx}."),
+      rs_OG_U_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Grn (unmethylated) loci for method {idx}."),
+      rs_OR_M_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (methylated) loci for method {idx}."),
+      rs_OR_U_mean = glue::glue("Mean intensity of rs Infinium I Out-Of-Bound Red (unmethylated) loci for method {idx}."),
       
-      SPECIFICITY_I_2_M_mean = glue::glue("Mean intensity of SPECIFICITY_I Grn loci for method  {idx}."),
-      SPECIFICITY_I_2_U_mean = glue::glue("Mean intensity of SPECIFICITY_I Red loci for method  {idx}."),
+      SPECIFICITY_I_2_M_mean = glue::glue("Mean intensity of SPECIFICITY_I Grn loci for method {idx}."),
+      SPECIFICITY_I_2_U_mean = glue::glue("Mean intensity of SPECIFICITY_I Red loci for method {idx}."),
       
-      SPECIFICITY_II_2_M_mean = glue::glue("Mean intensity of SPECIFICITY_II Grn loci for method  {idx}."),
-      SPECIFICITY_II_2_U_mean = glue::glue("Mean intensity of SPECIFICITY_II Red loci for method  {idx}."),
+      SPECIFICITY_II_2_M_mean = glue::glue("Mean intensity of SPECIFICITY_II Grn loci for method {idx}."),
+      SPECIFICITY_II_2_U_mean = glue::glue("Mean intensity of SPECIFICITY_II Red loci for method {idx}."),
       
-      STAINING_2_M_mean = glue::glue("Mean intensity of STAINING Grn loci for method  {idx}."),
-      STAINING_2_U_mean = glue::glue("Mean intensity of STAINING Red loci for method  {idx}."),
+      STAINING_2_M_mean = glue::glue("Mean intensity of STAINING Grn loci for method {idx}."),
+      STAINING_2_U_mean = glue::glue("Mean intensity of STAINING Red loci for method {idx}."),
       
-      TARGET_REMOVAL_2_M_mean = glue::glue("Mean intensity of TARGET_REMOVAL Grn loci for method  {idx}."),
-      TARGET_REMOVAL_2_U_mean = glue::glue("Mean intensity of TARGET_REMOVAL Red loci for method  {idx}.")
+      TARGET_REMOVAL_2_M_mean = glue::glue("Mean intensity of TARGET_REMOVAL Grn loci for method {idx}."),
+      TARGET_REMOVAL_2_U_mean = glue::glue("Mean intensity of TARGET_REMOVAL Red loci for method {idx}.")
     ) %>% purrr::set_names(paste(names(.),idx, sep='_'))
     
     ret_cnt <- ret_tib %>% base::ncol()

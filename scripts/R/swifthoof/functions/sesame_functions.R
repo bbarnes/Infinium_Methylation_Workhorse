@@ -24,7 +24,8 @@ RET <- "\n"
 #                         Sesame Mutation Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
+ssetToSummary = function(sset, man, idx, workflow, name, 
+                         outDir=NULL, pre=NULL, ref=NULL,
                          pvals=NULL, min_pvals=NULL, min_percs=NULL,
                          report_vec=c("Requeue","pass_perc","mean"),
                          
@@ -43,10 +44,12 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
                          write_csum=FALSE, csum_csv=NULL, ret_csum=FALSE,
                          
                          write_snps=FALSE, snps_csv=NULL, ret_snps=FALSE,
+                         write_auto=FALSE, plot_auto=FALSE,
                          
                          percision_sigs=-1,percision_beta=-1,percision_pval=-1,
                          by="Probe_ID", type="Probe_Type", des="Probe_Design",
-                         fresh=FALSE, del='_',
+                         minDb=0.02, dpi=120, plotFormat="png", datIdx=5,
+                         non_ref=FALSE, fresh=FALSE, del='_',
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'ssetToSummary'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -73,6 +76,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
   
   sigs_dat_tib <- NULL
   call_dat_tib <- NULL
+  auto_ssh_tib <- NULL
   sums_dat_tib <- NULL
   sums_ssh_tib <- NULL
   pred_dat_tib <- NULL
@@ -199,6 +203,46 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
       vcf_ret <- safeVCF(sset=sset_dat, vcf=snps_csv,
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
+    # Run Auto Sample Detection::
+    #
+    if (!is.null(ref) &&
+        pvals_cnt != 0 && min_pvals_cnt != 0) {
+      
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Sample Auto Detection...{RET}"))
+      
+      # minDb=opts$minDeltaBeta
+      # dpi=opts$dpi
+      # plotFormat=opts$plotFormat
+      # datIdx=5
+      # non_ref=FALSE
+      # plot_auto=opts$plotAuto
+      # write_auto=opts$write_auto
+      
+      auto_beta_key <- paste('betas', sep=del)
+      auto_negs_key <- paste('pvals',pvals[pvals_cnt], sep=del)
+      auto_min_pval <- min_pvals[min_pvals_cnt]
+      
+      if (verbose>=vt) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} auto_beta_key={auto_beta_key}.{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} auto_negs_key={auto_negs_key}.{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} auto_min_pval={auto_min_pval}.{RET}"))
+      }
+
+      auto_ssh_tib <- autoDetect_Wrapper(
+        can=call_dat_tib, ref=ref, man=man,
+        minPval=auto_min_pval, minDelta=minDb,
+        dname='Design_Type', pname=type, ptype='cg', jval=by, 
+        field=auto_beta_key, pval=auto_negs_key, suffix='beta', del=del,
+        outDir=outDir, sname=out_name, 
+        plotMatrix=plot_auto, writeMatrix=write_auto,
+        dpi=dpi, format=plotFormat, datIdx=datIdx, non.ref=non_ref,
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    } else {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Skipping Sample Auto Detection...{RET}"))
+    }
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                            Set/Summarize:: Sigs
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -268,7 +312,8 @@ ssetToSummary = function(sset, man, idx, workflow, name, outDir=NULL, pre=NULL,
                     dplyr::contains("_pass_perc_"),
                     dplyr::everything())
     
-    sums_ssh_tib <- dplyr::bind_cols(sums_ssh_tib,pred_dat_tib,data_ssh_tib) %>%
+    sums_ssh_tib <- 
+      dplyr::bind_cols(sums_ssh_tib,auto_ssh_tib,pred_dat_tib,data_ssh_tib) %>%
       purrr::set_names(paste(names(.),idx, sep=del))
     
     #

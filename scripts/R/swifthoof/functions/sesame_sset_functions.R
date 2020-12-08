@@ -150,6 +150,13 @@ safeVCF = function(sset, vcf, verbose=0,vt=3,tc=1,tt=NULL) {
     ret_val = tryCatch({
       try_str <- 'Pass'
       sesame::formatVCF(sset=sset, vcf=vcf)
+      
+      #
+      # TBD:: Use bgzip and tabix to compress VCF
+      #   - Need to install samtools, bgzip, tabix on Centos image first...
+      #
+      # cmd <- ""
+      
       try_str
     }, warning = function(w) {
       try_str <- paste('warning',funcTag, sep='-')
@@ -402,104 +409,41 @@ expand_ids = function(tib,
   ret_tib
 }
 
-addRequeueFlags = function(tib, keys, mins, prbs=c('cg'), field='pass_perc', 
-                           idx=NULL, del='_',
-                           verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'addRequeueFlags'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- tibble::tibble(name = as.character(), call = as.logical())
-  
-  keys_cnt <- keys %>% length()
-  mins_cnt <- mins %>% length()
-  prbs_cnt <- prbs %>% length()
-  if (keys_cnt != mins_cnt) {
-    stop(glue::glue("{RET}[{funcTag}]: ERROR: keys and mins not equal length: {keys_cnt} != {mins_cnt}!!!{RET}"))
-    return(ret_tib)
-  }
-  
-  stime <- system.time({
-    
-    tar_field <- field
-    if (!is.null(idx)) tar_field <- paste(tar_field,idx, sep=del)
-    
-    for (key_idx in c(1:keys_cnt)) {
-      stopifnot(!is.null(keys[key_idx]))
-      stopifnot(!is.null(mins[key_idx]))
-      
-      for (prb_idx in c(1:prbs_cnt)) {
-        row_cnt <- 0
-        col_cnt <- 0
-        mis_cnt <- 0
-        cur_key <- paste(keys[key_idx],prbs[prb_idx], sep=del)
-        req_key <- paste("Requeue_Flag",cur_key, sep='_')
-        req_val <- FALSE
-        if (verbose>=vt+2)
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_key={cur_key}; min={mins[key_idx]}...{RET}"))
-        
-        cur_tib <- tib %>% 
-          dplyr::select(dplyr::starts_with(!!cur_key)) %>%
-          dplyr::select(dplyr::ends_with(!!tar_field)) %>%
-          tidyr::gather()
-        row_cnt <- cur_tib %>% base::nrow()
-        col_cnt <- cur_tib %>% base::ncol()
-        
-        if (row_cnt>0 & col_cnt>0) {
-          mis_cnt <- dplyr::filter(cur_tib, value<=mins[key_idx]) %>% base::nrow()
-          if (mis_cnt>0) req_val <- TRUE
-          ret_tib <- ret_tib %>% dplyr::bind_rows(
-            tibble::tibble(name=!!req_key,call=!!req_val) )
-        }
-        
-        if (verbose>=vt+2)
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_key={cur_key}; min={mins[key_idx]}; ",
-                         "row_cnt={row_cnt}, col_cnt={col_cnt}, mis_cnt={mis_cnt}.{RET}{RET}"))
-      }
-    }
-    
-    ret_tib <- tidyr::spread(ret_tib, name, call)
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
-      print(ret_tib)
-    }
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Sesame Sample Sheet Methods:: Requeue
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-addRequeueFlags2 = function(tib, minOobPerc, minNegPerc,
-                            oob1_key="pOOBAH_cg_1_pass_perc_0",   oob2_key="pOOBAH_cg_2_pass_perc_0",
-                            neg1_key="PnegEcdf_cg_1_pass_perc_0", neg2_key="PnegEcdf_cg_2_pass_perc_0",
-                            
-                            verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'addRequeueFlags'
+# writeRequeueFile(tib=rdat$cur_list$sums_dat)
+requeueFlag = function(tib, name, csv=NULL,
+                       verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'requeueFlag'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
     
-    oob1_sym <- rlang::sym(oob1_key)
-    oob2_sym <- rlang::sym(oob2_key)
+    requeue_cnt <- 0
+    requeue_cnt <- tib %>%
+      dplyr::filter(Workflow_idx==1 & Probe_Type=='cg' & !is.na(Requeue)) %>%
+      dplyr::filter(Requeue==TRUE) %>%
+      base::nrow()
     
-    neg1_sym <- rlang::sym(neg1_key)
-    neg2_sym <- rlang::sym(neg2_key)
+    requeue_flag <- FALSE
+    if (requeue_cnt>0) requeue_flag <- TRUE
     
-    ret_tib <- tib %>% dplyr::mutate(
-      Requeue_Flag_pOOBAH := dplyr::case_when(
-        !!oob1_sym < minOobPerc | !!oob2_sym < minOobPerc ~ TRUE, TRUE ~ FALSE),
-      Requeue_Flag_PnegEcdf := dplyr::case_when(
-        !!neg1_sym < minNegPerc | !!neg2_sym < minNegPerc ~ TRUE, TRUE ~ FALSE)
-    )
+    ret_tib <- tibble::tibble(Sentrix_Name = !!name,
+                              Failed_QC = !!requeue_flag)
+    
+    if (!is.null(csv)) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
+      csv_dir <- base::dirname(csv)
+      if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      readr::write_csv(ret_tib, csv)
+    }
     
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) {
@@ -833,7 +777,7 @@ mutateSset = function(sset, method, full=TRUE,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} fail_ids_g({fail_cnt_g})={RET}"))
         fail_ids_g %>% head() %>% print()
       }
-
+      
       pass_ids_r <- rownames( sset@oobR)[ sset@extra$IGG]
       if (verbose>=vt+5) {
         pass_cnt_r <- pass_ids_r %>% length()
@@ -855,7 +799,7 @@ mutateSset = function(sset, method, full=TRUE,
         oobG_ids <- c(pass_ids_g)
         oobR_ids <- c(pass_ids_r)
       }
-
+      
       if (verbose>=vt+4) {
         inbR_cnt <- sset@IR %>% base::nrow()
         inbG_cnt <- sset@IG %>% base::nrow()
@@ -1187,7 +1131,7 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
       cat(glue::glue("[{funcTag}]:{tabsStr} oobG={RET}"))
       sesame::oobG(sset) %>% head() %>% print()
     }
-
+    
     if (is.null(oobRprobes)) {
       real_oobR <- sesame::oobR(sset)
     } else {
@@ -1249,7 +1193,7 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
                                  dimnames = dimnames(sesame::IR(sset)))
     } else {
       sesame::IR(sset) <- matrix(ncol = 2, nrow = 0, dimnames = list(NULL, 
-                                                                        c("M", "U")))
+                                                                     c("M", "U")))
     }
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} IR={RET}"))
@@ -1259,7 +1203,7 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
     if (nrow(sesame::II(sset)) > 0) {
       if (verbose>=vt+4)
         cat(glue::glue("[{funcTag}]:{tabsStr} nrow(sesame::II(sset)) > 0 == TRUE{RET}"))
-        
+      
       sesame::II(sset) <- 
         as.matrix(data.frame(M = ibG.nl$i[(length(sesame::IG(sset)) + 1):length(ibG)], 
                              U = ibR.nl$i[(length(sesame::IR(sset)) + 1):length(ibR)], 
@@ -1275,7 +1219,7 @@ noob2 = function (sset, oobRprobes = NULL, oobGprobes = NULL, offset = 15,
       cat(glue::glue("[{funcTag}]:{tabsStr} II={RET}"))
       sesame::II(sset) %>% head() %>% print()
     }
-
+    
     sesame::ctl(sset)$G <- ibG.nl$c
     sesame::ctl(sset)$R <- ibR.nl$c
     sesame::oobR(sset)  <- ibR.nl$o

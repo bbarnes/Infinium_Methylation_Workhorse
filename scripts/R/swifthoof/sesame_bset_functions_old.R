@@ -19,9 +19,148 @@
 #  4. Expand Inferred Infinium I SNP calls
 #
 
-
-
 if (FALSE) {
+  
+  # man_rs_csv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/rs-repair/HumanMethylation450_15017482_v.1.2.rs.no-FwdSeq.csv.gz'
+  # man_rs_tib <- suppressMessages(suppressWarnings( readr::read_csv(man_rs_csv) ))
+
+  ses_19_tib <- sesameData::sesameDataGet("HM450.hg19.manifest") %>%
+    as.data.frame() %>% 
+    tibble::rownames_to_column(var="Seq_ID") %>%
+    tibble::as_tibble() %>%
+    dplyr::mutate(Probe_Type=stringr::str_sub(Seq_ID, 1,2),
+                  Genome_Build="37",
+                  Strand_FR=dplyr::case_when(
+                    strand=='+' ~ 'F', strand=='-' ~ 'R', TRUE ~ NA_character_)
+                  ) %>%
+    dplyr::rename(AlleleA_ProbeSeq=ProbeSeq_A,
+                  AlleleB_ProbeSeq=ProbeSeq_B,
+                  Chromosome=seqnames,
+                  Coordinate=start) %>%
+    dplyr::select(Seq_ID,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Genome_Build,Chromosome,Coordinate,Strand_FR,
+                  Probe_Type)
+
+  ses_rs_tib <- ses_19_tib %>% dplyr::filter(Probe_Type=='rs')
+  ses_ch_tib <- ses_19_tib %>% dplyr::filter(Probe_Type=='ch')
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                             HM450 SNP Format::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  org_ch_csv <- "/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/ch-repair/HumanMethylation450_15017482_v.1.2.ch-noAnnotation.csv.gz"
+  org_ch_tib <- suppressMessages(suppressWarnings( readr::read_csv(org_ch_csv) )) %>%
+    dplyr::rename(IUPAC_Forward_Sequence=Forward_Sequence,
+                  Seq_ID=IlmnID, Chromosome=CHR, Coordinate=MAPINFO) %>%
+    dplyr::mutate(Probe_Type='ch') %>%
+    addDesignSeqCG(seq="IUPAC_Forward_Sequence", add="IMPROBE_Forward_Sequence", din="DiNuc", verbose=4) %>%
+    setTopBot_tib(seqKey="IMPROBE_Forward_Sequence", srdKey="Strand_TB", topKey="IMPROBE_Top_Sequence") %>%
+    dplyr::select(Seq_ID,DiNuc,
+                  Genome_Build,Chromosome,Coordinate,Strand_TB,Probe_Type,
+                  IMPROBE_Forward_Sequence,IUPAC_Forward_Sequence,IMPROBE_Top_Sequence,
+                  # AddressA_ID,AlleleA_ProbeSeq,AddressB_ID,AlleleB_ProbeSeq,SourceSeq,
+                  dplyr::everything()) %>%
+    dplyr::select(-Name,-Infinium_Design_Type,-Color_Channel,-Strand,-Next_Base,
+                  -AddressA_ID,-AlleleA_ProbeSeq,-AddressB_ID,-AlleleB_ProbeSeq,-SourceSeq) %>% 
+    replaceDesignSeqCG(seq="IMPROBE_Top_Sequence", add="IUPAC_Top_Sequence", nuc="DiNuc", verbose=4)
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                             HM450 CpH Format::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  org_rs_tsv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/rs-repair/rs_swap_improbe_input.tsv.gz'
+  org_rs_tib <- suppressMessages(suppressWarnings( readr::read_tsv(org_rs_tsv) )) %>% 
+    tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep="_") %>%
+    dplyr::rename(IMPROBE_Forward_Sequence=Sequence) %>%
+    dplyr::mutate(Probe_Type='rs') %>%
+    replaceDesignSeqCG(seq="IMPROBE_Forward_Sequence", add="IUPAC_Forward_Sequence", nuc="DiNuc", verbose=4) %>%
+    setTopBot_tib(seqKey="IMPROBE_Forward_Sequence", srdKey="Strand_TB", topKey="IMPROBE_Top_Sequence") %>%
+    dplyr::select(Seq_ID,DiNuc,
+                  Genome_Build,Chromosome,Coordinate,Strand_TB,Probe_Type,
+                  IMPROBE_Forward_Sequence,IUPAC_Forward_Sequence,IMPROBE_Top_Sequence,
+                  dplyr::everything()) %>%
+    dplyr::select(-CpG_Island) %>% 
+    replaceDesignSeqCG(seq="IMPROBE_Top_Sequence", add="IUPAC_Top_Sequence", nuc="DiNuc", verbose=4)
+  
+  des_rs_tib <- org_rs_tib %>% 
+    desSeq_to_prbs(idsKey="Seq_ID",seqKey="IUPAC_Forward_Sequence",prbKey="Probe_Type",
+                   strsSR="FR", parallel=TRUE, verbose=4)
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                             HM450 CpH Redesign::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+  des_ch_tib <- org_ch_tib %>% 
+    desSeq_to_prbs(idsKey="Seq_ID",seqKey="IUPAC_Forward_Sequence",prbKey="Probe_Type",
+                   strsSR="FR", parallel=TRUE, verbose=4)
+  
+  all_ch_tib <- dplyr::inner_join(org_ch_tib, des_ch_tib, by="Seq_ID")
+  
+  mat_ch_tib <- all_ch_tib %>%
+    dplyr::mutate(Org_Mat_Seq=stringr::str_sub(AlleleA_ProbeSeq,2),
+                  New_Mat_Seq=stringr::str_sub(PRB2_D_MAT,2) ) %>%
+    dplyr::filter(Org_Mat_Seq==New_Mat_Seq) %>%
+    dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  # dplyr::select(Org_Mat_Seq,New_Mat_Seq) %>%
+  
+
+  #
+  # Mouse CpH Issues::
+  #
+
+  # Prb_Seq(2):           AAATAACAAaACTTTaATTaTAaTTTTTATCATCCCATaCTCCTaAACTC
+  # DES_Seq(D): GAATTTGAAAGAAtTGTGtAtAtAGATTttttATGGtTttATtttTGTGAAAGTATGTGAtyGAGTTtAGGAGtATGGGATGATAAAAAtTAtAATtAAAGTtTTGTTATTTGATTATAtAA
+  # Prb_Seq(F): aAACTaTaCACACAaATTCCCCATaaCTCCATCCCTaTaAAAaTATaTaA
+  
+  dplyr::left_join(rdat$cur_list$call_dat, rdat$sman, by="Probe_ID")
+  
+  #
+  # Final Requeue File Generation::
+  #
+  writeRequeueFile(tib=rdat$cur_list$sums_dat, 
+                   name=rdat$issh$Sentrix_Name, 
+                   verbose=20)
+  
+  
+  
+  requeue_cnt <- rdat$cur_list$sums_dat %>% 
+    dplyr::filter(Workflow_idx==1 & Probe_Type=='cg' & !is.na(Requeue)) %>% 
+    dplyr::filter(Requeue==TRUE) %>% base::nrow()
+  
+  
+  rdat$cur_list$sums_ssh %>% dplyr::select(dplyr::contains("Requeue_1")) %>% dplyr::select(dplyr::starts_with("cg_"))
+  
+  
+  man_tib  <- rdat$sman
+  call_tib <- rdat$cur_list$call_dat
+  ref <- auto_sam_tib
+  
+  auto_beta_key <- "raw_betas"
+  auto_negs_key <- "raw_pvals_PnegEcdf"
+  
+  del <- "_"
+  out_name <- "test_raw"
+  
+  
+  
+  autoDetect_Wrapper(
+    can=call_tib, ref=ref, man=man_tib,
+    minPval=0.02, minDelta=opt$minDeltaBeta,
+    dname='Design_Type', pname='Probe_Type', ptype='cg',
+    jval='Probe_ID', field=auto_beta_key, pval=auto_negs_key, suffix='beta', del=del,
+    outDir=opt$outDir, sname=out_name, plotMatrix=opt$plotAuto, writeMatrix=opt$write_auto,
+    dpi=opt$dpi, format=opt$plotFormat, datIdx=5, non.ref=non_ref,
+    verbose=10,vt=1,tc=1,tt=NULL)
+  
+  
+  
+  
+  
+  
+  
+  
   
   idat_csv  <- paste('/Users/bretbarnes/Documents/tmp', 'idat.sigs.csv.gz', sep='_')
   info_csv  <- paste('/Users/bretbarnes/Documents/tmp', 'idat.info.csv.gz', sep='_')
@@ -155,6 +294,125 @@ if (FALSE) {
   new_sset@IR %>% tibble::as_tibble(rownames = "Probe_ID") %>% dplyr::filter(is.na(U))
   new_sset@IG %>% tibble::as_tibble(rownames = "Probe_ID") %>% dplyr::filter(is.na(U))
 
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                    Sesame Sample Sheet Methods:: Requeue
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  addRequeueFlags = function(tib, keys, mins, prbs=c('cg'), field='pass_perc', 
+                             idx=NULL, del='_',
+                             verbose=0,vt=3,tc=1,tt=NULL) {
+    funcTag <- 'addRequeueFlags'
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- tibble::tibble(name = as.character(), call = as.logical())
+    
+    keys_cnt <- keys %>% length()
+    mins_cnt <- mins %>% length()
+    prbs_cnt <- prbs %>% length()
+    if (keys_cnt != mins_cnt) {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: keys and mins not equal length: {keys_cnt} != {mins_cnt}!!!{RET}"))
+      return(ret_tib)
+    }
+    
+    stime <- system.time({
+      
+      tar_field <- field
+      if (!is.null(idx)) tar_field <- paste(tar_field,idx, sep=del)
+      
+      for (key_idx in c(1:keys_cnt)) {
+        stopifnot(!is.null(keys[key_idx]))
+        stopifnot(!is.null(mins[key_idx]))
+        
+        for (prb_idx in c(1:prbs_cnt)) {
+          row_cnt <- 0
+          col_cnt <- 0
+          mis_cnt <- 0
+          cur_key <- paste(keys[key_idx],prbs[prb_idx], sep=del)
+          req_key <- paste("Requeue_Flag",cur_key, sep='_')
+          req_val <- FALSE
+          if (verbose>=vt+2)
+            cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_key={cur_key}; min={mins[key_idx]}...{RET}"))
+          
+          cur_tib <- tib %>% 
+            dplyr::select(dplyr::starts_with(!!cur_key)) %>%
+            dplyr::select(dplyr::ends_with(!!tar_field)) %>%
+            tidyr::gather()
+          row_cnt <- cur_tib %>% base::nrow()
+          col_cnt <- cur_tib %>% base::ncol()
+          
+          if (row_cnt>0 & col_cnt>0) {
+            mis_cnt <- dplyr::filter(cur_tib, value<=mins[key_idx]) %>% base::nrow()
+            if (mis_cnt>0) req_val <- TRUE
+            ret_tib <- ret_tib %>% dplyr::bind_rows(
+              tibble::tibble(name=!!req_key,call=!!req_val) )
+          }
+          
+          if (verbose>=vt+2)
+            cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_key={cur_key}; min={mins[key_idx]}; ",
+                           "row_cnt={row_cnt}, col_cnt={col_cnt}, mis_cnt={mis_cnt}.{RET}{RET}"))
+        }
+      }
+      
+      ret_tib <- tidyr::spread(ret_tib, name, call)
+      ret_cnt <- ret_tib %>% base::nrow()
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+        print(ret_tib)
+      }
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                     "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    ret_tib
+  }
+  
+  addRequeueFlags2 = function(tib, minOobPerc, minNegPerc,
+                              oob1_key="pOOBAH_cg_1_pass_perc_0",   oob2_key="pOOBAH_cg_2_pass_perc_0",
+                              neg1_key="PnegEcdf_cg_1_pass_perc_0", neg2_key="PnegEcdf_cg_2_pass_perc_0",
+                              
+                              verbose=0,vt=3,tc=1,tt=NULL) {
+    funcTag <- 'addRequeueFlags'
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- system.time({
+      
+      oob1_sym <- rlang::sym(oob1_key)
+      oob2_sym <- rlang::sym(oob2_key)
+      
+      neg1_sym <- rlang::sym(neg1_key)
+      neg2_sym <- rlang::sym(neg2_key)
+      
+      ret_tib <- tib %>% dplyr::mutate(
+        Requeue_Flag_pOOBAH := dplyr::case_when(
+          !!oob1_sym < minOobPerc | !!oob2_sym < minOobPerc ~ TRUE, TRUE ~ FALSE),
+        Requeue_Flag_PnegEcdf := dplyr::case_when(
+          !!neg1_sym < minNegPerc | !!neg2_sym < minNegPerc ~ TRUE, TRUE ~ FALSE)
+      )
+      
+      ret_cnt <- ret_tib %>% base::nrow()
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+        print(ret_tib)
+      }
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                     "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    ret_tib
+  }
+
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                           Current NOOB Function::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -209,7 +467,29 @@ if (FALSE) {
     sset
   }
   
-  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                             Auto-Detect Sample::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  if (opts$auto_detect) {
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detecting Auto-Sample-Sheet: [SampleName, rsquared,deltaBeta].{RET}"))
+    
+    auto_sheet <- autoDetect_Wrapper(
+      can=cur_dat_list$call_dat, ref=ref, man=top_man_tib,
+      minPval=opts$minNegPval, minDelta=opts$minDeltaBeta,
+      dname='Design_Type', pname='Probe_Type', ptype='cg',
+      jval='Probe_ID', field=auto_beta_key, pval=auto_negs_key, suffix='beta', del=del,
+      outDir=opts$outDir, sname=out_name, plotMatrix=opts$plotAuto, writeMatrix=opts$write_auto,
+      dpi=opts$dpi, format=opts$plotFormat, datIdx=4, non.ref=non_ref,
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    
+    ssheet_tib <- ssheet_tib %>% dplyr::bind_cols(auto_sheet)
+    
+    ssheet_ncols <- ssheet_tib %>% base::ncol()
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Binding Sample Sheet ",
+                     "(with auto-detect-sample) ssheet_ncols={ssheet_ncols}.{RET}{RET}"))
+  }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                      Old Sesame Mutate Functions::

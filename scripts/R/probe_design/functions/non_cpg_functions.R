@@ -109,7 +109,6 @@ loadGRCm38_SNP = function(file, outDir,
   ret_files
 }
 
-
 loadGRCh37_SNP = function(file, outDir,
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'loadGRCh37_SNP'

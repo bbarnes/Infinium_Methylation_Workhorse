@@ -148,8 +148,6 @@ if (args.dat[1]=='RStudio') {
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
-  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
-  
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
   if (dir.exists(par$lixDir1)) opt$Rscript <- '/illumina/scratch/darkmatter/thirdparty/Anaconda2-2019.10-Linux-x86_64/bin/Rscript'
@@ -160,8 +158,9 @@ if (args.dat[1]=='RStudio') {
   # End of local parameter definitions::
   #
   
+  # opt$outDir <- file.path(par$topDir, 'scratch')
+  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
   locIdatDir <- file.path(par$topDir, 'data/idats')
-  opt$outDir <- file.path(par$topDir, 'scratch')
   opt$impDir <- file.path(par$topDir, 'data/improbe')
   opt$annDir <- file.path(par$topDir, 'data/annotation')
 
@@ -184,8 +183,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVID'
   par$local_runType <- 'GENK'
-  par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVIC'
+  par$local_runType <- 'GRCm38'
   
   if (par$local_runType=='COVID') {
     # opt$fresh  <- TRUE
@@ -323,6 +322,7 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C18'
     opt$version     <- 'C19'
     opt$version     <- 'C20'
+    opt$version     <- 'C21'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -405,6 +405,7 @@ if (args.dat[1]=='RStudio') {
   opt$runName <- paste(opt$genomeBuild,opt$platform,opt$version, sep='-')
   
   # opt$fresh <- TRUE
+  opt$fresh <- FALSE
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -707,15 +708,19 @@ man_pqc_dat_tib <-
     fresh=opt$fresh,fixIds=opt$fixIds,full=par$retData,trim=TRUE,
     verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
 
-man_raw_dat_tib2 <- dplyr::bind_rows(man_pqc_dat_tib,man_pre_dat_tib)
+if (par$local_runType!='GRCm38') {
+  man_raw_dat_tib2 <- dplyr::bind_rows(man_pqc_dat_tib,man_pre_dat_tib)
 
-base_sel_cols <- c("Probe_ID","M","U","Probe_Type","Next_Base","AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U")
-man_raw_dat_tib <- dplyr::bind_rows(
-  dplyr::select(man_pre_dat_tib, dplyr::all_of(base_sel_cols)) %>%
-    dplyr::mutate(platform="EPIC",version="B2"),
-  dplyr::select(man_pqc_dat_tib, dplyr::all_of(base_sel_cols)) %>%
-    dplyr::mutate(platform=opt$platform,version=opt$version),
-)
+  base_sel_cols <- c("Probe_ID","M","U","Probe_Type","Next_Base","AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U")
+  man_raw_dat_tib <- dplyr::bind_rows(
+    dplyr::select(man_pre_dat_tib, dplyr::all_of(base_sel_cols)) %>%
+      dplyr::mutate(platform="EPIC",version="B2"),
+    dplyr::select(man_pqc_dat_tib, dplyr::all_of(base_sel_cols)) %>%
+      dplyr::mutate(platform=opt$platform,version=opt$version),
+  )
+} else {
+  man_raw_dat_tib <- dplyr::bind_rows(man_pqc_dat_tib,man_pre_dat_tib)
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                2.0 Build Probes foreach Type:: RS/CH/CG/etc..
@@ -959,6 +964,7 @@ man_pqc_unk_tib %>%
 man_pqc_all_col <- names(man_pqc_prb_tib)[names(man_pqc_prb_tib) %in% names(man_pqc_unk_tib)]
 man_pqc_prb_col <- c(man_pqc_all_col, 'Top_Sequence')
 man_pqc_unk_col <- c(man_pqc_all_col)
+# man_pqc_unk_col <- c(man_pqc_all_col)
 
 man_pqc_all_tib <- dplyr::bind_rows(
   dplyr::select(man_pqc_prb_tib, dplyr::all_of(man_pqc_prb_col)),

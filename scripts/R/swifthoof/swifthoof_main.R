@@ -101,7 +101,7 @@ opt$fresh        <- FALSE
 opt$buildSubDir  <- FALSE
 opt$auto_detect  <- FALSE
 
-opt$workflow   <- NULL
+opt$workflow    <- NULL
 opt$manDirName  <- 'core'
 
 # Output Options::
@@ -126,6 +126,7 @@ opt$write_ssum  <- FALSE
 opt$write_call  <- FALSE
 opt$write_csum  <- FALSE
 
+opt$write_snps  <- TRUE
 opt$write_auto  <- FALSE
 
 # Threshold Options::
@@ -245,8 +246,8 @@ if (args.dat[1]=='RStudio') {
   opt$single   <- FALSE
   opt$single   <- TRUE
   
-  opt$parallel <- FALSE
   opt$parallel <- TRUE
+  opt$parallel <- FALSE
   
   opt$cluster  <- TRUE
   opt$cluster  <- FALSE
@@ -262,6 +263,7 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVID'
   par$local_runType <- 'COVIC'
+  par$local_runType <- 'GRCm38'
   
   opt$fresh <- TRUE
   
@@ -324,7 +326,8 @@ if (args.dat[1]=='RStudio') {
   opt$load_sset <- TRUE
 
   opt$auto_detect <- FALSE
-
+  opt$auto_detect <- TRUE
+  
   opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
   if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
@@ -399,9 +402,11 @@ if (args.dat[1]=='RStudio') {
     #
     # Old Versions to be deleted::
     #
+    make_option(c("--write_snps"), action="store_true", default=opt$write_snps,
+                help="Boolean variable to write direct and inferred SNP calls file [default= %default]", metavar="boolean"),
     make_option(c("--write_auto"), action="store_true", default=opt$write_auto,
                 help="Boolean variable to write Auto-Detection Matricies (Pval/Beta) file [default= %default]", metavar="boolean"),
-
+    
     #
     # Current Versions::
     #
@@ -668,6 +673,7 @@ if (opt$cluster) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   chipTimes <- NULL
   sample_cnt <- length(chipPrefixes)
+  prefixe_names <- names(chipPrefixes)
 
   try_str <- ''
   if (opt$parallel) {
@@ -678,9 +684,10 @@ if (opt$cluster) {
       cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; ",
                      "num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
     
-    # chipTimes <- foreach (prefix=names(chipPrefixes), .combine = rbind) %dopar% {
-    chipTimes <- foreach (prefix=names(chipPrefixes), .inorder=T, .final = function(x) setNames(x, names(chipPrefixes))) %dopar% {
-      
+    par$retData <- FALSE
+    # chipTimes <- foreach (prefix=prefixe_names, .inorder=T, .final = function(x) setNames(x, prefixe_names)) %dopar% {
+    chipTimes <- foreach (prefix=prefixe_names, .combine = rbind) %dopar% {
+
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
                                    man=mans, ref=auto_sam_tib, opts=opt, defs=def,
@@ -701,7 +708,7 @@ if (opt$cluster) {
     cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: samples={sample_cnt}.{RET}"))
     
     rdat <- NULL
-    for (prefix in names(chipPrefixes)) {
+    for (prefix in prefixe_names) {
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
       rdat <- NULL

@@ -128,6 +128,9 @@ program_init = function(name,defs=NULL,
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]: Output Directory (TOP)={opts$outDir}...{RET}"))
   
+  if (!is.null(opts[['fresh']]) && opts$fresh)
+    unlink(list.files(opts$outDir, full.names=TRUE))
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                         Program Start Time Stamp::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

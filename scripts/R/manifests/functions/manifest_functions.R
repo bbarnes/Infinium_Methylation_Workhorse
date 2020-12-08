@@ -441,11 +441,12 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
     }
     
     if (!fresh && !is.null(stp_tib) && stp_tib$isValid[1]) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
     } else {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Fresh or Failed to find pre-built data...{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Fresh or Failed to find pre-built data...{RET}"))
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #
@@ -459,9 +460,11 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
                                    colA=4,colB=3,
                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
-      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} imp_s48_tib={RET}"))
-      print(imp_s48_tib)
-      cat(glue::glue("{RET}{RET}"))
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} imp_s48_tib={RET}"))
+        imp_s48_tib %>% print()
+        cat(glue::glue("{RET}"))
+      }
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                             3. CGN to Top::
@@ -473,9 +476,11 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         dplyr::mutate(!!design_prb_sym := probe_type)
       
-      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} imp_top_tib={RET}"))
-      print(imp_top_tib)
-      cat(glue::glue("{RET}{RET}"))
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} imp_top_tib={RET}"))
+        imp_top_tib %>% print()
+        cat(glue::glue("{RET}"))
+      }
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                           4. Top to Probes::
@@ -483,7 +488,8 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
       
       ret_tib <- NULL
       if (!file.exists(man_join_rds) || fresh) {
-        cat(glue::glue("[{par$prgmTag}]: Building Full Probe Design...{RET}"))
+        if (verbose>=vt+2)
+          cat(glue::glue("[{par$prgmTag}]: Building Full Probe Design...{RET}"))
         
         test_max <- 0
         cpg_prb_des_tib <- NULL
@@ -496,17 +502,28 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
                            parallel=parallel, max=test_max,
                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
           
-          cpg_prb_des_tib %>% dplyr::group_by(SR_Str,CO_Str) %>% 
-            dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
+          if (verbose>=vt+4) {
+            cpg_prb_des_tib %>% 
+              dplyr::group_by(SR_Str,CO_Str) %>% 
+              dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
+          }
           
           # Remove:: only supports intermediates...
-          cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design File: RDS={man_full_rds}...{RET}"))
+          if (verbose>=vt+2)
+            cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design ",
+                           "File: RDS={man_full_rds}...{RET}"))
           readr::write_rds(cpg_prb_des_tib,man_full_rds)
-          cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design File.{RET}{RET}"))
+          if (verbose>=vt+2)
+            cat(glue::glue("[{par$prgmTag}]: Done. Writing Full Probe Design ",
+                           "File.{RET}{RET}"))
         } else {
-          cat(glue::glue("[{par$prgmTag}]: Loading Full Match Probe Design; RDS={man_full_rds}...{RET}"))
+          if (verbose>=vt+2)
+            cat(glue::glue("[{par$prgmTag}]: Loading Full Match Probe Design; ",
+                           "RDS={man_full_rds}...{RET}"))
           cpg_prb_des_tib <- readr::read_rds(man_full_rds)
-          cat(glue::glue("[{par$prgmTag}]: Done. Loading Full Probe Design.{RET}{RET}"))
+          if (verbose>=vt+2)
+            cat(glue::glue("[{par$prgmTag}]: Done. Loading Full Probe Design.",
+                           "{RET}{RET}"))
         }
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -520,13 +537,21 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
           man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         
-        cat(glue::glue("[{par$prgmTag}]: Writing Join Probe Match Design File: RDS={man_join_rds}...{RET}"))
+        if (verbose>=vt+2)
+          cat(glue::glue("[{par$prgmTag}]: Writing Join Probe Match Design ",
+                         "File: RDS={man_join_rds}...{RET}"))
         readr::write_rds(ret_tib,man_join_rds)
-        cat(glue::glue("[{par$prgmTag}]: Done. Writing Join Probe Design File.{RET}{RET}"))
+        if (verbose>=vt+2)
+          cat(glue::glue("[{par$prgmTag}]: Done. Writing Join Probe Design ",
+                         "File.{RET}{RET}"))
       } else {
-        cat(glue::glue("[{par$prgmTag}]: Loading Join Match Probe Design; RDS={man_join_rds}...{RET}"))
+        if (verbose>=vt+2)
+          cat(glue::glue("[{par$prgmTag}]: Loading Join Match Probe Design; ",
+                         "RDS={man_join_rds}...{RET}"))
         ret_tib <- readr::read_rds(man_join_rds) 
-        cat(glue::glue("[{par$prgmTag}]: Done. Loading Join Probe Design.{RET}{RET}"))
+        if (verbose>=vt+2)
+          cat(glue::glue("[{par$prgmTag}]: Done. Loading Join Probe Design.",
+                         "{RET}{RET}"))
       }
       cpg_add_rep_tib <- 
         manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
@@ -2122,7 +2147,7 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
       # The correct way to intersect::
       #  - M,U,N
       #
-
+      
       # Gather manifest M/U values and trim if greater than 10::
       #
       ref_tib <- man_tib %>% dplyr::select(M,U) %>% 
@@ -2169,7 +2194,7 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
     max_version   <- ret_tib$version[1]
     max_match_cnt <- ret_tib$match_cnt[1]
     max_rc_per    <- ret_tib$rc_per[1]
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -2179,7 +2204,7 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
                    "match={max_match_cnt}, RCP={max_rc_per}){RET}",
                    "[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-
+  
   ret_tib
 }
 

@@ -55,7 +55,7 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, csv=NULL, ssh=NULL,
     if (load && !is.null(csv) && file.exists(csv)) {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading CSV={csv}.{RET}"))
-      ret_tib <- readr::read_csv(csv)
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(csv) ))
     } else {
       grn_idat <- loadIdat(prefix, 'Grn', gzip=gzip, 
                            verbose=verbose,vt=vt+4,tc=tc+1,tt=tt)
