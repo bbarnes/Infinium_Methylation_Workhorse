@@ -655,10 +655,11 @@ if (opt$cluster) {
   mans <- getManifestList(path=opt$manifestPath, platform=opt$platform, manifest=opt$manifest, 
                           dir=opt$manDir, verbose=opt$verbose, tt=pTracker)
   
-  auto_opt_tib <- NULL
-  auto_ref_tib <- NULL
-  auto_can_tib <- NULL
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                             Load Auto Detection::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
+  auto_sam_tib <- NULL
   if (opt$auto_detect) {
     if (is.null(opt$auto_sam_csv))
       opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
