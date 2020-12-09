@@ -21,6 +21,12 @@
 
 if (FALSE) {
   
+  mans$`EPIC-B4` %>% dplyr::filter(Probe_Source != "EPIC-B2") %>% dplyr::select(-Next_Base_hg19, -Next_Base_hg38) %>% readr::write_csv("/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/manifest/core/EPIC-B4.manifest.sesame-base.cpg-sorted.csv.gz")
+  
+  rdat2 <- rdat
+  nan_ids_vec <- rdat$cur_list$call_dat %>% dplyr::filter(is.na(raw_betas)) %>% dplyr::pull(Probe_ID)
+  
+  
   # man_rs_csv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/rs-repair/HumanMethylation450_15017482_v.1.2.rs.no-FwdSeq.csv.gz'
   # man_rs_tib <- suppressMessages(suppressWarnings( readr::read_csv(man_rs_csv) ))
 

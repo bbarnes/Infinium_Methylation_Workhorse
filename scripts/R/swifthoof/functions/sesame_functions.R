@@ -118,7 +118,8 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     sset_dat <- sset
     sset <- NULL
     
-    call_dat_tib <- man %>% dplyr::select(!!by)
+    call_dat_tib <- NULL
+    # call_dat_tib <- man %>% dplyr::select(!!by)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                       Set/Update/Summarize:: Pvals
@@ -156,7 +157,12 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       if (ret_psum) ret_pval_dat$pval_sum <- pval_sum_tib
       if (ret_pval || ret_psum) ret_dat$pval[[pval_key]] = ret_pval_dat
       
-      call_dat_tib <- dplyr::left_join(call_dat_tib,pval_dat_tib, by=by)
+      if (is.null(call_dat_tib)) {
+        call_dat_tib <- pval_dat_tib
+      } else {
+        call_dat_tib <- dplyr::left_join(call_dat_tib,pval_dat_tib, by=by)
+      }
+      # call_dat_tib <- dplyr::left_join(call_dat_tib,pval_dat_tib, by=by)
       sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(pval_sum_tib)
       
     }

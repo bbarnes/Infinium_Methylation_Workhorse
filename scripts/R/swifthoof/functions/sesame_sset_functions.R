@@ -439,7 +439,7 @@ requeueFlag = function(tib, name, csv=NULL,
     
     if (!is.null(csv)) {
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))
       csv_dir <- base::dirname(csv)
       if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
       readr::write_csv(ret_tib, csv)
