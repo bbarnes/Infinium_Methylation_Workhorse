@@ -764,9 +764,180 @@ if (FALSE) {
 
   
   
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             improbe design:: All
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# From improbe input and ordered probes::
+#   - IUPAC designs
+#   - improbe designs
+#   - Intersect designs
+#
+
+if (FALSE) {
+  
+  if (FALSE) {
+    #
+    # Add Fields to real probes:: MUS:: CpH
+    #
+    sidx=2 
+    plen=50
+    
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
+    
+    ses_mus_cph_tib <- ses_mus_cph_tib %>% 
+      dplyr::rename(AlleleA_ProbeSeq=AlleleA_Probe_Sequence,
+                    AlleleB_ProbeSeq=AlleleB_Probe_Sequence) %>%
+      dplyr::mutate(
+        AlleleA_ProbeSeq=dplyr::case_when(
+          stringr::str_length(AlleleA_ProbeSeq)==0 ~ NA_character_,
+          TRUE ~ AlleleA_ProbeSeq
+        ),
+        AlleleB_ProbeSeq=dplyr::case_when(
+          stringr::str_length(AlleleB_ProbeSeq)==0 ~ NA_character_,
+          TRUE ~ AlleleB_ProbeSeq
+        ),
+        Infinium_Design=dplyr::case_when(
+          !is.na(AlleleA_ProbeSeq) & !is.na(AlleleB_ProbeSeq) ~ 1,
+          !is.na(AlleleA_ProbeSeq) &  is.na(AlleleB_ProbeSeq) ~ 2,
+          TRUE ~ NA_real_),
+        Seq_48U=dplyr::case_when(
+          Infinium_Design==1 ~ stringr::str_sub(AlleleA_ProbeSeq, idx1,len1),
+          Infinium_Design==2 ~ stringr::str_sub(AlleleA_ProbeSeq, idx2,len2),
+          TRUE ~ NA_character_
+        ) %>% 
+          stringr::str_to_upper() %>% 
+          stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+        Mat_48U=stringr::str_sub(AlleleA_ProbeSeq,2)
+      )
+    
+    # Match real probes to IUPAC designs:: CpH
+    mat_mus_cph_tib <- ses_mus_cph_tib %>% 
+      dplyr::inner_join(dplyr::mutate(mus_cph_des_dat$iup, 
+                                      Mat_48U=stringr::str_sub(PRB2_D_MAT,2)),
+                        by=c("Seq_ID","Mat_48U")) %>% 
+      dplyr::distinct(Seq_ID, .keep_all=TRUE)
+    
+    # Join improbe and IUPAC designs:: CpH
+    mus_cph_join_tib <- dplyr::inner_join(
+      mus_cph_des_dat$imp, mus_cph_des_dat$iup,
+      by=c("Seq_ID","Strand_SR","Strand_CO"),
+      suffix=c("_IMP", "_IUP"))
   }
-
-
+  
+  
+  
+  
+  #
+  # Add Fields to real probes:: HSA:: CpH
+  #
+  sidx=2 
+  plen=50
+  
+  idx1 <- sidx
+  len1 <- plen - 1
+  idx2 <- sidx + 1
+  len2 <- plen
+  
+  ses_hsa_cph_tib <- ses_hsa_cph_tib %>% 
+    dplyr::mutate(
+      AlleleA_ProbeSeq=dplyr::case_when(
+        stringr::str_length(AlleleA_ProbeSeq)==0 ~ NA_character_,
+        TRUE ~ AlleleA_ProbeSeq
+      ),
+      AlleleB_ProbeSeq=dplyr::case_when(
+        stringr::str_length(AlleleB_ProbeSeq)==0 ~ NA_character_,
+        TRUE ~ AlleleB_ProbeSeq
+      ),
+      Infinium_Design=dplyr::case_when(
+        !is.na(AlleleA_ProbeSeq) & !is.na(AlleleB_ProbeSeq) ~ 1,
+        !is.na(AlleleA_ProbeSeq) &  is.na(AlleleB_ProbeSeq) ~ 2,
+        TRUE ~ NA_real_),
+      Seq_48U=dplyr::case_when(
+        Infinium_Design==1 ~ stringr::str_sub(AlleleA_ProbeSeq, idx1,len1),
+        Infinium_Design==2 ~ stringr::str_sub(AlleleA_ProbeSeq, idx2,len2),
+        TRUE ~ NA_character_
+      ) %>% 
+        stringr::str_to_upper() %>% 
+        stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+      Mat_48U=stringr::str_sub(AlleleA_ProbeSeq,2)
+    )
+  
+  # Match real probes to IUPAC designs:: CpH
+  mat_hsa_cph_tib <- ses_hsa_cph_tib %>% 
+    dplyr::inner_join(dplyr::mutate(hsa_cph_des_dat$iup, 
+                                    Mat_48U=stringr::str_sub(PRB2_D_MAT,2)),
+                      by=c("Seq_ID","Mat_48U")) %>% 
+    dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  
+  # Join improbe and IUPAC designs:: CpH
+  hsa_cph_join_tib <- dplyr::inner_join(
+    hsa_cph_des_dat$imp,hsa_cph_des_dat$iup,
+    by=c("Seq_ID","Strand_SR","Strand_CO"),
+    suffix=c("_IMP", "_IUP"))  
+  
+  #
+  # Add Fields to real probes:: HSA:: SNP
+  #
+  sidx=2 
+  plen=50
+  
+  idx1 <- sidx
+  len1 <- plen - 1
+  idx2 <- sidx + 1
+  len2 <- plen
+  
+  ses_hsa_snp_tib <- ses_hsa_snp_tib %>% 
+    dplyr::mutate(
+      AlleleA_ProbeSeq=dplyr::case_when(
+        stringr::str_length(AlleleA_ProbeSeq)==0 ~ NA_character_,
+        TRUE ~ AlleleA_ProbeSeq
+      ),
+      AlleleB_ProbeSeq=dplyr::case_when(
+        stringr::str_length(AlleleB_ProbeSeq)==0 ~ NA_character_,
+        TRUE ~ AlleleB_ProbeSeq
+      ),
+      Infinium_Design=dplyr::case_when(
+        !is.na(AlleleA_ProbeSeq) & !is.na(AlleleB_ProbeSeq) ~ 1,
+        !is.na(AlleleA_ProbeSeq) &  is.na(AlleleB_ProbeSeq) ~ 2,
+        TRUE ~ NA_real_),
+      Seq_48U=dplyr::case_when(
+        Infinium_Design==1 ~ stringr::str_sub(AlleleA_ProbeSeq, idx1,len1),
+        Infinium_Design==2 ~ stringr::str_sub(AlleleA_ProbeSeq, idx2,len2),
+        TRUE ~ NA_character_
+      ) %>% 
+        stringr::str_to_upper() %>% 
+        stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+    )
+  
+  # Match real probes to IUPAC designs:: SNP
+  mat1_snp_tib <- ses_hsa_snp_tib %>% 
+    dplyr::inner_join(hsa_snp_des_dat$iup, by=c("Seq_ID","AlleleA_ProbeSeq"="PRB2_D_MAT")) %>%
+    dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  
+  mat2_snp_tib <- ses_hsa_snp_tib %>% 
+    dplyr::inner_join(hsa_snp_des_dat$iup, by=c("Seq_ID","AlleleA_ProbeSeq"="PRB1_M_MAT")) %>%
+    dplyr::distinct(Seq_ID, .keep_all=TRUE)
+  
+  mat_snp_tib <- dplyr::bind_rows(mat1_snp_tib,mat2_snp_tib)
+  mis_snp_tib <- ses_hsa_snp_tib %>% dplyr::anti_join(mat_snp_tib,  by="Seq_ID")
+  
+  mss_snp_tib <- dplyr::inner_join(mis_snp_tib, hsa_snp_des_dat$iup, by="Seq_ID") %>% 
+    dplyr::select(Seq_ID, AlleleA_ProbeSeq,AlleleB_ProbeSeq,PRB1_U_MAT)
+  
+  # Join improbe and IUPAC designs:: CpH
+  snp_join_tib <- dplyr::inner_join(
+    hsa_snp_des_dat$imp,hsa_snp_des_dat$iup,
+    by=c("Seq_ID","Strand_SR","Strand_CO"),
+    suffix=c("_IMP", "_IUP"))
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::

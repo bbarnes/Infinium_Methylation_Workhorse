@@ -230,34 +230,100 @@ ses_19_tib <- sesameData::sesameDataGet("HM450.hg19.manifest") %>%
                 AlleleB_ProbeSeq=ProbeSeq_B,
                 Chromosome=seqnames,
                 Coordinate=start) %>%
-  dplyr::select(Seq_ID,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+  dplyr::select(Seq_ID,
+                AlleleA_ProbeSeq,AlleleB_ProbeSeq,
                 Genome_Build,Chromosome,Coordinate,Strand_FR,
-                Probe_Type)
+                Probe_Type) %>% 
+  dplyr::mutate(AlleleB_ProbeSeq=dplyr::case_when(
+    stringr::str_length(AlleleB_ProbeSeq)==0 ~ NA_character_, 
+    TRUE ~ AlleleB_ProbeSeq)) %>%
+  dplyr::mutate(Genome_Build="GRCh37")
 
 ses_hsa_snp_tib <- ses_19_tib %>% dplyr::filter(Probe_Type=='rs')
 ses_hsa_cph_tib <- ses_19_tib %>% dplyr::filter(Probe_Type=='ch')
 
-
 ses_mus_man_csv <- 
   file.path(par$datDir, 'manifest/core/LEGX-C20.manifest.sesame-base.cpg-sorted.csv.gz')
 ses_mus_man_tib <- 
-  suppressMessages(suppressWarnings( readr::read_csv(ses_mus_man_csv) ))
+  suppressMessages(suppressWarnings( readr::read_csv(ses_mus_man_csv) )) %>%
+  dplyr::mutate(Genome_Build="GRCm38")
 
-ses_mus_cph_tib <- ses_mus_man_tib %>% dplyr::filter(Probe_Type=='ch')
 ses_mus_snp_tib <- ses_mus_man_tib %>% dplyr::filter(Probe_Type=='rs')
+ses_mus_cph_tib <- ses_mus_man_tib %>% dplyr::filter(Probe_Type=='ch')
 
 #
-# Add minimalization fields and inferred fields from Sesame...
+#
+# TBD:: Add minimalization fields and inferred fields from Sesame...
+#
 #
 
+sidx=2 
+plen=50
+
+idx1 <- sidx
+len1 <- plen - 1
+idx2 <- sidx + 1
+len2 <- plen
+
+prb_seq_tib <- dplyr::bind_rows(
+  ses_hsa_snp_tib %>%
+    dplyr::select(Seq_ID,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Genome_Build,Probe_Type) %>%
+    dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq, .keep_all=TRUE),
+  
+  ses_hsa_cph_tib %>%
+    dplyr::select(Seq_ID,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Genome_Build,Probe_Type) %>%
+    dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq, .keep_all=TRUE),
+  
+  ses_mus_snp_tib %>% 
+    dplyr::rename(AlleleA_ProbeSeq=AlleleA_Probe_Sequence,
+                  AlleleB_ProbeSeq=AlleleB_Probe_Sequence) %>%
+    dplyr::select(Seq_ID,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Genome_Build,Probe_Type) %>%
+    dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq, .keep_all=TRUE),
+  
+  ses_mus_cph_tib %>% 
+    dplyr::rename(AlleleA_ProbeSeq=AlleleA_Probe_Sequence,
+                  AlleleB_ProbeSeq=AlleleB_Probe_Sequence) %>%
+    dplyr::select(Seq_ID,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Genome_Build,Probe_Type) %>%
+    dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq, .keep_all=TRUE)
+) %>% 
+  dplyr::mutate(
+    AlleleA_ProbeSeq=dplyr::case_when(
+      stringr::str_length(AlleleA_ProbeSeq)==0 ~ NA_character_,
+      TRUE ~ AlleleA_ProbeSeq
+    ),
+    AlleleB_ProbeSeq=dplyr::case_when(
+      stringr::str_length(AlleleB_ProbeSeq)==0 ~ NA_character_,
+      TRUE ~ AlleleB_ProbeSeq
+    ),
+    Infinium_Design=dplyr::case_when(
+      !is.na(AlleleA_ProbeSeq) & !is.na(AlleleB_ProbeSeq) ~ 1,
+      !is.na(AlleleA_ProbeSeq) &  is.na(AlleleB_ProbeSeq) ~ 2,
+      TRUE ~ NA_real_),
+    Seq_48U=dplyr::case_when(
+      Infinium_Design==1 ~ stringr::str_sub(AlleleA_ProbeSeq, idx1,len1),
+      Infinium_Design==2 ~ stringr::str_sub(AlleleA_ProbeSeq, idx2,len2),
+      TRUE ~ NA_character_
+    ) %>% 
+      stringr::str_to_upper() %>% 
+      stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
+    Mat_48U=stringr::str_sub(AlleleA_ProbeSeq,2)
+  )
+
+# Summary Count::
+prb_seq_tib %>% 
+  dplyr::add_count(Seq_ID, name="Seq_ID_Count") %>% 
+  # dplyr::filter(Seq_ID_Count!=1) %>% 
+  dplyr::group_by(Genome_Build,Probe_Type,Infinium_Design,Seq_ID_Count) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% print()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             HM450 Format:: CpH
+#                             Load Data:: MUS-CpHs
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-#
-# MUS:: CpH
-#
 probe_type <- "ch"
 genome_ver <- "GRCm38"
 build_dir  <- file.path(opt$outDir, probe_type, genome_ver)
@@ -270,23 +336,25 @@ mus_cph_bed_tsv <- '/Users/bretbarnes/Documents/data/CustomContent/LifeEpigentic
 
 mus_cph_bed_tib <- readr::read_tsv(
   mus_cph_bed_tsv, 
-  col_names=c("Chromosome","Coordinate","Pos_End","Direction","Full_ID","Inf_Type")) %>% 
+  col_names=c("Chromosome","Coordinate","Pos_End","Direction","Full_ID")) %>% 
   dplyr::mutate(Seq_ID=stringr::str_remove(Full_ID, '_.*$')) %>% 
   dplyr::select(Seq_ID,Chromosome,Coordinate)
 
-mus_cph_des_tib <- suppressMessages(suppressWarnings( readr::read_tsv(mus_cph_des_tsv) )) %>%
-  dplyr::mutate(Seq_ID=stringr::str_replace_all(Seq_ID, regex("\\W+"), ""),
-                Source=2) %>% 
-  dplyr::select(Seq_ID,Sequence,Source,Chromosome,Coordinate) %>% 
-  dplyr::rename(IUPAC_Sequence=Sequence) %>%
-  dplyr::distinct()
-
-mus_cph_pre_tib <- suppressMessages(suppressWarnings( readr::read_csv(mus_cph_pre_csv) )) %>%
+mus_cph_pre_tib <- 
+  suppressMessages(suppressWarnings( readr::read_csv(mus_cph_pre_csv) )) %>%
   dplyr::mutate(Seq_ID=stringr::str_replace_all(Seq_ID, regex("\\W+"), ""),
                 Source=1) %>% 
   dplyr::select(Seq_ID,IUPAC_Forward_Sequence,Source) %>% 
   dplyr::rename(IUPAC_Sequence=IUPAC_Forward_Sequence) %>%
   dplyr::inner_join(mus_cph_bed_tib, by="Seq_ID") %>%
+  dplyr::distinct()
+
+mus_cph_des_tib <- 
+  suppressMessages(suppressWarnings( readr::read_tsv(mus_cph_des_tsv) )) %>%
+  dplyr::mutate(Seq_ID=stringr::str_replace_all(Seq_ID, regex("\\W+"), ""),
+                Source=2) %>% 
+  dplyr::select(Seq_ID,Sequence,Source,Chromosome,Coordinate) %>% 
+  dplyr::rename(IUPAC_Sequence=Sequence) %>%
   dplyr::distinct()
 
 mus_cph_tib <- dplyr::bind_rows(mus_cph_des_tib, mus_cph_pre_tib) %>% 
@@ -299,19 +367,28 @@ mus_cph_tib <- dplyr::bind_rows(mus_cph_des_tib, mus_cph_pre_tib) %>%
                 CpG_Island="FALSE",
                 Chromosome=stringr::str_remove(Chromosome,'^chr'),
                 Probe_Type=probe_type) %>%
-  tidyr::unite(Seq_ID, Seq_ID,DiNuc, sep='_', remove=FALSE) %>%
   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
-                dplyr::everything())
+                DiNuc,Probe_Type,IUPAC_Sequence)
 
-mus_cph_des_dat <- improbe_design_all(
-  tib=mus_cph_tib, ptype=probe_type, outDir=build_dir, 
-  gen=genome_ver, image=image_str, shell=image_ssh, parse_din=TRUE,
-  verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
-
+# mus_cph_des_dat <- improbe_design_all(
+#   tib=mus_cph_tib, ptype=probe_type, outDir=build_dir, 
+#   gen=genome_ver, image=image_str, shell=image_ssh, parse_din=TRUE,
+#   verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
 
 #
-# HSA:: CpH
+# Re-joing::
 #
+# prb_seq_tib %>% dplyr::inner_join(
+#   dplyr::mutate(mus_cph_des_dat$iup, Mat_48U=stringr::str_sub(PRB2_D_MAT,2)),
+#   by=c("Seq_ID","Mat_48U","Probe_Type")) %>% 
+#   dplyr::group_by(Probe_Type,Strand_SR,Strand_CO,Infinium_Design) %>% 
+#   dplyr::summarise(Count=n(), .groups="drop")
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Load Data:: HSA-CpHs
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 probe_type <- "ch"
 genome_ver <- "GRCh37"
 build_dir  <- file.path(opt$outDir, probe_type, genome_ver)
@@ -325,28 +402,33 @@ hsa_cph_tib <- suppressMessages(suppressWarnings( readr::read_csv(hsa_cph_csv) )
   dplyr::inner_join(
     dplyr::select(ses_hsa_cph_tib, Seq_ID,Chromosome,Coordinate),
     by="Seq_ID"
-  ) %>% 
+  ) %>%
   dplyr::mutate(Genome_Build=genome_ver,
                 CpG_Island="FALSE",
                 Probe_Type=probe_type) %>%
-  tidyr::unite(Seq_ID, Seq_ID,DiNuc, sep='_', remove=FALSE) %>%
   replaceDesignSeqCG(seq="Sequence", add="IUPAC_Sequence", nuc="DiNuc",
                      verbose=opt$verbose, vt=1,tc=1,tt=pTracker) %>%
   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
-                dplyr::everything())
+                DiNuc,Probe_Type,IUPAC_Sequence)
 
-hsa_cph_des_dat <- improbe_design_all(
-  tib=hsa_cph_tib, ptype=probe_type, outDir=build_dir, 
-  gen=genome_ver, image=image_str, shell=image_ssh, parse_din=TRUE,
-  verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             HM450 Format:: SNP
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+# hsa_cph_des_dat <- improbe_design_all(
+#   tib=hsa_cph_tib, ptype=probe_type, outDir=build_dir, 
+#   gen=genome_ver, image=image_str, shell=image_ssh, parse_din=TRUE,
+#   verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
 
 #
-# MUS:: SNP
+# Re-joing::
 #
+# prb_seq_tib %>% dplyr::inner_join(
+#   dplyr::mutate(hsa_cph_des_dat$iup, Mat_48U=stringr::str_sub(PRB2_D_MAT,2)),
+#   by=c("Seq_ID","Mat_48U","Probe_Type")) %>% 
+#   dplyr::group_by(Probe_Type,Strand_SR,Strand_CO,Infinium_Design) %>% 
+#   dplyr::summarise(Count=n(), .groups="drop")
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Load Data:: MUS-SNPs
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 probe_type <- "rs"
 genome_ver <- "GRCm38"
 build_dir  <- file.path(opt$outDir, probe_type, genome_ver)
@@ -354,14 +436,33 @@ if (!dir.exists(build_dir)) dir.create(build_dir, recursive=TRUE)
 
 # Mouse Data::
 mus_snp_bed_tsv <- '/Users/bretbarnes/Documents/data/CustomContent/LifeEpigentics/Redesign/data/SNP/selected_SNP_probes.bed'
-mus_snp_pre_tsv <- '/Users/bretbarnes/Documents/data/improbe/cph-snp-designs/LEGX_SpikeIn_Reorder-SNP-Only.designs.csv.gz'
+mus_snp_pre_csv <- '/Users/bretbarnes/Documents/data/improbe/cph-snp-designs/LEGX_SpikeIn_Reorder-SNP-Only.designs.csv.gz'
 
+mus_snp_bed_tib <- suppressMessages(suppressWarnings( readr::read_tsv(
+  mus_snp_bed_tsv,col_names=c("Chromosome","Coordinate","Pos_End","Direction","Full_ID") ) ) ) %>% 
+  dplyr::mutate(Seq_ID=stringr::str_remove(Full_ID, '_.*$')) %>% 
+  dplyr::mutate(Genome_Build=genome_ver, 
+                Probe_Type=probe_type,
+                CpG_Island="FALSE") %>% 
+  dplyr::select(Seq_ID,Genome_Build,Chromosome,Coordinate,CpG_Island,
+                dplyr::everything())
 
+mus_snp_pre_tib <- 
+  suppressMessages(suppressWarnings( readr::read_csv(mus_snp_pre_csv) )) %>%
+  dplyr::select(Seq_ID,IUPAC_Forward_Sequence) %>%
+  dplyr::rename(IUPAC_Sequence=IUPAC_Forward_Sequence) %>%
+  addDesignSeqCG(seq="IUPAC_Sequence",add="Sequence", din="DiNuc",
+                 verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
 
+mus_snp_tib <- mus_snp_pre_tib %>% 
+  dplyr::inner_join(mus_snp_bed_tib, by="Seq_ID") %>% 
+  dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
+                DiNuc,Probe_Type,IUPAC_Sequence)
 
-#
-# HSA:: SNPs
-#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Load Data:: HSA-SNPs
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 probe_type <- "rs"
 genome_ver <- "GRCh37"
 build_dir  <- file.path(opt$outDir, probe_type, genome_ver)
@@ -374,192 +475,165 @@ hsa_snp_tib <- suppressMessages(suppressWarnings( readr::read_tsv(hsa_snp_tsv) )
   dplyr::inner_join(
     dplyr::select(ses_hsa_snp_tib, Seq_ID,Chromosome,Coordinate),
     by="Seq_ID"
-  ) %>% 
+  ) %>%
   dplyr::mutate(Genome_Build=genome_ver,
                 CpG_Island="FALSE",
                 Probe_Type=probe_type) %>%
-  tidyr::unite(Seq_ID, Seq_ID,DiNuc, sep='_', remove=FALSE) %>% 
   replaceDesignSeqCG(seq="Sequence", add="IUPAC_Sequence", nuc="DiNuc",
                      verbose=opt$verbose, vt=1,tc=1,tt=pTracker) %>%
   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
-                dplyr::everything())
+                DiNuc,Probe_Type,IUPAC_Sequence)
 
-hsa_snp_des_dat <- improbe_design_all(
-  tib=hsa_snp_tib, ptype=probe_type, outDir=build_dir, 
-  gen=genome_ver, image=image_str, shell=image_ssh, parse_din=TRUE,
-  verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
+if (FALSE) {
+  # Match real probes to IUPAC designs:: SNP
+  # mat1_snp_tib <- ses_hsa_snp_tib %>% 
+  mat1_snp_tib <- prb_seq_tib %>% 
+    dplyr::inner_join(hsa_snp_des_dat$iup, by=c("Seq_ID","Probe_Type","AlleleA_ProbeSeq"="PRB1_M_MAT")) %>%
+    dplyr::distinct(Seq_ID, .keep_all=TRUE) %>%
+    dplyr::mutate(Infinium_Design=1)
+  
+  # mat2_snp_tib <- ses_hsa_snp_tib %>% 
+  mat2_snp_tib <- prb_seq_tib %>% 
+    dplyr::inner_join(hsa_snp_des_dat$iup, by=c("Seq_ID","Probe_Type","AlleleA_ProbeSeq"="PRB2_D_MAT")) %>%
+    dplyr::distinct(Seq_ID, .keep_all=TRUE) %>%
+    dplyr::mutate(Infinium_Design=2)
+  
+  mat_snp_tib <- dplyr::bind_rows(mat1_snp_tib,mat2_snp_tib)
+  
+  mat_snp_tib %>%
+    dplyr::group_by(Probe_Type,Strand_SR,Strand_CO,Infinium_Design) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Join all Unique All Probes Designs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+all_des_tib <- dplyr::bind_rows(
+  dplyr::distinct(hsa_cph_tib),
+  dplyr::distinct(hsa_snp_tib),
+  dplyr::distinct(mus_cph_tib),
+  dplyr::distinct(mus_snp_tib) )
+  
+all_des_tib %>% base::nrow() %>% print()
+all_des_tib %>% dplyr::distinct(Seq_ID) %>% base::nrow() %>% print()
+all_des_tib %>% dplyr::distinct(Sequence) %>% base::nrow() %>% print()
+all_des_tib %>% dplyr::distinct(Genome_Build) %>% base::nrow() %>% print()
+all_des_tib %>% dplyr::distinct(Genome_Build,Chromosome,Coordinate) %>% base::nrow() %>% print()
+all_des_tib %>% dplyr::distinct(IUPAC_Sequence) %>% base::nrow() %>% print()
+
+all_des_tib %>% dplyr::add_count(Seq_ID, name="SeqID_Cnt") %>% dplyr::filter(SeqID_Cnt != 1)
+all_des_tib %>% dplyr::add_count(Genome_Build,Chromosome,Coordinate, name="SeqID_Cnt") %>% dplyr::filter(SeqID_Cnt != 1)
+
+all_des_tib %>% dplyr::group_by(Probe_Type,Genome_Build) %>% dplyr::summarise(Count=n(), .grops="drop")
+
+#
+# Split Designs by type and genome build::
+#   - build Seq_48U
+#   - remove/classify junk designs
+#
+
+ptype_fwd_dat <- all_des_tib %>% split(.$Probe_Type)
+
+ptype_des_dat <- NULL
+for (ptype in names(ptype_fwd_dat)) {
+  cur_out_dir <- file.path(opt$outDir, ptype)
+  cur_des_tib <- ptype_fwd_dat[[ptype]]
+  cur_des_dat <- improbe_design_all(
+    tib=cur_des_tib, ptype=ptype,
+    outDir=cur_out_dir, gen="all",
+    image=image_str, shell=image_ssh, 
+    parse_din=FALSE,
+    # parse_din=TRUE,
+    verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
+  
+  ptype_des_dat[[ptype]] = cur_des_dat
+}
+
+prb_seq_tib %>% dplyr::inner_join(
+  ptype_des_dat$rs$imp, 
+  by=c("Mat_48U"="Seq_48U_1") )
+
+prb_seq_tib %>% dplyr::inner_join(
+  ptype_des_dat$rs$imp, 
+  by=c("Mat_48U"="Seq_48U_2") )
+
+prb_seq_tib %>% dplyr::inner_join(
+  ptype_des_dat$rs$imp, 
+  by=c("Seq_48U"="Seq_48U_1") )
+
+prb_seq_tib %>% dplyr::inner_join(
+  ptype_des_dat$rs$imp, 
+  by=c("Seq_48U"="Seq_48U_2") )
+
+
+
+
+prb_seq_tib %>% dplyr::inner_join(
+  ptype_des_dat$ch$imp, 
+  by=c("Mat_48U"="Seq_48U_1") )
+
+prb_seq_tib %>% dplyr::inner_join(
+  ptype_des_dat$ch$imp, 
+  by=c("Mat_48U"="Seq_48U_2") )
+
+prb_seq_tib %>% dplyr::inner_join(
+  ptype_des_dat$ch$imp, 
+  by=c("Seq_48U"="Seq_48U_1") )
+
+prb_seq_tib %>% dplyr::inner_join(
+  ptype_des_dat$ch$imp, 
+  by=c("Seq_48U"="Seq_48U_2") )
+
+
+
+# mus_cph_des_dat <- improbe_design_all(
+#   tib=all_des_tib, ptype=probe_type, outDir=build_dir,
+#   gen=genome_ver, image=image_str, shell=image_ssh, parse_din=TRUE,
+#   verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
+
+
+# all_des_tib %>% 
+#   dplyr::inner_join(prb_seq_tib, by=c("Seq_ID","Genome_Build","Probe_Type") ) %>%
+#   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
+#                 DiNuc,Probe_Type,Infinium_Design,
+#                 IUPAC_Sequence,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+#                 Seq_48U,Mat_48U,dplyr::everything())
+
+# prb_seq_tib %>% dplyr::inner_join(
+#   dplyr::mutate(hsa_cph_des_dat$iup, Mat_48U=stringr::str_sub(PRB2_D_MAT,2)),
+#   by=c("Seq_ID","Mat_48U","Probe_Type")) %>% 
+#   dplyr::group_by(Probe_Type,Strand_SR,Strand_CO,Infinium_Design) %>% 
+#   dplyr::summarise(Count=n(), .groups="drop")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             improbe design:: All
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-#
-# From improbe input and ordered probes::
-#   - IUPAC designs
-#   - improbe designs
-#   - Intersect designs
-#
-
 if (FALSE) {
+  hsa_cph_tib %>% dplyr::inner_join(prb_seq_tib, by=c("Seq_ID","Genome_Build","Probe_Type") ) %>%
+    dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
+                  DiNuc,Probe_Type,Infinium_Design,
+                  IUPAC_Sequence,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Seq_48U,Mat_48U,dplyr::everything())
   
-  if (FALSE) {
-    #
-    # Add Fields to real probes:: MUS:: CpH
-    #
-    sidx=2 
-    plen=50
-    
-    idx1 <- sidx
-    len1 <- plen - 1
-    idx2 <- sidx + 1
-    len2 <- plen
-    
-    ses_mus_cph_tib <- ses_mus_cph_tib %>% 
-      dplyr::rename(AlleleA_ProbeSeq=AlleleA_Probe_Sequence,
-                    AlleleB_ProbeSeq=AlleleB_Probe_Sequence) %>%
-      dplyr::mutate(
-        AlleleA_ProbeSeq=dplyr::case_when(
-          stringr::str_length(AlleleA_ProbeSeq)==0 ~ NA_character_,
-          TRUE ~ AlleleA_ProbeSeq
-        ),
-        AlleleB_ProbeSeq=dplyr::case_when(
-          stringr::str_length(AlleleB_ProbeSeq)==0 ~ NA_character_,
-          TRUE ~ AlleleB_ProbeSeq
-        ),
-        Infinium_Design=dplyr::case_when(
-          !is.na(AlleleA_ProbeSeq) & !is.na(AlleleB_ProbeSeq) ~ 1,
-          !is.na(AlleleA_ProbeSeq) &  is.na(AlleleB_ProbeSeq) ~ 2,
-          TRUE ~ NA_real_),
-        Seq_48U=dplyr::case_when(
-          Infinium_Design==1 ~ stringr::str_sub(AlleleA_ProbeSeq, idx1,len1),
-          Infinium_Design==2 ~ stringr::str_sub(AlleleA_ProbeSeq, idx2,len2),
-          TRUE ~ NA_character_
-        ) %>% 
-          stringr::str_to_upper() %>% 
-          stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
-        Mat_48U=stringr::str_sub(AlleleA_ProbeSeq,2)
-      )
-    
-    # Match real probes to IUPAC designs:: CpH
-    mat_mus_cph_tib <- ses_mus_cph_tib %>% 
-      dplyr::inner_join(dplyr::mutate(mus_cph_des_dat$iup, 
-                                      Mat_48U=stringr::str_sub(PRB2_D_MAT,2)),
-                        by=c("Seq_ID","Mat_48U")) %>% 
-      dplyr::distinct(Seq_ID, .keep_all=TRUE)
-    
-    # Join improbe and IUPAC designs:: CpH
-    mus_cph_join_tib <- dplyr::inner_join(
-      mus_cph_des_dat$imp, mus_cph_des_dat$iup,
-      by=c("Seq_ID","Strand_SR","Strand_CO"),
-      suffix=c("_IMP", "_IUP"))
-  }
-
+  hsa_snp_tib %>% dplyr::inner_join(prb_seq_tib, by=c("Seq_ID","Genome_Build","Probe_Type") ) %>%
+    dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
+                  DiNuc,Probe_Type,Infinium_Design,
+                  IUPAC_Sequence,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Seq_48U,Mat_48U,dplyr::everything())
   
+  mus_cph_tib %>% dplyr::inner_join(prb_seq_tib, by=c("Seq_ID","Genome_Build","Probe_Type") ) %>%
+    dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
+                  DiNuc,Probe_Type,Infinium_Design,
+                  IUPAC_Sequence,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Seq_48U,Mat_48U,dplyr::everything())
   
-  
-  #
-  # Add Fields to real probes:: HSA:: CpH
-  #
-  sidx=2 
-  plen=50
-  
-  idx1 <- sidx
-  len1 <- plen - 1
-  idx2 <- sidx + 1
-  len2 <- plen
-  
-  ses_hsa_cph_tib <- ses_hsa_cph_tib %>% 
-    dplyr::mutate(
-      AlleleA_ProbeSeq=dplyr::case_when(
-        stringr::str_length(AlleleA_ProbeSeq)==0 ~ NA_character_,
-        TRUE ~ AlleleA_ProbeSeq
-      ),
-      AlleleB_ProbeSeq=dplyr::case_when(
-        stringr::str_length(AlleleB_ProbeSeq)==0 ~ NA_character_,
-        TRUE ~ AlleleB_ProbeSeq
-      ),
-      Infinium_Design=dplyr::case_when(
-        !is.na(AlleleA_ProbeSeq) & !is.na(AlleleB_ProbeSeq) ~ 1,
-        !is.na(AlleleA_ProbeSeq) &  is.na(AlleleB_ProbeSeq) ~ 2,
-        TRUE ~ NA_real_),
-      Seq_48U=dplyr::case_when(
-        Infinium_Design==1 ~ stringr::str_sub(AlleleA_ProbeSeq, idx1,len1),
-        Infinium_Design==2 ~ stringr::str_sub(AlleleA_ProbeSeq, idx2,len2),
-        TRUE ~ NA_character_
-      ) %>% 
-        stringr::str_to_upper() %>% 
-        stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
-      Mat_48U=stringr::str_sub(AlleleA_ProbeSeq,2)
-    )
-  
-  # Match real probes to IUPAC designs:: CpH
-  mat_hsa_cph_tib <- ses_hsa_cph_tib %>% 
-    dplyr::inner_join(dplyr::mutate(hsa_cph_des_dat$iup, 
-                                    Mat_48U=stringr::str_sub(PRB2_D_MAT,2)),
-                      by=c("Seq_ID","Mat_48U")) %>% 
-    dplyr::distinct(Seq_ID, .keep_all=TRUE)
-  
-  # Join improbe and IUPAC designs:: CpH
-  hsa_cph_join_tib <- dplyr::inner_join(
-    hsa_cph_des_dat$imp,hsa_cph_des_dat$iup,
-    by=c("Seq_ID","Strand_SR","Strand_CO"),
-    suffix=c("_IMP", "_IUP"))  
-
-  #
-  # Add Fields to real probes:: HSA:: SNP
-  #
-  sidx=2 
-  plen=50
-  
-  idx1 <- sidx
-  len1 <- plen - 1
-  idx2 <- sidx + 1
-  len2 <- plen
-  
-  ses_hsa_snp_tib <- ses_hsa_snp_tib %>% 
-    dplyr::mutate(
-      AlleleA_ProbeSeq=dplyr::case_when(
-        stringr::str_length(AlleleA_ProbeSeq)==0 ~ NA_character_,
-        TRUE ~ AlleleA_ProbeSeq
-      ),
-      AlleleB_ProbeSeq=dplyr::case_when(
-        stringr::str_length(AlleleB_ProbeSeq)==0 ~ NA_character_,
-        TRUE ~ AlleleB_ProbeSeq
-      ),
-      Infinium_Design=dplyr::case_when(
-        !is.na(AlleleA_ProbeSeq) & !is.na(AlleleB_ProbeSeq) ~ 1,
-        !is.na(AlleleA_ProbeSeq) &  is.na(AlleleB_ProbeSeq) ~ 2,
-        TRUE ~ NA_real_),
-      Seq_48U=dplyr::case_when(
-        Infinium_Design==1 ~ stringr::str_sub(AlleleA_ProbeSeq, idx1,len1),
-        Infinium_Design==2 ~ stringr::str_sub(AlleleA_ProbeSeq, idx2,len2),
-        TRUE ~ NA_character_
-      ) %>% 
-        stringr::str_to_upper() %>% 
-        stringr::str_replace_all('R', 'A') %>% stringr::str_replace_all('Y', 'T'),
-    )
-  
-  # Match real probes to IUPAC designs:: SNP
-  mat1_snp_tib <- ses_hsa_snp_tib %>% 
-    dplyr::inner_join(hsa_snp_des_dat$iup, by=c("Seq_ID","AlleleA_ProbeSeq"="PRB2_D_MAT")) %>%
-    dplyr::distinct(Seq_ID, .keep_all=TRUE)
-  
-  mat2_snp_tib <- ses_hsa_snp_tib %>% 
-    dplyr::inner_join(hsa_snp_des_dat$iup, by=c("Seq_ID","AlleleA_ProbeSeq"="PRB1_M_MAT")) %>%
-    dplyr::distinct(Seq_ID, .keep_all=TRUE)
-  
-  mat_snp_tib <- dplyr::bind_rows(mat1_snp_tib,mat2_snp_tib)
-  mis_snp_tib <- ses_hsa_snp_tib %>% dplyr::anti_join(mat_snp_tib,  by="Seq_ID")
-  
-  mss_snp_tib <- dplyr::inner_join(mis_snp_tib, hsa_snp_des_dat$iup, by="Seq_ID") %>% 
-    dplyr::select(Seq_ID, AlleleA_ProbeSeq,AlleleB_ProbeSeq,PRB1_U_MAT)
-  
-  # Join improbe and IUPAC designs:: CpH
-  snp_join_tib <- dplyr::inner_join(
-    hsa_snp_des_dat$imp,hsa_snp_des_dat$iup,
-    by=c("Seq_ID","Strand_SR","Strand_CO"),
-    suffix=c("_IMP", "_IUP"))
-  
+  mus_snp_tib %>% dplyr::inner_join(prb_seq_tib, by=c("Seq_ID","Genome_Build","Probe_Type") ) %>%
+    dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
+                  DiNuc,Probe_Type,Infinium_Design,
+                  IUPAC_Sequence,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                  Seq_48U,Mat_48U,dplyr::everything())
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
