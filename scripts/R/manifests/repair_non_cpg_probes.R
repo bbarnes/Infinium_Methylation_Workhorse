@@ -661,19 +661,38 @@ prb_seq_tib %>%
   dplyr::summarise(Miss_Count=n(), .groups="drop")
 
 
+prb_seq_tib %>% 
+  dplyr::anti_join(mat_prb_tib, by="AlleleA_ProbeSeq") %>% 
+  dplyr::group_by(Genome_Build,Probe_Type,Infinium_Design) %>% 
+  dplyr::summarise(Miss_Count=n(), .groups="drop")
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                            Write Output:: seq48U
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 
+out_name <- 'NonCpG-13122020'
 
+seq48U_dir <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un'
+seq48U_tsv <- file.path(seq48U_dir,paste(out_name,'seq48U.sorted.tsv', sep='.'))
+seq48U_tib <- mat_prb_tib %>% 
+  dplyr::select(Seq_ID, Strand_TB, Strand_CO, Seq_48U) %>% 
+  dplyr::arrange(Seq_48U)
 
+readr::write_tsv(seq48U_tib, seq48U_tsv, col_names=FALSE)
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                            Write Output:: cgnTOP
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+cgnTop_dir <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop'
+cgnTop_tsv <- file.path(cgnTop_dir,paste(out_name,'cgnTop.sorted.tsv', sep='.'))
+cgnTop_tib <- mat_prb_tib %>% 
+  dplyr::select(Seq_ID, IUPAC_Sequence) %>% 
+  dplyr::distinct() %>% 
+  dplyr::arrange(Seq_ID)
 
-
-
-
-
-
-
+readr::write_tsv(cgnTop_tib, cgnTop_tsv, col_names=FALSE)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          OLD CODE TO BE REMOVED::
