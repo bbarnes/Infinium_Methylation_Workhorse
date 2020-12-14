@@ -572,15 +572,12 @@ all_des_tib %>%
   dplyr::group_by(Probe_Type,Genome_Build) %>% 
   dplyr::summarise(Count=n(), .groups="drop")
 
-#
-# Split Designs by type and genome build::
-#   - build Seq_48U
-#   - remove/classify junk designs
-#
-
-ptype_fwd_dat <- all_des_tib %>% split(.$Probe_Type)
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             improbe design:: All
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 ptype_des_tib <- NULL
+ptype_fwd_dat <- all_des_tib %>% split(.$Probe_Type)
 for (ptype in names(ptype_fwd_dat)) {
   cur_out_dir <- file.path(opt$outDir, ptype)
   cur_des_tib <- ptype_fwd_dat[[ptype]]
@@ -638,14 +635,30 @@ mat_prb_tib <- dplyr::bind_rows(
     ptype_des_tib, 
     by=c("Seq_ID", "Seq_48U"="Seq_48U_2_IMP"),
     suffix=c("_MAN","_DES"))
-) %>%
-  dplyr::distinct(Seq_ID_Uniq, .keep_all=TRUE)
-  
+) %>% 
+  dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq, .keep_all=TRUE)
 
 mat_prb_sum <- mat_prb_tib %>% 
   dplyr::group_by(Genome_Build_MAN,Probe_Type_MAN,Infinium_Design) %>% 
   dplyr::summarise(Count=n(), .groups="drop")
 
+# True Number of Loci::
+#
+prb_seq_tib %>% 
+  dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq) %>% 
+  base::nrow()
+
+prb_seq_tib %>% 
+  dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq, .keep_all=TRUE) %>%
+  base::nrow()
+
+#
+# Missing Probes::
+#
+prb_seq_tib %>% 
+  dplyr::anti_join(mat_prb_tib, by="Seq_ID") %>% 
+  dplyr::group_by(Genome_Build,Probe_Type,Infinium_Design) %>% 
+  dplyr::summarise(Miss_Count=n(), .groups="drop")
 
 
 
@@ -661,68 +674,54 @@ mat_prb_sum <- mat_prb_tib %>%
 
 
 
-
-prb_seq_tib %>% dplyr::inner_join(
-  ptype_des_dat$rs$imp, 
-  by=c("Mat_48U"="Seq_48U_1") )
-
-prb_seq_tib %>% dplyr::inner_join(
-  ptype_des_dat$rs$imp, 
-  by=c("Mat_48U"="Seq_48U_2") )
-
-prb_seq_tib %>% dplyr::inner_join(
-  ptype_des_dat$rs$imp, 
-  by=c("Seq_48U"="Seq_48U_1") )
-
-prb_seq_tib %>% dplyr::inner_join(
-  ptype_des_dat$rs$imp, 
-  by=c("Seq_48U"="Seq_48U_2") )
-
-
-
-
-prb_seq_tib %>% dplyr::inner_join(
-  ptype_des_dat$ch$imp, 
-  by=c("Mat_48U"="Seq_48U_1") )
-
-prb_seq_tib %>% dplyr::inner_join(
-  ptype_des_dat$ch$imp, 
-  by=c("Mat_48U"="Seq_48U_2") )
-
-prb_seq_tib %>% dplyr::inner_join(
-  ptype_des_dat$ch$imp, 
-  by=c("Seq_48U"="Seq_48U_1") )
-
-prb_seq_tib %>% dplyr::inner_join(
-  ptype_des_dat$ch$imp, 
-  by=c("Seq_48U"="Seq_48U_2") )
-
-
-
-# mus_cph_des_dat <- improbe_design_all(
-#   tib=all_des_tib, ptype=probe_type, outDir=build_dir,
-#   gen=genome_ver, image=image_str, shell=image_ssh, parse_din=TRUE,
-#   verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
-
-
-# all_des_tib %>% 
-#   dplyr::inner_join(prb_seq_tib, by=c("Seq_ID","Genome_Build","Probe_Type") ) %>%
-#   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
-#                 DiNuc,Probe_Type,Infinium_Design,
-#                 IUPAC_Sequence,AlleleA_ProbeSeq,AlleleB_ProbeSeq,
-#                 Seq_48U,Mat_48U,dplyr::everything())
-
-# prb_seq_tib %>% dplyr::inner_join(
-#   dplyr::mutate(hsa_cph_des_dat$iup, Mat_48U=stringr::str_sub(PRB2_D_MAT,2)),
-#   by=c("Seq_ID","Mat_48U","Probe_Type")) %>% 
-#   dplyr::group_by(Probe_Type,Strand_SR,Strand_CO,Infinium_Design) %>% 
-#   dplyr::summarise(Count=n(), .groups="drop")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             improbe design:: All
+#                          OLD CODE TO BE REMOVED::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (FALSE) {
+  #
+  # OLD Matching Check::
+  #
+  prb_seq_tib %>% dplyr::inner_join(
+    ptype_des_dat$rs$imp, 
+    by=c("Mat_48U"="Seq_48U_1") )
+  
+  prb_seq_tib %>% dplyr::inner_join(
+    ptype_des_dat$rs$imp, 
+    by=c("Mat_48U"="Seq_48U_2") )
+  
+  prb_seq_tib %>% dplyr::inner_join(
+    ptype_des_dat$rs$imp, 
+    by=c("Seq_48U"="Seq_48U_1") )
+  
+  prb_seq_tib %>% dplyr::inner_join(
+    ptype_des_dat$rs$imp, 
+    by=c("Seq_48U"="Seq_48U_2") )
+  
+  
+  
+  
+  prb_seq_tib %>% dplyr::inner_join(
+    ptype_des_dat$ch$imp, 
+    by=c("Mat_48U"="Seq_48U_1") )
+  
+  prb_seq_tib %>% dplyr::inner_join(
+    ptype_des_dat$ch$imp, 
+    by=c("Mat_48U"="Seq_48U_2") )
+  
+  prb_seq_tib %>% dplyr::inner_join(
+    ptype_des_dat$ch$imp, 
+    by=c("Seq_48U"="Seq_48U_1") )
+  
+  prb_seq_tib %>% dplyr::inner_join(
+    ptype_des_dat$ch$imp, 
+    by=c("Seq_48U"="Seq_48U_2") )
+  
+  
+  #
+  # Old Joining Check::
+  #
   hsa_cph_tib %>% dplyr::inner_join(prb_seq_tib, by=c("Seq_ID","Genome_Build","Probe_Type") ) %>%
     dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
                   DiNuc,Probe_Type,Infinium_Design,
