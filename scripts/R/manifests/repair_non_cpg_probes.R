@@ -334,10 +334,13 @@ mus_cph_des_tsv <- '/Users/bretbarnes/Documents/data/CustomContent/LifeEpigentic
 mus_cph_pre_csv <- '/Users/bretbarnes/Documents/data/improbe/cph-snp-designs/LEGX_SpikeIn_Reorder-CpH-Only.designs.csv.gz'
 mus_cph_bed_tsv <- '/Users/bretbarnes/Documents/data/CustomContent/LifeEpigentics/Redesign/data/CpH/selected_CpH_probes.bed'
 
-mus_cph_bed_tib <- readr::read_tsv(
-  mus_cph_bed_tsv, 
-  col_names=c("Chromosome","Coordinate","Pos_End","Direction","Full_ID")) %>% 
-  dplyr::mutate(Seq_ID=stringr::str_remove(Full_ID, '_.*$')) %>% 
+mus_cph_bed_tib <- 
+  suppressMessages(suppressWarnings(
+    readr::read_tsv(mus_cph_bed_tsv, 
+                    col_names=c("Chromosome","Coordinate","Pos_End","Direction","Full_ID")) )) %>% 
+  dplyr::mutate(Seq_ID=stringr::str_remove(Full_ID, '_.*$'),
+                Chromosome=stringr::str_remove(Chromosome,'^chr'),
+                Coordinate=as.integer(Coordinate) ) %>% 
   dplyr::select(Seq_ID,Chromosome,Coordinate)
 
 mus_cph_pre_tib <- 
@@ -346,17 +349,25 @@ mus_cph_pre_tib <-
                 Source=1) %>% 
   dplyr::select(Seq_ID,IUPAC_Forward_Sequence,Source) %>% 
   dplyr::rename(IUPAC_Sequence=IUPAC_Forward_Sequence) %>%
-  dplyr::inner_join(mus_cph_bed_tib, by="Seq_ID") %>%
+  dplyr::inner_join(mus_cph_bed_tib, by="Seq_ID") %>% 
+  dplyr::arrange(Chromosome,Coordinate) %>% 
+  dplyr::distinct(Seq_ID,IUPAC_Sequence, .keep_all=TRUE) %>%
   dplyr::distinct()
 
 mus_cph_des_tib <- 
   suppressMessages(suppressWarnings( readr::read_tsv(mus_cph_des_tsv) )) %>%
   dplyr::mutate(Seq_ID=stringr::str_replace_all(Seq_ID, regex("\\W+"), ""),
+                Chromosome=stringr::str_remove(Chromosome,'^chr'),
+                Coordinate=as.integer(Coordinate),
                 Source=2) %>% 
   dplyr::select(Seq_ID,Sequence,Source,Chromosome,Coordinate) %>% 
   dplyr::rename(IUPAC_Sequence=Sequence) %>%
   dplyr::distinct()
 
+#
+# Going to remove mus_cph_pre_tib for now...
+#
+mus_cph_pre_tib <- NULL
 mus_cph_tib <- dplyr::bind_rows(mus_cph_des_tib, mus_cph_pre_tib) %>% 
   dplyr::arrange(Seq_ID,Source) %>%
   dplyr::add_count(Seq_ID, name="ID_Rep_Count") %>% 
@@ -366,10 +377,17 @@ mus_cph_tib <- dplyr::bind_rows(mus_cph_des_tib, mus_cph_pre_tib) %>%
   dplyr::mutate(Genome_Build=genome_ver,
                 CpG_Island="FALSE",
                 Chromosome=stringr::str_remove(Chromosome,'^chr'),
+                Coordinate=as.integer(Coordinate),
                 Probe_Type=probe_type) %>%
   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
-                DiNuc,Probe_Type,IUPAC_Sequence)
+                DiNuc,Probe_Type,IUPAC_Sequence) %>%
+  dplyr::distinct()
 
+# mus_cph_tib %>% 
+#   dplyr::arrange(Genome_Build,Chromosome,Coordinate) %>%
+#   dplyr::add_count(Genome_Build,Chromosome,Coordinate, name="G_Count") %>% 
+#   dplyr::filter(G_Count!=1) %>% head() %>% as.data.frame()
+# 
 # mus_cph_des_dat <- improbe_design_all(
 #   tib=mus_cph_tib, ptype=probe_type, outDir=build_dir, 
 #   gen=genome_ver, image=image_str, shell=image_ssh, parse_din=TRUE,
@@ -405,11 +423,13 @@ hsa_cph_tib <- suppressMessages(suppressWarnings( readr::read_csv(hsa_cph_csv) )
   ) %>%
   dplyr::mutate(Genome_Build=genome_ver,
                 CpG_Island="FALSE",
+                Coordinate=as.integer(Coordinate),
                 Probe_Type=probe_type) %>%
   replaceDesignSeqCG(seq="Sequence", add="IUPAC_Sequence", nuc="DiNuc",
                      verbose=opt$verbose, vt=1,tc=1,tt=pTracker) %>%
   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
-                DiNuc,Probe_Type,IUPAC_Sequence)
+                DiNuc,Probe_Type,IUPAC_Sequence) %>%
+  dplyr::distinct()
 
 # hsa_cph_des_dat <- improbe_design_all(
 #   tib=hsa_cph_tib, ptype=probe_type, outDir=build_dir, 
@@ -443,6 +463,8 @@ mus_snp_bed_tib <- suppressMessages(suppressWarnings( readr::read_tsv(
   dplyr::mutate(Seq_ID=stringr::str_remove(Full_ID, '_.*$')) %>% 
   dplyr::mutate(Genome_Build=genome_ver, 
                 Probe_Type=probe_type,
+                Chromosome=stringr::str_remove(Chromosome,'^chr'),
+                Coordinate=as.integer(Coordinate),
                 CpG_Island="FALSE") %>% 
   dplyr::select(Seq_ID,Genome_Build,Chromosome,Coordinate,CpG_Island,
                 dplyr::everything())
@@ -457,7 +479,8 @@ mus_snp_pre_tib <-
 mus_snp_tib <- mus_snp_pre_tib %>% 
   dplyr::inner_join(mus_snp_bed_tib, by="Seq_ID") %>% 
   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
-                DiNuc,Probe_Type,IUPAC_Sequence)
+                DiNuc,Probe_Type,IUPAC_Sequence) %>%
+  dplyr::distinct()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Load Data:: HSA-SNPs
@@ -478,11 +501,14 @@ hsa_snp_tib <- suppressMessages(suppressWarnings( readr::read_tsv(hsa_snp_tsv) )
   ) %>%
   dplyr::mutate(Genome_Build=genome_ver,
                 CpG_Island="FALSE",
+                Coordinate=as.integer(Coordinate),
                 Probe_Type=probe_type) %>%
   replaceDesignSeqCG(seq="Sequence", add="IUPAC_Sequence", nuc="DiNuc",
                      verbose=opt$verbose, vt=1,tc=1,tt=pTracker) %>%
   dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island,
-                DiNuc,Probe_Type,IUPAC_Sequence)
+                DiNuc,Probe_Type,IUPAC_Sequence) %>%
+  dplyr::distinct()
+
 
 if (FALSE) {
   # Match real probes to IUPAC designs:: SNP
@@ -509,6 +535,11 @@ if (FALSE) {
 #                     Join all Unique All Probes Designs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+hsa_cph_tib %>% head(n=3)
+hsa_snp_tib %>% head(n=3)
+mus_cph_tib %>% head(n=3)
+mus_snp_tib %>% head(n=3)
+
 all_des_tib <- dplyr::bind_rows(
   dplyr::distinct(hsa_cph_tib),
   dplyr::distinct(hsa_snp_tib),
@@ -522,10 +553,24 @@ all_des_tib %>% dplyr::distinct(Genome_Build) %>% base::nrow() %>% print()
 all_des_tib %>% dplyr::distinct(Genome_Build,Chromosome,Coordinate) %>% base::nrow() %>% print()
 all_des_tib %>% dplyr::distinct(IUPAC_Sequence) %>% base::nrow() %>% print()
 
-all_des_tib %>% dplyr::add_count(Seq_ID, name="SeqID_Cnt") %>% dplyr::filter(SeqID_Cnt != 1)
-all_des_tib %>% dplyr::add_count(Genome_Build,Chromosome,Coordinate, name="SeqID_Cnt") %>% dplyr::filter(SeqID_Cnt != 1)
+# This should now be zero::
+#
+all_des_tib %>% 
+  dplyr::arrange(Genome_Build,Chromosome,Coordinate) %>%
+  dplyr::add_count(Genome_Build,Chromosome,Coordinate, name="G_Count") %>% 
+  dplyr::filter(G_Count!=1) %>% 
+  dplyr::group_by(Genome_Build,Probe_Type) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>%
+  print()
 
-all_des_tib %>% dplyr::group_by(Probe_Type,Genome_Build) %>% dplyr::summarise(Count=n(), .grops="drop")
+# These should be zero::
+#
+# all_des_tib %>% dplyr::add_count(Seq_ID, name="SeqID_Cnt") %>% dplyr::filter(SeqID_Cnt != 1)
+# all_des_tib %>% dplyr::add_count(Genome_Build,Chromosome,Coordinate, name="SeqID_Cnt") %>% dplyr::filter(SeqID_Cnt != 1)
+
+all_des_tib %>% 
+  dplyr::group_by(Probe_Type,Genome_Build) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
 
 #
 # Split Designs by type and genome build::
@@ -535,7 +580,7 @@ all_des_tib %>% dplyr::group_by(Probe_Type,Genome_Build) %>% dplyr::summarise(Co
 
 ptype_fwd_dat <- all_des_tib %>% split(.$Probe_Type)
 
-ptype_des_dat <- NULL
+ptype_des_tib <- NULL
 for (ptype in names(ptype_fwd_dat)) {
   cur_out_dir <- file.path(opt$outDir, ptype)
   cur_des_tib <- ptype_fwd_dat[[ptype]]
@@ -547,8 +592,75 @@ for (ptype in names(ptype_fwd_dat)) {
     # parse_din=TRUE,
     verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
   
-  ptype_des_dat[[ptype]] = cur_des_dat
+  ptype_des_tib <- ptype_des_tib %>%
+    dplyr::bind_rows(cur_des_dat)
 }
+
+# QC Summary Check::
+#
+ptype_des_tib %>% 
+  dplyr::distinct(Seq_ID,Strand_SR,Strand_CO) %>% 
+  base::nrow() %>% print()
+
+ptype_des_tib %>% 
+  dplyr::group_by(Genome_Build,Probe_Type) %>% 
+  dplyr::summarise(GP_Count=n(), .groups="drop") %>% print()
+
+
+#
+# Match Original Designs::
+#
+mat_prb_tib <- dplyr::bind_rows(
+  # IUPAC Matching
+  #
+  dplyr::inner_join(
+    prb_seq_tib,
+    ptype_des_tib, 
+    by=c("Seq_ID", "Seq_48U"="Seq_48U_1_IUP"),
+    suffix=c("_MAN","_DES")),
+
+  dplyr::inner_join(
+    prb_seq_tib,
+    ptype_des_tib, 
+    by=c("Seq_ID", "Seq_48U"="Seq_48U_2_IUP"),
+    suffix=c("_MAN","_DES")),
+  
+  # Source-CG Matching::
+  #
+  dplyr::inner_join(
+    prb_seq_tib,
+    ptype_des_tib, 
+    by=c("Seq_ID", "Seq_48U"="Seq_48U_1_IMP"),
+    suffix=c("_MAN","_DES")),
+  
+  dplyr::inner_join(
+    prb_seq_tib,
+    ptype_des_tib, 
+    by=c("Seq_ID", "Seq_48U"="Seq_48U_2_IMP"),
+    suffix=c("_MAN","_DES"))
+) %>%
+  dplyr::distinct(Seq_ID_Uniq, .keep_all=TRUE)
+  
+
+mat_prb_sum <- mat_prb_tib %>% 
+  dplyr::group_by(Genome_Build_MAN,Probe_Type_MAN,Infinium_Design) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 prb_seq_tib %>% dplyr::inner_join(
   ptype_des_dat$rs$imp, 

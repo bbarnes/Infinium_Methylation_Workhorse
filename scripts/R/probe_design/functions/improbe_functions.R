@@ -63,6 +63,7 @@ improbe_design_all = function(tib, ptype, outDir, gen,
           stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
           stringr::str_replace_all('Y', 'T'),
         
+        Chromosome=as.character(Chromosome),
         Strand_SR=Methyl_Allele_FR_Strand,
         Strand_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
         Strand_CO=Methyl_Allele_CO_Strand)
@@ -78,6 +79,7 @@ improbe_design_all = function(tib, ptype, outDir, gen,
       strsSR="FR", parallel=parallel,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
       dplyr::mutate(
+        
         Seq_48U_1=stringr::str_sub(PRB1_U_MAT, idx1,len1) %>% 
           stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
           stringr::str_replace_all('Y', 'T'),
@@ -90,10 +92,19 @@ improbe_design_all = function(tib, ptype, outDir, gen,
     if (parse_din) iup_des_tib <- iup_des_tib %>%
       tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
     
-    ret_tib$imp <- imp_des_tib
-    ret_tib$iup <- iup_des_tib
-    # ret_tib <- imp_des_tib
-    # ret_cnt <- ret_tib %>% base::nrow()
+    if (TRUE) {
+      ret_tib <- dplyr::inner_join(
+        imp_des_tib %>% dplyr::rename(Probe_Type_IMP=Probe_Type),
+        iup_des_tib,
+        
+        by=c("Seq_ID", "Strand_SR", "Strand_CO"),
+        suffix=c("_IMP", "_IUP")
+      )
+      ret_cnt <- ret_tib %>% base::nrow()
+    } else {
+      ret_tib$imp <- imp_des_tib
+      ret_tib$iup <- iup_des_tib
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -126,7 +137,9 @@ improbe_docker = function(dir, file, name, image, shell,
     system(glue::glue("touch {ret_log}"))
     system(glue::glue("touch {ret_tsv}"))
     
-    imp_doc_cmd <- glue::glue("docker run -il -rm ",
+    # imp_doc_cmd <- glue::glue("docker run -il --rm ",
+    
+    imp_doc_cmd <- glue::glue("docker run -i --rm ",
                               "-v {dir}:/work -v {dir}:/output ",
                               "{image} {shell} {file} {name}")
     
