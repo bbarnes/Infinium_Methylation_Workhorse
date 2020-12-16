@@ -327,11 +327,17 @@ bindProbeDesignList = function(list, platform, version,
     ret_tib <- 
       dplyr::bind_rows(list, .id="Probe_Class") %>%
       dplyr::distinct(M,U, .keep_all=TRUE) %>%
-      dplyr::add_count(Seq_ID,SR_Str,CO_Str,Infinium_Design, name='Rep_Max') %>%
-      dplyr::group_by(Seq_ID,SR_Str,CO_Str,Infinium_Design) %>%
+      dplyr::mutate(
+        Infinium_Design=dplyr::case_when(
+          !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) ~ 1,
+          !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) ~ 2,
+          TRUE ~ NA_real_)
+      ) %>%
+      dplyr::add_count(Seq_ID,Strand_SR,Strand_CO,Infinium_Design, name='Rep_Max') %>%
+      dplyr::group_by(Seq_ID,Strand_SR,Strand_CO,Infinium_Design) %>%
       dplyr::mutate(
         Rep_Cnt=dplyr::row_number(),
-        Probe_ID=paste0(Seq_ID,'_',SR_Str,CO_Str,Infinium_Design,Rep_Cnt),
+        Probe_ID=paste0(Seq_ID,'_',Strand_SR,Strand_CO,Infinium_Design,Rep_Cnt),
         ValidID=TRUE
       ) %>% 
       dplyr::ungroup() %>% 
@@ -367,7 +373,7 @@ bindProbeDesignList = function(list, platform, version,
         Probe_Source=platform,
         Version=version
       ) %>%
-      dplyr::rename(Strand_TB=SR_Str,Strand_CO=CO_Str) %>%
+      dplyr::rename(Strand_TB=Strand_SR,Strand_CO=Strand_CO) %>%
       dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,
                     Seq_ID,Probe_Type,Probe_Source,Version,
                     Strand_TB,Strand_CO,Infinium_Design,
@@ -404,8 +410,10 @@ bindProbeDesignList = function(list, platform, version,
 
 clean_manifest_probes = function(tib,s48_tsv,top_tsv,
                                  name,outDir,origin=NULL,
-                                 design_key='Seq_ID',design_seq='Top_Sequence',
-                                 design_prb='Probe_Type',probe_type='cg',
+                                 design_key='Seq_ID',
+                                 design_seq='Top_Sequence',
+                                 design_prb='Probe_Type',
+                                 probe_type='cg',
                                  design_srs='TB',design_cos='CO',
                                  parallel=TRUE,fresh=TRUE,del='.',
                                  verbose=0,vt=3,tc=1,tt=NULL) {
@@ -502,12 +510,6 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
                            parallel=parallel, max=test_max,
                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
           
-          if (verbose>=vt+4) {
-            cpg_prb_des_tib %>% 
-              dplyr::group_by(SR_Str,CO_Str) %>% 
-              dplyr::summarise(SRD_Cnt=n(), .groups='drop') %>% print()
-          }
-          
           # Remove:: only supports intermediates...
           if (verbose>=vt+2)
             cat(glue::glue("[{par$prgmTag}]: Writing Full Probe Match Design ",
@@ -531,7 +533,7 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
         ret_tib <- man_join_prbs(
-          tib,cpg_prb_des_tib,
+          man=tib, prbs=cpg_prb_des_tib,
           man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
           man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
           man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
@@ -608,8 +610,11 @@ man_join_prbs = function(man, prbs,
     man_mat2D_sym <- rlang::sym(man_mat2D_key)
     prb_mat2D_sym <- rlang::sym(prb_mat2D_key)
     
-    man1_tib <- dplyr::filter(man, Infinium_Design==1)
-    man2_tib <- dplyr::filter(man, Infinium_Design==2)
+    man1_tib <- man %>% dplyr::filter(!is.na(U)) %>% dplyr::filter(!is.na(M))
+    man2_tib <- man %>% dplyr::filter(!is.na(U)) %>% dplyr::filter( is.na(M))
+
+    # man1_tib <- dplyr::filter(man, Infinium_Design==1)
+    # man2_tib <- dplyr::filter(man, Infinium_Design==2)
     
     prb1_tib <- prbs %>% dplyr::mutate( 
       !!man_mat1U_sym := !!prb_mat1U_sym,
@@ -636,11 +641,13 @@ man_join_prbs = function(man, prbs,
     
     # Join and rename columns
     ret_tib <- dplyr::bind_rows(mat1_tib,mat2_tib) %>%
-      dplyr::rename(Probe_Type=Probe_Type_Man, Seq_ID=Seq_ID_Prb) %>%
+      dplyr::rename(Probe_Type=Probe_Type_Man #, Seq_ID=Seq_ID_Prb
+                    ) %>%
       add_count(U,M,Seq_ID, name='Tango_CGN_Count') %>%
       dplyr::arrange(-Tango_CGN_Count) %>% 
       dplyr::distinct(M,U, .keep_all=TRUE) %>%
-      dplyr::select(Seq_ID,Probe_Type,SR_Str,CO_Str,Infinium_Design,
+      dplyr::select(Seq_ID,Probe_Type,
+                    # SR_Str,CO_Str,Infinium_Design,
                     Tango_CGN_Count, dplyr::everything())
     
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Joined all matching designs.{RET}"))
@@ -974,7 +981,8 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
                                verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'decodeAqpPqcWrapper'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; fixIds={fixIds}...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; fixIds={fixIds}...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -986,10 +994,12 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
     mat_len <- length(mat_vec)
     aqp_len <- length(aqp_vec)
     pqc_len <- length(pqc_vec)
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:  Orders={ord_len}.{RET}") )
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]: Matches={mat_len}.{RET}") )
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:    AQPs={aqp_len}.{RET}") )
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:    PQCs={pqc_len}.{RET}") )
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:  Orders={ord_len}.{RET}") )
+      cat(glue::glue("[{funcTag}]: Matches={mat_len}.{RET}") )
+      cat(glue::glue("[{funcTag}]:    AQPs={aqp_len}.{RET}") )
+      cat(glue::glue("[{funcTag}]:    PQCs={pqc_len}.{RET}") )
+    }
     
     if (!is.null(name) && !is.null(outDir)) {
       out_name <- paste(name,funcTag, sep=del)
@@ -1076,12 +1086,6 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
             matCols=mat_col,
             full=par$retData, trim=TRUE,
             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-          
-          # if (fixIds) {
-          #   pqc_man_tib <- 
-          #     fixOrderProbeIDs(pqc_man_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-          #   dplyr::select(Seq_ID, FR,TB,CO,PD,Infinium_Design,Seq_48U, everything())
-          # }
         }
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1147,7 +1151,9 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
         
         ret_tib <- ret_tib %>% 
           fixOrderProbeIDs(field="Probe_Type", verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-          dplyr::mutate(M=as.integer(M),U=as.integer(U)) %>%
+          dplyr::mutate(M=as.integer(M),
+                        U=as.integer(U),
+                        AQP=as.integer(AQP)) %>%
           dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Probe_Type,Next_Base,
                         dplyr::everything()) %>%
           dplyr::select(-DS,-HS,-FN)
@@ -1156,7 +1162,8 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
         #                             Write Outputs::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        sum_tib <- ret_tib %>% dplyr::group_by(Probe_Type) %>%
+        sum_tib <- ret_tib %>% 
+          dplyr::group_by(Probe_Type) %>%
           dplyr::summarise(PType_Count=n(), .groups='drop')
         if (verbose>=vt+4) sum_tib %>% print()
         if (!is.null(sum_csv)) {
@@ -1165,7 +1172,8 @@ decodeAqpPqcWrapper = function(ord_vec, mat_vec, aqp_vec=NULL, pqc_vec=NULL,
           readr::write_csv(sum_tib,sum_csv)
         }
         
-        rep_tib <- manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        rep_tib <- 
+          manifestCheckSummary(ret_tib, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         if (!is.null(rep_csv)) {
           if (verbose>=vt) 
             cat(glue::glue("[{funcTag}]: Writing Rep Summary Manifest={rep_csv}...{RET}") )

@@ -106,7 +106,7 @@ opt$manDirName  <- 'core'
 
 # Output Options::
 opt$load_idat    <- FALSE
-opt$save_idat    <- FALSE
+opt$save_idat    <- TRUE
 
 opt$load_sset   <- FALSE
 opt$save_sset   <- FALSE
