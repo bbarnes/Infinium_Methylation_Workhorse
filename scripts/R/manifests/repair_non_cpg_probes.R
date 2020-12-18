@@ -681,6 +681,9 @@ seq48U_tib <- mat_prb_tib %>%
 
 readr::write_tsv(seq48U_tib, seq48U_tsv, col_names=FALSE)
 
+# cat /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/NonCpG-13122020.seq48U.sorted.tsv | grep "^rs" > /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/SNP-13122020.seq48U.sorted.tsv
+# cat /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/NonCpG-13122020.seq48U.sorted.tsv | grep "^ch" > /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/CpH-13122020.seq48U.sorted.tsv
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                            Write Output:: cgnTOP
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -693,6 +696,9 @@ cgnTop_tib <- mat_prb_tib %>%
   dplyr::arrange(Seq_ID)
 
 readr::write_tsv(cgnTop_tib, cgnTop_tsv, col_names=FALSE)
+
+# cat /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/NonCpG-13122020.cgnTop.sorted.tsv | grep "^ch" > /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/CpH-13122020.cgnTop.sorted.tsv
+# cat /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/NonCpG-13122020.cgnTop.sorted.tsv | grep "^rs" > /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/SNP-13122020.cgnTop.sorted.tsv
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          OLD CODE TO BE REMOVED::

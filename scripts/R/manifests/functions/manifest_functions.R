@@ -60,116 +60,116 @@ template_func = function(tib,
 #                          Adhoc CpH/SNP/Ctl Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-adhoc_desToMAN = function(man, des_csv, probe_type,
-                          name=NULL,outDir=NULL,origin=NULL,
-                          idsKey,seqKey,prbKey,strsSR,strsCO,
-                          parallel=FALSE,fresh=FALSE,fixIds=FALSE, del='.',max=0,
-                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'adhoc_desToMAN'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting (fresh={fresh})...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  ret_csv <- NULL
-  stp_tib <- NULL
-  stime <- system.time({
-    
-    if (!is.null(name) && !is.null(outDir)) {
-      outDir <- file.path(outDir,probe_type)
-      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-      out_name <- paste(name,funcTag,probe_type, sep=del)
-      ret_csv <- file.path(outDir,paste(out_name,'csv.gz', sep=del) )
-      csv_vec <- c(ret_csv)
-      stp_tib <- check_timeStamps(name=out_name,outDir=outDir,origin=origin,files=csv_vec,
-                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    }
-    
-    if (!fresh && !is.null(stp_tib) && stp_tib$isValid[1]) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
-      ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
-    } else {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh data from={des_csv}...{RET}"))
-      des_tib <- suppressMessages(suppressWarnings(readr::read_csv(des_csv)))
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_tib={RET}"))
-      if (verbose>=vt+4) print(des_tib)
-      
-      man_tib <- man %>% dplyr::filter(Probe_Type==probe_type)
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib={RET}"))
-      if (verbose>=vt+4) print(man_tib)
-      
-      man_tib <- dplyr::inner_join(man_tib,des_tib, by="Seq_ID", suffix=c("_Man","_Des"))
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib+des_tib={RET}"))
-      if (verbose>=vt+4) print(man_tib)
-      
-      man_tib <- man_tib %>%
-        dplyr::rename(Probe_Type=Probe_Type_Man,
-                      Top_Sequence=IUPAC_Forward_Sequence ) %>% 
-        dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
-                        AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>% 
-        dplyr::mutate(M=as.double(M),U=as.double(U),Probe_ID=Seq_ID) %>%
-        dplyr::select(-CO_Str)
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(clean)={RET}"))
-      if (verbose>=vt+4) print(man_tib)
-      
-      # if (fixIds) {
-      #   man_tib <- man_tib %>%
-      #     fixOrderProbeIDs(verbose=verbose+4,vt=vt+1,tc=tc+1,tt=tt)
-      #   if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(fixed)={RET}"))
-      #   if (verbose>=vt+4) print(man_tib)
-      # }
-      
-      # Summary Stats::
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(clean)={RET}"))
-        man_tib %>% 
-          dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
-          dplyr::summarise(Count=n(), .groups='drop') %>% print()
-      }
-      
-      # Top Tib::
-      top_snp_tib <- man_tib %>%
-        dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
-        dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
-      
-      # Design Probes::
-      full_des_tib <- 
-        desSeq_to_prbs(
-          tib=top_snp_tib,
-          idsKey=idsKey,seqKey=seqKey,prbKey=prbKey,strsSR=strsSR,strsCO=strsCO,
-          parallel=parallel, max=max,
-          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      
-      ret_tib <- 
-        man_join_prbs(man_tib,full_des_tib,
-                      man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
-                      man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
-                      man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-                      verbose=verbose,vt+1,tc=tc+1,tt=tt) %>% 
-        dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
-        dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
-        dplyr::select(-Top_Sequence_Prb)
-      
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing data={ret_csv}...{RET}"))
-      if (!is.null(ret_csv)) readr::write_csv(ret_tib,ret_csv)
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Writing.{RET}{RET}"))
-      
-      readr::write_lines(x=date(),file=stp_tib$end[1],sep='\n',append=FALSE)
-    }
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib(final)={RET}"))
-    if (verbose>=vt+4) print(ret_tib)
-    
-    ret_cnt <- ret_tib %>% base::nrow()
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
+# adhoc_desToMAN = function(man, des_csv, probe_type,
+#                           name=NULL,outDir=NULL,origin=NULL,
+#                           idsKey,seqKey,prbKey,strsSR,strsCO,
+#                           parallel=FALSE,fresh=FALSE,fixIds=FALSE, del='.',max=0,
+#                           verbose=0,vt=3,tc=1,tt=NULL) {
+#   funcTag <- 'adhoc_desToMAN'
+#   tabsStr <- paste0(rep(TAB, tc), collapse='')
+#   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting (fresh={fresh})...{RET}"))
+#   
+#   ret_cnt <- 0
+#   ret_tib <- NULL
+#   ret_csv <- NULL
+#   stp_tib <- NULL
+#   stime <- system.time({
+#     
+#     if (!is.null(name) && !is.null(outDir)) {
+#       outDir <- file.path(outDir,probe_type)
+#       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+#       out_name <- paste(name,funcTag,probe_type, sep=del)
+#       ret_csv <- file.path(outDir,paste(out_name,'csv.gz', sep=del) )
+#       csv_vec <- c(ret_csv)
+#       stp_tib <- check_timeStamps(name=out_name,outDir=outDir,origin=origin,files=csv_vec,
+#                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+#     }
+#     
+#     if (!fresh && !is.null(stp_tib) && stp_tib$isValid[1]) {
+#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
+#       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
+#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
+#     } else {
+#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh data from={des_csv}...{RET}"))
+#       des_tib <- suppressMessages(suppressWarnings(readr::read_csv(des_csv)))
+#       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_tib={RET}"))
+#       if (verbose>=vt+4) print(des_tib)
+#       
+#       man_tib <- man %>% dplyr::filter(Probe_Type==probe_type)
+#       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib={RET}"))
+#       if (verbose>=vt+4) print(man_tib)
+#       
+#       man_tib <- dplyr::inner_join(man_tib,des_tib, by="Seq_ID", suffix=c("_Man","_Des"))
+#       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib+des_tib={RET}"))
+#       if (verbose>=vt+4) print(man_tib)
+#       
+#       man_tib <- man_tib %>%
+#         dplyr::rename(Probe_Type=Probe_Type_Man,
+#                       Top_Sequence=IUPAC_Forward_Sequence ) %>% 
+#         dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
+#                         AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>% 
+#         dplyr::mutate(M=as.double(M),U=as.double(U),Probe_ID=Seq_ID) %>%
+#         dplyr::select(-CO_Str)
+#       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(clean)={RET}"))
+#       if (verbose>=vt+4) print(man_tib)
+#       
+#       # if (fixIds) {
+#       #   man_tib <- man_tib %>%
+#       #     fixOrderProbeIDs(verbose=verbose+4,vt=vt+1,tc=tc+1,tt=tt)
+#       #   if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(fixed)={RET}"))
+#       #   if (verbose>=vt+4) print(man_tib)
+#       # }
+#       
+#       # Summary Stats::
+#       if (verbose>=vt+4) {
+#         cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(clean)={RET}"))
+#         man_tib %>% 
+#           dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
+#           dplyr::summarise(Count=n(), .groups='drop') %>% print()
+#       }
+#       
+#       # Top Tib::
+#       top_snp_tib <- man_tib %>%
+#         dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
+#         dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
+#       
+#       # Design Probes::
+#       full_des_tib <- 
+#         desSeq_to_prbs(
+#           tib=top_snp_tib,
+#           idsKey=idsKey,seqKey=seqKey,prbKey=prbKey,strsSR=strsSR,strsCO=strsCO,
+#           parallel=parallel, max=max,
+#           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+#       
+#       ret_tib <- 
+#         man_join_prbs(man_tib,full_des_tib,
+#                       man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
+#                       man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
+#                       man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
+#                       verbose=verbose,vt+1,tc=tc+1,tt=tt) %>% 
+#         dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
+#         dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
+#         dplyr::select(-Top_Sequence_Prb)
+#       
+#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing data={ret_csv}...{RET}"))
+#       if (!is.null(ret_csv)) readr::write_csv(ret_tib,ret_csv)
+#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Writing.{RET}{RET}"))
+#       
+#       readr::write_lines(x=date(),file=stp_tib$end[1],sep='\n',append=FALSE)
+#     }
+#     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib(final)={RET}"))
+#     if (verbose>=vt+4) print(ret_tib)
+#     
+#     ret_cnt <- ret_tib %>% base::nrow()
+#   })
+#   etime <- stime[3] %>% as.double() %>% round(2)
+#   if (!is.null(tt)) tt$addTime(stime,funcTag)
+#   if (verbose>=vt) 
+#     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+#                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+#   
+#   ret_tib
+# }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                Join Manifest Probes with Design Probes::
@@ -385,7 +385,7 @@ bindProbeDesignList = function(list, platform, version,
     sum_tib <- ret_tib %>% 
       dplyr::group_by(Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
       dplyr::summarise(Count=n(), .groups='drop')
-    if (verbose>=vt) print(sum_tib)
+    if (verbose>=vt) print(sum_tib, n=base::nrow(sum_tib))
     
     if (!is.null(sumDir)) {
       if (!dir.exists(sumDir)) dir.create(sumDir, recursive=TRUE)
@@ -414,7 +414,8 @@ clean_manifest_probes = function(tib,s48_tsv,top_tsv,
                                  design_seq='Top_Sequence',
                                  design_prb='Probe_Type',
                                  probe_type='cg',
-                                 design_srs='TB',design_cos='CO',
+                                 design_srs='TB',
+                                 design_cos='CO',
                                  parallel=TRUE,fresh=TRUE,del='.',
                                  verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'clean_manifest_probes'
@@ -625,7 +626,8 @@ man_join_prbs = function(man, prbs,
     # Match by Infinium I(1) & II(2) Separately::
     mat1_tib <- man1_tib %>% dplyr::inner_join(
       prb1_tib, by=c(man_mat1U_key, man_mat1M_key), suffix=c("_Man", "_Prb") )
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Match Infinium 1 probes.{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Match Infinium 1 probes.{RET}"))
     if (verbose>=vt+4) mat1_tib %>% print()
     
     # Match by Infinium I(1) & II(2) Separately::
@@ -640,13 +642,19 @@ man_join_prbs = function(man, prbs,
     # return(ret)
     
     # Join and rename columns
-    ret_tib <- dplyr::bind_rows(mat1_tib,mat2_tib) %>%
+    cat(glue::glue("{RET}{RET}-----------{RET}{RET}",
+                   "[{funcTag}]:{tabsStr} PRE_SEQ_ID.{RET}-------------{RET}",
+                   "{RET}"))
+    ret_tib <- 
+      dplyr::bind_rows(mat1_tib,mat2_tib) %>%
       dplyr::rename(Probe_Type=Probe_Type_Man #, Seq_ID=Seq_ID_Prb
                     ) %>%
-      add_count(U,M,Seq_ID, name='Tango_CGN_Count') %>%
+      # add_count(U,M,Seq_ID, name='Tango_CGN_Count') %>%
+      add_count(U,M,Probe_ID, name='Tango_CGN_Count') %>%
       dplyr::arrange(-Tango_CGN_Count) %>% 
       dplyr::distinct(M,U, .keep_all=TRUE) %>%
-      dplyr::select(Seq_ID,Probe_Type,
+      # dplyr::select(Seq_ID,Probe_Type,
+      dplyr::select(Probe_ID,Probe_Type,
                     # SR_Str,CO_Str,Infinium_Design,
                     Tango_CGN_Count, dplyr::everything())
     

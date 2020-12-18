@@ -51,7 +51,7 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'manifests'
-par$prgmTag <- 'build_bead_manifest'
+par$prgmTag <- 'build_bead_manifest_simple'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 par$local_runType <- NULL
@@ -323,6 +323,9 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C20'
     opt$version     <- 'C21'
     opt$version     <- 'C22'
+    opt$version     <- 'C23'
+    opt$version     <- 'C24'
+    opt$version     <- 'C25'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -635,7 +638,7 @@ color_tib <- suppressMessages(suppressWarnings( readr::read_csv(file.path(par$da
 color_vec <- color_tib %>% dplyr::pull(Color) %>% as.vector()
 color_len <- length(color_vec)
 
-base_sel_cols <- c("Probe_ID","M","U","Probe_Type","Next_Base",
+base_sel_cols <- c("Probe_ID","Seq_ID","M","U","Probe_Type","Next_Base",
                    "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U",
                    "AQP")
 
@@ -704,12 +707,12 @@ if (!is.null(opt$pre_man_csv)) {
 
 opt$verbose <- 40
 opt$verbose <- 3
-opt$verbose <- 5
+opt$verbose <- 4
 
 # aqps_vec   <- NULL
 # opt$fresh  <- TRUE
 
-man_pqc_dat_tib <- 
+man_pqc_raw_tib <- 
   decodeAqpPqcWrapper(
     ord_vec=ords_vec,mat_vec=mats_vec,aqp_vec=aqps_vec,pqc_vec=pqcs_vec,
     platform=opt$platform,version=opt$version,
@@ -719,7 +722,9 @@ man_pqc_dat_tib <-
     pqcSkip=opt$pqcSkip,
     name=opt$runName,outDir=opt$manDir,origin=opt$time_org_txt,
     fresh=opt$fresh,fixIds=opt$fixIds,full=par$retData,trim=TRUE,
-    verbose=opt$verbose,vt=1,tc=0,tt=pTracker) %>%
+    verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
+
+man_pqc_dat_tib <- man_pqc_raw_tib %>%
   dplyr::select(dplyr::all_of(base_sel_cols))
 
 man_raw_dat_tib <- 
@@ -754,16 +759,9 @@ for (probe_type in rev(names(man_raw_list)) ) {
   if (opt$verbose>=1)
     cat(glue::glue("[{par$prgmTag}]: Building Probes Types={probe_type}...{RET}"))
   
-  if (FALSE && probe_type!='cg') {
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                           2.0 Build Probes:: NON-CpG
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    probe_type <- 'ch'
-    probe_type <- 'rs'
-    opt$non_s48_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/NonCpG-13122020.seq48U.sorted.tsv'
-    opt$non_top_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/NonCpG-13122020.cgnTop.sorted.tsv'
+  if (probe_type == 'rs') {
+    opt$non_s48_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/SNP-13122020.seq48U.sorted.tsv'
+    opt$non_top_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/SNP-13122020.cgnTop.sorted.tsv'
     
     man_prb_list[[probe_type]] <- NULL
     if (!is.null(opt$non_s48_tsv) && file.exists(opt$non_s48_tsv) &&
@@ -782,67 +780,68 @@ for (probe_type in rev(names(man_raw_list)) ) {
           design_srs=opt$design_srs,design_cos=opt$design_cos,
           parallel=opt$parallel,fresh=opt$fresh,
           
-          verbose=opt$verbose+10,vt=3,tc=0,tt=pTracker)
+          verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
     }
     
-    
-    
-    # man_prb_list[[probe_type]] <- NULL
-    # if (!is.null(opt$non_s48_tsv) && file.exists(opt$non_s48_tsv) &&
-    #     !is.null(opt$non_top_tsv) && file.exists(opt$non_top_tsv)) {
-    #   man_prb_list[[probe_type]] =
-    #     clean_manifest_probes(
-    #       tib=man_raw_dat_tib,
-    #       s48_tsv=opt$non_s48_tsv,top_tsv=opt$non_top_tsv,
-    #       name=opt$runName,outDir=opt$outDir,origin=opt$time_org_txt,
-    #       
-    #       design_key=opt$design_key,design_seq=opt$design_seq,
-    #       design_prb=opt$design_prb,probe_type=probe_type,
-    #       design_srs=opt$design_srs,design_cos=opt$design_cos,
-    #       parallel=opt$parallel,fresh=opt$fresh,
-    #       
-    #       verbose=opt$verbose+10,vt=3,tc=0,tt=pTracker)
-    # }
-    
-  }
-  
-  if (probe_type == 'rs') {
     next
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           2.1 Build Probes:: SNP
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-    man_prb_list[[probe_type]] <- NULL
-    if (!is.null(opt$snp_des_csv) && file.exists(opt$snp_des_csv) ) {
-      man_prb_list[[probe_type]] = 
-        adhoc_desToMAN(man=man_raw_dat_tib, des_csv=opt$snp_des_csv, probe_type=probe_type,
-                       name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
-                       idsKey=opt$design_key,
-                       seqKey=opt$design_seq,prbKey=opt$design_prb,
-                       strsSR=opt$design_srs,strsCO=opt$design_cos,
-                       parallel=opt$parallel,fresh=opt$fresh,fixIds=FALSE,
-                       verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
-
-    }
+    # man_prb_list[[probe_type]] <- NULL
+    # if (!is.null(opt$snp_des_csv) && file.exists(opt$snp_des_csv) ) {
+    #   man_prb_list[[probe_type]] = 
+    #     adhoc_desToMAN(man=man_raw_dat_tib, des_csv=opt$snp_des_csv, probe_type=probe_type,
+    #                    name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
+    #                    idsKey=opt$design_key,
+    #                    seqKey=opt$design_seq,prbKey=opt$design_prb,
+    #                    strsSR=opt$design_srs,strsCO=opt$design_cos,
+    #                    parallel=opt$parallel,fresh=opt$fresh,fixIds=FALSE,
+    #                    verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
+    # 
+    # }
   } else if (probe_type == 'ch') {
+    opt$non_s48_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/CpH-13122020.seq48U.sorted.tsv'
+    opt$non_top_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/CpH-13122020.cgnTop.sorted.tsv'
+    
+    man_prb_list[[probe_type]] <- NULL
+    if (!is.null(opt$non_s48_tsv) && file.exists(opt$non_s48_tsv) &&
+        !is.null(opt$non_top_tsv) && file.exists(opt$non_top_tsv)) {
+      man_prb_list[[probe_type]] =
+        clean_manifest_probes(
+          tib=man_raw_dat_tib,
+          s48_tsv=opt$non_s48_tsv,
+          top_tsv=opt$non_top_tsv,
+          name=opt$runName,
+          outDir=opt$outDir,
+          origin=opt$time_org_txt,
+          
+          design_key=opt$design_key,design_seq=opt$design_seq,
+          design_prb=opt$design_prb,probe_type=probe_type,
+          design_srs=opt$design_srs,design_cos=opt$design_cos,
+          parallel=opt$parallel,fresh=opt$fresh,
+          
+          verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
+    }
+    
     next
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           2.2 Build Probes:: CpH
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-    man_prb_list[[probe_type]] <- NULL
-    if (!is.null(opt$cph_des_csv) && file.exists(opt$cph_des_csv) ) {
-      man_prb_list[[probe_type]] =
-        adhoc_desToMAN(man=man_raw_dat_tib, des_csv=opt$cph_des_csv, probe_type=probe_type,
-                       name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
-                       idsKey=opt$design_key,
-                       seqKey=opt$design_seq,prbKey=opt$design_prb,
-                       strsSR=opt$design_srs,strsCO=opt$design_cos,
-                       parallel=opt$parallel,fresh=opt$fresh,fixIds=FALSE,
-                       verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
-    }
+    # man_prb_list[[probe_type]] <- NULL
+    # if (!is.null(opt$cph_des_csv) && file.exists(opt$cph_des_csv) ) {
+    #   man_prb_list[[probe_type]] =
+    #     adhoc_desToMAN(man=man_raw_dat_tib, des_csv=opt$cph_des_csv, probe_type=probe_type,
+    #                    name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
+    #                    idsKey=opt$design_key,
+    #                    seqKey=opt$design_seq,prbKey=opt$design_prb,
+    #                    strsSR=opt$design_srs,strsCO=opt$design_cos,
+    #                    parallel=opt$parallel,fresh=opt$fresh,fixIds=FALSE,
+    #                    verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
+    # }
   } else if (probe_type == 'cg') {
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -864,21 +863,50 @@ for (probe_type in rev(names(man_raw_list)) ) {
           design_srs=opt$design_srs,design_cos=opt$design_cos,
           parallel=opt$parallel,fresh=opt$fresh,
           
-          verbose=opt$verbose+10,vt=3,tc=0,tt=pTracker)
+          verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
     }
   } else {
     if (opt$verbose>=1)
       cat(glue::glue("[{par$prgmTag}]: Probes Types={probe_type} NOT supported!{RET}{RET}"))
+    next
   }
   
-  # man_unq_keys <- unique( c(man_unq_keys, names(man_prb_list[[probe_type]])) )
+  # Extra QC Checking::
+  #
+  top_1_cnt <- 0
+  top_1_cnt <- man_prb_list[[probe_type]] %>%
+    dplyr::filter(!is.na(M),!is.na(U)) %>% base::nrow()
+  if (top_1_cnt>0) {
+    mat_u_tib <- man_prb_list[[probe_type]] %>% 
+      dplyr::filter(AlleleA_Probe_Sequence==PRB1_U_MAT)
+    mat_u_cnt <- mat_u_tib %>% base::nrow()
+    nan_u_cnt <- mat_u_tib %>% dplyr::filter(is.na(M)) %>% base::nrow()
+    if (opt$verbose>=1)
+      cat(glue::glue("U: top_1_cnt={top_1_cnt}, mat_u_cnt={mat_u_cnt}, nan_u_cnt={nan_u_cnt}{RET}"))
+    
+    mat_m_tib <- man_prb_list[[probe_type]] %>% 
+      dplyr::filter(AlleleB_Probe_Sequence==PRB1_M_MAT)
+    mat_m_cnt <- mat_m_tib %>% base::nrow()
+    nan_m_cnt <- mat_m_tib %>% dplyr::filter(is.na(U)) %>% base::nrow()
+    if (opt$verbose>=1)
+      cat(glue::glue("M: top_1_cnt={top_1_cnt}, mat_m_cnt={mat_m_cnt}, nan_m_cnt={nan_m_cnt}{RET}"))
+  }
+  
+  top_2_cnt <- 0
+  top_2_cnt <- man_prb_list[[probe_type]] %>%
+    dplyr::filter(is.na(M),!is.na(U)) %>% base::nrow()
+  if (top_2_cnt>0) {
+    mat_2_tib <- man_prb_list[[probe_type]] %>% 
+      dplyr::filter(AlleleA_Probe_Sequence==PRB2_D_MAT)
+    mat_2_cnt <- mat_2_tib %>% base::nrow()
+    nan_2_cnt <- mat_2_tib %>% dplyr::filter(is.na(M)) %>% base::nrow()
+    if (opt$verbose>=1)
+      cat(glue::glue("2: top_2_cnt={top_2_cnt}, mat_2_cnt={mat_2_cnt}, nan_2_cnt={nan_2_cnt}{RET}"))
+  }
 }
 if (opt$verbose>=1) {
   cat(glue::glue("[{par$prgmTag}]: Done. Building Probes.{RET}{RET}"))
 }
-
-# names(man_prb_list$ch)[which(!man_prb_list$ch %>% names() %in% names(man_prb_list$rs))]
-# '/Users/bretbarnes/Documents/scratch/manifests/GRCh38-COVIC-B0/design/cg/GRCh38-COVIC-B0.clean_manifest_probes.cg.Top_Sequence.mat-probes.rds'
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.0 Join All Detected Probes:: SNP/CpH/CpG
@@ -896,21 +924,6 @@ if (opt$verbose>=1) {
 # TBD:: The binding should be piped into a general function to add
 #   inferred columns
 #
-
-
-# man_all_prb_tib <- NULL
-# for (ptype in names(man_prb_list)) {
-#   man_all_prb_tib <- man_all_prb_tib %>% dplyr::bind_rows(
-#     man_prb_list[[ptype]] %>% dplyr::select(dplyr::all_of(man_unq_keys))
-#   )
-# }
-
-# all_cols <- names(man_prb_list[['cg']])[names(man_prb_list[['cg']]) %in% c(names(man_prb_list[['ch']]), names(man_prb_list[['rs']]))]
-# dplyr::bind_rows( dplyr::select(man_prb_list[['cg']], dplyr::all_of(all_cols)), 
-#                   dplyr::select(man_prb_list[['ch']], dplyr::all_of(all_cols)), 
-#                   dplyr::select(man_prb_list[['rs']], dplyr::all_of(all_cols)) )
-
-# cols=all_cols, 
 
 man_pqc_prb_tib <- bindProbeDesignList(
   list=man_prb_list, platform=opt$platform, version=opt$version,
@@ -944,50 +957,18 @@ if (FALSE) {
 #
 # TBD:: Issue:: Need to find original design files for controls...
 #
-# Load Previous dat/manifest and compare based on M/U
-#
-pre_man_csv <- file.path(par$datDir,"manifest/core/LEGX-C20.manifest.sesame-base.cpg-sorted.csv.gz")
-pre_man_tib <- readr::read_csv(pre_man_csv)
-
-# Previous miss-labeled non-cpg probes
-#
-man_pqc_prb_tib %>% 
-  dplyr::inner_join(pre_man_tib,
-                    by=c("M","U"),
-                    suffix=c("_NEW","_PRE")) %>% 
-  dplyr::filter(Probe_ID_NEW != Probe_ID_PRE) %>% 
-  dplyr::select(Probe_ID_NEW, Probe_ID_PRE, 
-                Probe_Class_NEW, Probe_Type_NEW, 
-                Probe_Class_PRE, Probe_Type_PRE,
-                Infinium_Design_NEW, Infinium_Design_PRE,
-                AQP_NEW, AQP_PRE) %>% 
-  dplyr::group_by(Probe_Type_NEW, Probe_Class_NEW,
-                  Probe_Type_PRE, Probe_Class_PRE,
-                  Infinium_Design_NEW, Infinium_Design_PRE,
-                  AQP_NEW, AQP_PRE) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-
-
-# Non-Standard-Control probes::
-#
-pre_man_tib %>% 
-  dplyr::anti_join(man_pqc_prb_tib, 
-                   by=c("M","U")) %>% 
-  dplyr::group_by(Probe_Type,Probe_Class,AQP,Infinium_Design) %>% 
-  dplyr::summarise(Count=n(), .groups="drop") %>% 
-  as.data.frame()
-
-
-man_pqc_prb_tib %>% dplyr::anti_join(pre_man_tib, by=c("M","U"))
-pre_man_tib %>% dplyr::anti_join(man_pqc_prb_tib, by=c("M","U"))
-
-#
 # TBD:: See above function request...
 #
 # TBD:: Why not do most of the below upfront???
 #
+# TBD:: Investigate Control Probe Designs ***
+#
+
 man_pqc_unk_tib <- dplyr::anti_join(
-  dplyr::distinct(man_raw_dat_tib, M,U, .keep_all=TRUE),
+  # With subs-selecting columns is the next line::
+  # dplyr::distinct(man_raw_dat_tib, M,U, .keep_all=TRUE),
+  # Without subs-selecting columns is the next line::
+  dplyr::distinct(man_pqc_raw_tib, M,U, .keep_all=TRUE),
   dplyr::distinct(man_pqc_prb_tib, M,U, .keep_all=TRUE),
   by=c("M","U")) %>% 
   dplyr::distinct(M,U, .keep_all=TRUE) %>%
@@ -997,7 +978,8 @@ man_pqc_unk_tib <- dplyr::anti_join(
       !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) ~ 2,
       TRUE ~ NA_real_)
   ) %>%
-  # dplyr::rename(Strand_TB=TB, Strand_CO=CO) %>% 
+  # Without subs-selecting columns is the next line:: i.e. man_pqc_raw_tib
+  dplyr::rename(Strand_TB=TB, Strand_CO=CO) %>% 
   dplyr::mutate(
     Strand_TB=as.character(Strand_TB),
     Strand_CO=as.character(Strand_CO),
@@ -1177,9 +1159,9 @@ man_pos_tib <- man_pos_list %>%
     chrom=stringr::str_remove(chrom,'^chr'),
     chrom=paste0('chr',chrom),
     chromEnd=chromStart+1) %>%
-  dplyr::group_by(Seq_ID) %>% 
+  # dplyr::group_by(Seq_ID) %>% 
   dplyr::arrange(chrom,chromStart) %>%
-  dplyr::select(chrom,chromStart,chromEnd,Seq_ID)
+  dplyr::select(chrom,chromStart,chromEnd,Seq_ID) # %>% dplyr::ungroup()
 
 readr::write_csv(man_pos_tib,pos_base_csv)
 
@@ -1203,12 +1185,16 @@ std_ctl_tib <- NULL
 ctl_csv <- ctls_vec[1]
 std_ctl_seq_tsv <- file.path(par$datDir,'manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz')
 
+ctl_csv <- '/Users/bretbarnes/Documents/tools/dat/manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz'
+std_ctl_seq_tsv <- '/Users/bretbarnes/Documents/tools/dat/manifest/controls/01152015_DarkMatterControls.probe.match.tsv.gz'
+
 hsa_ctl_tib <- NULL
 if (!is.null(ctl_csv) && file.exists(ctl_csv) &&
     !is.null(std_ctl_seq_tsv) && file.exists(std_ctl_seq_tsv)) {
   
-  hsa_ctl_tib <- format_controls_HSA(file1=std_ctl_seq_tsv, file2=ctl_csv,
-                                     verbose=opt$verbose,vt=0,tc=1,tt=pTracker)
+  hsa_ctl_tib <- format_controls_HSA(
+    file1=std_ctl_seq_tsv, file2=ctl_csv,
+    verbose=opt$verbose,vt=0,tc=1,tt=pTracker)
   
   hsa_ctl_sum_tib <- hsa_ctl_tib %>% 
     dplyr::group_by(Assay_Class,Probe_Class,Probe_Type,Infinium_Design,AQP) %>% 
@@ -1242,23 +1228,287 @@ man_prd_sum_tib <- man_prd_all_tib %>%
   dplyr::summarise(Count=n(), .groups='drop')
 print(man_prd_sum_tib,n=base::nrow(man_prd_sum_tib))
 
-
 #
 # QC Checks::
 #
 man_prd_all_tib %>% dplyr::group_by(DESIGN,COLOR_CHANNEL,col,Next_Base) %>% 
   dplyr::summarise(Count=n(), .groups='drop') %>% as.data.frame()
 
+man_prd_all_tib %>% 
+  dplyr::add_count(Probe_ID, name="PID_CNT") %>% 
+  dplyr::filter(PID_CNT != 1) %>% 
+  dplyr::select(Probe_ID,U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,PID_CNT) %>% 
+  dplyr::arrange(Probe_ID)
+
 #
 # Write Sesame Output Full::
 #
 readr::write_csv(man_prd_all_tib,ses_base_csv)
 
+
+# man_pqc_all_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "ukr") )
+# man_prd_all_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "ukr") )
+pre_man_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "ukr") )
+
+#
+# PREVIOUS BUILD COMPARISON::
+#
+
+#
 # Extra QC::
+#
 if (FALSE) {
+  man_prd_all_tib %>% dplyr::distinct(Probe_ID,M,U) %>% base::nrow()
+  man_prd_all_tib %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+  man_prd_all_tib %>% dplyr::distinct(M,U) %>% base::nrow()
+  
+  man_prd_all_tib %>% dplyr::add_count(Probe_ID, name="PID_Count") %>% 
+    dplyr::filter(PID_Count!=1) %>% 
+    base::nrow()
+  
   tar_col <- dplyr::filter(man_prd_all_tib, is.na(COLOR_CHANNEL)) %>% dplyr::pull(U)
   man_pqc_dat_tib %>% dplyr::filter(U %in%  tar_col)
 }
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#          Load Previous dat/manifest and compare based on M/U::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+compare_prev_bool <- FALSE
+if (compare_prev_bool) {
+  
+  unq_jon_cols <- c("M","U","AlleleA_Probe_Sequence","AlleleB_Probe_Sequence",
+                    "Infinium_Design","AQP")
+  
+  # Rename derived manifest:: i.e. man_prd_all_tib
+  new_man_tib <- man_prd_all_tib
+  
+  # Load previous manifest::
+  pre_man_csv <- file.path(par$datDir,"manifest/core/LEGX-C20.manifest.sesame-base.cpg-sorted.csv.gz")
+  pre_man_tib <- suppressMessages(suppressWarnings( readr::read_csv(pre_man_csv) ))
+  
+  # Known Failed CpH Designs from previous builds::
+  pre_mis_tib <- pre_man_tib %>% dplyr::filter(Probe_Class=='ch',Probe_Class=='ch')
+  
+  #
+  # Simple Comparison::
+  #
+  new_man_tib %>% dplyr::select(dplyr::all_of(base_sel_cols))
+  pre_man_tib %>% dplyr::select(dplyr::all_of(base_sel_cols))
+  
+  min_jon_cols <- c("M","U","AlleleA_Probe_Sequence","AlleleB_Probe_Sequence",
+                    "Seq_48U","AQP")
+  
+  min_jon_tib <- dplyr::inner_join(
+    new_man_tib %>% dplyr::select(dplyr::all_of(base_sel_cols)),
+    pre_man_tib %>% dplyr::select(dplyr::all_of(base_sel_cols)),
+    by=dplyr::all_of(min_jon_cols), suffix=c("_new","_pre")
+  )
+  
+  # min_jon_tib %>% dplyr::filter(Next_Base_new != Next_Base_pre) %>% dplyr::select(starts_with("Probe_ID")) %>% as.data.frame()
+  # min_jon_tib %>% dplyr::filter(Probe_ID_new != Probe_ID_pre) %>% dplyr::group_by(Probe_Type_new,Probe_Type_pre) %>% dplyr::summarise(Count=n())
+  
+  min_sum_tib <- min_jon_tib %>% 
+    dplyr::filter(Probe_ID_new != Probe_ID_pre) %>% 
+    dplyr::select(Probe_ID_new,Probe_ID_pre,Probe_Type_new,Probe_Type_pre) %>%
+    split(.$Probe_Type_new)
+
+  #
+  # Concerned about the 100 - 2,465 Probe_Type_new not being cg
+  #
+  min_sum_tib$ch %>% dplyr::group_by(Probe_Type_new,Probe_Type_pre) %>%
+    dplyr::summarise(Count=n())
+  
+  
+  
+  #
+  #
+  # TBD: LEFT OFF HERE::
+  #
+  #
+  
+  
+  
+  
+  #
+  # Detailed Comparison::
+  #
+  
+  jon_man_tib <- dplyr::inner_join(
+    new_man_tib,pre_man_tib, 
+    by=dplyr::all_of(unq_jon_cols), suffix=c("_new","_pre")
+  )
+  
+  pre_man_cnt <- pre_man_tib %>% base::nrow()
+  new_man_cnt <- new_man_tib %>% base::nrow()
+  jon_man_cnt <- jon_man_tib %>% base::nrow()
+  
+  if (opt$verbose>=1) {
+    cat(glue::glue("[{par$prgmTag}]: These should be equal...{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: pre_man_cnt={pre_man_cnt}.{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: new_man_cnt={new_man_cnt}.{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: jon_man_cnt={jon_man_cnt}.{RET}"))
+    cat(glue::glue("[{par$prgmTag}]:{RET}"))
+  }
+
+  #
+  # These should be zero::
+  #
+  new_mis_cnt <- new_man_tib %>% 
+    dplyr::anti_join(pre_man_tib, by=dplyr::all_of(unq_jon_cols)) %>%
+    base::nrow()
+  pre_mis_cnt <- pre_man_tib %>% 
+    dplyr::anti_join(new_man_tib, by=dplyr::all_of(unq_jon_cols)) %>%
+    base::nrow()
+  
+  if (opt$verbose>=1) {
+    cat(glue::glue("[{par$prgmTag}]: These should be zero...{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: pre_mis_cnt={pre_mis_cnt}.{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: new_mis_cnt={new_mis_cnt}.{RET}"))
+    cat(glue::glue("[{par$prgmTag}]:{RET}"))
+  }
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Load Validation Categories:: CpG/CpH
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  val_dat_col <- c("Chrom","Beg","End","Align_Base","Aln_ID","Align_Score",
+                   "Align_Chrom","Align_Beg","Align_Score2","Match_Desc",
+                   "Probe_Seq","NM","AS","YD","CN")
+  
+  #
+  # Load:: CpG Count=100
+  #
+  val_cpg_tsv <- '/Users/bretbarnes/Documents/data/CustomContent/EWAS/from_Wanding_CpH_Lists/true_cpgs.txt'
+  val_cpg_tib <- 
+    suppressMessages(suppressWarnings( readr::read_tsv(val_cpg_tsv, col_names=val_dat_col) )) %>% 
+    dplyr::mutate(Probe_RCS=revCmp(Probe_Seq))
+  
+  #
+  # Load:: CpH Count=2310
+  #
+  val_cph_tsv <- '/Users/bretbarnes/Documents/data/CustomContent/EWAS/from_Wanding_CpH_Lists/true_cphs.txt'
+  val_cph_tib <- 
+    suppressMessages(suppressWarnings( readr::read_tsv(val_cph_tsv, col_names=val_dat_col) )) %>% 
+    dplyr::mutate(Probe_RCS=revCmp(Probe_Seq))
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #             Summary Validation Comparison:: New/Pre vs CpG/CpH
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  
+  #
+  # Compare Validated Groups to Previous::
+  #
+  pre_mat_tib <- dplyr::bind_rows(
+    pre_mis_tib %>% dplyr::inner_join(val_cpg_tib, by=c("AlleleA_Probe_Sequence"="Probe_Seq")),
+    pre_mis_tib %>% dplyr::inner_join(val_cph_tib, by=c("AlleleA_Probe_Sequence"="Probe_Seq")),
+    
+    pre_mis_tib %>% dplyr::inner_join(val_cpg_tib, by=c("AlleleB_Probe_Sequence"="Probe_Seq")),
+    pre_mis_tib %>% dplyr::inner_join(val_cph_tib, by=c("AlleleB_Probe_Sequence"="Probe_Seq")),
+    
+    pre_mis_tib %>% dplyr::inner_join(val_cpg_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")),
+    pre_mis_tib %>% dplyr::inner_join(val_cph_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")),
+    
+    pre_mis_tib %>% dplyr::inner_join(val_cpg_tib, by=c("AlleleB_Probe_Sequence"="Probe_RCS")),
+    pre_mis_tib %>% dplyr::inner_join(val_cph_tib, by=c("AlleleB_Probe_Sequence"="Probe_RCS")),
+    NULL
+  ) %>% 
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID,M,U,Aln_ID) %>% 
+    dplyr::filter(Probe_ID != Aln_ID)
+  
+  #
+  # Compare Validated Groups to New::
+  #
+  new_mat_tib <- dplyr::bind_rows(
+    new_man_tib %>% dplyr::inner_join(val_cpg_tib, by=c("AlleleA_Probe_Sequence"="Probe_Seq")),
+    new_man_tib %>% dplyr::inner_join(val_cph_tib, by=c("AlleleA_Probe_Sequence"="Probe_Seq")),
+    
+    new_man_tib %>% dplyr::inner_join(val_cpg_tib, by=c("AlleleB_Probe_Sequence"="Probe_Seq")),
+    new_man_tib %>% dplyr::inner_join(val_cph_tib, by=c("AlleleB_Probe_Sequence"="Probe_Seq")),
+    
+    new_man_tib %>% dplyr::inner_join(val_cpg_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")),
+    new_man_tib %>% dplyr::inner_join(val_cph_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")),
+    
+    new_man_tib %>% dplyr::inner_join(val_cpg_tib, by=c("AlleleB_Probe_Sequence"="Probe_RCS")),
+    new_man_tib %>% dplyr::inner_join(val_cph_tib, by=c("AlleleB_Probe_Sequence"="Probe_RCS")),
+    NULL
+  ) %>% 
+    # dplyr::add_count(M,U, name="MU_CNT") %>% dplyr::filter(MU_CNT!=1) %>%
+    dplyr::distinct(M,U, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID,M,U,Aln_ID) %>% 
+    dplyr::filter(Probe_ID != Aln_ID)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #             Compare Validation Categories to New/Pre:: CpG
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  new_man_tib %>% 
+    dplyr::inner_join(val_cpg_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")) %>% 
+    dplyr::group_by(Probe_Type,Probe_Class,Infinium_Design,AQP) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+
+  pre_man_tib %>% 
+    dplyr::inner_join(val_cpg_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")) %>% 
+    dplyr::group_by(Probe_Type,Probe_Class,Infinium_Design,AQP) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  jon_man_tib %>% 
+    dplyr::inner_join(val_cpg_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")) %>% 
+    dplyr::group_by(Probe_Type_new,Probe_Class_new,
+                    Probe_Type_pre,Probe_Class_pre,
+                    Infinium_Design,AQP) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #             Compare Validation Categories to New/Pre:: CpH
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  new_man_tib %>% 
+    dplyr::inner_join(val_cph_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")) %>% 
+    dplyr::group_by(Probe_Type,Probe_Class,Infinium_Design,AQP) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  pre_man_tib %>% 
+    dplyr::inner_join(val_cph_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")) %>% 
+    dplyr::group_by(Probe_Type,Probe_Class,Infinium_Design,AQP) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  jon_man_tib %>% 
+    dplyr::inner_join(val_cph_tib, by=c("AlleleA_Probe_Sequence"="Probe_RCS")) %>% 
+    dplyr::group_by(Probe_Type_new,Probe_Class_new,
+                    Probe_Type_pre,Probe_Class_pre,
+                    Infinium_Design,AQP) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  
+  #
+  # OLD Comparison Code::
+  #
+  is_relevant <- FALSE
+  if (is_relevant) {
+    #
+    # New/Old Summary Comparison for CpH::
+    #
+    new_man_tib %>% dplyr::filter(Probe_Type=='ch') %>% 
+      dplyr::group_by(Probe_Class,Strand_TB,Strand_CO,Infinium_Design,AQP) %>% 
+      dplyr::summarise(Count=n(), .groups="drop")
+    
+    pre_man_tib %>% dplyr::filter(Probe_Type=='ch') %>% 
+      dplyr::group_by(Probe_Class,Strand_TB,Strand_CO,Infinium_Design,AQP) %>% 
+      dplyr::summarise(Count=n(), .groups="drop")
+  }
+  
+  # TBD:: Compare Changes for each column...
+  #
+  
+}
+
+
+
 
 #
 # Write minimal Sesame::

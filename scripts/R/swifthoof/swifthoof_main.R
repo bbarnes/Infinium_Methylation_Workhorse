@@ -262,8 +262,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
+  par$local_runType <- 'GRCm38'
   
   opt$fresh <- TRUE
   
@@ -742,6 +742,8 @@ if (opt$cluster) {
   # tim_csv <- file.path(opt$outDir, paste(par$prgmTag,'time-tracker.csv.gz', sep='.') )
   # tim_tib <- pTracker$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
   # readr::write_csv(tim_tib, tim_csv)
+  
+  # rdat$cur_list$call_dat %>% dplyr::filter(stringr::str_starts(Probe_ID, 'ch'))
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

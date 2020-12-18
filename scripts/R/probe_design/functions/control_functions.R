@@ -289,23 +289,43 @@ format_controls_HSA = function(file1, file2,
       dplyr::filter(!is.na(Probe_ID)) %>%
       dplyr::select(-Design_Base_AB_A,-Design_Base_AB_B,
                     -Design_ID_A,-Design_ID_B) %>%
+      dplyr::group_by(Probe_ID) %>%
+      dplyr::mutate(PID_CNT=dplyr::row_number()) %>%
+      dplyr::ungroup() %>%
       dplyr::mutate(
-        Probe_ID=paste0(stringr::str_replace_all(Probe_ID,'_','-'),'-HSA_NN',Infinium_Design,'1'),
+        # Without unique Replicate IDs:: i.e. PID_CNT
+        # Probe_ID=paste0(stringr::str_replace_all(Probe_ID,'_','-'),'-HSA_NN',Infinium_Design,'1'),
+        
+        # With unique Replicate IDs:: i.e. PID_CNT
+        Probe_ID=paste0(stringr::str_replace_all(Probe_ID,'_','-'),'-HSA_NN',Infinium_Design,PID_CNT),
         Assay_Class='Control',
         AQP=1,
         Probe_Class=Probe_Type
       )
     
     if (verbose>=vt+4) {
-      ret_tib %>% dplyr::filter(Infinium_Design==1) %>% as.data.frame() %>% print()
-      ret_tib %>% dplyr::filter(Infinium_Design==2) %>% as.data.frame() %>% print()
+      ret_1_cnt <- 0
+      ret_2_cnt <- 0
+      
+      ret_1_tib <- ret_tib %>% dplyr::filter(Infinium_Design==1)
+      ret_2_tib <- ret_tib %>% dplyr::filter(Infinium_Design==2)
+      
+      ret_1_cnt <- ret_1_tib %>% base::nrow()
+      ret_2_cnt <- ret_2_tib %>% base::nrow()
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr} Infinium 1 Controls({ret_1_cnt})={RET}"))
+      ret_1_tib %>% print(base::nrow(ret_1_tib))
+      cat(glue::glue("[{funcTag}]:{tabsStr} Infinium 2 Controls({ret_2_cnt})={RET}"))
+      ret_2_tib %>% print(base::nrow(ret_2_tib))
+      cat(glue::glue("[{funcTag}]:{RET}"))
     }
     
     ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
   
   ret_tib
 }
