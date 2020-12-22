@@ -126,7 +126,7 @@ if (args.dat[1]=='RStudio') {
   #
   
   opt$fresh  <- TRUE
-  opt$outDir <- file.path(par$topDir, 'scratch')
+  opt$outDir <- file.path(par$topDir, 'scratch', 'tmp')
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -243,7 +243,8 @@ ses_hsa_snp_tib <- ses_19_tib %>% dplyr::filter(Probe_Type=='rs')
 ses_hsa_cph_tib <- ses_19_tib %>% dplyr::filter(Probe_Type=='ch')
 
 ses_mus_man_csv <- 
-  file.path(par$datDir, 'manifest/core/LEGX-C20.manifest.sesame-base.cpg-sorted.csv.gz')
+  file.path(par$datDir, 'manifest/core/LEGX-C24.manifest.sesame-base.cpg-sorted.csv.gz')
+#  file.path(par$datDir, 'manifest/core/LEGX-C20.manifest.sesame-base.cpg-sorted.csv.gz')
 ses_mus_man_tib <- 
   suppressMessages(suppressWarnings( readr::read_csv(ses_mus_man_csv) )) %>%
   dplyr::mutate(Genome_Build="GRCm38")
@@ -570,7 +571,8 @@ all_des_tib %>%
 
 all_des_tib %>% 
   dplyr::group_by(Probe_Type,Genome_Build) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
+  dplyr::summarise(Count=n(), .groups="drop") %>%
+  print()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             improbe design:: All
@@ -636,7 +638,8 @@ mat_prb_tib <- dplyr::bind_rows(
     by=c("Seq_ID", "Seq_48U"="Seq_48U_2_IMP"),
     suffix=c("_MAN","_DES"))
 ) %>% 
-  dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq, .keep_all=TRUE)
+  dplyr::distinct(AlleleA_ProbeSeq,AlleleB_ProbeSeq, .keep_all=TRUE) %>% 
+  dplyr::filter(Genome_Build_MAN != Genome_Build_DES)
 
 mat_prb_sum <- mat_prb_tib %>% 
   dplyr::group_by(Genome_Build_MAN,Probe_Type_MAN,Infinium_Design) %>% 
@@ -670,7 +673,6 @@ prb_seq_tib %>%
 #                            Write Output:: seq48U
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-
 out_name <- 'NonCpG-13122020'
 
 seq48U_dir <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un'
@@ -683,6 +685,11 @@ readr::write_tsv(seq48U_tib, seq48U_tsv, col_names=FALSE)
 
 # cat /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/NonCpG-13122020.seq48U.sorted.tsv | grep "^rs" > /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/SNP-13122020.seq48U.sorted.tsv
 # cat /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/NonCpG-13122020.seq48U.sorted.tsv | grep "^ch" > /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/seq48U/un/CpH-13122020.seq48U.sorted.tsv
+
+#
+# TBD:: Split by Genome Build and write new splits::
+#
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                            Write Output:: cgnTOP

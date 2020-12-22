@@ -262,8 +262,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'qcMVP'
   par$local_runType <- 'GRCm38'
+  par$local_runType <- 'qcMVP'
   
   opt$fresh <- TRUE
   
@@ -333,7 +333,7 @@ if (args.dat[1]=='RStudio') {
   opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
   # opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, opt$runName)
-  opt$outDir <- file.path(par$topDir, 'scratch')
+  opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -744,6 +744,9 @@ if (opt$cluster) {
   # readr::write_csv(tim_tib, tim_csv)
   
   # rdat$cur_list$call_dat %>% dplyr::filter(stringr::str_starts(Probe_ID, 'ch'))
+  
+  # rdat$cur_list$call_dat %>% dplyr::filter(stringr::str_starts(Probe_ID, 'cg')) %>% dplyr::filter(raw_pvals_pOOBAH<=0.1) %>% base::nrow()
+  # rdat$cur_list$call_dat %>% dplyr::filter(stringr::str_starts(Probe_ID, 'cg')) %>% base::nrow()
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

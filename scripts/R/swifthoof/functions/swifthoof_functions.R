@@ -231,6 +231,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}{RET}"))
     }
     
+    org_dat_bool <- TRUE
     cur_dat_list <- NULL
     workflow_cnt <- length(workflows)
     for (idx in seq(1,workflow_cnt)) {
@@ -288,6 +289,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         minDb=opts$minDeltaBeta, dpi=opts$dpi, plotFormat=opts$plotFormat,
         datIdx=5, non_ref=FALSE, fresh=opts$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      
+      if (retData && org_dat_bool) {
+        org_dat_bool <- FALSE
+        ret_dat$org_list <- cur_dat_list
+      }
 
       if (verbose>=vt) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}{RET}"))
@@ -367,6 +373,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
   # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. elasped={etime}.{RET}{RET}"))
   
   if (retData) {
+    ret_dat$req_tib    <- req_tib
     ret_dat$ssheet_tib <- ssheet_tib
     ret_dat$dsheet_tab <- dsheet_tab
     ret_dat$time       <- tTracker$time

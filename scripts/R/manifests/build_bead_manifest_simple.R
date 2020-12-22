@@ -735,7 +735,6 @@ man_raw_dat_tib <-
 #                2.0 Build Probes foreach Type:: RS/CH/CG/etc..
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-opt$verbose <- 5
 man_prb_list <- NULL
 man_raw_list <- man_raw_dat_tib %>% split(.$Probe_Type)
 
@@ -907,6 +906,12 @@ for (probe_type in rev(names(man_raw_list)) ) {
 if (opt$verbose>=1) {
   cat(glue::glue("[{par$prgmTag}]: Done. Building Probes.{RET}{RET}"))
 }
+
+#
+# Current Error::
+#
+
+man_raw_dat_tib %>% dplyr::filter(Probe_Type=='rs') %>% dplyr::filter(stringr::str_starts(Probe_ID,"chr"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.0 Join All Detected Probes:: SNP/CpH/CpG
