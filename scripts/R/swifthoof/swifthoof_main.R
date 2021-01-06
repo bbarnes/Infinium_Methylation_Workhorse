@@ -723,7 +723,11 @@ if (opt$cluster) {
                                    
                                    retData=par$retData,
                                    verbose=opt$verbose, vt=3,tc=1)
-
+      
+      # rdat2 <- rdat
+      # rdat$ssheet_tib %>% dplyr::select(dplyr::contains("_Requeue_"),
+      #                                   dplyr::contains("_pass_perc_") ) %>% as.data.frame()
+      
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
     }

@@ -587,20 +587,50 @@ ssetTibToSummary = function(tib, man=NULL,
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Applying pval cutoff={pval}...{RET}"))
       
-      cut_tib <- tib %>% 
+      if (verbose>=vt) print(tib)
+      
+      cut2_tib <- tib %>% 
         dplyr::group_by(!!type_sym, !!des_sym) %>%
         dplyr::select(-dplyr::all_of(by)) %>%
         dplyr::summarise_all(list(pass_perc=cntPer_lte), min=pval)
       
-      if (!is.null(perc))
-        cut_tib <- cut_tib %>% 
-        dplyr::mutate( Requeue=dplyr::case_when(
-          pass_perc>=perc ~ "FALSE", 
-          pass_perc<perc ~ "TRUE",
-          TRUE ~ "TRUE") )
-      cut_tib <- dplyr::ungroup(cut_tib)
+      cut1_tib <- tib %>% 
+        dplyr::select(-dplyr::all_of(des_sym)) %>%
+        dplyr::group_by(!!type_sym) %>%
+        dplyr::select(-dplyr::all_of(by)) %>%
+        dplyr::summarise_all(list(full_pass_perc=cntPer_lte), min=pval)
+
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} cut2_tib={RET}"))
+        print(cut2_tib)
+        cat(glue::glue("[{funcTag}]:{tabsStr} cut1_tib={RET}"))
+        print(cut1_tib)
+      }
       
-      ret_tib <- dplyr::inner_join(ret_tib,cut_tib, by=c(type, des))
+      if (!is.null(perc)) {
+        cut1_tib <- cut1_tib %>% 
+        dplyr::mutate( Requeue=dplyr::case_when(
+          full_pass_perc>=perc ~ "FALSE",
+          full_pass_perc<perc ~ "TRUE",
+          TRUE ~ "TRUE") )
+        
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} cut1_tib={RET}"))
+          print(cut1_tib)
+        }
+        
+        # if (!is.null(perc))
+        #   cut2_tib <- cut2_tib %>% 
+        #   dplyr::mutate( Requeue=dplyr::case_when(
+        #     pass_perc>=perc ~ "FALSE", 
+        #     pass_perc<perc ~ "TRUE",
+        #     TRUE ~ "TRUE") )
+      }
+      cut1_tib <- dplyr::ungroup(cut1_tib)
+      cut2_tib <- dplyr::ungroup(cut2_tib)
+      
+      ret_tib <- dplyr::inner_join(ret_tib,cut1_tib, by=c(type))
+      ret_tib <- dplyr::inner_join(ret_tib,cut2_tib, by=c(type, des))
     }
     
     if (percision >= 0)
