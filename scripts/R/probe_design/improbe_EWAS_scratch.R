@@ -823,14 +823,16 @@ pre_all_tib <- pre_cpg_tib1 %>%
   dplyr::bind_rows(pre_cpg_tib2) %>% 
   dplyr::bind_rows(pre_cpg_tib3)
 
-pre_unq_tib <- pre_all_tib %>% dplyr::distinct(IlmnID, .keep_all=TRUE)
+pre_unq_tib <- pre_all_tib %>% 
+  dplyr::distinct(IlmnID, .keep_all=TRUE) %>%
+  dplyr::rename(Assay_Design_Id=IlmnID)
 
 #
 # 2.0 Intersect Target and Pre-Ordered CpGs::
 #
 
 pre_unq_order_mis_tib <- pre_unq_tib %>% 
-  dplyr::anti_join(pre_order_tib, by=c("IlmnID"="Seq_ID"))
+  dplyr::anti_join(pre_order_tib, by=c("Assay_Design_Id"="Seq_ID"))
 
 pre_unq_order_mis_sum <- pre_unq_order_mis_tib %>% 
   dplyr::group_by(Request_Group,Request_Name) %>% 
@@ -840,6 +842,7 @@ if (opt$verbose>=1) {
   cat(glue::glue("[{par$prgmTag}]: pre_unq_order_mis_sum={RET}"))
   pre_unq_order_mis_sum %>% print(n=base::nrow(pre_unq_order_mis_sum))
 }
+
 
 #
 # 2.1 Load Manifests CpG Designs::
@@ -868,14 +871,13 @@ pre_ord_man_tib <- pre_man_tib %>%
       Next_Base == 'C' | Next_Base == 'G' ~ 'B', 
       TRUE ~ NA_character_)
   ) %>% 
-  dplyr::rename(Assay_Design_Id=IlmnID) %>%
   dplyr::mutate(AlleleA_Probe_Id=paste(Assay_Design_Id,"A", sep="_"),
                 AlleleB_Probe_Id=paste(Assay_Design_Id,"B", sep="_")) %>%
-  dplyr::select(dplyr::all_of(sel_man_col), dplyr::everything())
+  dplyr::select(dplyr::all_of(sel_man_col), dplyr::everything()) %>%
   dplyr::select(Assay_Design_Id,
                 AlleleA_Probe_Id,AlleleA_ProbeSeq,
                 AlleleB_Probe_Id,AlleleB_ProbeSeq,
-                Normalization_Bin)
+                Normalization_Bin, dplyr::everything() )
 
 org_man_unq_tib <- pre_ord_man_tib %>% 
   dplyr::distinct(Assay_Design_Id, .keep_all=TRUE)

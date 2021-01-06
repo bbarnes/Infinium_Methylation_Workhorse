@@ -318,7 +318,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     # Arrange the Sample Sheet Columns
     #   cur_dat_list
-    ssheet_tib <- NULL
     ssheet_tib <- dplyr::bind_cols(ssheet_tib, cur_dat_list$sums_ssh) %>%
       dplyr::select(-starts_with('Iscan_'), starts_with('Iscan_')) %>% 
       dplyr::mutate_if(is.numeric, list(round), opts$percision_beta)
