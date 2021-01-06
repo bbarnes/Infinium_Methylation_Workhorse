@@ -153,61 +153,110 @@ intersectGranges = function(man,ref,
   ret_tib <- NULL
   stime <- system.time({
     
-    for (feat_key in names(ref)) {
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} GRange Overlap; feature={feat_key}...{RET}"))
-      
+    if (! purrr::is_list(ref)) {
       map_tib <- 
-        GenomicRanges::findOverlaps(man,ref[[feat_key]], ignore.strand=TRUE) %>%
+        GenomicRanges::findOverlaps(man,ref, ignore.strand=TRUE) %>%
         as.data.frame() %>% tibble::as_tibble()
-      map_len <- base::nrow(map_tib)
-      
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; man={RET}"))
-        print(man)
-
-        cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; ref={RET}"))
-        print(ref[[feat_key]])
-        
-        cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; map_tib={map_len}{RET}"))
-        print(map_tib)
-        
-        cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
-      }
       
       mani_tib <- man %>% as.data.frame() %>%
         rownames_to_column(var='Seq_ID') %>% tibble::as_tibble() 
       mani_len <- mani_tib %>% base::nrow()
-
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; mani_tib({mani_len})={RET}"))
-        print(mani_tib)
-      }
-
-      gene_tib <- ref[[feat_key]] %>% as.data.frame() %>% 
-        rownames_to_column(var='Name') %>% tibble::as_tibble() %>% 
-        purrr::set_names(c('Gene','chrom','chromStart','chromEnd','chromLength','chromStrand'))
-      gene_len <- gene_tib %>% base::nrow()
       
       if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; gene_tib({gene_len})={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr} mani_tib({mani_len})={RET}"))
+        print(mani_tib)
+      }
+      
+      gene_tib <- ref %>% as.data.frame() %>%
+        rownames_to_column(var='Name') %>% tibble::as_tibble() # %>% 
+        # purrr::set_names(c('Gene','chrom','chromStart','chromEnd','chromLength','chromStrand'))
+      gene_len <- gene_tib %>% base::nrow()
+      
+      #
+      # TBD::
+      # TBD:: Lame way to fix this; the code commented out above:
+      # TBD::
+      #
+      colnames(gene_tib)[1] <- "Gene"
+      colnames(gene_tib)[2] <- "chrom"
+      colnames(gene_tib)[3] <- "chromStart"
+      colnames(gene_tib)[4] <- "chromEnd"
+      colnames(gene_tib)[5] <- "chromLength"
+      colnames(gene_tib)[6] <- "chromStrand"
+      
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} gene_tib({gene_len})={RET}"))
         print(gene_tib)
       }
       
+      #
+      # Last chage:: # dplyr::select(Seq_ID),
+      #
       cur_tib <- dplyr::bind_cols(
-        # tib[map_tib$queryHits, ] %>% dplyr::select(Seq_ID),
-        mani_tib[map_tib$queryHits, ] %>% dplyr::select(Seq_ID),
-        gene_tib[map_tib$subjectHits,] ) %>%
-        dplyr::mutate(Feature=feat_key)
+        mani_tib[map_tib$queryHits, ], # %>% dplyr::select(Seq_ID),
+        gene_tib[map_tib$subjectHits,] ) # %>% dplyr::mutate(Feature=feat_key)
       cur_len <- cur_tib %>% base::nrow()
-
+      
       if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; cur_tib({cur_len})={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr} cur_tib({cur_len})={RET}"))
         print(cur_tib)
       }
       ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
-      
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]: Done.{RET}{RET}"))
+    } else {
+      for (feat_key in names(ref)) {
+        if (verbose>=vt)
+          cat(glue::glue("[{funcTag}]:{tabsStr} GRange Overlap; feature={feat_key}...{RET}"))
+        
+        map_tib <- 
+          GenomicRanges::findOverlaps(man,ref[[feat_key]], ignore.strand=TRUE) %>%
+          as.data.frame() %>% tibble::as_tibble()
+        map_len <- base::nrow(map_tib)
+        
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; man={RET}"))
+          print(man)
+          
+          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; ref={RET}"))
+          print(ref[[feat_key]])
+          
+          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; map_tib={map_len}{RET}"))
+          print(map_tib)
+          
+          cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
+        }
+        
+        mani_tib <- man %>% as.data.frame() %>%
+          rownames_to_column(var='Seq_ID') %>% tibble::as_tibble() 
+        mani_len <- mani_tib %>% base::nrow()
+        
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; mani_tib({mani_len})={RET}"))
+          print(mani_tib)
+        }
+        
+        gene_tib <- ref[[feat_key]] %>% as.data.frame() %>% 
+          rownames_to_column(var='Name') %>% tibble::as_tibble() %>% 
+          purrr::set_names(c('Gene','chrom','chromStart','chromEnd','chromLength','chromStrand'))
+        gene_len <- gene_tib %>% base::nrow()
+        
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; gene_tib({gene_len})={RET}"))
+          print(gene_tib)
+        }
+        
+        cur_tib <- dplyr::bind_cols(
+          # tib[map_tib$queryHits, ] %>% dplyr::select(Seq_ID),
+          mani_tib[map_tib$queryHits, ] %>% dplyr::select(Seq_ID),
+          gene_tib[map_tib$subjectHits,] ) %>%
+          dplyr::mutate(Feature=feat_key)
+        cur_len <- cur_tib %>% base::nrow()
+        
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; cur_tib({cur_len})={RET}"))
+          print(cur_tib)
+        }
+        ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
+      }
     }
     
     ret_cnt <- ret_tib %>% base::nrow()

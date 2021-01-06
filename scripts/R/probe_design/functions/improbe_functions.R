@@ -22,6 +22,7 @@ BNG <- "|"
 
 improbe_design_all = function(tib, ptype, outDir, gen,
                               image, shell,
+                              seqKey="IUPAC_Sequence",strsSR="FR",reduce_imp=TRUE,
                               sidx=2, plen=50,
                               parse_din=FALSE, del='_',
                               parallel=TRUE,
@@ -66,17 +67,39 @@ improbe_design_all = function(tib, ptype, outDir, gen,
         Chromosome=as.character(Chromosome),
         Strand_SR=Methyl_Allele_FR_Strand,
         Strand_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
-        Strand_CO=Methyl_Allele_CO_Strand)
+        Strand_CO=Methyl_Allele_CO_Strand,
+        Probe_Score_Min=pmin(Methyl_Final_Score,UnMethyl_Final_Score),
+        Underlying_CpG_Count=as.integer(Methyl_Underlying_CpG_Count),
+        Underlying_CpG_Min_Dist=as.integer(Methyl_Underlying_CpG_Min_Dist)
+        )
     
     if (parse_din) imp_des_tib <- imp_des_tib %>%
       tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
+    
+    #
+    # TBD:: Add better reduced returned value...
+    #
+    if (reduce_imp) {
+      imp_des_tib <- imp_des_tib %>%
+        dplyr::select(
+          Seq_ID,Forward_Sequence,Genome_Build,Chromosome,Coordinate,Top_Sequence,
+          Strand_SR,Strand_TB,Strand_CO,Probe_Score_Min,
+          Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+          Methyl_Probe_Sequence,UnMethyl_Probe_Sequence,Seq_48U_1,Seq_48U_2)
+    }
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} tib={RET}"))
+      print(tib)
+    }
     
     # Build de-novo IUPAC designs
     #
     iup_des_tib <- desSeq_to_prbs(
       tib=tib,
-      idsKey="Seq_ID",seqKey="IUPAC_Sequence",prbKey="Probe_Type",
-      strsSR="FR", parallel=parallel,
+      # idsKey="Seq_ID",seqKey="IUPAC_Sequence",prbKey="Probe_Type",
+      idsKey="Seq_ID",seqKey=seqKey,prbKey="Probe_Type",
+      strsSR=strsSR, parallel=parallel,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
       dplyr::mutate(
         
@@ -93,11 +116,13 @@ improbe_design_all = function(tib, ptype, outDir, gen,
       tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
     
     if (TRUE) {
+      if (!reduce_imp) imp_des_tib <- imp_des_tib %>% 
+          dplyr::rename(Probe_Type_IMP=Probe_Type)
+      
       ret_tib <- dplyr::inner_join(
-        imp_des_tib %>% dplyr::rename(Probe_Type_IMP=Probe_Type),
-        iup_des_tib,
-        
-        by=c("Seq_ID", "Strand_SR", "Strand_CO"),
+        imp_des_tib, iup_des_tib,
+        by=c("Seq_ID", "Strand_SR", "Strand_CO",
+             "Seq_48U_1", "Seq_48U_2"),
         suffix=c("_IMP", "_IUP")
       )
       ret_cnt <- ret_tib %>% base::nrow()

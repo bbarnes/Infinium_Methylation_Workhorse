@@ -1940,13 +1940,14 @@ decodeToManifest = function(ord, mat, pqc,
     ord_tib <- NULL
     mat_tib <- NULL
     pqc_tib <- NULL
-    ord_tib <- loadORD(file=ord, format=ordFormat, skip=ordSkip, guess=ordGuess, trim=trim,
-                       sidx=sidx, plen=plen,
+    ord_tib <- loadORD(file=ord, format=ordFormat, skip=ordSkip, guess=ordGuess, 
+                       trim=trim, sidx=sidx, plen=plen,
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    mat_tib <- loadMAT(file=mat, format=matFormat, skip=matSkip, guess=matGuess, trim=trim,
-                       cols=matCols,
+    mat_tib <- loadMAT(file=mat, format=matFormat, skip=matSkip, guess=matGuess, 
+                       trim=trim, cols=matCols,
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    pqc_tib <- loadPQC(file=pqc, format=pqcFormat, skip=pqcSkip, guess=pqcGuess, trim=trim,
+    pqc_tib <- loadPQC(file=pqc, format=pqcFormat, skip=pqcSkip, guess=pqcGuess, 
+                       trim=trim,
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     if (full) {
