@@ -5,7 +5,7 @@ MAINTAINER Bret Barnes "bbarnes@illumina.com"
 
 # This is required by some sesame dependency
 RUN apt-get update
-RUN apt-get install zlib1g-dev
+RUN apt-get install zlib1g-dev xml2
 
 # To install R packages use the following, I just pulled these real fast but you might need more
 RUN install2.r dbplyr optparse tidyverse purrr tidyr plyr stringr readr glue ggplot2 tibble matrixStats scales doParallel R.utils scales GGally RcppArmadillo 
