@@ -431,11 +431,25 @@ requeueFlag = function(tib, name, csv=NULL,
       dplyr::filter(Requeue==TRUE) %>%
       base::nrow()
     
+    min_pass_perc <- tib %>% 
+      dplyr::filter(Workflow_idx==1 & Probe_Type=='cg' & !is.na(Requeue)) %>%
+      dplyr::arrange(full_pass_perc) %>%
+      head(n=1) %>% pull(full_pass_perc)
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} requeue_cnt={requeue_cnt}; ",
+                     "min_pass_perc={min_pass_perc}; sel={RET}"))
+      tib %>% 
+        dplyr::filter(Workflow_idx==1 & Probe_Type=='cg' & !is.na(Requeue)) %>%
+        print()
+    }
+
     requeue_flag <- FALSE
     if (requeue_cnt>0) requeue_flag <- TRUE
     
     ret_tib <- tibble::tibble(Sentrix_Name = !!name,
-                              Failed_QC = !!requeue_flag)
+                              Failed_QC = !!requeue_flag,
+                              Min_Pass_Perc = !!min_pass_perc)
     
     if (!is.null(csv)) {
       if (verbose>=vt) 
@@ -453,7 +467,7 @@ requeueFlag = function(tib, name, csv=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
+  if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   

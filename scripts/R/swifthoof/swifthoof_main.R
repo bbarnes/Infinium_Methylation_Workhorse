@@ -222,6 +222,7 @@ if (args.dat[1]=='RStudio') {
   opt$manifest   <- NULL
   
   par$expChipNum <- NULL
+  par$expSampNum <- NULL
   
   # Writing Options::
   opt$write_beta  <- FALSE
@@ -264,6 +265,7 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
+  par$local_runType <- 'DELTA'
   
   opt$fresh <- TRUE
   
@@ -315,6 +317,17 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- 'Excalibur-New-1609202'
     par$expChipNum <- '202915460071'
     opt$auto_detect <- TRUE
+  } else if (par$local_runType=='DELTA') {
+    opt$runName  <- 'DELTA-8x1-EPIC-Core'
+    par$expChipNum <- '203319730022'
+    par$expSampNum <- '203319730022_R07C01'
+    
+    opt$auto_detect <- TRUE
+    
+    opt$plotSset  <- TRUE
+    opt$plotCalls <- TRUE
+    opt$plotAuto  <- TRUE
+    
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
@@ -710,8 +723,18 @@ if (opt$cluster) {
     
     rdat <- NULL
     for (prefix in prefixe_names) {
-      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
+      # Testing code only::
+      #
+      # if (!is.null(par$expSampNum)) {
+      #   prefix <- par$expSampNum
+      #   opt$single <- TRUE
+      #   
+      #   prefix <- "203319730022_R01C01"
+      # }
+      
+      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
+
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
                                    man=mans, ref=auto_sam_tib, opts=opt, defs=def,
@@ -724,10 +747,47 @@ if (opt$cluster) {
                                    retData=par$retData,
                                    verbose=opt$verbose, vt=3,tc=1)
       
-      # rdat2 <- rdat
+      # rdat1 <- rdat
+      # rdat7 <- rdat
+      #
       # rdat$ssheet_tib %>% dplyr::select(dplyr::contains("_Requeue_"),
       #                                   dplyr::contains("_pass_perc_") ) %>% as.data.frame()
+      # requeueFlag(tib=rdat$cur_list$sums_dat, name = "BLA", csv = "/Users/bretbarnes/Documents/tmp/tmp.requeue.txt", verbose=40)
+      #
+      # auto_sam_tib %>% dplyr::select(Probe_ID, rdat$ssheet_tib$AutoSample_dB_Key_1)
+      # dplyr::select(auto_sam_tib, Probe_ID, rdat$ssheet_tib$AutoSample_dB_Key_1)
+      #
+      # Generate plot(dB<=0.2) + plot(dB>0.2)
+      # Calculate the angle between ablines above
+      #
       
+      if (FALSE) {
+        dB1_tib <- dplyr::inner_join( 
+          purrr::set_names(rdat1$org_list$call_dat, c("Probe_ID", "can_poob", "can_negs", "can_beta")),
+          dplyr::select(auto_sam_tib, Probe_ID, rdat1$ssheet_tib$AutoSample_dB_Key_1) %>% 
+            purrr::set_names(c("Probe_ID","ref_beta")), 
+          by="Probe_ID") %>% 
+          dplyr::mutate(del_beta=base::abs(can_beta-ref_beta))
+        
+        dB7_tib <- dplyr::inner_join( 
+          purrr::set_names(rdat7$org_list$call_dat, c("Probe_ID", "can_poob", "can_negs", "can_beta")),
+          dplyr::select(auto_sam_tib, Probe_ID, rdat7$ssheet_tib$AutoSample_dB_Key_1) %>% 
+            purrr::set_names(c("Probe_ID","ref_beta")), 
+          by="Probe_ID") %>% 
+          dplyr::mutate(del_beta=base::abs(can_beta-ref_beta))
+        
+        
+        ggplot2::ggplot(data=dB1_tib, aes(x=can_poob, y=del_beta)) + 
+          # ggplot2::geom_point() + 
+          ggplot2::geom_density2d() +
+          ggplot2::geom_abline()
+        
+        ggplot2::ggplot(data=dB7_tib, aes(x=can_poob, y=del_beta)) + 
+          # ggplot2::geom_point() + 
+          ggplot2::geom_density2d() +
+          ggplot2::geom_abline()
+      }
+
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
     }

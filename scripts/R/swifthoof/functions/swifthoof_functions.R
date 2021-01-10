@@ -343,7 +343,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     if (!is.null(ssheet_tib)) readr::write_csv(ssheet_tib, ssheet_csv)
     if (!is.null(dsheet_tab)) readr::write_csv(dsheet_tab, dsheet_csv)
     
-    req_tib <- requeueFlag(tib=cur_dat_list$sums_dat, name=basecode, csv=requeue_csv,
+    req_tib <- requeueFlag(tib=cur_dat_list$sums_dat, name=basecode, 
+                           csv=requeue_csv,
                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     if (!is.null(time_tib))   readr::write_csv(time_tib, times_csv)

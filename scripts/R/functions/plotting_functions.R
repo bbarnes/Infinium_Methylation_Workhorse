@@ -579,7 +579,8 @@ plotBetaMatrix_bySample = function(tib, sample, manifest, minPval, pvalKey, beta
   idat_exp_tibs <- list()
   for (exp_key in names(ss_exp_tibs)) {
     exp_nrows <- ss_exp_tibs[[exp_key]] %>% base::nrow()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} experiment={exp_key}, exp_nrows={exp_nrows}.{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} experiment={exp_key}, exp_nrows={exp_nrows}.{RET}"))
     
     loadRDS  <- TRUE
     loadIDAT <- FALSE
@@ -595,7 +596,8 @@ plotBetaMatrix_bySample = function(tib, sample, manifest, minPval, pvalKey, beta
         idat_exp_tibs[[exp_key]] <- loadSampleIDAT_byRep(ss=ss_exp_tibs[[exp_key]], exp=exp_key, verbose=verbose+9,vt=vt+1,tc=tc+1)
     }
   }
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loaded ALL Experimental Probe Data!{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Loaded ALL Experimental Probe Data!{RET}{RET}"))
   
   if (retTibs) {
     ret <- NULL
@@ -675,7 +677,8 @@ plotBetaMatrix_bySample = function(tib, sample, manifest, minPval, pvalKey, beta
       }
       # break
     }
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done."),"\n\n", sep='')
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done."),"\n\n", sep='')
   }
   
   # exp_names
@@ -694,7 +697,8 @@ plotPairsBeta = function(beta, pval=NULL, sample, nameA, nameB,
   funcTag <- 'plotPairsBeta'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting sample={sample}: {nameA} vs. {nameB}{RET}"), sep='')
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting sample={sample}: {nameA} vs. {nameB}{RET}"), sep='')
   
   plotDir  <- file.path(outDir, paste(nameA,'VS',nameB,paste('pval',minPval, sep='-'), sep='_'))
   plotName <- paste(sample,nameA,'VS',nameB,probeType,field_str, sep='_')
@@ -725,9 +729,16 @@ plotPairsBeta = function(beta, pval=NULL, sample, nameA, nameB,
   nrows_per  <- round(100*nrows_sub/nrows_org,1)
   nrows_orgK <- number_as_commaK(nrows_org)
   nrows_subK <- number_as_commaK(nrows_sub)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Total={nrows_orgK}, Subset={nrows_subK}, Percent={nrows_per}{RET}"))
-  if (verbose>=vt+4) print(bsub_tib)
-  if (verbose>=vt+4) print(beta_tib)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Total={nrows_orgK}, Subset={nrows_subK}, Percent={nrows_per}{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} bsub_tib={RET}"))
+    print(bsub_tib)
+  }
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} beta_tib={RET}"))
+    print(beta_tib)
+  }
   
   ptime <- Sys.time()
   gg_mtitle <- glue::glue("{nameA} VS {nameB}")
@@ -751,7 +762,9 @@ plotPairsBeta = function(beta, pval=NULL, sample, nameA, nameB,
   bufs <- NULL
   bufs <- getDeltaMaxXY(data=bsub_tib,datIdx=2, verbose=verbose,vt=vt+1,tc=tc+1)
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building ggpairs(group={group}, field={field}, gg_mtitle={gg_mtitle})"),"\n", sep='')
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Building ggpairs(group={group}, ",
+                   "field={field}, gg_mtitle={gg_mtitle})"),"\n", sep='')
   
   gg <- GGally::ggpairs(
     data=bsub_tib, columns=tarColIdxes,
@@ -786,17 +799,20 @@ plotPairsBeta = function(beta, pval=NULL, sample, nameA, nameB,
       name_pdf <- glue::glue("{plotName}.{curFormat}")
       gg_pdf   <- file.path(plotDir, name_pdf)
       
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} GGally::ggpairs writing image={gg_pdf}.{RET}"))
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} GGally::ggpairs writing image={gg_pdf}.{RET}"))
       suppressMessages(ggplot2::ggsave(gg_pdf, gg, dpi=dpi) )
     }
   } else {
     name_pdf <- glue::glue("{plotName}.{format}")
     gg_pdf   <- file.path(plotDir, name_pdf)
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} GGally::ggpairs writing image={gg_pdf}.{RET}"))
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} GGally::ggpairs writing image={gg_pdf}.{RET}"))
     suppressMessages(ggplot2::ggsave(gg_pdf, gg, dpi=dpi) )
   }
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
   # gg
   bsub_tib
@@ -813,7 +829,8 @@ plotPairs = function(tib, sample, nameA, nameB,
   funcTag <- 'plotPairs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting sample={sample}: {nameA} vs. {nameB}{RET}"), sep='')
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting sample={sample}: {nameA} vs. {nameB}{RET}"), sep='')
   
   plotDir  <- file.path(outDir, paste(nameA,'VS',nameB,paste('pval',minPval, sep='-'), sep='_'))
   plotName <- paste(sample,nameA,'VS',nameB,probeType,field_str, sep='_')
@@ -844,7 +861,8 @@ plotPairs = function(tib, sample, nameA, nameB,
   nrows_per  <- round(100*nrows_sub/nrows_org,1)
   nrows_orgK <- number_as_commaK(nrows_org)
   nrows_subK <- number_as_commaK(nrows_sub)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Total={nrows_orgK}, Subset={nrows_subK}, Percent={nrows_per}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Total={nrows_orgK}, Subset={nrows_subK}, Percent={nrows_per}{RET}"))
   
   gg_type  <- paste0('RSquared',field)
   name_pdf <- glue::glue("{plotName}.{format}")
@@ -871,7 +889,9 @@ plotPairs = function(tib, sample, nameA, nameB,
   bufs <- NULL
   bufs <- getDeltaMaxXY(data=sdat,datIdx=2, verbose=verbose,vt=vt+1,tc=tc+1)
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building ggpairs(group={group}, field={field}, gg_mtitle={gg_mtitle})"),"\n", sep='')
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Building ggpairs(group={group}, ",
+                   "field={field}, gg_mtitle={gg_mtitle})"),"\n", sep='')
   
   # return(sdat)
   # print(sdat)
@@ -904,9 +924,11 @@ plotPairs = function(tib, sample, nameA, nameB,
     theme(panel.grid.major = element_blank()) +
     labs(title=gg_mtitle, subtitle=gg_stitle, caption=gg_ctitle)
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} GGally::ggpairs writing image={gg_pdf}.{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} GGally::ggpairs writing image={gg_pdf}.{RET}"))
   suppressMessages(ggplot2::ggsave(gg_pdf, gg, dpi=dpi) )
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
   # gg
   sdat
@@ -918,7 +940,11 @@ diag_density <- function(data, mapping, fdat=NULL, group, minPval, only, field='
                          verbose=0,vt=4,tc=1, ...) {
   funcTag <- 'diag_density'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; group={group}, minPval={minPval}, only={only}, field={field}.{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; group={group}, ",
+                   "minPval={minPval}, only={only}, field={field}, ",
+                   "non.ref={non.ref}.{RET}"))
+  
   if (verbose>=vt+10) {
     print(mapping)
     cat("fdat::\n")
@@ -932,8 +958,6 @@ diag_density <- function(data, mapping, fdat=NULL, group, minPval, only, field='
   if (non.ref) {
     fdat <- fdat %>% dplyr::mutate(Pval=GGally::eval_data_col(fdat, mapping$x))
   } else {
-    cat("\nnon.ref=FALSE\n\n")
-    
     if (c(mapping$x) %in% names(fdat)) { 
       fdat <- fdat %>% dplyr::mutate(Pval=GGally::eval_data_col(fdat, mapping$x))
     } else { 
@@ -961,7 +985,8 @@ diag_density <- function(data, mapping, fdat=NULL, group, minPval, only, field='
     y_max  <- y_max + (y_max*0.3)
   }
   
-  if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} x_min={x_min}, x_max={x_max}.{RET}"))
+  if (verbose>=vt+1)
+    cat(glue::glue("[{funcTag}]:{tabsStr} x_min={x_min}, x_max={x_max}.{RET}"))
   gg <- ggplot(data=data, mapping=mapping) +
     geom_density(..., alpha=alpha, aes(fill=!!group) ) +
     scale_x_continuous(breaks = round(seq(x_min,x_max, length.out=ticks),1), limits=c(x_min, x_max)) +
@@ -980,7 +1005,8 @@ diag_density <- function(data, mapping, fdat=NULL, group, minPval, only, field='
       show.legend=TRUE,
       inherit.aes = FALSE # do not inherit anything from the ...
     )
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done...{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done...{RET}{RET}"))
   
   gg
 }
@@ -990,7 +1016,8 @@ geomDensity1d_Delta <- function(data, mapping, fdat=NULL, bufs=NULL, group, minD
                                 verbose=0,vt=4,tc=1) {
   funcTag <- 'geomDensity1d_Delta'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   data <- data %>% dplyr::mutate(Delta=GGally::eval_data_col(data, mapping$x) - GGally::eval_data_col(data, mapping$y)) %>% 
     tibble::as_tibble()
@@ -1019,7 +1046,8 @@ geomDensity1d_Delta <- function(data, mapping, fdat=NULL, bufs=NULL, group, minD
     x_min <- -x_max
     y_min <- 0
   }
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} x=[{x_min}, {x_max}], y=[{y_min},{y_max}]{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} x=[{x_min}, {x_max}], y=[{y_min},{y_max}]{RET}"))
   
   str_df <- data.frame(
     xlabel = as.double(x_min),
@@ -1045,7 +1073,8 @@ geomDensity1d_Delta <- function(data, mapping, fdat=NULL, bufs=NULL, group, minD
                         alpha=alpha_lab, family='mono',
                         inherit.aes = FALSE # do not inherit anything from the ...
     )
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
   gg
 }
@@ -1056,7 +1085,8 @@ geomDensity2d_RSquared <- function(data, mapping, fdat=NULL, group, only=NULL,
                                    verbose=0,vt=4,tc=1) {
   funcTag <- 'geomDensity2d_RSquared'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   if (is.null(fdat)) fdat <- data
   
@@ -1069,8 +1099,7 @@ geomDensity2d_RSquared <- function(data, mapping, fdat=NULL, group, only=NULL,
     cor_tib <- cor_tib %>% dplyr::bind_rows(tibble(!!group := !!sp, R2 = cor) )
   }
   sum_str <- getSummaryLabel(cor_tib, group=group, field='R2', minVal=NULL)
-  # cat("\tsum_str=",sum_str,'.\n\n')
-  
+
   if (!is.null(only)) {
     group <- rlang::sym(group)
     data <- data %>% dplyr::filter(str_starts(!!group, only))
@@ -1095,7 +1124,8 @@ geomDensity2d_RSquared <- function(data, mapping, fdat=NULL, group, only=NULL,
       alpha=alpha_lab, family='mono',
       inherit.aes = FALSE # do not inherit anything from the ...
     )
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
   gg
 }
@@ -1103,7 +1133,8 @@ geomDensity2d_RSquared <- function(data, mapping, fdat=NULL, group, only=NULL,
 getDeltaMaxXY = function(data, datIdx=2, verbose=0,vt=4,tc=1) {
   funcTag <- 'getDeltaMaxXY'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   x_buf_fin <- NULL
   y_buf_fin <- NULL
@@ -1112,8 +1143,8 @@ getDeltaMaxXY = function(data, datIdx=2, verbose=0,vt=4,tc=1) {
   for (idxA in c(datIdx:ncols)) {
     for (idxB in c(datIdx:ncols)) {
       if (idxA<idxB) {
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} idxA={idxA}, idxB={idxB}{RET}"))
-        # print(data)
+        if (verbose>=vt)
+          cat(glue::glue("[{funcTag}]:{tabsStr} idxA={idxA}, idxB={idxB}{RET}"))
 
         # Normal Method without 'all_of(idxA)'
         # d <- data %>% dplyr::select(idxA, idxB) %>% purrr::set_names('V1', 'V2')
@@ -1172,9 +1203,8 @@ sampleGroup_n = function(tib, n, field,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 number_as_commaK <- function(value, cutoff=10000) {
-  if (!is.numeric(value)) {
-    cat("[ERROR]: Not-Numeric=",value,"\n\n", sep='')
-  }
+  if (!is.numeric(value))
+    cat(glue::glue("[ERROR]: Not-Numeric={value}.{RET}{RET}"))
   stopifnot(is.numeric(value))
   
   s <- ''
@@ -1189,7 +1219,8 @@ getSummaryLabel = function(tib, pad=' ', group, field, minVal=NULL, rm.tot=FALSE
                            verbose=0,vt=4,tc=1) {
   funcTag <- 'getSummaryLabel'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   group <- rlang::sym(group)
   field <- rlang::sym(field)
