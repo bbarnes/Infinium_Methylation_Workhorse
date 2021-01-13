@@ -104,6 +104,8 @@ opt$cluster  <- FALSE
 # Make clean output
 opt$clean <- FALSE
 
+opt$clean_source <- TRUE
+
 # Executable Paramaters::
 opt$Rscript <- NULL
 
@@ -200,7 +202,6 @@ if (args.dat[1]=='RStudio') {
   #
   # Pre-defined local options runTypes::
   #
-  par$local_runType <- 'qcMVP'
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'NZT'
@@ -208,6 +209,7 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GENK'
   par$local_runType <- 'COVID'
   par$local_runType <- 'GRCm38'
+  par$local_runType <- 'qcMVP'
   
   if (par$local_runType=='COVID') {
     
@@ -291,31 +293,69 @@ if (args.dat[1]=='RStudio') {
     
   } else if (par$local_runType=='qcMVP') {
     opt$classVar <- 'AutoSample_dB_Key'
+    opt$classVar <- 'AutoSample_dB_Key_1'
+    
     opt$platform <- 'EPIC'
     opt$version  <- 'B4'
 
-    par$runNameA <- 'CNTL-Samples_VendA_10092020'
-    par$runNameB <- 'CNTL-Samples_VendB_10092020'
-    par$runNameC <- 'BETA-8x1-EPIC-Core'
-    par$runNameD <- 'DELTA-8x1-EPIC-Core'
-    par$runNameE <- 'BETA-8x1-EPIC-Bad'
-    par$runNameF <- 'DELTA-24x1-EPIC'
+    par$runName1  <- 'CNTL-Samples_VendA_10092020'
+    par$runName2  <- 'CNTL-Samples_VendB_10092020'
+    
+    par$runName3  <- 'BETA-8x1-EPIC-Core'
+    par$runName4  <- 'DELTA-8x1-EPIC-Core'
+    par$runName5  <- 'DELTA-24x1-EPIC'
+    par$runName6  <- 'BETA-8x1-EPIC-Bad'
+    
+    par$runName7  <- 'COVIC-Set1-15052020'
+    par$runName8  <- 'COVIC-Set2-31052020'
+    par$runName9  <- 'COVIC-Set3-05062020'
+    par$runName10 <- 'COVIC-Set4-09062020'
+    par$runName11 <- 'COVIC-Set5-10062020'
+    par$runName12 <- 'COVIC-Set8-26182020'
+    
+    par$runName13 <- 'Excalibur-Old-1609202'
+    par$runName14 <- 'Excalibur-New-1609202'
     
     # opt$buildDir  <- paste(
     #   file.path(par$topDir,'scratch/swifthoof_main',par$runNameA),
     #   sep=',')
     # opt$runName  <- par$runNameA
     
+    # TBD:: Need to turn this into a string and then parse...
+    #
+    # par$pass_vec <- c(par$runNameA,par$runNameB,par$runNameC,par$runNameD,
+    #  par$runNameG)
+    # par$fail_vec <- c(par$runNameE,par$runNameF,par$runNameH)
+    pass_vec <- c(par$runName1,par$runName2,
+                  par$runName3,par$runName4,par$runName5,
+                  par$runName7,par$runName11,par$runName12,
+                  par$runName14)
+    
     opt$buildDir  <- paste(
-      file.path(par$topDir,'scratch/swifthoof_main',par$runNameA),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runNameB),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runNameC),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runNameD),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runNameE),
-      # file.path(par$topDir,'scratch/swifthoof_main',par$runNameF),
+      # Known passed chips::
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName1),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName2),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName3),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName4),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName5),
+      
+      # Known failed chips::
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName6),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName7),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName8),
+      
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName9),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName10),
+
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName11),
+      # file.path(par$topDir,'scratch/swifthoof_main',par$runName12),
+      
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName13),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName14),
+      
       sep=',')
 
-    opt$runName  <- paste(par$local_runType,'decoder', sep='_')
+    opt$runName  <- paste(par$local_runType, sep='_')
     
     opt$addPathsCall <- TRUE
     opt$addPathsSset <- TRUE
@@ -323,7 +363,9 @@ if (args.dat[1]=='RStudio') {
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
-  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
+  
+  # opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
+  opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
 
 } else {
   par$runMode    <- 'CommandLine'
@@ -407,6 +449,8 @@ if (args.dat[1]=='RStudio') {
     # Make clean output
     make_option(c("--clean"), action="store_true", default=opt$clean, 
                 help="Boolean variable to clean output directory (mostly testing stuff) [default= %default]", metavar="boolean"),
+    make_option(c("--clean_source"), action="store_true", default=opt$clean_source, 
+                help="Boolean variable to clean output directory names for plotting [default= %default]", metavar="boolean"),
     
     # Executable Paramaters::
     make_option(c("--Rscript"), type="character", default=opt$Rscript, 
@@ -421,115 +465,36 @@ if (args.dat[1]=='RStudio') {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                            Validate Options::
+#                         Program Initialization::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (is.null(par$runMode) || is.null(par$prgmDir) || is.null(par$prgmTag) || 
-    is.null(par$scrDir) || is.null(par$datDir)) {
-  
-  par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
-  par_tib %>% base::print(n=base::nrow(par_tib) )
+par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
+opt_reqs <- c('outDir','Rscript','verbose')
+opt_reqs <- c('outDir','Rscript','verbose','clean',
+              'buildDir','runName','classVar',
+              'addSampleName','addPathsCall','addPathsSset',
+              'flagDetectPval','flagSampleDetect','flagRefMatch',
+              'platform','version','percisionBeta','percisionPval',
+              'execute','single','parallel','cluster')
 
-  if (is.null(par$runMode)) cat(glue::glue("[Usage]: runMode is NULL!!!{RET}"))
-  if (is.null(par$prgmDir)) cat(glue::glue("[Usage]: prgmDir is NULL!!!{RET}"))
-  if (is.null(par$prgmTag)) cat(glue::glue("[Usage]: prgmTag is NULL!!!{RET}"))
-  if (is.null(par$scrDir))  cat(glue::glue("[Usage]: scrDir is NULL!!!{RET}"))
-  if (is.null(par$datDir))  cat(glue::glue("[Usage]: darDir is NULL!!!{RET}"))
-  base::stop("Null Parameters!\n\n")
-}
-
-if (is.null(opt$outDir) || is.null(opt$buildDir) || 
-     is.null(opt$runName) || 
-     # is.null(opt$sampleCsv) || 
-     is.null(opt$classVar) ||
-     is.null(opt$addSampleName) || is.null(opt$addPathsCall) || is.null(opt$addPathsSset) ||
-     is.null(opt$flagDetectPval) || is.null(opt$flagSampleDetect) || is.null(opt$flagRefMatch) ||
-     # is.null(opt$pvalDetectMinKey) || is.nulll(opt$pvalDetectMinVal) ||
-     is.null(opt$platform) || is.null(opt$version) ||
-     is.null(opt$percisionBeta) || is.null(opt$percisionPval) ||
-     is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
-     
-     is.null(opt$clean) || is.null(opt$Rscript) || is.null(opt$verbose)) {
-  if (par$runMode=='CommandLine') print_help(opt_parser)
-  
-  opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
-  opt_tib %>% base::print(n=base::nrow(opt_tib) )
-
-  cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
-  if (is.null(opt$outDir))    cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
-  if (is.null(opt$buildDir))  cat(glue::glue("[Usage]: buildDirs is NULL!!!{RET}"))
-  if (is.null(opt$runName))   cat(glue::glue("[Usage]: runName is NULL!!!{RET}"))
-  if (is.null(opt$sampleCsv)) cat(glue::glue("[Usage]: sampleCsv is NULL (Not Required)!!!{RET}"))
-  if (is.null(opt$classVar))  cat(glue::glue("[Usage]: class_var is NULL!!!{RET}"))
-
-  if (is.null(opt$addSampleName)) cat(glue::glue("[Usage]: addSampleName is NULL!!!{RET}"))
-  if (is.null(opt$addPathsCall))  cat(glue::glue("[Usage]: addPathsCall is NULL!!!{RET}"))
-  if (is.null(opt$addPathsSset))  cat(glue::glue("[Usage]: addPathsSset is NULL!!!{RET}"))
-  
-  if (is.null(opt$flagDetectPval))   cat(glue::glue("[Usage]: flagDetectPval is NULL!!!{RET}"))
-  if (is.null(opt$flagSampleDetect)) cat(glue::glue("[Usage]: flagSampleDetect is NULL!!!{RET}"))
-  if (is.null(opt$flagRefMatch))     cat(glue::glue("[Usage]: flagRefMatch is NULL!!!{RET}"))
-  
-  # if (is.null(opt$pvalDetectMinKey)) cat(glue::glue("[Usage]: pvalDetectMinKey is NULL!!!{RET}"))
-  # if (is.null(opt$pvalDetectMinVal)) cat(glue::glue("[Usage]: pvalDetectMinVal is NULL!!!{RET}"))
-  
-  if (is.null(opt$platform)) cat(glue::glue("[Usage]: platform is NULL!!!{RET}"))
-  if (is.null(opt$version))  cat(glue::glue("[Usage]: version is NULL!!!{RET}"))
-  
-  if (is.null(opt$percisionBeta)) cat(glue::glue("[Usage]: percisionBeta is NULL!!!{RET}"))
-  if (is.null(opt$percisionPval)) cat(glue::glue("[Usage]: percisionPval is NULL!!!{RET}"))
-  
-  if (is.null(opt$execute))  cat(glue::glue("[Usage]: execute is NULL!!!{RET}"))
-  if (is.null(opt$single))   cat(glue::glue("[Usage]: single is NULL!!!{RET}"))
-  if (is.null(opt$parallel)) cat(glue::glue("[Usage]: parallel is NULL!!!{RET}"))
-  if (is.null(opt$cluster))  cat(glue::glue("[Usage]: cluster is NULL!!!{RET}"))
-  
-  if (is.null(opt$clean))   cat(glue::glue("[Usage]: clean is NULL!!!{RET}"))
-  if (is.null(opt$Rscript)) cat(glue::glue("[Usage]: Rscript is NULL!!!{RET}"))
-  if (is.null(opt$verbose)) cat(glue::glue("[Usage]: verbosity is NULL!!!{RET}"))
-  base::stop(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
-}
-par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
-opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
-if (opt$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
-if (opt$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
-cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                              Source Files::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 par$gen_src_dir <- file.path(par$scrDir, 'functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
+if (!dir.exists(par$gen_src_dir))
+  stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
 
-par$prgm_src_dir <- file.path(par$scrDir,par$prgmDir, 'functions')
-if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Source={par$prgm_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
+for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', 
+                         full.names=TRUE, recursive=TRUE)) base::source(sfile)
+if (opt$verbose>=0)
+  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form ",
+                 "General Source={par$gen_src_dir}!{RET}{RET}") )
 
-# Load All other function methods::
-par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
+opt <- program_init(name=par$prgmTag,
+                    opts=opt, opt_reqs=opt_reqs, 
+                    pars=par, par_reqs=par_reqs,
+                    libs=TRUE,rcpp=FALSE,
+                    verbose=opt$verbose,vt=3,tc=0,tt=NULL)
 
-par$swt_src_dir <- file.path(par$scrDir, 'swifthoof/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$swt_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$swt_src_dir}!{RET}{RET}") )
-
-par$prb_src_dir <- file.path(par$scrDir, 'probe_design/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$prb_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
-
-par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
-
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
+opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
+par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Preprocessing::
@@ -545,7 +510,7 @@ class_idx <- rlang::sym("Class_Idx")
 
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 
-opt$outDir <- file.path(opt$outDir, opt$platform, opt$version, opt$classVar, opt$runName)
+opt$outDir <- file.path(opt$outDir, opt$platform, opt$version, opt$classVar)
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
 
@@ -560,6 +525,12 @@ hum_ss_tib  <- NULL
 auto_ss_tib <- NULL
 
 for (curDir in blds_dir_vec) {
+  
+  if (!dir.exists(curDir)) {
+    cat(glue::glue("[{par$prgmTag}]:{TAB} Failed to find dir={curDir}, skipping...{RET}") )
+    next
+  }
+  
   if (opt$findSampleSheet) {
     
     cur_hm_csv <- file.path(curDir, par$humanSampleSheetName)
@@ -574,7 +545,8 @@ for (curDir in blds_dir_vec) {
   }
   
   cur_ss_tib <- 
-    loadAutoSampleSheets(dir=curDir, platform=opt$platform, manifest=opt$version,
+    loadAutoSampleSheets(dir=curDir, 
+                         platform=opt$platform, manifest=opt$version, workflow="ind",
                          addSampleName=opt$addSampleName, addPathsCall=opt$addPathsCall, addPathsSset=opt$addPathsSset,
                          flagDetectPval=opt$flagDetectPval, flagSampleDetect=opt$flagSampleDetect, flagRefMatch=opt$flagRefMatch,
                          pvalDetectMinKey=opt$pvalDetectMinKey, pvalDetectMinVal=opt$pvalDetectMinVal,
@@ -595,6 +567,213 @@ for (curDir in blds_dir_vec) {
 auto_ss_len <- auto_ss_tib %>% base::nrow()
 cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len}.{RET}{RET}"))
 # print(auto_ss_tib)
+
+if (opt$clean_source) {
+  
+  pass_vec <- c("CNTL-Samples_VendA_10092020",
+                "CNTL-Samples_VendB_10092020",
+                "BETA-8x1-EPIC-Core",
+                "DELTA-8x1-EPIC-Core",
+                # "BETA-8x1-EPIC-Bad",
+                "COVIC-Set1-15052020",
+                "COVIC-Set2-31052020",
+                # "COVIC-Set3-05062020",
+                # "COVIC-Set4-09062020",
+                "COVIC-Set5-10062020",
+                "COVIC-Set8-26182020",
+                # "Excalibur-Old-1609202",
+                "Excalibur-New-1609202")
+  
+  auto_bk_tib <- auto_ss_tib
+  
+  plot_core_tib <- NULL
+  plot_core_tib <- auto_ss_tib %>%
+    dplyr::mutate(
+      group_class=dplyr::case_when(build_source %in% pass_vec ~ 'P', TRUE ~ 'F'),
+      build_source = 
+        stringr::str_remove(build_source, '^CNTL-Samples_') %>% 
+        stringr::str_remove('_[0-9]+$') %>% 
+        stringr::str_remove('-[0-9]+$') %>%
+        stringr::str_remove('-8x1-EPIC-Core$') %>%
+        stringr::str_replace('-8x1-EPIC-Bad$', '_Bad') %>%
+        stringr::str_replace('Excalibur-New', 'E') %>%
+        stringr::str_replace('Excalibur-Old', 'E') %>%
+        stringr::str_replace('COVID-Set', 'C') %>%
+        stringr::str_replace('COVIC-Set', 'C') %>%
+        stringr::str_replace('BETA', 'B') %>%
+        stringr::str_replace('DELTA', 'D') %>%
+        stringr::str_replace('Vend', 'V') %>%
+        # stringr::str_remove('-Set') %>%
+        stringr::str_replace_all('-','_')
+    ) %>%
+    dplyr::filter(! stringr::str_starts(AutoSample_dB_Key_2, 'T')) %>%
+    dplyr::group_by(build_source) %>%
+    dplyr::mutate(build_source_idx=dplyr::cur_group_id(),
+                  build_source=paste(paste0(group_class,build_source_idx),build_source, sep='_'),
+                  Sample=AutoSample_dB_Key_2) %>%
+    dplyr::ungroup() %>%
+    dplyr::arrange(group_class,build_source_idx,Sample) %>%
+    # dplyr::filter(AutoSample_dB_Key_2 == AutoSample_R2_Key_2) %>%
+    dplyr::select(group_class,build_source,Sample, # build_source_idx,
+                  AutoSample_R2_1_Val_2,AutoSample_R2_2_Val_2,
+                  AutoSample_dB_1_Val_2,AutoSample_dB_2_Val_2,
+                  cg_1_pvals_pOOBAH_pass_perc_1,cg_2_pvals_pOOBAH_pass_perc_1) %>%
+    purrr::set_names(stringr::str_remove_all(names(.), 'AutoSample_')) %>%
+    purrr::set_names(stringr::str_replace_all(names(.), '_pvals_', '_')) %>%
+    purrr::set_names(stringr::str_remove_all(names(.), '_pass_perc_1')) %>%
+    purrr::set_names(stringr::str_remove_all(names(.), '_Val_2'))
+  
+  plot_core_tib %>% dplyr::group_by(group_class,build_source) %>% dplyr::summarise(Count=n())
+  
+}
+# print(auto_ss_tib)
+
+auto_ss_tib %>% dplyr::distinct(build_source)
+
+#
+# Workspace to evaluate r2/dB vs. %passing_pOOBAH
+#
+if (FALSE) {
+  
+  # Ensure agreement below::
+  #  auto_ss_tib$AutoSample_dB_Key_2
+  #  auto_ss_tib$AutoSample_R2_Key_2
+  # i.e. this should be zero::
+  #   auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key_2 != AutoSample_R2_Key_2)
+  # Now use one to group by...
+
+  # y-metric
+  #   auto_ss_tib$AutoSample_R2_Val_2
+  #   auto_ss_tib$AutoSample_dB_Val_2
+  
+  # x-metric
+  #   auto_ss_tib$cg_1_pvals_pOOBAH_pass_perc_1
+  #   auto_ss_tib$cg_1_pvals_pOOBAH_pass_perc_2
+  
+  
+  pass_vec <- c("VendA",
+                "VendB",
+                # "BETA-8x1-EPIC-Core",
+                # "DELTA-8x1-EPIC-Core",
+                "BETA",
+                "DELTA",
+                "COVIC_Set1",
+                "COVIC_Set5",
+                "COVIC_Set8",
+                "Excalibur_New")
+  #
+  # TBD:: Need to generate Auto stats by Infinium Design Type (I/2)
+  #
+  
+  #
+  # Summary Stats::
+  #
+  # TBD:: Update par$pass_vec string input...
+  #
+  auto_ss_tib %>%
+    dplyr::filter(! stringr::str_starts(AutoSample_dB_Key_2, 'T')) %>%
+    dplyr::mutate(
+      group_class=dplyr::case_when(
+        build_source %in% pass_vec ~ 'PASS', TRUE ~ 'FAIL')
+    ) %>%
+    dplyr::group_by(group_class,build_source,
+                    AutoSample_dB_Key_2,AutoSample_R2_Key_2) %>%
+    # dplyr::group_by(group_class,build_source) %>%
+    dplyr::summarise(
+      Total_Count=n(),
+      R2_80=cntPer_gte(AutoSample_R2_Val_2,0.80),
+      dB_80=cntPer_gte(AutoSample_dB_Val_2,80),
+      
+      poob1_90  = cntPer_gte(cg_1_pvals_pOOBAH_pass_perc_1,90),
+      poob1_min =  min(cg_1_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+      poob1_avg = mean(cg_1_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+      
+      poob2_90  = cntPer_gte(cg_2_pvals_pOOBAH_pass_perc_1,90),
+      poob2_min =  min(cg_2_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+      poob2_avg = mean(cg_2_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+      
+      .groups='drop'
+    )
+  
+  
+
+  #
+  # Plotting:: Original
+  #
+  # auto_ss_tib %>%
+  #   dplyr::filter(AutoSample_dB_Key_2 == AutoSample_R2_Key_2) %>%
+  #   dplyr::filter(! stringr::str_starts(AutoSample_dB_Key_2, 'T')) %>%
+  #   # dplyr::mutate(build_source=as.factor(build_source)) %>%
+  #   dplyr::group_by(build_source) %>%
+  #   dplyr::mutate(build_source_idx=dplyr::cur_group_id() ) %>%
+  #   # tidyr::unite(plot_id, build_source_idx,AutoSample_dB_Key_2, sep='_', remove=FALSE) %>%
+  #   # tidyr::unite(plot_id, build_source_idx, sep='_', remove=FALSE) %>%
+  #   tidyr::unite(plot_id, build_source, sep='_', remove=FALSE) %>%
+  #   dplyr::ungroup() %>%
+  #   # dplyr::select(plot_id) %>%
+  #   ggplot2::ggplot() +
+  #   ggplot2::geom_point(aes(x=cg_2_pvals_pOOBAH_pass_perc_1,
+  #                           y=AutoSample_R2_Val_2, color=plot_id) )
+  
+  
+  #
+  # Plotting::
+  #
+  
+  plot_stack_tib <- dplyr::bind_rows(
+    dplyr::select(plot_core_tib, build_source,Sample, R2_1,cg_1_pOOBAH) %>% 
+      purrr::set_names(c("Experiment","Sample","Metric","Pval_Perc")) %>%
+      dplyr::mutate(Metric_Type="R2",Design_Type="I") %>% 
+      dplyr::select(Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
+    
+    dplyr::select(plot_core_tib, build_source,Sample, R2_2,cg_2_pOOBAH) %>% 
+      purrr::set_names(c("Experiment","Sample","Metric","Pval_Perc")) %>%
+      dplyr::mutate(Metric_Type="R2",Design_Type="II") %>% 
+      dplyr::select(Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
+    
+    dplyr::select(plot_core_tib, build_source,Sample, dB_1,cg_1_pOOBAH) %>% 
+      purrr::set_names(c("Experiment","Sample","Metric","Pval_Perc")) %>%
+      dplyr::mutate(Metric_Type="dB",Design_Type="I", Metric=Metric/100) %>% 
+      dplyr::select(Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
+    
+    dplyr::select(plot_core_tib, build_source,Sample, dB_2,cg_2_pOOBAH) %>% 
+      purrr::set_names(c("Experiment","Sample","Metric","Pval_Perc")) %>%
+      dplyr::mutate(Metric_Type="dB",Design_Type="II", Metric=Metric/100) %>% 
+      dplyr::select(Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc)
+  )
+
+  plot_stack_tib %>% 
+    dplyr::filter(Metric>=0.6) %>%
+    ggplot2::ggplot() +
+    ggplot2::geom_point(aes(x=Pval_Perc,y=Metric, color=Sample) ) +
+    ggplot2::facet_grid(rows=vars(Experiment),
+                        cols=vars(Design_Type,Metric_Type) ) +
+    geom_hline(yintercept=0.98)
+  
+  
+  
+  plot_stack_tib %>% 
+    # dplyr::filter(Metric>=0.6) %>%
+    ggplot2::ggplot() +
+    ggplot2::geom_point(aes(x=Pval_Perc,y=log(Metric+1), color=Sample) ) +
+    ggplot2::facet_grid(rows=vars(Experiment),
+                        cols=vars(Design_Type,Metric_Type) ) +
+    geom_hline(yintercept=log(1.98) )
+  
+  
+  # TBD:: Add facet on cols for passing/failing experiments...
+
+  # TBD:: Fix the sample colors to make more sense
+  #   - Also fix sample names or placement...
+  #
+  # scale_colour_discrete
+  
+  # AutoSample_R2_1_Val_2 cg_1_pvals_pOOBAH_pass_perc_1
+  # AutoSample_R2_2_Val_2 cg_2_pvals_pOOBAH_pass_perc_1
+  # AutoSample_dB_1_Val_2 cg_1_pvals_pOOBAH_pass_perc_1
+  # AutoSample_dB_2_Val_2 cg_2_pvals_pOOBAH_pass_perc_1
+  
+}
 
 # Temp Output::
 # va_ss_csv <- '/Users/bretbarnes/Documents/VA-MVP.AutoSampleSheet.csv.gz'
@@ -618,7 +797,8 @@ cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len
 #
 labs_ss_tib <- NULL
 if (! is.null(hum_ss_tib)) {
-
+  cat(glue::glue("[{par$prgmTag}]: Adding default class_var='{opt$classVar}'{RET}") )
+  
   labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
   
 } else if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
@@ -650,7 +830,8 @@ if (! is.null(hum_ss_tib)) {
   # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
   #
   auto_ss_tib <- auto_ss_tib %>% dplyr::select(- !!class_var)
-  labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+  labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
+    dplyr::arrange(!!class_var)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

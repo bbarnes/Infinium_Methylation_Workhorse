@@ -28,6 +28,7 @@ RET <- "\n"
 #                       Single Sample Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
+                                mask=NULL,
                                 pvals=NULL, min_pvals=NULL, min_percs=NULL,
                                 workflows=NULL, 
                                 
@@ -261,7 +262,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cur_dat_list = ssetToSummary(
         sset=cur_sset, man=top_man_tib, idx=idx, workflow=cur_workflow,
         name=out_name, outDir=opts$outDir, pre=cur_dat_list, ref=ref,
-        
+        mask=mask,
         pvals=pvals, min_pvals=min_pvals, min_percs=min_percs,
         
         write_sset=opt$save_sset, sset_rds=NULL, ret_sset=retData2,
@@ -565,12 +566,12 @@ loadCallFiles = function(files, selKey, datKey=NULL, minKey=NULL, minVal=NULL,
 #                            Auto-detect Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-autoDetect_Wrapper = function(can, ref, man,
+autoDetect_Wrapper = function(can, ref, man, mask=NULL,
                               
                               minPval, minDelta,
                               dname='Design_Type', pname='Probe_Type', ptype='cg',
-                              jval='Probe_ID', field='ind_beta', pval='ind_PnegEcdf', 
-                              suffix='beta', del='_',
+                              # jval='Probe_ID', field='ind_beta', pval='ind_PnegEcdf', 
+                              jval='Probe_ID', field, pval, suffix, del='_',
                               outDir=NULL, sname=NULL, plotMatrix=FALSE, writeMatrix=FALSE,
                               dpi=120, format="png", datIdx=4, non.ref=FALSE,
                               
@@ -582,9 +583,13 @@ autoDetect_Wrapper = function(can, ref, man,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
+    auto_can <- NULL
+    auto_ref <- NULL
+    mask_can <- NULL
     
     auto_can <- man %>% dplyr::rename(Design_Type=DESIGN) %>% 
-      dplyr::select(Probe_ID, Design_Type, Probe_Type) %>%
+      # dplyr::select(Probe_ID, Design_Type, Probe_Type) %>%
+      dplyr::select(dplyr::all_of( c(!!jval, !!dname, !!pname) ) ) %>%
       dplyr::left_join(can, by="Probe_ID")
     # print(auto_can)
     
@@ -595,13 +600,31 @@ autoDetect_Wrapper = function(can, ref, man,
     }
     # print(auto_ref)
     
-    auto_data <- sampleDetect(
+    ret_tib <- sampleDetect(
       can=auto_can, ref=auto_ref, minPval=minPval, minDelta=minDelta,
       dname=dname, pname=pname, ptype=ptype,
       jval=jval, field=field, pval=pval, suffix=suffix, del=del,
       outDir=outDir, sname=sname, plotMatrix=plotMatrix, writeMatrix=writeMatrix,
       dpi=dpi, format=format, datIdx=datIdx, non.ref=non.ref,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
+    if (!is.null(mask)) {
+      jval_sym <- rlang::sym(jval)
+      mask_can <- auto_can %>% dplyr::filter(! (!!jval_sym %in% mask) )
+
+      mask_tib <- NULL
+      mask_tib <- sampleDetect(
+        can=mask_can, ref=auto_ref, minPval=minPval, minDelta=minDelta,
+        dname=dname, pname=pname, ptype=ptype,
+        jval=jval, field=field, pval=pval, suffix=suffix, del=del,
+        outDir=outDir, sname=paste(sname,'Mask', sep='_'), 
+        plotMatrix=plotMatrix, writeMatrix=writeMatrix,
+        dpi=dpi, format=format, datIdx=datIdx, non.ref=non.ref,
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        purrr::set_names(paste('Mask',names(.), sep='_'))
+
+      ret_tib <- ret_tib %>% dplyr::bind_cols(mask_tib)
+    }
     
     ret_cnt <- ret_tib %>% base::nrow()
   })
@@ -610,11 +633,11 @@ autoDetect_Wrapper = function(can, ref, man,
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
   
-  # ret_tib$can  <- auto_can
-  # ret_tib$ref  <- auto_ref
-  # ret_tib$data <- auto_data
+  # ret_tib$can <- auto_can
+  # ret_tib$ref <- auto_ref
+  # ret_tib$dat <- ret_tib
   
-  auto_data
+  ret_tib
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -715,8 +738,8 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     
     # Sym jval to see if it fixes the warning...
     field <- field %>% rlang::sym()
-    jval  <- jval %>% rlang::sym()
-    pval  <- pval %>% rlang::sym()
+    jval  <- jval  %>% rlang::sym()
+    pval  <- pval  %>% rlang::sym()
     
     if (!is.null(outDir) && !dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
     
@@ -789,6 +812,102 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
         purrr::set_names('AutoSample_dB_Key', 'AutoSample_Total_Cnt', 'AutoSample_dB_Cnt', 'AutoSample_dB_Val')
     ) %>% dplyr::select(AutoSample_Total_Cnt, AutoSample_R2_Key, AutoSample_R2_Val, 
                         AutoSample_dB_Key, AutoSample_dB_Cnt, AutoSample_dB_Val)
+    
+    if (TRUE) {
+      if (verbose>=vt+6) {
+        cat(glue::glue("{RET}{RET}{RET}{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr} TIB={RET}"))
+        print(tib)
+        cat(glue::glue("[{funcTag}]:{tabsStr} done(TIB){RET}"))
+        cat(glue::glue("{RET}{RET}{RET}{RET}"))
+      }
+      
+      # 4.1 Build matrix
+      #
+      tib1 <- tib %>% 
+        dplyr::filter(!!dname == "I")
+      mat1 <- tib1 %>%
+        dplyr::select(-c(!!jval,!!dname,!!pname)) %>%
+        dplyr::select(ends_with(paste0(del,suffix)) ) %>% as.matrix()
+      if (verbose>=vt+6) mat1 %>% head(n=2) %>% print()
+      
+      # 5.1 Build R-Squared Matrix
+      r2m_1_tib <- 
+        rsquaredMatrix(mat1, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
+        tibble::as_tibble(rownames='Sample')
+      if (verbose>=vt+6) r2m_1_tib %>% head(n=2) %>% print()
+
+      # 6.1 Build Deleta Matrix
+      dbm_1_tib <- 
+        deltaMatrix(mat1, minDelta=minDelta,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
+        tibble::as_tibble(rownames='Sample')
+      if (verbose>=vt+6) dbm_1_tib %>% head(n=2) %>% print()
+      
+      can_1_nrows <- tib1 %>% base::nrow()
+      sss_1_tib <- dplyr::bind_cols(
+        r2m_1_tib %>% head(n=1) %>% dplyr::select(-Sample) %>% 
+          tidyr::gather(key='Sample', value='r2') %>% 
+          dplyr::mutate(Sample=stringr::str_remove(Sample, paste0('_',suffix)) ) %>%
+          dplyr::filter(Sample!='Sample') %>% 
+          dplyr::arrange(-r2) %>% head(n=1) %>%
+          purrr::set_names('AutoSample_R2_1_Key', 'AutoSample_R2_1_Val'),
+        
+        dbm_1_tib %>% head(n=1) %>% dplyr::select(-Sample) %>%
+          tidyr::gather(key='Sample', value='passCount') %>%
+          dplyr::mutate(Sample=stringr::str_remove(Sample, paste0('_',suffix)),
+                        failCount=can_1_nrows-passCount,
+                        passPerc=round(100*passCount/can_1_nrows,1) ) %>%
+          dplyr::filter(Sample!='Sample') %>% 
+          dplyr::arrange(-passPerc) %>% head(n=1) %>%
+          purrr::set_names('AutoSample_dB_1_Key', 'AutoSample_Total_1_Cnt', 'AutoSample_dB_1_Cnt', 'AutoSample_dB_1_Val')
+      ) %>% dplyr::select(AutoSample_Total_1_Cnt, AutoSample_R2_1_Key, AutoSample_R2_1_Val, 
+                          AutoSample_dB_1_Key, AutoSample_dB_1_Cnt, AutoSample_dB_1_Val)
+      if (verbose>=vt+6) print(sss_1_tib)
+
+      # 4.2 Build matrix
+      #
+      tib2 <- tib %>% 
+        dplyr::filter(!!dname == "II")
+      mat2 <- tib2 %>%
+        dplyr::select(-c(!!jval,!!dname,!!pname)) %>%
+        dplyr::select(ends_with(paste0(del,suffix)) ) %>% as.matrix()
+      if (verbose>=vt+6) mat2 %>% head(n=2) %>% print()
+      
+      # 5.2 Build R-Squared Matrix
+      r2m_2_tib <- 
+        rsquaredMatrix(mat2, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
+        tibble::as_tibble(rownames='Sample')
+      if (verbose>=vt+6) r2m_2_tib %>% head(n=2) %>% print()
+      
+      # 6.2 Build Deleta Matrix
+      dbm_2_tib <- 
+        deltaMatrix(mat2, minDelta=minDelta,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
+        tibble::as_tibble(rownames='Sample')
+      if (verbose>=vt+6) dbm_2_tib %>% head(n=2) %>% print()
+      
+      can_2_nrows <- tib2 %>% base::nrow()
+      sss_2_tib <- dplyr::bind_cols(
+        r2m_2_tib %>% head(n=1) %>% dplyr::select(-Sample) %>% 
+          tidyr::gather(key='Sample', value='r2') %>% 
+          dplyr::mutate(Sample=stringr::str_remove(Sample, paste0('_',suffix)) ) %>%
+          dplyr::filter(Sample!='Sample') %>% 
+          dplyr::arrange(-r2) %>% head(n=1) %>%
+          purrr::set_names('AutoSample_R2_2_Key', 'AutoSample_R2_2_Val'),
+        
+        dbm_2_tib %>% head(n=1) %>% dplyr::select(-Sample) %>%
+          tidyr::gather(key='Sample', value='passCount') %>%
+          dplyr::mutate(Sample=stringr::str_remove(Sample, paste0('_',suffix)),
+                        failCount=can_2_nrows-passCount,
+                        passPerc=round(100*passCount/can_2_nrows,1) ) %>%
+          dplyr::filter(Sample!='Sample') %>% 
+          dplyr::arrange(-passPerc) %>% head(n=1) %>%
+          purrr::set_names('AutoSample_dB_2_Key', 'AutoSample_Total_2_Cnt', 'AutoSample_dB_2_Cnt', 'AutoSample_dB_2_Val')
+      ) %>% dplyr::select(AutoSample_Total_2_Cnt, AutoSample_R2_2_Key, AutoSample_R2_2_Val, 
+                          AutoSample_dB_2_Key, AutoSample_dB_2_Cnt, AutoSample_dB_2_Val)
+      if (verbose>=vt+6) print(sss_2_tib)
+      
+      sss <- sss %>% dplyr::bind_cols(sss_1_tib) %>% dplyr::bind_cols(sss_2_tib)
+    }
     
     # Write matricies::
     if (writeMatrix && !is.null(outDir) && !is.null(sname)) {

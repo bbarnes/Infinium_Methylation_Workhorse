@@ -25,7 +25,7 @@ RET <- "\n"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 ssetToSummary = function(sset, man, idx, workflow, name, 
-                         outDir=NULL, pre=NULL, ref=NULL,
+                         outDir=NULL, pre=NULL, ref=NULL, mask=NULL,
                          pvals=NULL, min_pvals=NULL, min_percs=NULL,
                          report_vec=c("Requeue","pass_perc","mean"),
                          
@@ -140,6 +140,10 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval={pval_key}; min={min_pval}, perc={min_perc}.{RET}"))
       
+      #
+      # Need to repeat this part if mask is present and update names...
+      #
+      pval_dat_tib <- NULL
       pval_dat_tib <- ssetToTib(
         sset=sset_dat, source='pvals', name=pval_key,
         percision=percision_pval, sort=FALSE,
@@ -148,6 +152,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       if (ret_pval) ret_pval_dat$pval_dat <- pval_dat_tib
       
+      pval_sum_tib <- NULL
       pval_sum_tib <- ssetTibToSummary(
         tib=pval_dat_tib,man=man,
         pval=min_pval, perc=min_perc, percision=percision_pval,
@@ -165,6 +170,48 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       # call_dat_tib <- dplyr::left_join(call_dat_tib,pval_dat_tib, by=by)
       sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(pval_sum_tib)
       
+      if (!is.null(mask)) {
+        mask_pval_key <- paste('Mask',pval_key, sep='_')
+        # cat(glue::glue("{RET}{RET}{RET} STARTING(mask_pval_key={mask_pval_key})={RET}"))
+        
+        # pval_dat_tib <- NULL
+        # pval_dat_tib <- ssetToTib(
+        #   sset=sset_dat, source='pvals', name=pval_key,
+        #   mask=mask,
+        #   percision=percision_pval, sort=FALSE,
+        #   save=write_pval, csv=pval_csv,
+        #   by=by, type=type, des=des,
+        #   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        # if (ret_pval) ret_pval_dat$pval_dat <- pval_dat_tib
+        
+        by_sym <- rlang::sym(by)
+        pval_dat_tib <- pval_dat_tib %>% dplyr::filter(! (!!by_sym %in% mask) )
+        # cat(glue::glue("{RET}{RET}{RET} pval_dat_tib(mask_pval_key={mask_pval_key})={RET}"))
+        # print(pval_dat_tib)
+
+        pval_sum_tib <- NULL
+        pval_sum_tib <- ssetTibToSummary(
+          tib=pval_dat_tib,man=man,
+          pval=min_pval, perc=min_perc, percision=percision_pval,
+          save=FALSE, csv=NULL,
+          by=by, type=type, des=des,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        # if (ret_psum) ret_pval_dat$pval_sum <- pval_sum_tib
+        # if (ret_pval || ret_psum) ret_dat$pval[[mask_pval_key]] = ret_pval_dat
+        
+        pval_sum_tib <- pval_sum_tib %>% dplyr::mutate(Metric=paste(Metric,'Mask',sep=del))
+        
+        # cat(glue::glue("{RET}{RET}{RET} pval_sum_tib(mask_pval_key={mask_pval_key})={RET}"))
+        # print(pval_sum_tib)
+        
+        sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(pval_sum_tib)
+        
+        if (verbose>=vt+6) {
+          cat(glue::glue("{RET}{RET}{RET} sums_dat_tib(mask_pval_key={mask_pval_key})={RET}"))
+          print(sums_dat_tib)
+          cat(glue::glue("sums_dat_tib... done...{RET}{RET}{RET}RET}"))
+        }
+      }
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -236,7 +283,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       }
 
       auto_ssh_tib <- autoDetect_Wrapper(
-        can=call_dat_tib, ref=ref, man=man,
+        can=call_dat_tib, ref=ref, man=man, # mask=mask,
         minPval=auto_min_pval, minDelta=minDb,
         dname='Design_Type', pname=type, ptype='cg', jval=by, 
         field=auto_beta_key, pval=auto_negs_key, suffix='beta', del=del,
@@ -482,6 +529,53 @@ mutateSSET_workflow = function(sset, workflow, pvals=NULL,
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   sset
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Quick Sesame File Conversion::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+build_mask_list = function(verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'build_mask_list'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  mask_cpg_tib <- NULL
+  stime <- system.time({
+    
+    hg19_man_grs  <- sesameData::sesameDataGet("EPIC.hg19.manifest")
+    hg19_mask_tib <- hg19_man_grs %>% as.data.frame() %>% 
+      tibble::rownames_to_column(var="Probe_ID") %>% 
+      dplyr::filter(probeType=='cg') %>%
+      dplyr::select(Probe_ID,MASK_general) %>% 
+      tibble::as_tibble() %>% 
+      dplyr::filter(MASK_general) %>% 
+      dplyr::distinct(Probe_ID)
+    
+    hg38_man_grs  <- sesameData::sesameDataGet("EPIC.hg38.manifest")
+    hg38_mask_tib <- hg38_man_grs %>% as.data.frame() %>% 
+      tibble::rownames_to_column(var="Probe_ID") %>%
+      dplyr::filter(probeType=='cg') %>%
+      dplyr::select(Probe_ID,MASK_general) %>% 
+      tibble::as_tibble() %>% 
+      dplyr::filter(MASK_general) %>% 
+      dplyr::distinct(Probe_ID)
+    
+    mask_cpg_csv <- file.path(par$datDir, 'manifest/mask/sesame-general-mask.cpg.csv.gz')
+    mask_cpg_tib <- dplyr::bind_rows( hg19_mask_tib, hg38_mask_tib ) %>% 
+      dplyr::distinct() %>% dplyr::arrange(Probe_ID)
+    readr::write_csv(mask_cpg_tib, mask_cpg_csv)
+    
+    ret_cnt <- mask_cpg_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  mask_cpg_tib
 }
 
 # End of file

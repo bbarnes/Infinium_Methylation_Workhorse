@@ -601,7 +601,7 @@ ssetTibToSummary = function(tib, man=NULL,
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Applying pval cutoff={pval}...{RET}"))
       
-      if (verbose>=vt) print(tib)
+      if (verbose>=vt+4) print(tib)
       
       cut2_tib <- tib %>% 
         dplyr::group_by(!!type_sym, !!des_sym) %>%
@@ -677,7 +677,7 @@ ssetTibToSummary = function(tib, man=NULL,
 #                   Sesame SSET Transform to Tib Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ssetToTib = function(sset, source, name=NULL, man=NULL, 
+ssetToTib = function(sset, source, name=NULL, man=NULL, mask=NULL,
                      percision=-1, sort=FALSE, 
                      fresh=FALSE, save=FALSE, csv=NULL, del='_',
                      by="Probe_ID", type="Probe_Type", des="Probe_Design", 
@@ -739,6 +739,9 @@ ssetToTib = function(sset, source, name=NULL, man=NULL,
       }
     }
     
+    if (!is.null(mask))
+      ret_tib <- ret_tib %>% dplyr::filter(! (!!by_sym %in% mask) )
+
     if (percision!=-1) 
       ret_tib <- dplyr::mutate_if(ret_tib, is.numeric, list(round), percision)
     if (!is.null(man)) ret_tib <- dplyr::right_join(man_tib, ret_tib, by=by)

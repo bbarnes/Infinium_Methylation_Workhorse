@@ -24,7 +24,8 @@ RET <- "\n"
 #                        Sample Sheet I/O Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoSampleSheet.csv.gz', 
+loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL,
+                                suffix='AutoSampleSheet.csv.gz', 
                                 addSampleName=FALSE, addPathsCall=FALSE, addPathsSset=FALSE,
                                 flagDetectPval=FALSE, flagSampleDetect=FALSE, flagRefMatch=FALSE,
                                 pvalDetectMinKey=NULL, pvalDetectMinVal=0,
@@ -49,10 +50,15 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
     pattern <- paste(pattern,suffix, sep='_')
     
     auto_ss_list <- list.files(dir, pattern=pattern, recursive=TRUE, full.names=TRUE)
-    auto_ss_llen <- auto_ss_list %>% length()
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting, SampleSheetCount={auto_ss_llen}, pattern={pattern} dir={dir}.{RET}"))
-    stopifnot(auto_ss_llen>0)
+    auto_ss_cnts <- auto_ss_list %>% length()
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Starting, SampleSheetCount={auto_ss_cnts}, pattern={pattern} dir={dir}.{RET}"))
     
+    if (is.null(auto_ss_cnts) || auto_ss_cnts==0) {
+      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: Failed to find auto sample sheets!{RET}{RET}"))
+      return(NULL)
+    }
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #  Load Samples::
     auto_ss_tibs <- suppressMessages(suppressWarnings(lapply(auto_ss_list, readr::read_csv) )) %>% 
@@ -137,8 +143,9 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Adding Calls Paths...{RET}"))
       
       auto_ss_tibs <- 
-        addPathsToSampleSheet(ss=auto_ss_tibs, dir=dir, platform=platform, manifest=manifest, 
-                              del='_',field='Calls_Path', suffix='calls.csv.gz$',
+        addPathsToSampleSheet(ss=auto_ss_tibs, dir=dir, 
+                              platform=platform, manifest=manifest, workflow=workflow,
+                              del='_',field='Calls_Path', suffix='call.dat.csv.gz$',
                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       auto_ss_tlen <- base::nrow(auto_ss_tibs)
@@ -149,13 +156,10 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, suffix='AutoS
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Adding SSETs Paths...{RET}"))
       
       auto_ss_tibs <- 
-        addPathsToSampleSheet(ss=auto_ss_tibs, dir=dir, platform=platform, manifest=manifest, 
-                              del='_',field='Ssets_Path', suffix='ind-sset.csv.gz$', 
+        addPathsToSampleSheet(ss=auto_ss_tibs, dir=dir, 
+                              platform=platform, manifest=manifest, workflow=workflow,
+                              del='_',field='Ssets_Path', suffix='sigs.dat.csv.gz$', 
                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      
-      #  addPathsToSampleSheet(dir=dir, platform=platform, manifest=manifest, del='_',
-      #                        field='Sigs_Path', suffix='sset.csv.gz$', verbose=verbose)
-      #                      field='Sigs_Path', suffix='sigs.csv.gz$', verbose=verbose)
       
       auto_ss_tlen <- base::nrow(auto_ss_tibs)
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(ssets)={auto_ss_tlen}.{RET}{RET}"))
@@ -204,7 +208,9 @@ getUniqueFields = function(ss, keys, verbose=0,vt=1,tc=1) {
   uniq_exp_keys
 }
 
-addPathsToSampleSheet = function(ss, dir, platform=NULL, manifest=NULL, field, suffix, del='.',
+addPathsToSampleSheet = function(ss, dir, 
+                                 platform=NULL, manifest=NULL, workflow=NULL,
+                                 field, suffix, del='.',
                                  verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'addPathsToSampleSheet'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -213,7 +219,8 @@ addPathsToSampleSheet = function(ss, dir, platform=NULL, manifest=NULL, field, s
   pattern <- NULL
   if (!is.null(platform)) pattern <- paste(pattern,platform, sep=del)
   if (!is.null(manifest)) pattern <- paste(pattern,manifest, sep=del)
-  pattern <- paste(pattern,suffix, sep=del)
+  if (!is.null(workflow)) pattern <- paste(pattern,workflow, sep=del)
+  pattern <- paste(pattern,suffix, sep='.')
   
   file_list <- NULL
   file_list <- list.files(dir, pattern=pattern, recursive=TRUE, full.names=TRUE)
@@ -948,9 +955,7 @@ getSsheetDescTib = function(tib,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
-    
-    print(tib)
-    
+
     # Determine Number of Workflows::
     #
     max_idx <- tib %>% 
@@ -968,7 +973,7 @@ getSsheetDescTib = function(tib,
                            minNegPval,minNegPerc,
                            minDb=minDb,
                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) ) )
-    if (verbose>=vt+3) {
+    if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
       ret_tib %>% print(n=base::nrow(ret_tib))
     }
@@ -990,7 +995,7 @@ getSsheetDescTib = function(tib,
         ret_tib %>% print(n=base::nrow(ret_tib))
       }
     }
-    if (verbose>=vt+3) {
+    if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
       ret_tib %>% print(n=base::nrow(ret_tib))
     }
@@ -1150,7 +1155,7 @@ getSsheetIndexAnnoTib = function(idx,
       Method_Key = glue::glue("Method workflow name used for metrics ending with {idx}."),
       Method_Idx = glue::glue("Method workflow index used for metrics ending with {idx}."),
       
-      # Auto-Sample-Detection Results::
+      # Auto-Sample-Detection Results:: All
       #
       AutoSample_Total_Cnt = 
         glue::glue("Loci overlap count with sample and max auto-detect-sample ",
@@ -1169,6 +1174,48 @@ getSsheetIndexAnnoTib = function(idx,
                    "and max auto-detect-sample for method index {idx}."),
       AutoSample_dB_Val = 
         glue::glue("Percent of loci with delta-Beta < {minDb} between sample ",
+                   "and max auto-detect-sample for method index {idx}."),
+      
+      # Auto-Sample-Detection Results:: Infinium I
+      #
+      AutoSample_Total_1_Cnt = 
+        glue::glue("Infinium I loci overlap count with sample and max auto-detect-sample ",
+                   "for method index {idx}."),
+      AutoSample_R2_1_Key = 
+        glue::glue("Infinium I max auto-detect-sample name by R-Squared ",
+                   "for method index {idx}."),
+      AutoSample_R2_1_Val = 
+        glue::glue("Infinium I max auto-detect-sample R-Squared value ",
+                   "for method index {idx}."),
+      AutoSample_dB_1_Key = 
+        glue::glue("Infinium I max auto-detect-sample name by delta-Beta percent ",
+                   "for method index {idx}."),
+      AutoSample_dB_1_Cnt = 
+        glue::glue("Infinium I count of loci with delta-Beta < {minDb} between sample ",
+                   "and max auto-detect-sample for method index {idx}."),
+      AutoSample_dB_1_Val = 
+        glue::glue("Infinium I percent of loci with delta-Beta < {minDb} between sample ",
+                   "and max auto-detect-sample for method index {idx}."),
+
+      # Auto-Sample-Detection Results:: Infinium II
+      #
+      AutoSample_Total_2_Cnt = 
+        glue::glue("Infinium II loci overlap count with sample and max auto-detect-sample ",
+                   "for method index {idx}."),
+      AutoSample_R2_2_Key = 
+        glue::glue("Infinium II max auto-detect-sample name by R-Squared ",
+                   "for method index {idx}."),
+      AutoSample_R2_2_Val = 
+        glue::glue("Infinium II max auto-detect-sample R-Squared value ",
+                   "for method index {idx}."),
+      AutoSample_dB_2_Key = 
+        glue::glue("Infinium II max auto-detect-sample name by delta-Beta percent ",
+                   "for method index {idx}."),
+      AutoSample_dB_2_Cnt = 
+        glue::glue("Infinium II count of loci with delta-Beta < {minDb} between sample ",
+                   "and max auto-detect-sample for method index {idx}."),
+      AutoSample_dB_2_Val = 
+        glue::glue("Infinium II percent of loci with delta-Beta < {minDb} between sample ",
                    "and max auto-detect-sample for method index {idx}."),
       
       # Predicted and Inferred Calls::

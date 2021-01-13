@@ -575,8 +575,12 @@ cntPer_lte = function(x, min, prc=3) {
   round(100*length(x[which(x<=min)])/length(x),prc)
 }
 
+cntPer_gte = function(x, min, prc=3) {
+  round(100*length(x[which(x>=min)])/length(x),prc)
+}
+
 cntPer_gt = function(x, max, prc=3) {
-  round(100*length(x[which(x>max)])/length(x),prc)
+  round(100*length(x[which(x> max)])/length(x),prc)
 }
 
 cntPer_gt0 = function(x, max, prc=3) {

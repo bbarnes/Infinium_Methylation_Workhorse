@@ -129,6 +129,8 @@ opt$write_csum  <- FALSE
 opt$write_snps  <- TRUE
 opt$write_auto  <- FALSE
 
+opt$mask_general <- FALSE
+
 # Threshold Options::
 opt$pval <- "pOOBAH,PnegEcdf"
 opt$minPval <- "0.1,0.02"
@@ -264,8 +266,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVID'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GRCm38'
-  par$local_runType <- 'qcMVP'
   par$local_runType <- 'DELTA'
+  par$local_runType <- 'qcMVP'
   
   opt$fresh <- TRUE
   
@@ -293,7 +295,9 @@ if (args.dat[1]=='RStudio') {
     opt$auto_detect <- FALSE
   } else if (par$local_runType=='qcMVP') {
     opt$runName  <- 'CNTL-Samples_VendA_10092020'
-    opt$runName  <- 'CNTL-Samples_VendA_10092020'
+    par$expChipNum <- '203962710025'
+    par$expSampNum <- '203962710025_R08C01'
+    
     opt$auto_detect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='CORE') {
@@ -318,7 +322,7 @@ if (args.dat[1]=='RStudio') {
     par$expChipNum <- '202915460071'
     opt$auto_detect <- TRUE
   } else if (par$local_runType=='DELTA') {
-    opt$runName  <- 'DELTA-8x1-EPIC-Core'
+    opt$runName    <- 'DELTA-8x1-EPIC-Core'
     par$expChipNum <- '203319730022'
     par$expSampNum <- '203319730022_R07C01'
     
@@ -419,7 +423,9 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to write direct and inferred SNP calls file [default= %default]", metavar="boolean"),
     make_option(c("--write_auto"), action="store_true", default=opt$write_auto,
                 help="Boolean variable to write Auto-Detection Matricies (Pval/Beta) file [default= %default]", metavar="boolean"),
-    
+    make_option(c("--mask_general"), action="store_true", default=opt$mask_general,
+                help="Boolean variable to report Sesame masked detection p-value stats [default= %default]", metavar="boolean"),
+
     #
     # Current Versions::
     #
@@ -682,6 +688,17 @@ if (opt$cluster) {
     cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}"))
   }
   
+  # TBD::
+  #   - mask pass_perc
+  #   - R2/dB returned by Infinium Design
+  #
+  mask_cpg_vec <- NULL
+  mask_cpg_csv <- file.path(par$datDir, 'manifest/mask/sesame-general-mask.cpg.csv.gz')
+  if (opt$mask_general) {
+    mask_cpg_vec <- suppressMessages(suppressWarnings( 
+      readr::read_csv(mask_cpg_csv) )) %>% dplyr::pull(Probe_ID)
+  }
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                             Process Chip::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -705,6 +722,7 @@ if (opt$cluster) {
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
                                    man=mans, ref=auto_sam_tib, opts=opt, defs=def,
+                                   mask=mask_cpg_vec,
                                    
                                    pvals=pval_vec,
                                    min_pvals=min_pval_vec,
@@ -726,18 +744,16 @@ if (opt$cluster) {
       
       # Testing code only::
       #
-      # if (!is.null(par$expSampNum)) {
-      #   prefix <- par$expSampNum
-      #   opt$single <- TRUE
-      #   
-      #   prefix <- "203319730022_R01C01"
-      # }
-      
+      if (!is.null(par$expSampNum)) {
+        prefix <- par$expSampNum
+        opt$single <- TRUE
+      }
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
 
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
                                    man=mans, ref=auto_sam_tib, opts=opt, defs=def,
+                                   mask=mask_cpg_vec,
                                    
                                    pvals=pval_vec,
                                    min_pvals=min_pval_vec,
@@ -762,12 +778,58 @@ if (opt$cluster) {
       #
       
       if (FALSE) {
+        rdat1 <- rdat
         dB1_tib <- dplyr::inner_join( 
           purrr::set_names(rdat1$org_list$call_dat, c("Probe_ID", "can_poob", "can_negs", "can_beta")),
           dplyr::select(auto_sam_tib, Probe_ID, rdat1$ssheet_tib$AutoSample_dB_Key_1) %>% 
             purrr::set_names(c("Probe_ID","ref_beta")), 
           by="Probe_ID") %>% 
-          dplyr::mutate(del_beta=base::abs(can_beta-ref_beta))
+          dplyr::mutate(
+            del_beta=can_beta-ref_beta,
+            abs_beta=base::abs(can_beta-ref_beta)) %>%
+          dplyr::inner_join(rdat$sman, by="Probe_ID") # %>% dplyr::mutate(DESIGN=as.factor(DESIGN))
+        
+        ind1_tib <- dplyr::inner_join(
+          rdat1$cur_list$call_dat %>% dplyr::select(Probe_ID, dplyr::starts_with('ind_')) %>%
+          purrr::set_names(c("Probe_ID", "can_poob", "can_negs", "can_beta")),
+          
+          dplyr::select(auto_sam_tib, Probe_ID, rdat1$ssheet_tib$AutoSample_dB_Key_1) %>% 
+            purrr::set_names(c("Probe_ID","ref_beta")), 
+          by="Probe_ID") %>% 
+          dplyr::mutate(
+            del_beta=can_beta-ref_beta,
+            abs_beta=base::abs(can_beta-ref_beta)) %>%
+          dplyr::inner_join(rdat$sman, by="Probe_ID")
+        
+        dB1_tib %>%
+          ggplot2::ggplot(aes(x=can_poob, y=del_beta, color = DESIGN)) + 
+          # ggplot2::geom_point() + 
+          # ggplot2::geom_abline() +
+          ggplot2::geom_density2d()
+        
+        ind1_tib %>%
+          dplyr::filter(Probe_Type=='cg') %>%
+          ggplot2::ggplot(aes(x=can_poob, y=del_beta, color = DESIGN)) + 
+          ggplot2::geom_point() +
+          ggplot2::geom_abline() +
+          # ggplot2::geom_density2d() +
+          ggplot2::facet_grid(rows = "DESIGN")
+        
+        
+        
+        #
+        # Plot histogram of delta-beta split by detection p-value
+        #
+        dB1_tib %>% 
+          # dplyr::filter(can_poob<0.05) %>%
+          ggplot2::ggplot(group = DESIGN) + 
+          ggplot2::geom_density(aes(x=del_beta))
+        
+        ggplot2::ggplot(data=dB1_tib) + 
+          ggplot2::geom_density(aes(x=del_beta))
+          
+
+        
         
         dB7_tib <- dplyr::inner_join( 
           purrr::set_names(rdat7$org_list$call_dat, c("Probe_ID", "can_poob", "can_negs", "can_beta")),
@@ -775,12 +837,6 @@ if (opt$cluster) {
             purrr::set_names(c("Probe_ID","ref_beta")), 
           by="Probe_ID") %>% 
           dplyr::mutate(del_beta=base::abs(can_beta-ref_beta))
-        
-        
-        ggplot2::ggplot(data=dB1_tib, aes(x=can_poob, y=del_beta)) + 
-          # ggplot2::geom_point() + 
-          ggplot2::geom_density2d() +
-          ggplot2::geom_abline()
         
         ggplot2::ggplot(data=dB7_tib, aes(x=can_poob, y=del_beta)) + 
           # ggplot2::geom_point() + 
