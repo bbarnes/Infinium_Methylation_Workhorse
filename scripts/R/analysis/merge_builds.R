@@ -311,10 +311,11 @@ if (args.dat[1]=='RStudio') {
     par$runName9  <- 'COVIC-Set3-05062020'
     par$runName10 <- 'COVIC-Set4-09062020'
     par$runName11 <- 'COVIC-Set5-10062020'
-    par$runName12 <- 'COVIC-Set8-26182020'
+    par$runName12 <- 'COVIC-Set7-06082020'
+    par$runName13 <- 'COVIC-Set8-26182020'
     
-    par$runName13 <- 'Excalibur-Old-1609202'
-    par$runName14 <- 'Excalibur-New-1609202'
+    par$runName14 <- 'Excalibur-Old-1609202'
+    par$runName15 <- 'Excalibur-New-1609202'
     
     # opt$buildDir  <- paste(
     #   file.path(par$topDir,'scratch/swifthoof_main',par$runNameA),
@@ -329,7 +330,7 @@ if (args.dat[1]=='RStudio') {
     pass_vec <- c(par$runName1,par$runName2,
                   par$runName3,par$runName4,par$runName5,
                   par$runName7,par$runName11,par$runName12,
-                  par$runName14)
+                  par$runName15)
     
     opt$buildDir  <- paste(
       # Known passed chips::
@@ -348,10 +349,11 @@ if (args.dat[1]=='RStudio') {
       file.path(par$topDir,'scratch/swifthoof_main',par$runName10),
 
       file.path(par$topDir,'scratch/swifthoof_main',par$runName11),
-      # file.path(par$topDir,'scratch/swifthoof_main',par$runName12),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName12),
+      # file.path(par$topDir,'scratch/swifthoof_main',par$runName13),
       
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName13),
       file.path(par$topDir,'scratch/swifthoof_main',par$runName14),
+      file.path(par$topDir,'scratch/swifthoof_main',par$runName15),
       
       sep=',')
 
@@ -567,16 +569,17 @@ for (curDir in blds_dir_vec) {
 auto_ss_len <- auto_ss_tib %>% base::nrow()
 cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len}.{RET}{RET}"))
 # print(auto_ss_tib)
+auto_ss_tib %>% dplyr::distinct(build_source)
 
 if (opt$clean_source) {
   
   pass_vec <- c("CNTL-Samples_VendA_10092020",
                 "CNTL-Samples_VendB_10092020",
-                "BETA-8x1-EPIC-Core",
+                # "BETA-8x1-EPIC-Core",
                 "DELTA-8x1-EPIC-Core",
                 # "BETA-8x1-EPIC-Bad",
                 "COVIC-Set1-15052020",
-                "COVIC-Set2-31052020",
+                # "COVIC-Set2-31052020",
                 # "COVIC-Set3-05062020",
                 # "COVIC-Set4-09062020",
                 "COVIC-Set5-10062020",
@@ -609,171 +612,112 @@ if (opt$clean_source) {
     dplyr::filter(! stringr::str_starts(AutoSample_dB_Key_2, 'T')) %>%
     dplyr::group_by(build_source) %>%
     dplyr::mutate(build_source_idx=dplyr::cur_group_id(),
-                  build_source=paste(paste0(group_class,build_source_idx),build_source, sep='_'),
+                  # build_source=paste(paste0(group_class,build_source_idx),build_source, sep='_'),
+                  build_source=paste(paste0(build_source_idx),build_source, sep='_'),
                   Sample=AutoSample_dB_Key_2) %>%
     dplyr::ungroup() %>%
     dplyr::arrange(group_class,build_source_idx,Sample) %>%
     # dplyr::filter(AutoSample_dB_Key_2 == AutoSample_R2_Key_2) %>%
+    # dplyr::select(group_class,build_source,Sample, # build_source_idx,
     dplyr::select(group_class,build_source,Sample, # build_source_idx,
                   AutoSample_R2_1_Val_2,AutoSample_R2_2_Val_2,
                   AutoSample_dB_1_Val_2,AutoSample_dB_2_Val_2,
-                  cg_1_pvals_pOOBAH_pass_perc_1,cg_2_pvals_pOOBAH_pass_perc_1) %>%
+                  cg_1_pvals_pOOBAH_pass_perc_1,
+                  cg_2_pvals_pOOBAH_pass_perc_1) %>%
     purrr::set_names(stringr::str_remove_all(names(.), 'AutoSample_')) %>%
     purrr::set_names(stringr::str_replace_all(names(.), '_pvals_', '_')) %>%
     purrr::set_names(stringr::str_remove_all(names(.), '_pass_perc_1')) %>%
     purrr::set_names(stringr::str_remove_all(names(.), '_Val_2'))
   
-  plot_core_tib %>% dplyr::group_by(group_class,build_source) %>% dplyr::summarise(Count=n())
+  plot_core_tib %>% dplyr::group_by(group_class,build_source) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  #
+  # Build Plotting Data::
+  #
+  plot_stack_tib <- dplyr::bind_rows(
+    dplyr::select(plot_core_tib, group_class,build_source,Sample, R2_1,cg_1_pOOBAH) %>% 
+      purrr::set_names(c("Class","Experiment","Sample","Metric","Pval_Perc")) %>%
+      dplyr::mutate(Metric_Type="R2",Design_Type="I") %>% 
+      dplyr::select(Class,Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
+    
+    dplyr::select(plot_core_tib, group_class,build_source,Sample, R2_2,cg_2_pOOBAH) %>% 
+      purrr::set_names(c("Class","Experiment","Sample","Metric","Pval_Perc")) %>%
+      dplyr::mutate(Metric_Type="R2",Design_Type="II") %>% 
+      dplyr::select(Class,Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
+    
+    dplyr::select(plot_core_tib, group_class,build_source,Sample, dB_1,cg_1_pOOBAH) %>% 
+      purrr::set_names(c("Class","Experiment","Sample","Metric","Pval_Perc")) %>%
+      dplyr::mutate(Metric_Type="dB",Design_Type="I", Metric=Metric/100) %>% 
+      dplyr::select(Class,Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
+    
+    dplyr::select(plot_core_tib, group_class,build_source,Sample, dB_2,cg_2_pOOBAH) %>% 
+      purrr::set_names(c("Class","Experiment","Sample","Metric","Pval_Perc")) %>%
+      dplyr::mutate(Metric_Type="dB",Design_Type="II", Metric=Metric/100) %>% 
+      dplyr::select(Class,Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc)
+  ) %>%
+    dplyr::mutate(Pval_Frac=Pval_Perc/100)
+  
+  
+  plot_stack_tib %>% 
+    dplyr::group_by(Class,Experiment,Metric_Type,Design_Type) %>% 
+    dplyr::summarise(Pval_Min=min(Pval_Frac, na.rm=TRUE),
+                     Pval_Perc=cntPer_gte(Pval_Frac,0.85), 
+                     Metric_Perc=cntPer_gte(Metric,0.98)) %>% print(n=100)
+  
+  
+  #
+  # Linear Plotting::
+  #
+  plot_stack_tib %>% 
+    # dplyr::filter(Metric>=0.6) %>%
+    dplyr::filter(Class=="F") %>%
+    ggplot2::ggplot() +
+    ggplot2::geom_point(aes(x=Pval_Frac,y=Metric, color=Sample) ) +
+    ggplot2::facet_grid(rows=vars(Class,Experiment),
+                        cols=vars(Design_Type,Metric_Type) ) +
+    geom_hline(yintercept=0.98 ) +
+    geom_vline(xintercept=0.85 )
+
+  plot_stack_tib %>% 
+    # dplyr::filter(Metric>=0.6) %>%
+    dplyr::filter(Class=="P") %>%
+    ggplot2::ggplot() +
+    ggplot2::geom_point(aes(x=Pval_Frac,y=Metric, color=Sample) ) +
+    ggplot2::facet_grid(rows=vars(Class,Experiment),
+                        cols=vars(Design_Type,Metric_Type) ) +
+    geom_hline(yintercept=0.98 ) +
+    geom_vline(xintercept=0.85 )
+  
+
+  
+  
+  #
+  # Log Versions::
+  #
+  plot_stack_tib %>% 
+    # dplyr::filter(Metric>=0.6) %>%
+    dplyr::filter(Class=="F") %>%
+    ggplot2::ggplot() +
+    ggplot2::geom_point(aes(x=log(Pval_Frac+1),y=log(Metric+1), color=Sample) ) +
+    ggplot2::facet_grid(rows=vars(Class,Experiment),
+                        cols=vars(Design_Type,Metric_Type) ) +
+    geom_hline(yintercept=log(1.98) ) +
+    geom_vline(xintercept=log(1.85) )
+  
+  plot_stack_tib %>% 
+    # dplyr::filter(Metric>=0.6) %>%
+    dplyr::filter(Class=="P") %>%
+    ggplot2::ggplot() +
+    ggplot2::geom_point(aes(x=log(Pval_Frac+1),y=log(Metric+1), color=Sample) ) +
+    ggplot2::facet_grid(rows=vars(Class,Experiment),
+                        cols=vars(Design_Type,Metric_Type) ) +
+    geom_hline(yintercept=log(1.98) ) +
+    geom_vline(xintercept=log(1.85) )
   
 }
 # print(auto_ss_tib)
 
-auto_ss_tib %>% dplyr::distinct(build_source)
-
-#
-# Workspace to evaluate r2/dB vs. %passing_pOOBAH
-#
-if (FALSE) {
-  
-  # Ensure agreement below::
-  #  auto_ss_tib$AutoSample_dB_Key_2
-  #  auto_ss_tib$AutoSample_R2_Key_2
-  # i.e. this should be zero::
-  #   auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key_2 != AutoSample_R2_Key_2)
-  # Now use one to group by...
-
-  # y-metric
-  #   auto_ss_tib$AutoSample_R2_Val_2
-  #   auto_ss_tib$AutoSample_dB_Val_2
-  
-  # x-metric
-  #   auto_ss_tib$cg_1_pvals_pOOBAH_pass_perc_1
-  #   auto_ss_tib$cg_1_pvals_pOOBAH_pass_perc_2
-  
-  
-  pass_vec <- c("VendA",
-                "VendB",
-                # "BETA-8x1-EPIC-Core",
-                # "DELTA-8x1-EPIC-Core",
-                "BETA",
-                "DELTA",
-                "COVIC_Set1",
-                "COVIC_Set5",
-                "COVIC_Set8",
-                "Excalibur_New")
-  #
-  # TBD:: Need to generate Auto stats by Infinium Design Type (I/2)
-  #
-  
-  #
-  # Summary Stats::
-  #
-  # TBD:: Update par$pass_vec string input...
-  #
-  auto_ss_tib %>%
-    dplyr::filter(! stringr::str_starts(AutoSample_dB_Key_2, 'T')) %>%
-    dplyr::mutate(
-      group_class=dplyr::case_when(
-        build_source %in% pass_vec ~ 'PASS', TRUE ~ 'FAIL')
-    ) %>%
-    dplyr::group_by(group_class,build_source,
-                    AutoSample_dB_Key_2,AutoSample_R2_Key_2) %>%
-    # dplyr::group_by(group_class,build_source) %>%
-    dplyr::summarise(
-      Total_Count=n(),
-      R2_80=cntPer_gte(AutoSample_R2_Val_2,0.80),
-      dB_80=cntPer_gte(AutoSample_dB_Val_2,80),
-      
-      poob1_90  = cntPer_gte(cg_1_pvals_pOOBAH_pass_perc_1,90),
-      poob1_min =  min(cg_1_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
-      poob1_avg = mean(cg_1_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
-      
-      poob2_90  = cntPer_gte(cg_2_pvals_pOOBAH_pass_perc_1,90),
-      poob2_min =  min(cg_2_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
-      poob2_avg = mean(cg_2_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
-      
-      .groups='drop'
-    )
-  
-  
-
-  #
-  # Plotting:: Original
-  #
-  # auto_ss_tib %>%
-  #   dplyr::filter(AutoSample_dB_Key_2 == AutoSample_R2_Key_2) %>%
-  #   dplyr::filter(! stringr::str_starts(AutoSample_dB_Key_2, 'T')) %>%
-  #   # dplyr::mutate(build_source=as.factor(build_source)) %>%
-  #   dplyr::group_by(build_source) %>%
-  #   dplyr::mutate(build_source_idx=dplyr::cur_group_id() ) %>%
-  #   # tidyr::unite(plot_id, build_source_idx,AutoSample_dB_Key_2, sep='_', remove=FALSE) %>%
-  #   # tidyr::unite(plot_id, build_source_idx, sep='_', remove=FALSE) %>%
-  #   tidyr::unite(plot_id, build_source, sep='_', remove=FALSE) %>%
-  #   dplyr::ungroup() %>%
-  #   # dplyr::select(plot_id) %>%
-  #   ggplot2::ggplot() +
-  #   ggplot2::geom_point(aes(x=cg_2_pvals_pOOBAH_pass_perc_1,
-  #                           y=AutoSample_R2_Val_2, color=plot_id) )
-  
-  
-  #
-  # Plotting::
-  #
-  
-  plot_stack_tib <- dplyr::bind_rows(
-    dplyr::select(plot_core_tib, build_source,Sample, R2_1,cg_1_pOOBAH) %>% 
-      purrr::set_names(c("Experiment","Sample","Metric","Pval_Perc")) %>%
-      dplyr::mutate(Metric_Type="R2",Design_Type="I") %>% 
-      dplyr::select(Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
-    
-    dplyr::select(plot_core_tib, build_source,Sample, R2_2,cg_2_pOOBAH) %>% 
-      purrr::set_names(c("Experiment","Sample","Metric","Pval_Perc")) %>%
-      dplyr::mutate(Metric_Type="R2",Design_Type="II") %>% 
-      dplyr::select(Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
-    
-    dplyr::select(plot_core_tib, build_source,Sample, dB_1,cg_1_pOOBAH) %>% 
-      purrr::set_names(c("Experiment","Sample","Metric","Pval_Perc")) %>%
-      dplyr::mutate(Metric_Type="dB",Design_Type="I", Metric=Metric/100) %>% 
-      dplyr::select(Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
-    
-    dplyr::select(plot_core_tib, build_source,Sample, dB_2,cg_2_pOOBAH) %>% 
-      purrr::set_names(c("Experiment","Sample","Metric","Pval_Perc")) %>%
-      dplyr::mutate(Metric_Type="dB",Design_Type="II", Metric=Metric/100) %>% 
-      dplyr::select(Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc)
-  )
-
-  plot_stack_tib %>% 
-    dplyr::filter(Metric>=0.6) %>%
-    ggplot2::ggplot() +
-    ggplot2::geom_point(aes(x=Pval_Perc,y=Metric, color=Sample) ) +
-    ggplot2::facet_grid(rows=vars(Experiment),
-                        cols=vars(Design_Type,Metric_Type) ) +
-    geom_hline(yintercept=0.98)
-  
-  
-  
-  plot_stack_tib %>% 
-    # dplyr::filter(Metric>=0.6) %>%
-    ggplot2::ggplot() +
-    ggplot2::geom_point(aes(x=Pval_Perc,y=log(Metric+1), color=Sample) ) +
-    ggplot2::facet_grid(rows=vars(Experiment),
-                        cols=vars(Design_Type,Metric_Type) ) +
-    geom_hline(yintercept=log(1.98) )
-  
-  
-  # TBD:: Add facet on cols for passing/failing experiments...
-
-  # TBD:: Fix the sample colors to make more sense
-  #   - Also fix sample names or placement...
-  #
-  # scale_colour_discrete
-  
-  # AutoSample_R2_1_Val_2 cg_1_pvals_pOOBAH_pass_perc_1
-  # AutoSample_R2_2_Val_2 cg_2_pvals_pOOBAH_pass_perc_1
-  # AutoSample_dB_1_Val_2 cg_1_pvals_pOOBAH_pass_perc_1
-  # AutoSample_dB_2_Val_2 cg_2_pvals_pOOBAH_pass_perc_1
-  
-}
 
 # Temp Output::
 # va_ss_csv <- '/Users/bretbarnes/Documents/VA-MVP.AutoSampleSheet.csv.gz'
