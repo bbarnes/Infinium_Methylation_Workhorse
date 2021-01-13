@@ -1,12 +1,32 @@
 #!/bin/bash
 
-EXP="Customer-Facing"
-EXP="COVIC-Set1-15052020"
-EXP="COVIC-Set2-31052020"
-EXP="DELTA-8x1-EPIC-Core"
 
-EXP="CNTL-Samples_VendA_10092020"
-EXP="CNTL-Samples_VendB_10092020"
+# EXP="Customer-Facing"
+
+# Running below...
+
+# Done below...
+#
+# EXP="Excalibur-New-1609202"
+# EXP="Excalibur-Old-1609202"
+#
+# EXP="BETA-8x1-EPIC-Bad"
+#
+# EXP="BETA-8x1-EPIC-Core"
+# EXP="DELTA-8x1-EPIC-Core"
+#
+# EXP="COVIC-Set1-15052020"
+# EXP="COVIC-Set2-31052020"
+# EXP="COVIC-Set3-05062020"
+# EXP="COVIC-Set4-09062020"
+# EXP="COVIC-Set5-10062020"
+# EXP="COVIC-Set7-06082020"
+#
+# EXP="COVIC-Set8-26182020"
+#
+# EXP="CNTL-Samples_VendB_10092020"
+# EXP="CNTL-Samples_VendA_10092020"
+
 
 SRC="/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse"
 TOP="/Users/bretbarnes/Documents"
@@ -60,6 +80,7 @@ RUN="Rscript ${EXE} \
 
         --verbose=${VERBOSE} 
         --auto_detect \
+	--parallel \
         ${IS_SINGLE}"
 
 echo "RUN=${RUN}"
