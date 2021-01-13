@@ -268,6 +268,7 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'DELTA'
   par$local_runType <- 'qcMVP'
+  par$local_runType <- 'DKFZ'
   
   opt$fresh <- TRUE
   
@@ -298,6 +299,11 @@ if (args.dat[1]=='RStudio') {
     par$expChipNum <- '203962710025'
     par$expSampNum <- '203962710025_R08C01'
     
+    opt$auto_detect <- TRUE
+    opt$dpi <- 72
+  } else if (par$local_runType=='DKFZ') {
+    opt$runName  <- 'DKFZ'
+
     opt$auto_detect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='CORE') {

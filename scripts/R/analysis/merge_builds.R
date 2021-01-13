@@ -663,7 +663,7 @@ if (opt$clean_source) {
     dplyr::group_by(Class,Experiment,Metric_Type,Design_Type) %>% 
     dplyr::summarise(Pval_Min=min(Pval_Frac, na.rm=TRUE),
                      Pval_Perc=cntPer_gte(Pval_Frac,0.85), 
-                     Metric_Perc=cntPer_gte(Metric,0.98)) %>% print(n=100)
+                     Metric_Perc=cntPer_gte(Metric,0.98), .groups="drop") %>% print(n=100)
   
   
   #
