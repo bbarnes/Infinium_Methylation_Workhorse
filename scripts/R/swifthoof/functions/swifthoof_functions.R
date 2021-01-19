@@ -45,8 +45,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; prefix={prefix}...{RET}{RET}"))
   
   # TBD:: Validate all options are present in opt!!!
-  opt_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
-  def_tib <- dplyr::bind_rows(defs) %>% tidyr::gather("Option", "Value")
+  # opt_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
+  # def_tib <- dplyr::bind_rows(defs) %>% tidyr::gather("Option", "Value")
   
   # Retrun Value::
   ret_cnt <- 0
@@ -90,7 +90,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     opt_ssh_tib <- tibble::tibble(
       Min_DeltaBeta = opts$minDeltaBeta,
-      Sesame_Version=packageVersion("sesame"))
+      Sesame_Version=as.character( packageVersion("sesame") )
+    )
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           Extract Raw idat::
@@ -153,7 +154,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     open_beta_tib <- NULL
     open_sum1_ssh <- NULL
     open_sum2_ssh <- NULL
-    if (man_map_tib$platform[1]=='EPIC') {
+    if (man_map_tib$platform[1]=='EPIC' ||
+        man_map_tib$platform[1]=='HM450') {
       open_sset_dat <- sesame::openSesame(x=prefix, what = 'sigset')
       open_beta_tib <- sesame::getBetas(sset = open_sset_dat, 
                                         mask=FALSE, sum.TypeI=FALSE)
@@ -380,13 +382,10 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     time_tib <- tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                               Write Outputs::
+    #                         Write Basic Requeue File::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Outputs.{RET}"))
-    
-    if (!is.null(ssheet_tib)) readr::write_csv(ssheet_tib, ssheet_csv)
-    if (!is.null(dsheet_tab)) readr::write_csv(dsheet_tab, dsheet_csv)
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Basic Requeue File={RET}"))
     
     req_tib <- NULL
     if (is.null(open_sum1_ssh)) {
@@ -396,10 +395,19 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     } else {
       req_tib <- requeueFlagOpenSesame(
-        tib=ssheet_tib, name=basecode,
+        tib=open_sum1_ssh, name=basecode,
         csv=requeue_csv,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     }
+
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                               Write Outputs::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Outputs.{RET}"))
+    
+    if (!is.null(ssheet_tib)) readr::write_csv(ssheet_tib, ssheet_csv)
+    if (!is.null(dsheet_tab)) readr::write_csv(dsheet_tab, dsheet_csv)
     if (!is.null(time_tib))   readr::write_csv(time_tib, times_csv)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -413,7 +421,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     readr::write_lines(x=date(),file=stampEnd_txt,sep='\n',append=FALSE)
     
-    ret_cnt <- ssheet_tib %>% base::nrow()
+    ret_cnt <- ssheet_tib %>% base::ncol()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tTracker)) tTracker$addTime(stime,funcTag)

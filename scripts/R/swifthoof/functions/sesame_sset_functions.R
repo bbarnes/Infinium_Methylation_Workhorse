@@ -503,20 +503,19 @@ requeueFlagOpenSesame = function(tib, name, csv=NULL, idx=1,
                                  verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'requeueFlagOpenSesame'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) 
+  if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
-    
-    
+
     ret_tib <- tibble::tibble(
       Sentrix_Name  = name,
       Failed_QC     = tib$cg_Failed_QC_basic_0,
       Min_Pass_Perc = tib$cg_pass_perc_basic_0
     )
-    
+
     if (!is.null(csv)) {
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))

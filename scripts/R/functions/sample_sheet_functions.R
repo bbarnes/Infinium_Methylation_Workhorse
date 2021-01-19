@@ -903,7 +903,7 @@ getSsheetDataTab = function(tib,
           Variable=stringr::str_replace_all(
             stringr::str_squish((stringr::str_replace_all(Variable, regex("\\W+"), " ")) ), " ", "_") )
     )
-    
+
     if (verbose>=vt+3) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
       ret_tib %>% print()
@@ -1027,21 +1027,22 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
       # Sample Requeue Suggestion::
       #
       Requeue_Flag_pOOBAH = 
-        glue::glue("Flag to automatically requeue a faild sample based on percent loci with pOOBAH detection p-value < {minOobPerc}. Percent threshold = {minOobPerc}."),
+        glue::glue("Flag to automatically requeue a faild sample based on percent loci with pOOBAH detection p-value < {minOobPval}. Percent threshold = {minOobPerc}."),
       Requeue_Flag_PnegEcdf = 
         glue::glue("Flag to automatically requeue a faild sample based on percent loci with PnegEcdf detection p-value < {minNegPval}. Percent threshold = {minNegPerc}."),
       
       # Sample Identification::
       #
-      Sentrix_Name = "Unique Sentrix Name: Sentrix_Barcode + Sentrix_Poscode.",
-      Sentrix_Barcode = "Sentrix Bar Code (AKA Sentrix_ID).",
-      Sentrix_Poscode = "Sentrix Position Code (AKA Sentrix_Position).",
-      Sentrix_Row = "Sentrix Row on chip.",
-      Sentrix_Col = "Sentrix Column on Chip.",
-      Chip_Type = "Idat Chip Type.",
-      Chip_Format = "Idat Chip Format (e.g. 8x1, 12x1, 24x1, etc.).",
-      Bead_Pool = "Automatically identified bead pool based on address overlap (e.g. HM450, EPIC, etc.).",
-      Run_Name = "Run Name provided by user.",
+      Sentrix_Name    = glue::glue("Unique Sentrix Name: Sentrix_Barcode + Sentrix_Poscode."),
+      Sentrix_Barcode = glue::glue("Sentrix Bar Code (AKA Sentrix_ID)."),
+      Sentrix_Poscode = glue::glue("Sentrix Position Code (AKA Sentrix_Position)."),
+      Sentrix_Row     = glue::glue("Sentrix Row on chip."),
+      Sentrix_Col     = glue::glue("Sentrix Column on Chip."),
+      Chip_Type       = glue::glue("Idat Chip Type."),
+      Chip_Format     = glue::glue("Idat Chip Format (e.g. 8x1/12x1/24x1/etc.)."),
+      Bead_Pool       = glue::glue("Automatically identified bead pool based on address overlap (e.g. HM450/EPIC/etc.)."),
+      Run_Name        = glue::glue("Run Name provided by user."),
+      Sesame_Version  = glue::glue("Sesame Version."),
       
       # Bead and Manifest Loci Summary::
       #
@@ -1098,18 +1099,6 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
       
       # Open Sesame Basic Calling:: idx=0
       #
-      # cg_total_cnt_basic_0
-      # cg_pass_cnt_basic_0
-      # cg_pass_perc_basic_0
-      # cg_Failed_QC_cnt_basic_0
-      # cg_Failed_QC_basic_0
-      # cg_1_total_cnt_basic_0
-      # cg_2_total_cnt_basic_0
-      # cg_1_pass_cnt_basic_0
-      # cg_2_pass_cnt_basic_0
-      # cg_1_pass_perc_basic_0
-      # cg_2_pass_perc_basic_0
-      
       cg_total_cnt_basic_0 = glue::glue("Only EPIC; Total cg loci using EPIC openSesame() for method index {idx_zero}. ",
                                         "See Bioconductor Package ‘sesame’ openSesame(sset)."),
       cg_pass_cnt_basic_0  = glue::glue("Only EPIC; Cout of cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
@@ -1613,7 +1602,13 @@ getSsheetIndexAnnoTib = function(idx,
       STAINING_2_U_mean = glue::glue("Mean intensity of STAINING Red loci for method {idx}."),
       
       TARGET_REMOVAL_2_M_mean = glue::glue("Mean intensity of TARGET_REMOVAL Grn loci for method {idx}."),
-      TARGET_REMOVAL_2_U_mean = glue::glue("Mean intensity of TARGET_REMOVAL Red loci for method {idx}.")
+      TARGET_REMOVAL_2_U_mean = glue::glue("Mean intensity of TARGET_REMOVAL Red loci for method {idx}."),
+      
+      # Comparison to Open Sesame by R2/deltaBeta for each method
+      cg_basic_r2 = glue::glue("R-squared of core open-sesame loci vs method {idx}."),
+      cg_basic_dB = glue::glue("DeltaBeta of core open-sesame loci vs method {idx}."),
+      
+      unknown = "Unknown"
     ) %>% purrr::set_names(paste(names(.),idx, sep='_'))
     
     ret_cnt <- ret_tib %>% base::ncol()

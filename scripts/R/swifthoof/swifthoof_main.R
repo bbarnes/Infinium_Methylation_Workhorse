@@ -797,12 +797,32 @@ if (opt$cluster) {
       
       if (FALSE) {
         
-        sesame::formatVCF(sset = rdat$open_sset_dat, vcf = file.path(opt$outDir,'tmp.vcf'))
+        rdat2 <- rdat
         
-        dtmp_tib <- getSsheetDataTab(tib = rdat$ssheet_tib, minOobPval = 0.1, 
-                                     minOobPerc = 90, minNegPval = 0.02, 
-                                     minNegPerc = 98, minDb = 0.2, verbose = 10)
+        
+        dplyr::inner_join(
+          tidyr::gather(rdat$ssheet_tib, Variable, Value),
+          tibble::enframe( unlist( sapply(rdat$ssheet_tib, class) ), name="Variable", value="Data_Type" ),
+          by="Variable"
+        )
+        
+        ano_ssh1_tib <- getSsheetCoreAnnoTib(minOobPval = 0.1, minOobPerc = 90, minNegPval = 0.02, minNegPerc = 98, minDb = 0.2, verbose = 10)
+        ano_ssh2_tib <- getSsheetIndexAnnoTib(idx = 1, minOobPval = 0.1, minOobPerc = 90, minNegPval = 0.02, minNegPerc = 98, minDb = 0.2, verbose = 10)
+        
+        dtmp_tib <- getSsheetDataTab(tib = rdat$ssheet_tib, 
+                                     minOobPval = 0.1,  minOobPerc = 90, 
+                                     minNegPval = 0.02, minNegPerc = 98, minDb = 0.2, 
+                                     verbose = 10)
         print(dtmp_tib, n=base::nrow(dtmp_tib))
+        
+        
+        rtib_tib <- getSsheetDataTab(tib = rdat$ssheet_tib, 
+                                     minOobPval = 0.1,  minOobPerc = 90, 
+                                     minNegPval = 0.02, minNegPerc = 98, minDb = 0.2, 
+                                     verbose = 10)
+        
+        
+        sesame::formatVCF(sset = rdat$open_sset_dat, vcf = file.path(opt$outDir,'tmp.vcf'))
         
         # Sentrix_Name
         # Failed_QC

@@ -274,6 +274,9 @@ ssetToSummary = function(sset, man, idx, workflow, name,
         as.matrix() %>% cor() %>% as_tibble() %>% 
         head(n=1) %>% dplyr::pull(2)
       
+      if (percision_pval != -1)
+        r2_basic_val <- round(r2_basic_val, percision_pval)
+
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Basic(r2)={r2_basic_val}...{RET}"))
       
@@ -286,6 +289,9 @@ ssetToSummary = function(sset, man, idx, workflow, name,
         dplyr::summarise(pass_perc=cntPer_lte(dB,opt$minDeltaBeta)) %>%
         head(n=1) %>% dplyr::pull(1)
       
+      if (percision_beta != -1)
+        dB_basic_val <- round(dB_basic_val, percision_beta)
+
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Basic(dB)={dB_basic_val}...{RET}"))
       
@@ -293,7 +299,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       dB_basic_key <- paste('cg_basic_dB', sep=del)
       base_dat_tib <- tibble::tibble(
         !!r2_basic_key := r2_basic_val,
-        !!dB_basic_key := dB_basic_val)
+        !!dB_basic_key := dB_basic_val )
 
       if (verbose>=vt+6) {
         cat(glue::glue("{RET}{RET}{RET}"))
@@ -322,9 +328,8 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     #
     if (write_snps && !is.null(snps_csv))
       vcf_ret <- safeVCF(sset=sset_dat, vcf=snps_csv,
-                         verbose=verbose+10,vt=vt+1,tc=tc+1,tt=tt)
-      #                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
     # Run Auto Sample Detection::
     #
     if (!is.null(ref) &&
