@@ -27,7 +27,9 @@ RET <- "\n"
 ssetToSummary = function(sset, man, idx, workflow, name, 
                          outDir=NULL, pre=NULL, ref=NULL, mask=NULL,
                          pvals=NULL, min_pvals=NULL, min_percs=NULL,
-                         report_vec=c("Requeue","pass_perc","mean"),
+                         basic=NULL,
+                         report_vec=c("Requeue","pass_perc","mean", 
+                                      "basis_r2_val", "basis_dB_val"),
                          
                          write_sset=FALSE, sset_rds=NULL, ret_sset=FALSE,
                          
@@ -44,7 +46,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
                          write_csum=FALSE, csum_csv=NULL, ret_csum=FALSE,
                          
                          write_snps=FALSE, snps_csv=NULL, ret_snps=FALSE,
-                         write_auto=FALSE, plot_auto=FALSE,
+                         write_auto=FALSE, plot_auto=FALSE, makek_pred=TRUE,
                          
                          percision_sigs=-1,percision_beta=-1,percision_pval=-1,
                          by="Probe_ID", type="Probe_Type", des="Probe_Design",
@@ -81,7 +83,8 @@ ssetToSummary = function(sset, man, idx, workflow, name,
   sums_ssh_tib <- NULL
   pred_dat_tib <- NULL
   data_ssh_tib <- NULL
-  
+  beta_sum_tib <- NULL
+
   stime <- system.time({
     
     # Initialize Outputs::
@@ -152,6 +155,19 @@ ssetToSummary = function(sset, man, idx, workflow, name,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       if (ret_pval) ret_pval_dat$pval_dat <- pval_dat_tib
       
+      if (verbose>=vt+6) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}pval_sum_tab({pval_key},min={min_pval},per={min_perc})={RET}"))
+        print(pval_dat_tib)
+        pval_sum_tab <- pval_dat_tib %>% 
+          purrr::set_names(c("Probe_ID","Pval")) %>%
+          dplyr::left_join(man, by="Probe_ID") %>%
+          dplyr::group_by(Probe_Type,Probe_Design) %>%
+          dplyr::summarise(Pass_Perc=cntPer_lte(Pval,min_pval),
+                           .groups="drop")
+        pval_sum_tab %>% print(n=base::nrow(pval_sum_tab))
+        cat(glue::glue("{RET}{RET}{RET}"))
+      }
+      
       pval_sum_tib <- NULL
       pval_sum_tib <- ssetTibToSummary(
         tib=pval_dat_tib,man=man,
@@ -167,8 +183,14 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       } else {
         call_dat_tib <- dplyr::left_join(call_dat_tib,pval_dat_tib, by=by)
       }
-      # call_dat_tib <- dplyr::left_join(call_dat_tib,pval_dat_tib, by=by)
       sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(pval_sum_tib)
+      
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}pval_dat_tib({pval_key},min={min_pval},per={min_perc})={RET}"))
+        print(pval_dat_tib)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}pval_sum_tib({pval_key},min={min_pval},per={min_perc})={RET}"))
+        print(pval_sum_tib)
+      }
       
       if (!is.null(mask)) {
         mask_pval_key <- paste('Mask',pval_key, sep='_')
@@ -219,6 +241,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     ret_beta_dat <- NULL
+    beta_dat_tib <- NULL
     beta_dat_tib <- ssetToTib(
       sset=sset_dat, source='betas',
       percision=percision_beta, sort=TRUE,
@@ -234,7 +257,52 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       by=by, type=type, des=des,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (ret_bsum) ret_beta_dat$beta_sum <- beta_sum_tib
-    
+
+    # Add open_sesame comparison if provided::
+    r2_basic_val <- NULL
+    dB_basic_val <- NULL
+    base_dat_tib <- NULL
+    if (!is.null(basic)) {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Basic(Open) Comparison...{RET}"))
+      
+      r2_basic_val <- basic %>% 
+        tibble::enframe(name="Probe_ID", value="betas") %>%
+        dplyr::inner_join(beta_dat_tib, 
+                          by="Probe_ID", suffix=c("_ref","_can")) %>%
+        tibble::column_to_rownames(var="Probe_ID") %>% 
+        as.matrix() %>% cor() %>% as_tibble() %>% 
+        head(n=1) %>% dplyr::pull(2)
+      
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Basic(r2)={r2_basic_val}...{RET}"))
+      
+      dB_basic_val <- basic %>% 
+        tibble::enframe(name="Probe_ID", value="betas") %>%
+        dplyr::inner_join(beta_dat_tib, 
+                          by="Probe_ID", suffix=c("_ref","_can")) %>%
+        dplyr::filter(stringr::str_starts(Probe_ID,'cg')) %>% 
+        dplyr::mutate(dB=base::abs(betas_ref-betas_can)) %>% 
+        dplyr::summarise(pass_perc=cntPer_lte(dB,opt$minDeltaBeta)) %>%
+        head(n=1) %>% dplyr::pull(1)
+      
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Basic(dB)={dB_basic_val}...{RET}"))
+      
+      r2_basic_key <- paste('cg_basic_r2', sep=del)
+      dB_basic_key <- paste('cg_basic_dB', sep=del)
+      base_dat_tib <- tibble::tibble(
+        !!r2_basic_key := r2_basic_val,
+        !!dB_basic_key := dB_basic_val)
+
+      if (verbose>=vt+6) {
+        cat(glue::glue("{RET}{RET}{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}base_dat_tib={RET}"))
+        print(base_dat_tib)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ",
+                       "base_dat_tib... done...{RET}{RET}{RET}RET}"))
+      }
+    }
     if (ret_beta || ret_bsum) ret_dat$beta <- ret_beta_dat
     
     call_dat_tib <- dplyr::left_join(call_dat_tib,beta_dat_tib, by=by)
@@ -254,7 +322,8 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     #
     if (write_snps && !is.null(snps_csv))
       vcf_ret <- safeVCF(sset=sset_dat, vcf=snps_csv,
-                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                         verbose=verbose+10,vt=vt+1,tc=tc+1,tt=tt)
+      #                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # Run Auto Sample Detection::
     #
@@ -345,10 +414,10 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     # Initialize Sample Sheet::
     #
     sums_ssh_tib <- tibble::tibble(Method_Key=workflow,Method_Idx=idx)
-    pred_dat_tib <- ssetToPredictions(
-      sset=sset_dat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    # purrr::set_names(paste(workflow,names(.), sep=del))
     
+    if (makek_pred) pred_dat_tib <- ssetToPredictions(
+      sset=sset_dat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           Make Sample Sheet::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -365,8 +434,15 @@ ssetToSummary = function(sset, man, idx, workflow, name,
                     dplyr::contains("_pass_perc_"),
                     dplyr::everything())
     
+    if (verbose>=vt+4) {
+      cat(glue::glue("{RET}{RET}{RET} data_ssh_tib={RET}"))
+      print(data_ssh_tib)
+      cat(glue::glue("data_ssh_tib done...{RET}{RET}{RET}RET}"))
+    }
+
     sums_ssh_tib <- 
-      dplyr::bind_cols(sums_ssh_tib,auto_ssh_tib,pred_dat_tib,data_ssh_tib) %>%
+      dplyr::bind_cols(sums_ssh_tib,auto_ssh_tib,pred_dat_tib,data_ssh_tib,
+                       base_dat_tib) %>%
       purrr::set_names(paste(names(.),idx, sep=del))
     
     #

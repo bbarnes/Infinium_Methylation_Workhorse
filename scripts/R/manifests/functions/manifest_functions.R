@@ -2481,16 +2481,16 @@ getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL,
         dplyr::mutate(
           M=as.integer(M),
           U=as.integer(U),
-          col=dplyr::case_when(
-            !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
-            is.na(col) ~ 'black',
-            TRUE ~ col),
-          Probe_ID=stringr::str_replace_all( 
+          Probe_ID=stringr::str_replace_all(
             stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
           Probe_Type=stringr::str_replace_all( 
             stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
           # Probe_Type=stringr::str_replace_all( 
           #   stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
+          col=dplyr::case_when(
+            !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
+            # Probe_Type=='ct' & is.na(col) ~ 'black',
+            TRUE ~ col),
           Probe_Design=dplyr::case_when(
             is.na(M) ~ '2',
             TRUE ~ '1'

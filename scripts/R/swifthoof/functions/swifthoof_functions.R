@@ -88,7 +88,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr} Writing opts_csv={opts_csv}...{RET}"))
     readr::write_csv(opts_tib, opts_csv)
     
-    opt_ssh_tib <- tibble::tibble(minDeltaBeta = opts$minDeltaBeta)
+    opt_ssh_tib <- tibble::tibble(
+      Min_DeltaBeta = opts$minDeltaBeta,
+      Sesame_Version=packageVersion("sesame"))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           Extract Raw idat::
@@ -102,6 +104,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
                    verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
     idat_info_tib <- 
       suppressMessages(suppressWarnings( readr::read_csv(idat_info_csv) ))
+    
+    if (!is.null(opts$runName))
+      idat_info_tib <- idat_info_tib %>% dplyr::mutate(Run_Name=opts$runName)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Get Sesame Manifest/Address Tables::
@@ -141,6 +146,39 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                   Build Basic Detection P-value Calling::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    open_sset_dat <- NULL
+    open_beta_tib <- NULL
+    open_sum1_ssh <- NULL
+    open_sum2_ssh <- NULL
+    if (man_map_tib$platform[1]=='EPIC') {
+      open_sset_dat <- sesame::openSesame(x=prefix, what = 'sigset')
+      open_beta_tib <- sesame::getBetas(sset = open_sset_dat, 
+                                        mask=FALSE, sum.TypeI=FALSE)
+
+      open_sum1_ssh <- 
+        ssetToPassPercSsheet(sset=open_sset_dat, man=NULL,
+                             min=min_pvals[1], per=min_percs[1],
+                             idx=0, type='cg',
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      
+      open_sum2_ssh <- 
+        ssetToPassPercSsheet(sset=open_sset_dat, man=top_man_tib,
+                             min=min_pvals[1], per=min_percs[1],
+                             idx=0, type='cg',
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+      
+      if (retData) {
+        ret_dat$open_sset_dat <- open_sset_dat
+        ret_dat$open_beta_tib <- open_beta_tib
+        ret_dat$open_sum1_ssh <- open_sum1_ssh
+        ret_dat$open_sum2_ssh <- open_sum2_ssh
+      }
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Initialize Data (Structures) Tables::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
@@ -171,7 +209,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       bead_ssh_tib,
       
       # Manifest-Detection Sample Sheet Stats::
-      man_map_tib %>% purrr::set_names(paste('detect',names(.), sep='_')) %>% head(n=1)
+      man_map_tib %>% purrr::set_names(paste('detect',names(.), sep='_')) %>% head(n=1),
+      
+      # Basic p-value requeue calling:::
+      open_sum1_ssh,
+      open_sum2_ssh
     )
     
     if (retData) {
@@ -264,6 +306,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         name=out_name, outDir=opts$outDir, pre=cur_dat_list, ref=ref,
         mask=mask,
         pvals=pvals, min_pvals=min_pvals, min_percs=min_percs,
+        basic=open_beta_tib,
         
         write_sset=opt$save_sset, sset_rds=NULL, ret_sset=retData2,
         
@@ -281,6 +324,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         
         write_snps=opts$write_snps, snps_csv=NULL, ret_snps=retData2,
         write_auto=opts$write_auto, plot_auto=opts$plotAuto,
+        makek_pred=opts$make_pred,
         
         percision_sigs=opts$percision_sigs,
         percision_beta=opts$percision_beta,
@@ -344,10 +388,18 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     if (!is.null(ssheet_tib)) readr::write_csv(ssheet_tib, ssheet_csv)
     if (!is.null(dsheet_tab)) readr::write_csv(dsheet_tab, dsheet_csv)
     
-    req_tib <- requeueFlag(tib=cur_dat_list$sums_dat, name=basecode, 
-                           csv=requeue_csv,
-                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-    
+    req_tib <- NULL
+    if (is.null(open_sum1_ssh)) {
+      req_tib <- requeueFlag(
+        tib=cur_dat_list$sums_dat, name=basecode,
+        csv=requeue_csv,
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    } else {
+      req_tib <- requeueFlagOpenSesame(
+        tib=ssheet_tib, name=basecode,
+        csv=requeue_csv,
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    }
     if (!is.null(time_tib))   readr::write_csv(time_tib, times_csv)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -368,11 +420,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  # etime <- stime[3] %>% as.double() %>% round(2)
-  # if (verbose>=vt+3) tTracker %>% print()
-  # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. elasped={etime}.{RET}{RET}"))
-  
+
   if (retData) {
     ret_dat$req_tib    <- req_tib
     ret_dat$ssheet_tib <- ssheet_tib

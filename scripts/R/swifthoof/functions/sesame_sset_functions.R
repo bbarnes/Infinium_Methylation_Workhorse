@@ -24,6 +24,92 @@ RET <- "\n"
 #                      Sesame SSET Access Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
+                                verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'ssetToPassPercSsheet'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_tab <- NULL
+  stime <- system.time({
+    
+    # Open Sesame Comparison::
+    pval_tib <- sset@pval %>% 
+      tibble::enframe(name="Probe_ID", value="pvals")
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval_tib={RET}"))
+      print(pval_tib)
+    }
+    
+    # TBD:: Manifest loading function needs to retain original IDs
+    #
+    if (is.null(man)) {
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest present; pval_tib={RET}"))
+        pval_tib %>% 
+          dplyr::filter(stringr::str_starts(Probe_ID,type)) %>% print()
+      }
+
+      ret_tab <- pval_tib %>% 
+        dplyr::filter(stringr::str_starts(Probe_ID,type)) %>% 
+        dplyr::summarise(total_cnt=n(),
+                         pass_cnt=count(pvals<=min, na.rm=TRUE),
+                         pass_perc=round(100*pass_cnt/total_cnt, 3),
+                         .groups='drop')
+      
+      req_cnt <- ret_tab %>% 
+        dplyr::filter(pass_perc<per) %>%
+        base::nrow()
+      
+      ret_tib <- ret_tab %>%
+        dplyr::mutate(Failed_QC_cnt=req_cnt,
+                      Failed_QC=dplyr::case_when(
+                        Failed_QC_cnt>0 ~ TRUE, TRUE ~ FALSE)) %>%
+        purrr::set_names(paste(type,names(.), sep='_'))
+
+    } else {
+      ret_tab <- pval_tib %>% 
+        dplyr::left_join(man, by="Probe_ID") %>% 
+        dplyr::filter(Probe_Type==type) %>%
+        dplyr::group_by(Probe_Type,Probe_Design) %>% 
+        dplyr::summarise(total_cnt=n(),
+                         pass_cnt=count(pvals<=min, na.rm=TRUE),
+                         pass_perc=round(100*pass_cnt/total_cnt, 3),
+                         .groups='drop')
+
+      tot_cnt_tib <- ret_tab %>% 
+        sigsSumToSSheet(metric="total_cnt")
+      
+      pas_cnt_tib <- ret_tab %>% 
+        sigsSumToSSheet(metric="pass_cnt")
+      
+      pas_per_tib <- ret_tab %>% 
+        sigsSumToSSheet(metric="pass_perc")
+      
+      ret_tib <- dplyr::bind_cols(tot_cnt_tib,pas_cnt_tib,pas_per_tib)
+    }
+    
+    ret_tib <- ret_tib %>%
+      purrr::set_names(paste(names(.),'basic',idx, sep='_'))
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_tab={RET}"))
+      print(ret_tab)
+    }
+
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Sesame SSET Prediction Methods::
@@ -141,7 +227,7 @@ ssetToPredictions = function(sset, del='_', fresh=FALSE,
 safeVCF = function(sset, vcf, verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'safeVCF'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; vcf={vcf}{RET}"))
   
   ret_val <- NA
   stime <- system.time({
@@ -149,7 +235,7 @@ safeVCF = function(sset, vcf, verbose=0,vt=3,tc=1,tt=NULL) {
     try_str <- ''
     ret_val = tryCatch({
       try_str <- 'Pass'
-      sesame::formatVCF(sset=sset, vcf=vcf)
+      suppressMessages(suppressWarnings(sesame::formatVCF(sset=sset, vcf=vcf) ))
       
       #
       # TBD:: Use bgzip and tabix to compress VCF
@@ -413,8 +499,48 @@ expand_ids = function(tib,
 #                    Sesame Sample Sheet Methods:: Requeue
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# writeRequeueFile(tib=rdat$cur_list$sums_dat)
-requeueFlag = function(tib, name, csv=NULL,
+requeueFlagOpenSesame = function(tib, name, csv=NULL, idx=1,
+                                 verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'requeueFlagOpenSesame'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    
+    ret_tib <- tibble::tibble(
+      Sentrix_Name  = name,
+      Failed_QC     = tib$cg_Failed_QC_basic_0,
+      Min_Pass_Perc = tib$cg_pass_perc_basic_0
+    )
+    
+    if (!is.null(csv)) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing CSV={csv}.{RET}"))
+      csv_dir <- base::dirname(csv)
+      if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      readr::write_csv(ret_tib, csv)
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+requeueFlag = function(tib, name, csv=NULL, idx=1,
                        verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'requeueFlag'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -427,12 +553,12 @@ requeueFlag = function(tib, name, csv=NULL,
     
     requeue_cnt <- 0
     requeue_cnt <- tib %>%
-      dplyr::filter(Workflow_idx==1 & Probe_Type=='cg' & !is.na(Requeue)) %>%
+      dplyr::filter(Workflow_idx==idx & Probe_Type=='cg' & !is.na(Requeue)) %>%
       dplyr::filter(Requeue==TRUE) %>%
       base::nrow()
     
     min_pass_perc <- tib %>% 
-      dplyr::filter(Workflow_idx==1 & Probe_Type=='cg' & !is.na(Requeue)) %>%
+      dplyr::filter(Workflow_idx==idx & Probe_Type=='cg' & !is.na(Requeue)) %>%
       dplyr::arrange(full_pass_perc) %>%
       head(n=1) %>% pull(full_pass_perc)
     
@@ -440,10 +566,10 @@ requeueFlag = function(tib, name, csv=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr} requeue_cnt={requeue_cnt}; ",
                      "min_pass_perc={min_pass_perc}; sel={RET}"))
       tib %>% 
-        dplyr::filter(Workflow_idx==1 & Probe_Type=='cg' & !is.na(Requeue)) %>%
+        dplyr::filter(Workflow_idx==idx & Probe_Type=='cg' & !is.na(Requeue)) %>%
         print()
     }
-
+    
     requeue_flag <- FALSE
     if (requeue_cnt>0) requeue_flag <- TRUE
     
@@ -551,7 +677,7 @@ ssetTibToSummary = function(tib, man=NULL,
     if (!is.null(man)) {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will use provided manifest...{RET}"))
-      if (verbose>=vt+3) man %>% print()
+      if (verbose>=vt+4) man %>% print()
       
       tib_cols <- names(tib)
       if (!(des %in% tib_cols)) {
@@ -600,7 +726,6 @@ ssetTibToSummary = function(tib, man=NULL,
     if (!is.null(pval)) {
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Applying pval cutoff={pval}...{RET}"))
-      
       if (verbose>=vt+4) print(tib)
       
       cut2_tib <- tib %>% 
@@ -738,7 +863,7 @@ ssetToTib = function(sset, source, name=NULL, man=NULL, mask=NULL,
           tibble::enframe(name=by, value=paste(source,name, sep=del))
       }
     }
-    
+
     if (!is.null(mask))
       ret_tib <- ret_tib %>% dplyr::filter(! (!!by_sym %in% mask) )
 

@@ -58,7 +58,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
       stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: Failed to find auto sample sheets!{RET}{RET}"))
       return(NULL)
     }
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #  Load Samples::
     auto_ss_tibs <- suppressMessages(suppressWarnings(lapply(auto_ss_list, readr::read_csv) )) %>% 
@@ -920,7 +920,7 @@ getSsheetDataTab = function(tib,
     ))
     if (verbose>=vt+3) {
       cat(glue::glue("[{funcTag}]:{tabsStr} dec_tib={RET}"))
-      dec_tib %>% print()
+      dec_tib %>% print(n=base::nrow(dec_tib))
     }
     
     ret_tib <- ret_tib %>% dplyr::left_join(dec_tib, by="Variable")
@@ -955,7 +955,7 @@ getSsheetDescTib = function(tib,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
-
+    
     # Determine Number of Workflows::
     #
     max_idx <- tib %>% 
@@ -1022,6 +1022,7 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
   ret_tib <- NULL
   stime <- system.time({
     
+    idx_zero <- 0
     ret_tib <- tibble::tibble(
       # Sample Requeue Suggestion::
       #
@@ -1040,6 +1041,7 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
       Chip_Type = "Idat Chip Type.",
       Chip_Format = "Idat Chip Format (e.g. 8x1, 12x1, 24x1, etc.).",
       Bead_Pool = "Automatically identified bead pool based on address overlap (e.g. HM450, EPIC, etc.).",
+      Run_Name = "Run Name provided by user.",
       
       # Bead and Manifest Loci Summary::
       #
@@ -1079,9 +1081,10 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
       
       # Parameters Used::
       #
-      minNegPval = "Minimum Negative (PnegEcdf) detection p-value threshold used.",
-      minOobPval = "Minimum Out-Of-Band (pOOBAH) detection p-value threshold used.",
-      minDeltaBeta = "Minimum delta-Beta cutoff used for Sample-Auto-Detection calculations.",
+      # minNegPval = "Minimum Negative (PnegEcdf) detection p-value threshold used.",
+      # minOobPval = "Minimum Out-Of-Band (pOOBAH) detection p-value threshold used.",
+      minDeltaBeta  = "Minimum delta-Beta cutoff used for Sample-Auto-Detection calculations.",
+      Min_DeltaBeta = "Minimum delta-Beta cutoff used for Sample-Auto-Detection calculations.",
       
       # Manifest, Platform and Version Auto Detection Results::
       #
@@ -1092,6 +1095,45 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
       detect_manifest_cnt = "Number of Manifest loci used during Auto-Manifest-Detection.",
       detect_match_cnt    = "Number of Sample/Manifest overlapping loci used during Auto-Manifest-Detection.",
       detect_rc_per       = "Highest reciprical overlap of Sample/Manifest loci identified during Auto-Manifest-Detection.",
+      
+      # Open Sesame Basic Calling:: idx=0
+      #
+      # cg_total_cnt_basic_0
+      # cg_pass_cnt_basic_0
+      # cg_pass_perc_basic_0
+      # cg_Failed_QC_cnt_basic_0
+      # cg_Failed_QC_basic_0
+      # cg_1_total_cnt_basic_0
+      # cg_2_total_cnt_basic_0
+      # cg_1_pass_cnt_basic_0
+      # cg_2_pass_cnt_basic_0
+      # cg_1_pass_perc_basic_0
+      # cg_2_pass_perc_basic_0
+      
+      cg_total_cnt_basic_0 = glue::glue("Only EPIC; Total cg loci using EPIC openSesame() for method index {idx_zero}. ",
+                                        "See Bioconductor Package ‘sesame’ openSesame(sset)."),
+      cg_pass_cnt_basic_0  = glue::glue("Only EPIC; Cout of cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
+                                        "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
+      cg_pass_perc_basic_0 = glue::glue("Only EPIC; Percent of cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
+                                        "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
+      
+      cg_Failed_QC_cnt_basic_0 = glue::glue("Only EPIC; Flag count to automatically requeue a faild sample based on cg_pass_perc_basic."),
+      cg_Failed_QC_basic_0     = glue::glue("Only EPIC; Flag to automatically requeue a faild sample based on cg_pass_perc_basic."),
+      
+      cg_1_total_cnt_basic_0 = glue::glue("Only EPIC; Total Infinium I cg loci using EPIC openSesame() for method index {idx_zero}. ",
+                                          "See Bioconductor Package ‘sesame’ openSesame(sset)."),
+      cg_2_total_cnt_basic_0 = glue::glue("Only EPIC; Total Infinium II cg loci using EPIC openSesame() for method index {idx_zero}. ",
+                                          "See Bioconductor Package ‘sesame’ openSesame(sset)."),
+      
+      cg_1_pass_cnt_basic_0  = glue::glue("Only EPIC; Cout of Infinium I cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
+                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
+      cg_2_pass_cnt_basic_0  = glue::glue("Only EPIC; Cout of Infinium II cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
+                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
+      
+      cg_1_pass_perc_basic_0 = glue::glue("Only EPIC; Percent of Infinium I cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
+                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
+      cg_2_pass_perc_basic_0 = glue::glue("Only EPIC; Percent of Infinium II cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
+                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
       
       # OLD Platform Detection Results::
       #
@@ -1196,7 +1238,7 @@ getSsheetIndexAnnoTib = function(idx,
       AutoSample_dB_1_Val = 
         glue::glue("Infinium I percent of loci with delta-Beta < {minDb} between sample ",
                    "and max auto-detect-sample for method index {idx}."),
-
+      
       # Auto-Sample-Detection Results:: Infinium II
       #
       AutoSample_Total_2_Cnt = 
@@ -1344,19 +1386,19 @@ getSsheetIndexAnnoTib = function(idx,
       # Detection P-values:: PnegEcdf:: NEW:: mean
       #
       cg_1_pvals_PnegEcdf_mean = glue::glue("Percent cg Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       cg_2_pvals_PnegEcdf_mean = glue::glue("Percent cg Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
       ch_1_pvals_PnegEcdf_mean = glue::glue("Percent ch Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       ch_2_pvals_PnegEcdf_mean = glue::glue("Percent ch Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
       rs_1_pvals_PnegEcdf_mean = glue::glue("Percent rs Infinium I loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       rs_2_pvals_PnegEcdf_mean = glue::glue("Percent rs Infinium II loci with PnegEcdf detection p-value < {minNegPval} for method index {idx}. ",
-                                                 "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
+                                            "See Bioconductor Package ‘sesame’ sesame::detectionPnegEcdf(sset)."),
       
       # Detection P-values:: PnegEcdf:: NEW:: Requeue
       #

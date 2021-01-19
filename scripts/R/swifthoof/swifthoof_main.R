@@ -152,6 +152,8 @@ opt$plotSset  <- FALSE
 opt$plotCalls <- FALSE
 opt$plotAuto  <- FALSE
 
+opt$make_pred <- TRUE
+
 opt$plotFormat <- 'pdf'
 opt$plotFormat <- 'png'
 
@@ -267,8 +269,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'DELTA'
-  par$local_runType <- 'qcMVP'
   par$local_runType <- 'DKFZ'
+  par$local_runType <- 'qcMVP'
   
   opt$fresh <- TRUE
   
@@ -298,6 +300,9 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- 'CNTL-Samples_VendA_10092020'
     par$expChipNum <- '203962710025'
     par$expSampNum <- '203962710025_R08C01'
+    
+    par$expChipNum <- "203962710079"
+    par$expSampNum <- "203962710079_R08C01"
     
     opt$auto_detect <- TRUE
     opt$dpi <- 72
@@ -454,6 +459,8 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to write Calls (Pval/Beta) file (CSV) [default= %default]", metavar="boolean"),
     make_option(c("--write_csum"), action="store_true", default=opt$write_csum,
                 help="Boolean variable to write Calls Summary file (CSV) [default= %default]", metavar="boolean"),
+    make_option(c("--make_pred"), action="store_true", default=opt$make_pred,
+                help="Boolean variable to make prediction calls (mostly for RD stuff) [default= %default]", metavar="boolean"),
     
     #
     # Threshold Options::
@@ -750,9 +757,14 @@ if (opt$cluster) {
       
       # Testing code only::
       #
-      if (!is.null(par$expSampNum)) {
+      if (FALSE && par$runMode=='RStudio' && !is.null(par$expSampNum)) {
         prefix <- par$expSampNum
         opt$single <- TRUE
+        opt$fresh  <- TRUE
+        opt$fresh  <- FALSE
+        
+        # workflow_vec <- c('raw')
+        # opt$make_pred <- FALSE
       }
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
 
@@ -784,6 +796,193 @@ if (opt$cluster) {
       #
       
       if (FALSE) {
+        
+        sesame::formatVCF(sset = rdat$open_sset_dat, vcf = file.path(opt$outDir,'tmp.vcf'))
+        
+        dtmp_tib <- getSsheetDataTab(tib = rdat$ssheet_tib, minOobPval = 0.1, 
+                                     minOobPerc = 90, minNegPval = 0.02, 
+                                     minNegPerc = 98, minDb = 0.2, verbose = 10)
+        print(dtmp_tib, n=base::nrow(dtmp_tib))
+        
+        # Sentrix_Name
+        # Failed_QC
+        # Min_Pass_Perc
+        rdat$ssheet_tib$Sentrix_Name
+        rdat$ssheet_tib$cg_Failed_QC_basic_0
+        rdat$ssheet_tib$cg_pass_perc_basic_0
+        
+        open_req_tib <- requeueFlagOpenSesame(tib=rdat$ssheet_tib, name=rdat$ssheet_tib$Sentrix_Name,
+                                              verbose = 10)
+        
+        #
+        #
+        # TBD:: Two things::
+        #   - Capture r2_val/db_val described below
+        #   - Report numerator and denominator in pval perc passing calculations
+        #   - Add run_name to Auto Sample Sheet
+        #
+        
+        #
+        # rdat$ssheet_tib %>% dplyr::select(dplyr::contains("basic"))
+        #
+        
+        dat_dir <- '/Users/bretbarnes/Documents/scratch/mlk/swifthoof_main/CNTL-Samples_VendA_10092020'
+        dat_lst <- list.files(dat_dir, pattern='_AutoSampleSheet.csv.gz$', full.names=TRUE)
+        ssh_tib <- lapply(dat_lst, readr::read_csv) %>% dplyr::bind_rows()
+        
+        ssh_tib %>% 
+          dplyr::select(Sentrix_Name,AutoSample_dB_1_Key_1,dplyr::contains('pass_perc')) %>% 
+          dplyr::select(Sentrix_Name,AutoSample_dB_1_Key_1,dplyr::starts_with('cg')) %>%
+          dplyr::filter(!stringr::str_starts(AutoSample_dB_1_Key_1,'T')) %>%
+          dplyr::arrange(AutoSample_dB_1_Key_1,cg_pass_perc_basic_0) %>%
+          dplyr::select(!dplyr::contains('_PnegEcdf_')) %>%
+          as.data.frame()
+        
+        #
+        # Capture both of these values to demonstrate the value of normalization via Sesame::
+        #
+        r2_val <- rdat$open_beta_tib %>% 
+          tibble::enframe(name="Probe_ID", value="betas") %>%
+          dplyr::inner_join(rdat$org_list$beta$beta_dat, 
+                            by="Probe_ID", suffix=c("_ref","_can")) %>%
+          tibble::column_to_rownames(var="Probe_ID") %>% 
+          as.matrix() %>% cor() %>% as_tibble() %>% 
+          head(n=1) %>% dplyr::pull(2)
+        
+        dB_val <- rdat$open_beta_tib %>% 
+          tibble::enframe(name="Probe_ID", value="betas") %>%
+          dplyr::inner_join(rdat$org_list$beta$beta_dat, 
+                            by="Probe_ID", suffix=c("_ref","_can")) %>%
+          dplyr::filter(stringr::str_starts(Probe_ID,'cg')) %>% 
+          dplyr::mutate(dB=base::abs(betas_ref-betas_can)) %>% 
+          dplyr::summarise(pass_perc=cntPer_lte(dB,opt$minDeltaBeta)) %>%
+          head(n=1) %>% dplyr::pull(1)
+        
+
+        
+        
+        
+        dB_tib <- 
+          rdat$open_beta_tib %>% 
+          tibble::enframe(name="Probe_ID", value="betas") %>%
+          dplyr::inner_join(rdat$org_list$beta$beta_dat, 
+                            by="Probe_ID", suffix=c("_ref","_can")) %>%
+          dplyr::filter(stringr::str_starts(Probe_ID,'cg')) %>% 
+          dplyr::mutate(dB=betas_ref-betas_can)
+        
+          # dplyr::mutate(dB=base::abs(betas_ref-betas_can))
+        
+        dB_tib %>% dplyr::summarise(pass_perc=cntPer_lte(dB,opt$minDeltaBeta), pcount=count(dB<0.2),tot_cnt=n(),per2=pcount/tot_cnt)
+        
+        
+        
+        # Generate open sset
+        #  - Get open_call_tib
+        #
+        # Get manifest = null stats + requeue
+        # Get manifest = EPIC stats
+        #
+
+        if (stringr::str_starts(rdat$ssheet_tib$detect_manifest, 'EPIC') ) {
+          open_sset_dat <- sesame::openSesame(x=rdat$prefix, what = 'sigset')
+          
+          open_sum2_tib <- ssetToPassPercSsheet(sset=open_sset_dat, 
+                                                man=rdat$sman, min=0.1, per=90,
+                                                verbose=10)
+          
+          open_sum1_tib <- ssetToPassPercSsheet(sset=open_sset_dat,
+                                                min=0.1, per=90,
+                                                verbose=10)
+          
+          print(open_sum1_tib)
+          print(open_sum2_tib)
+          
+        }
+        
+        open_dat %>% dplyr::mutate(Workflow_idx=0) %>% requeueFlag(idx=0)
+        
+        # Open Sesame Comparison::
+        open_sset <- sesame::openSesame(x=rdat$prefix, what = 'sigset')
+        open_pval_tib <- open_sset@pval %>% tibble::enframe(name="Probe_ID", value="raw_pvals_pOOBAH")
+        
+        
+        # Add the full filter without Inf I/II spliting...
+        open_pval_tib %>% 
+          dplyr::filter(stringr::str_starts(Probe_ID,'cg')) %>% 
+          dplyr::summarise(pass_perc=cntPer_lte(raw_pvals_pOOBAH, min=0.1), 
+                           total_cnt=n(), 
+                           pass_cnt=count(raw_pvals_pOOBAH<0.1), 
+                           pass_perc2=round(pass_cnt/total_cnt, 3)) %>%
+          purrr::set_names(paste('cg',names(.),'basic_0', sep='_'))
+        
+        # TBD:: Manifest loading function needs to retain original IDs
+        #
+        open_pval_tib %>% dplyr::left_join(rdat$sman, by="Probe_ID") %>% 
+          dplyr::group_by(Probe_Type,Probe_Design) %>% 
+          dplyr::summarise(pass_perc=cntPer_lte(raw_pvals_pOOBAH, min=0.1), 
+                           Total_Count=n(), Pass_Count=count(raw_pvals_pOOBAH<0.1), 
+                           Pass_Perc2=round(Pass_Count/Total_Count, 3))
+        
+        tmp_outDir <- '/Users/bretbarnes/Documents/tmp'
+        open_sum_dat <- ssetToSummary(sset = open_sset, man = rdat$sman, idx=2, 
+                                      workflow='open', name='open', outDir=tmp_outDir,
+                                      min_percs = c(98), min_pvals = c(0.1), pvals = c('pOOBAH'),
+                                      makek_pred=FALSE, fresh=TRUE,
+                                      verbose=10)
+        
+        
+        
+        val_rdat <- rdat
+        
+        # v.4.6 values::
+        # val_rdat$ssheet_tib$cg_1_pvals_pOOBAH_pass_perc_1 # 87.903
+        # val_rdat$ssheet_tib$cg_2_pvals_pOOBAH_pass_perc_1 # 83.219
+        
+        val_rdat$ssheet_tib$cg_1_pvals_pOOBAH_pass_perc_1
+        val_rdat$ssheet_tib$cg_2_pvals_pOOBAH_pass_perc_1
+        
+        cur_sentrix_name <- rdat$ssheet_tib$Sentrix_Name
+        
+        old_dir <- '/Users/bretbarnes/Documents/tools/bk/docker-repo/Infinium_Methylation_Workhorse.v.4.6/scratch/swifthoof/swifthoof_main'
+        old_dir <- "/Users/bretbarnes/Documents/scratch/RStudio/swifthoof_main/CNTL-Samples_VendA_10092020"
+        call_old_csv <- file.path(old_dir, paste(cur_sentrix_name, 'EPIC_B4_raw.call.dat.csv.gz', sep="_"))
+        
+        call_old_tib <- readr::read_csv(call_old_csv) %>%
+          dplyr::left_join(rdat$sman, by="Probe_ID") %>%
+          dplyr::arrange(Probe_ID)
+        
+        # Calculate Pass Percent With/Without NA's
+        call_old_tib %>% 
+          # dplyr::filter(!is.na(betas)) %>% 
+          dplyr::group_by(Probe_Type,Probe_Design) %>%
+          dplyr::summarise(Total_Count=n(), 
+                           Pass_Perc_Poob=cntPer_lte(pvals_pOOBAH,0.1),
+                           Pass_Perc_Negs=cntPer_lte(pvals_PnegEcdf,0.05),
+                           .groups="drop")
+        
+        rdat$new_sset %>% ssetToTib(source="pvals", name="pOOBAH") %>% 
+          dplyr::left_join(rdat$sman, by="Probe_ID") %>% 
+          dplyr::group_by(Probe_Type,Probe_Design) %>% 
+          dplyr::summarise(Total_Count=n(), Pass_Cnt=count(pvals_pOOBAH<=0.1), Pass_Per=Pass_Cnt/Total_Count, Pass_Perc=cntPer_lte(pvals_pOOBAH,0.1), .groups="drop")
+        
+        
+        rdat$cur_list$call_dat %>% dplyr::select(1,2) %>% ssetTibToSummary()
+        
+        
+        
+        # Basic Calculation::
+        cg_inf1_cnt <- call_old_tib %>% dplyr::filter(Probe_Type=='cg' & Probe_Design==1) %>% base::nrow()
+        cg_inf2_cnt <- call_old_tib %>% dplyr::filter(Probe_Type=='cg' & Probe_Design==2) %>% base::nrow()
+        
+        cg_pas1_cnt <- call_old_tib %>% dplyr::filter(Probe_Type=='cg' & Probe_Design==1 & pvals_pOOBAH <= 0.1) %>% base::nrow()
+        cg_pas2_cnt <- call_old_tib %>% dplyr::filter(Probe_Type=='cg' & Probe_Design==2 & pvals_pOOBAH <= 0.1) %>% base::nrow()
+        
+        cg_pas1_cnt / cg_inf1_cnt
+        cg_pas2_cnt / cg_inf2_cnt
+        
+        #
+        # Old analysis
+        #
         rdat1 <- rdat
         dB1_tib <- dplyr::inner_join( 
           purrr::set_names(rdat1$org_list$call_dat, c("Probe_ID", "can_poob", "can_negs", "can_beta")),
