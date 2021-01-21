@@ -304,6 +304,9 @@ if (args.dat[1]=='RStudio') {
     par$expChipNum <- "203962710079"
     par$expSampNum <- "203962710079_R08C01"
     
+    par$expChipNum <- "203962710025"
+    par$expSampNum <- "203962710025_R08C01"
+
     opt$auto_detect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='DKFZ') {
@@ -757,13 +760,14 @@ if (opt$cluster) {
       
       # Testing code only::
       #
-      if (FALSE && par$runMode=='RStudio' && !is.null(par$expSampNum)) {
+      if (par$runMode=='RStudio' && !is.null(par$expSampNum)) {
         prefix <- par$expSampNum
         opt$single <- TRUE
         opt$fresh  <- TRUE
-        opt$fresh  <- FALSE
+        # opt$fresh  <- FALSE
         
         # workflow_vec <- c('raw')
+        # workflow_vec <- c('raw','ind')
         # opt$make_pred <- FALSE
       }
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
@@ -781,23 +785,201 @@ if (opt$cluster) {
                                    retData=par$retData,
                                    verbose=opt$verbose, vt=3,tc=1)
       
-      # rdat1 <- rdat
-      # rdat7 <- rdat
-      #
-      # rdat$ssheet_tib %>% dplyr::select(dplyr::contains("_Requeue_"),
-      #                                   dplyr::contains("_pass_perc_") ) %>% as.data.frame()
-      # requeueFlag(tib=rdat$cur_list$sums_dat, name = "BLA", csv = "/Users/bretbarnes/Documents/tmp/tmp.requeue.txt", verbose=40)
-      #
-      # auto_sam_tib %>% dplyr::select(Probe_ID, rdat$ssheet_tib$AutoSample_dB_Key_1)
-      # dplyr::select(auto_sam_tib, Probe_ID, rdat$ssheet_tib$AutoSample_dB_Key_1)
-      #
-      # Generate plot(dB<=0.2) + plot(dB>0.2)
-      # Calculate the angle between ablines above
-      #
-      
       if (FALSE) {
-        
         rdat2 <- rdat
+        rdat1 <- rdat
+        
+        
+        rdat$cur_list$sums_dat %>% 
+          dplyr::select( dplyr::all_of(c("Workflow_key", "Workflow_idx", "Probe_Type", "full_pass_perc") ) ) %>% 
+          dplyr::filter(!is.na(full_pass_perc))
+        
+        del='_'
+        rdat$cur_list$sums_dat %>%
+          dplyr::filter(Workflow_key=='raw') %>%
+          tidyr::unite(key, Probe_Type,Metric, sep=del) %>% 
+          tidyr::gather(metric, value, -key, -Workflow_key, -Workflow_idx, -Probe_Design) %>% 
+          dplyr::filter(!is.na(value)) %>% 
+          dplyr::filter(metric %in% c('full_pass_perc')) %>%
+          dplyr::mutate(metric='pass_perc') %>%
+          tidyr::unite(key, key,metric, sep=del) %>% 
+          dplyr::select(-Workflow_key, -Workflow_idx, -Probe_Design) %>%
+          dplyr::distinct() %>%
+          tidyr::spread(key, value) %>%
+          dplyr::select(dplyr::contains('_pass_perc_'), 
+                        dplyr::everything())
+        
+        # TBD::
+        # Check 1:
+        #  - Compare beta and pvals vs. extra slots in ssetToSummary()
+        #
+        # Check 2:
+        #  - Functionize callToPassPerc()
+        #  - Auto Check Detection P-values against calls file
+        #
+        # Check 3:
+        #  - compare methods auto detect...
+        #
+        callToPassPerc = function(tib, key, name, min=0.1, perc=90) {
+          key_sys <- rlang::sym(key)
+          tot_cnt <- tib %>% dplyr::filter(stringr::str_starts(Probe_ID, 'cg')) %>% base::nrow()
+          pas_cnt <- tib %>% dplyr::filter(stringr::str_starts(Probe_ID, 'cg')) %>% 
+            dplyr::filter(!!key_sys <= min) %>% base::nrow()
+          pas_per  <- round(100*pas_cnt/tot_cnt, 3)
+          cat(glue::glue("per={pas_per}, pas={pas_cnt}, tot={tot_cnt}{RET}"))
+          
+          ret_tib <- tibble(
+            name=name,
+            pas_per=pas_per,
+            pas_cnt=pas_cnt,
+            tot_cnt=tot_cnt,
+            cut_off=min
+          )
+          
+          ret_tib
+        }
+        
+        cur_min_pval <- min_pval_vec[1]
+        cur_min_perc <- min_perc_vec[1]
+
+        va_full_ss_csv <- '/Users/bretbarnes/Documents/data/VA-CNTL-AB-mergedAutoSampleSheet_v.4.3.csv.gz'
+        va_full_ss_tib <- readr::read_csv(va_full_ss_csv)
+        
+        va_full_ss_tib %>% dplyr::select(Sentrix_Name,
+                                         Poob_Pass_1_Perc,
+                                         Poob_Pass_2_Perc,
+                                         cg_1_pvals_pOOBAH_pass_perc,
+                                         cg_2_pvals_pOOBAH_pass_perc) %>% 
+          dplyr::filter(Sentrix_Name==rdat$ssheet_tib$Sentrix_Name)
+        
+        # Prev Calls::
+        # prev_ssh1_csv <- '/Users/bretbarnes/Documents/scratch/swifthoof_main.jan6/CNTL-Samples_VendA_10092020/203962710025_R08C01_EPIC_B4_AutoSampleSheet.csv.gz'
+        # prev_ssh1_tib <- readr::read_csv(prev_ssh1_csv)
+        
+        # Prev Calls::
+        pr46_call_dir <- '/Users/bretbarnes/Documents/scratch/swifthoof_main.jan6/CNTL-Samples_VendA_10092020'
+        pr46_call_csv <- file.path(pr46_call_dir, paste(rdat$ssheet_tib$Sentrix_Name, 'EPIC_B4_raw.call.dat.csv.gz', sep='_'))
+        pr46_call_tib <- readr::read_csv(pr46_call_csv)
+        pr46_sum_tib  <- callToPassPerc(tib=pr46_call_tib, key="pvals_pOOBAH", name="v.4.6", min=cur_min_pval)
+
+        pr43_call_dir <- '/Users/bretbarnes/Documents/tools/bk/docker-repo/Infinium_Methylation_Workhorse.v.4.3/scratch/swifthoof/swifthoof_main/_v.4.3'
+        pr43_ssh1_csv <- file.path(pr43_call_dir, paste(rdat$ssheet_tib$Sentrix_Name, 'EPIC_B4_AutoSampleSheet.csv.gz', sep='_'))
+        pr43_call_csv <- file.path(pr43_call_dir, paste(rdat$ssheet_tib$Sentrix_Name, 'EPIC_B4_raw.call.dat.csv.gz', sep='_'))
+        pr43_ssh1_tib <- readr::read_csv(pr43_ssh1_csv)
+        pr43_call_tib <- readr::read_csv(pr43_call_csv)
+        pr43_sum_tib  <- callToPassPerc(tib=pr43_call_tib, key="pvals_pOOBAH", name="v.4.3", min=cur_min_pval)
+        
+        # Cur Calls::
+        curr_call_csv <- file.path(opt$outDir, paste(rdat$ssheet_tib$Sentrix_Name, 'EPIC_B4_raw.call.dat.csv.gz', sep='_'))
+        curr_call_tib <- readr::read_csv(curr_call_csv)
+        curr_sum_tib  <- callToPassPerc(tib=curr_call_tib, key="pvals_pOOBAH", name="v.1.8", min=cur_min_pval)
+
+        # Open Calls::
+        open_call_tib <- rdat$open_sset_dat@pval %>% tibble::enframe(name="Probe_ID", value="pvals_pOOBAH")
+        open_sum_tib  <- callToPassPerc(tib=open_call_tib, key="pvals_pOOBAH", name="v.1.8", min=cur_min_pval)
+
+        dplyr::bind_rows(pr46_sum_tib,
+                         pr43_sum_tib,
+                         curr_sum_tib,
+                         open_sum_tib) %>% print()
+        
+        
+        open_ssh1_tib <- ssetToPassPercSsheet(sset = rdat$open_sset_dat, min=cur_min_pval, per=cur_min_perc,
+                                              idx=0, type='cg', verbose=1)
+        
+        open_ssh1_tib %>% print()
+        rdat$open_sum1_ssh %>% print()
+        rdat$open_sum2_ssh %>% print()
+        
+        callToPassPerc(file = pr46_call_csv, key = "pvals_pOOBAH", name = "v.4.6", min = 0.1, type = "cg", idx = 0, verbose = opt$verbose)
+        callToPassPerc(tib = pr46_call_tib, key = "pvals_pOOBAH", name = "v.4.6", min = 0.1, type = "cg", idx = 0, verbose = opt$verbose)
+        
+        #
+        # Compare Beta Values::
+        #
+        sample <- rdat$ssheet_tib$AutoSample_R2_Key_2
+        sample <- rdat$ssheet_tib$AutoSample_dB_Key_2
+        
+        auto_beta_tib <- auto_sam_tib %>% dplyr::select(dplyr::all_of(c("Probe_ID",sample))) %>% purrr::set_names(c("Probe_ID", "betas"))
+        
+        r2_2tibs = function(a, b) {
+          a <- a %>% dplyr::select(Probe_ID, dplyr::contains("betas")) %>% dplyr::select(1,2) %>% purrr::set_names(c("Probe_ID", "betas"))
+          b <- b %>% dplyr::select(Probe_ID, dplyr::contains("betas")) %>% dplyr::select(1,2) %>% purrr::set_names(c("Probe_ID", "betas"))
+
+          # print(a)
+          # print(b)
+          
+          ab_tib <- dplyr::inner_join(a,b, by="Probe_ID", suffix=c("_ref","_can")) %>%
+            dplyr::filter(stringr::str_starts(Probe_ID,'cg')) %>% 
+          # print(ab_tib)
+          
+          ab_mat <- ab_tib %>%
+            tibble::column_to_rownames(var="Probe_ID") %>% 
+            as.matrix() 
+          # ab_mat %>% head() %>% print()
+          
+          r2_tib <- cor(ab_mat, method="pearson", use="pairwise.complete.obs") %>% as_tibble()
+          # print(r2_tib)
+          
+          r2_val <- r2_tib %>% head(n=1) %>% dplyr::pull(2)
+          
+          r2_val
+        }
+        pr46_r2_val <- r2_2tibs(auto_beta_tib, pr46_call_tib)
+        pr43_r2_val <- r2_2tibs(auto_beta_tib, pr43_call_tib)
+        curr_r2_val <- r2_2tibs(auto_beta_tib, curr_call_tib)
+        
+        rdat$ssheet_tib$AutoSample_dB_Val_1
+        rdat$ssheet_tib$AutoSample_R2_Val_1        
+        
+        dB_2tibs = function(a,b) {
+          a <- a %>% dplyr::select(Probe_ID, dplyr::contains("betas")) %>% dplyr::select(1,2) %>% purrr::set_names(c("Probe_ID", "betas"))
+          b <- b %>% dplyr::select(Probe_ID, dplyr::contains("betas")) %>% dplyr::select(1,2) %>% purrr::set_names(c("Probe_ID", "betas"))
+
+          dB_val <- 
+            dplyr::inner_join(a,b, by="Probe_ID", suffix=c("_ref","_can")) %>%
+            dplyr::filter(stringr::str_starts(Probe_ID,'cg')) %>% 
+            dplyr::mutate(dB=base::abs(betas_ref-betas_can)) %>% 
+            dplyr::summarise(pass_perc=cntPer_lte(dB,opt$minDeltaBeta)) %>%
+            head(n=1) %>% dplyr::pull(1)
+          
+          dB_val
+        }
+        pr46_dB_val <- dB_2tibs(auto_beta_tib, pr46_call_tib)
+        pr43_dB_val <- dB_2tibs(auto_beta_tib, pr43_call_tib)
+        curr_dB_val <- dB_2tibs(auto_beta_tib, curr_call_tib)
+        
+        
+        
+        # Get their difference::
+        mis1_cnt <- cur_call_tib %>% dplyr::anti_join(open_sset_tib, by="Probe_ID") %>% dplyr::filter(stringr::str_starts(Probe_ID, 'cg')) %>% base::nrow()
+        mis2_cnt <- open_sset_tib %>% dplyr::anti_join(cur_call_tib, by="Probe_ID") %>% dplyr::filter(stringr::str_starts(Probe_ID, 'cg')) %>% base::nrow()
+        
+        prev_mis1_cnt <- cur_call_tib %>% dplyr::anti_join(prev_call_tib, by="Probe_ID") %>% dplyr::filter(stringr::str_starts(Probe_ID, 'cg')) %>% base::nrow()
+        prev_mis2_cnt <- prev_call_tib %>% dplyr::anti_join(cur_call_tib, by="Probe_ID") %>% dplyr::filter(stringr::str_starts(Probe_ID, 'cg')) %>% base::nrow()
+        
+        
+        prev_join_call_tib <- prev_call_tib %>% 
+          dplyr::inner_join(cur_call_tib, by="Probe_ID", suffix=c("_Old","_New")) %>% 
+          dplyr::mutate(Diff_Poob=pvals_pOOBAH_Old-pvals_pOOBAH_New)
+        
+        curr_join_call_tib <- cur_call_tib %>% dplyr::inner_join(open_sset_tib, by="Probe_ID", suffix=c("_Old","_New")) %>% 
+          dplyr::mutate(Diff_Poob=pvals_pOOBAH-Pval)
+        
+        prev_join_call_tib %>% dplyr::filter(Diff_Poob>0.01) %>% base::nrow()
+        curr_join_call_tib %>% dplyr::filter(Diff_Poob>0.01) %>% base::nrow()
+        
+        
+
+        cur_min_pval <- 0.2
+        cur_min_perc <- 90
+        new2_tib <- ssetToPassPercSsheet(sset = rdat$open_sset_dat, min=cur_min_pval, per=cur_min_perc,
+                                         idx=0, type='cg', verbose=10)
+        
+        cur_min_pval <- 0.05
+        cur_min_perc <- 90
+        new05_tib <- ssetToPassPercSsheet(sset = rdat$open_sset_dat, min=cur_min_pval, per=cur_min_perc,
+                                         idx=0, type='cg', verbose=10)
         
         
         dplyr::inner_join(

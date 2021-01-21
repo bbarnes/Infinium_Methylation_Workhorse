@@ -1100,7 +1100,9 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
       # Open Sesame Basic Calling:: idx=0
       #
       cg_total_cnt_basic_0 = glue::glue("Only EPIC; Total cg loci using EPIC openSesame() for method index {idx_zero}. ",
-                                        "See Bioconductor Package ‘sesame’ openSesame(sset)."),
+                                          "See Bioconductor Package ‘sesame’ openSesame(sset)."),
+      cg_pass_count_basic_0 = glue::glue("Only EPIC; Cout of recalculated cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
+                                         "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
       cg_pass_cnt_basic_0  = glue::glue("Only EPIC; Cout of cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
                                         "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
       cg_pass_perc_basic_0 = glue::glue("Only EPIC; Percent of cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
@@ -1275,6 +1277,50 @@ getSsheetIndexAnnoTib = function(idx,
       AgeSkinBlood = glue::glue("Horvath Skin and Blood age predictor call for method index {idx}. ",
                                 "See Bioconductor Package ‘sesame’ sesame::predictAgeSkinBlood(betas)."),
       
+      # Detection P-values:: pOOBAH:: NEW Both
+      #
+      cg_calls_pass_perc = 
+        glue::glue("Percent cg loci with pOOBAH detection p-value < {minOobPval} for method index {idx}, ",
+                   "calculated directly from the calls file. ",
+                   "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      cg_calls_pass_count = 
+        glue::glue("Number cg loci with pOOBAH detection p-value < {minOobPval} for method index {idx}, ",
+                   "calculated directly from the calls file. ",
+                   "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      cg_calls_total_count =
+        glue::glue("Total number cg loci calculated directly from the calls file."),
+      cg_calls_min_cutoff = 
+        glue::glue("Minium detection p-value for method index {idx} from direct calls file."),
+      cg_calls_metric =
+        glue::glue("Minium detection p-value metric for method index {idx} from direct calls file."),
+      
+      cg_pvals_PnegEcdf_pass_perc =
+        glue::glue("Percent cg loci with PnegEcdf detection p-value < {minOobPval} for method index {idx}, ",
+                   "calculated directly from the calls file. ",
+                   "See Bioconductor Package ‘sesame’ sesame::PnegEcdf(sset)."),
+      cg_pvals_pOOBAH_pass_perc =
+        glue::glue("Percent cg loci with pOOBAH detection p-value < {minOobPval} for method index {idx}, ",
+                   "calculated directly from the calls file. ",
+                   "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      
+      ch_pvals_PnegEcdf_pass_perc =
+        glue::glue("Percent ch loci with PnegEcdf detection p-value < {minOobPval} for method index {idx}, ",
+                   "calculated directly from the calls file. ",
+                   "See Bioconductor Package ‘sesame’ sesame::PnegEcdf(sset)."),
+      ch_pvals_pOOBAH_pass_perc =
+        glue::glue("Percent ch loci with pOOBAH detection p-value < {minOobPval} for method index {idx}, ",
+                   "calculated directly from the calls file. ",
+                   "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+      
+      rs_pvals_PnegEcdf_pass_perc =
+        glue::glue("Percent rs loci with PnegEcdf detection p-value < {minOobPval} for method index {idx}, ",
+                   "calculated directly from the calls file. ",
+                   "See Bioconductor Package ‘sesame’ sesame::PnegEcdf(sset)."),
+      rs_pvals_pOOBAH_pass_perc =
+        glue::glue("Percent rs loci with pOOBAH detection p-value < {minOobPval} for method index {idx}, ",
+                   "calculated directly from the calls file. ",
+                   "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
+
       # Detection P-values:: pOOBAH:: NEW
       #
       cg_1_pvals_pOOBAH_pass_perc = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",

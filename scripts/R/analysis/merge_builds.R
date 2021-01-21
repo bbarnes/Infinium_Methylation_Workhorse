@@ -573,6 +573,11 @@ auto_ss_tib %>% dplyr::distinct(build_source)
 
 if (opt$clean_source) {
   
+  # VA data from cluster::
+  # va_ss_csv <- '/Users/bretbarnes/Documents/data/docker.v.1.8.AutoSampleSheet.csv.gz'
+  # va_ss_tib <- readr::read_csv(va_ss_csv)
+  # auto_ss_tib <- va_ss_tib %>% dplyr::mutate(build_source=Run_Name)
+  
   pass_vec <- c("CNTL-Samples_VendA_10092020",
                 "CNTL-Samples_VendB_10092020",
                 # "BETA-8x1-EPIC-Core",

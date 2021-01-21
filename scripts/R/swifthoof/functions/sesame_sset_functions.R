@@ -21,6 +21,71 @@ TAB <- "\t"
 RET <- "\n"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Calls Summary Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+callToPassPerc = function(tib=NULL, file=NULL, key, name=NULL, idx=NULL,
+                          min=0.1, type='cg',
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'callToPassPerc'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  if (is.null(tib) && is.null(file)) {
+    stop(glue::glue("{RET}[{funcTag}]: ERROR: Must provide tib or file!{RET}{RET}"))
+    return(ret_tib)
+  }
+  
+  stime <- system.time({
+    
+    if (is.null(tib)) {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} file={file}{RET}"))
+      
+      tib <- suppressMessages(suppressWarnings( readr::read_csv(file)))
+    }
+    
+    key_sys <- rlang::sym(key)
+    tot_cnt <- tib %>% dplyr::filter(stringr::str_starts(Probe_ID, !!type)) %>% base::nrow()
+    pas_cnt <- tib %>% dplyr::filter(stringr::str_starts(Probe_ID, !!type)) %>% 
+      dplyr::filter(!!key_sys <= min) %>% base::nrow()
+    pas_per  <- round(100*pas_cnt/tot_cnt, 3)
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} per={pas_per}, pas={pas_cnt}, tot={tot_cnt}{RET}"))
+    
+    ret_tib <- tibble(
+      pass_perc=pas_per,
+      pass_count=pas_cnt,
+      total_count=tot_cnt,
+      min_cutoff=min,
+      metric=key
+    )
+    if (!is.null(name)) ret_tib <- ret_tib %>% dplyr::mutate(name=!!name)
+    if (!is.null(idx)) {
+      ret_tib <- ret_tib %>% purrr::set_names(paste(type,'calls',names(.),idx, sep='_'))
+    } else {
+      ret_tib <- ret_tib %>% purrr::set_names(paste(type,'calls',names(.), sep='_'))
+    }
+      
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_tib={RET}"))
+      print(ret_tib)
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Sesame SSET Access Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -56,7 +121,8 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
       ret_tab <- pval_tib %>% 
         dplyr::filter(stringr::str_starts(Probe_ID,type)) %>% 
         dplyr::summarise(total_cnt=n(),
-                         pass_cnt=count(pvals<=min, na.rm=TRUE),
+                         pass_count=count(pvals<=min, na.rm=TRUE),
+                         pass_cnt=sum(pvals<=min, na.rm=TRUE),
                          pass_perc=round(100*pass_cnt/total_cnt, 3),
                          .groups='drop')
       
@@ -96,6 +162,9 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
       purrr::set_names(paste(names(.),'basic',idx, sep='_'))
     
     if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_tib={RET}"))
+      print(ret_tib)
+      
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ret_tab={RET}"))
       print(ret_tab)
     }

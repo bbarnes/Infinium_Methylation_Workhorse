@@ -28,7 +28,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
                          outDir=NULL, pre=NULL, ref=NULL, mask=NULL,
                          pvals=NULL, min_pvals=NULL, min_percs=NULL,
                          basic=NULL,
-                         report_vec=c("Requeue","pass_perc","mean", 
+                         report_vec=c("Requeue","pass_perc","mean",
                                       "basis_r2_val", "basis_dB_val"),
                          
                          write_sset=FALSE, sset_rds=NULL, ret_sset=FALSE,
@@ -324,6 +324,15 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     if (write_call && !is.null(call_csv))
       readr::write_csv(call_dat_tib, call_csv)
     
+    cat(glue::glue("[{funcTag}]:{tabsStr}call_sum_tib={RET}"))
+    # print(call_dat_tib)
+    call_sum_tib <- 
+      callToPassPerc(file=call_csv, key="pvals_pOOBAH", 
+                     name=NULL, idx=NULL, min=min_pvals[1], type='cg', 
+                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    print(call_sum_tib)
+    cat(glue::glue("[{funcTag}]:{RET}{RET}{RET}"))
+
     # Write VCF SNPs calls::
     #
     if (write_snps && !is.null(snps_csv))
@@ -442,12 +451,36 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     if (verbose>=vt+4) {
       cat(glue::glue("{RET}{RET}{RET} data_ssh_tib={RET}"))
       print(data_ssh_tib)
-      cat(glue::glue("data_ssh_tib done...{RET}{RET}{RET}RET}"))
+      cat(glue::glue("data_ssh_tib done...{RET}{RET}{RET}{RET}"))
+    }
+    # pvals_pOOBAH
+    
+    # NOTE:: Need to extract full p-values seperate from the rest of the stats
+    #  to avoid duplicate entries...
+    #
+    # TBD:: FIX THIS ISSUE
+    pval_ssh_tib <- sums_dat_tib %>%
+      tidyr::unite(key, Probe_Type,Metric, sep=del) %>% 
+      tidyr::gather(metric, value, -key, -Workflow_key, -Workflow_idx, -Probe_Design) %>% 
+      dplyr::filter(!is.na(value)) %>% 
+      dplyr::filter(metric %in% c('full_pass_perc')) %>%
+      dplyr::mutate(metric='pass_perc') %>%
+      tidyr::unite(key, key,metric, sep=del) %>% 
+      dplyr::select(-Workflow_key, -Workflow_idx, -Probe_Design) %>%
+      dplyr::distinct() %>%
+      tidyr::spread(key, value) %>%
+      dplyr::select(dplyr::contains('_pass_perc_'), 
+                    dplyr::everything())
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("{RET}{RET}{RET} pval_ssh_tib={RET}"))
+      print(pval_ssh_tib)
+      cat(glue::glue("pval_ssh_tib done...{RET}{RET}{RET}{RET}"))
     }
 
     sums_ssh_tib <- 
-      dplyr::bind_cols(sums_ssh_tib,auto_ssh_tib,pred_dat_tib,data_ssh_tib,
-                       base_dat_tib) %>%
+      dplyr::bind_cols(sums_ssh_tib,auto_ssh_tib,pred_dat_tib,call_sum_tib,
+                       pval_ssh_tib,data_ssh_tib,base_dat_tib) %>%
       purrr::set_names(paste(names(.),idx, sep=del))
     
     #

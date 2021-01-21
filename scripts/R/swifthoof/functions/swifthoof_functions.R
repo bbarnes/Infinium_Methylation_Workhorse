@@ -374,7 +374,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     dsheet_tab <- getSsheetDataTab(
       tib=ssheet_tib,
       minOobPval=min_pvals[1], minOobPerc=min_percs[1],
-      minNegPval=min_pvals[2], minNegPerc=min_percs[2], 
+      minNegPval=min_pvals[2], minNegPerc=min_percs[2],
       minDb=opts$minDeltaBeta,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
