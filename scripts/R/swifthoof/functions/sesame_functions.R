@@ -84,7 +84,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
   pred_dat_tib <- NULL
   data_ssh_tib <- NULL
   beta_sum_tib <- NULL
-
+  
   stime <- system.time({
     
     # Initialize Outputs::
@@ -194,22 +194,9 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       
       if (!is.null(mask)) {
         mask_pval_key <- paste('Mask',pval_key, sep='_')
-        # cat(glue::glue("{RET}{RET}{RET} STARTING(mask_pval_key={mask_pval_key})={RET}"))
-        
-        # pval_dat_tib <- NULL
-        # pval_dat_tib <- ssetToTib(
-        #   sset=sset_dat, source='pvals', name=pval_key,
-        #   mask=mask,
-        #   percision=percision_pval, sort=FALSE,
-        #   save=write_pval, csv=pval_csv,
-        #   by=by, type=type, des=des,
-        #   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        # if (ret_pval) ret_pval_dat$pval_dat <- pval_dat_tib
         
         by_sym <- rlang::sym(by)
         pval_dat_tib <- pval_dat_tib %>% dplyr::filter(! (!!by_sym %in% mask) )
-        # cat(glue::glue("{RET}{RET}{RET} pval_dat_tib(mask_pval_key={mask_pval_key})={RET}"))
-        # print(pval_dat_tib)
 
         pval_sum_tib <- NULL
         pval_sum_tib <- ssetTibToSummary(
@@ -218,14 +205,8 @@ ssetToSummary = function(sset, man, idx, workflow, name,
           save=FALSE, csv=NULL,
           by=by, type=type, des=des,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        # if (ret_psum) ret_pval_dat$pval_sum <- pval_sum_tib
-        # if (ret_pval || ret_psum) ret_dat$pval[[mask_pval_key]] = ret_pval_dat
         
         pval_sum_tib <- pval_sum_tib %>% dplyr::mutate(Metric=paste(Metric,'Mask',sep=del))
-        
-        # cat(glue::glue("{RET}{RET}{RET} pval_sum_tib(mask_pval_key={mask_pval_key})={RET}"))
-        # print(pval_sum_tib)
-        
         sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(pval_sum_tib)
         
         if (verbose>=vt+6) {
@@ -257,7 +238,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       by=by, type=type, des=des,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (ret_bsum) ret_beta_dat$beta_sum <- beta_sum_tib
-
+    
     # Add open_sesame comparison if provided::
     r2_basic_val <- NULL
     dB_basic_val <- NULL
@@ -276,7 +257,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       
       if (percision_pval != -1)
         r2_basic_val <- round(r2_basic_val, percision_pval)
-
+      
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Basic(r2)={r2_basic_val}...{RET}"))
       
@@ -291,7 +272,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       
       if (percision_beta != -1)
         dB_basic_val <- round(dB_basic_val, percision_beta)
-
+      
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Basic(dB)={dB_basic_val}...{RET}"))
       
@@ -310,35 +291,32 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       }
     }
     if (ret_beta || ret_bsum) ret_dat$beta <- ret_beta_dat
-    
+
     call_dat_tib <- dplyr::left_join(call_dat_tib,beta_dat_tib, by=by)
     sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(beta_sum_tib)
-    
+
     # Write Updated SSET
     #
     if (write_sset && !is.null(sset_rds) && !file.exists(sset_rds))
       readr::write_rds(sset_dat, sset_rds, compress="gz")
-    
+
     # Write Calls CSV
     #
     if (write_call && !is.null(call_csv))
       readr::write_csv(call_dat_tib, call_csv)
-    
-    cat(glue::glue("[{funcTag}]:{tabsStr}call_sum_tib={RET}"))
-    # print(call_dat_tib)
-    call_sum_tib <- 
-      callToPassPerc(file=call_csv, key="pvals_pOOBAH", 
-                     name=NULL, idx=NULL, min=min_pvals[1], type='cg', 
-                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    print(call_sum_tib)
-    cat(glue::glue("[{funcTag}]:{RET}{RET}{RET}"))
+
+    call_sum_tib <- NULL
+    call_sum_tib <-
+      callToPassPerc(file=call_csv, key="pvals_pOOBAH",
+                     name=NULL, idx=NULL, min=min_pvals[1], type='cg',
+                     verbose=verbose+10,vt=vt+1,tc=tc+1,tt=tt)
 
     # Write VCF SNPs calls::
     #
     if (write_snps && !is.null(snps_csv))
       vcf_ret <- safeVCF(sset=sset_dat, vcf=snps_csv,
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     # Run Auto Sample Detection::
     #
     if (!is.null(ref) &&
@@ -346,14 +324,6 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Sample Auto Detection...{RET}"))
-      
-      # minDb=opts$minDeltaBeta
-      # dpi=opts$dpi
-      # plotFormat=opts$plotFormat
-      # datIdx=5
-      # non_ref=FALSE
-      # plot_auto=opts$plotAuto
-      # write_auto=opts$write_auto
       
       auto_beta_key <- paste('betas', sep=del)
       auto_negs_key <- paste('pvals',pvals[pvals_cnt], sep=del)
@@ -364,7 +334,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} auto_negs_key={auto_negs_key}.{RET}"))
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} auto_min_pval={auto_min_pval}.{RET}"))
       }
-
+      
       auto_ssh_tib <- autoDetect_Wrapper(
         can=call_dat_tib, ref=ref, man=man, # mask=mask,
         minPval=auto_min_pval, minDelta=minDb,
@@ -431,7 +401,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     
     if (makek_pred) pred_dat_tib <- ssetToPredictions(
       sset=sset_dat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           Make Sample Sheet::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -477,7 +447,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       print(pval_ssh_tib)
       cat(glue::glue("pval_ssh_tib done...{RET}{RET}{RET}{RET}"))
     }
-
+    
     sums_ssh_tib <- 
       dplyr::bind_cols(sums_ssh_tib,auto_ssh_tib,pred_dat_tib,call_sum_tib,
                        pval_ssh_tib,data_ssh_tib,base_dat_tib) %>%

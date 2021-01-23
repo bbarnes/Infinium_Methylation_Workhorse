@@ -29,8 +29,8 @@ callToPassPerc = function(tib=NULL, file=NULL, key, name=NULL, idx=NULL,
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'callToPassPerc'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting;  key={key}..{RET}"))
+
   ret_cnt <- 0
   ret_tib <- NULL
   if (is.null(tib) && is.null(file)) {
@@ -47,10 +47,13 @@ callToPassPerc = function(tib=NULL, file=NULL, key, name=NULL, idx=NULL,
       tib <- suppressMessages(suppressWarnings( readr::read_csv(file)))
     }
     
+    min_int <- as.numeric(min)
     key_sys <- rlang::sym(key)
     tot_cnt <- tib %>% dplyr::filter(stringr::str_starts(Probe_ID, !!type)) %>% base::nrow()
-    pas_cnt <- tib %>% dplyr::filter(stringr::str_starts(Probe_ID, !!type)) %>% 
+    min_cnt <- tib %>% dplyr::filter(stringr::str_starts(Probe_ID, !!type)) %>% 
       dplyr::filter(!!key_sys <= min) %>% base::nrow()
+    pas_cnt <- tib %>% dplyr::filter(stringr::str_starts(Probe_ID, !!type)) %>% 
+      dplyr::filter(!!key_sys <= min_int) %>% base::nrow()
     pas_per  <- round(100*pas_cnt/tot_cnt, 3)
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr} per={pas_per}, pas={pas_cnt}, tot={tot_cnt}{RET}"))
@@ -58,6 +61,7 @@ callToPassPerc = function(tib=NULL, file=NULL, key, name=NULL, idx=NULL,
     ret_tib <- tibble(
       pass_perc=pas_per,
       pass_count=pas_cnt,
+      mins_count=min_cnt,
       total_count=tot_cnt,
       min_cutoff=min,
       metric=key
@@ -99,6 +103,8 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
   ret_tib <- NULL
   ret_tab <- NULL
   stime <- system.time({
+    
+    min <- as.numeric(min)
     
     # Open Sesame Comparison::
     pval_tib <- sset@pval %>% 
@@ -741,6 +747,9 @@ ssetTibToSummary = function(tib, man=NULL,
     by_sym  <- by %>% rlang::sym()
     des_sym  <- des %>% rlang::sym()
     type_sym <- type %>% rlang::sym()
+    
+    if (!is.null(pval)) pval <- as.numeric(pval)
+    if (!is.null(pval)) perc <- as.numeric(perc)
     
     if (!is.null(man)) {
       if (verbose>=vt+1)

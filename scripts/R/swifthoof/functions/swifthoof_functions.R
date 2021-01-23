@@ -60,7 +60,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         cat(glue::glue("[{funcTag}]:{tabsStr} Cleaning; prefix={prefix}.{RET}{RET}"))
       cleaned_files <- lapply(list.files(opt$outDir, pattern=prefix, full.names=TRUE), unlink)
     }
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Initialize Starting Outputs::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -159,7 +159,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       open_sset_dat <- sesame::openSesame(x=prefix, what = 'sigset')
       open_beta_tib <- sesame::getBetas(sset = open_sset_dat, 
                                         mask=FALSE, sum.TypeI=FALSE)
-
+      
       open_sum1_ssh <- 
         ssetToPassPercSsheet(sset=open_sset_dat, man=NULL,
                              min=min_pvals[1], per=min_percs[1],
@@ -266,7 +266,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       ret_dat$new_sset <- new_sset
       # return(ret_dat)
     }
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 SSET to Calls by Order of Operations:: workflows
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -287,7 +287,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       
       cur_sset_rds <- 
         paste(out_prefix, paste(cur_workflow,'sset.rds', sep='.'), sep=del)
-
+      
       cur_sset <- NULL
       if (opts$load_sset && file.exists(cur_sset_rds)) {
         if (verbose>=vt+1)
@@ -341,7 +341,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         org_dat_bool <- FALSE
         ret_dat$org_list <- cur_dat_list
       }
-
+      
       if (verbose>=vt) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. cur_workflow={cur_workflow}.{RET}{RET}"))
         cat(glue::glue("{tabsStr}{TAB}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
@@ -399,7 +399,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         csv=requeue_csv,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     }
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                               Write Outputs::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -428,7 +428,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-
+  
   if (retData) {
     ret_dat$req_tib    <- req_tib
     ret_dat$ssheet_tib <- ssheet_tib
@@ -663,11 +663,11 @@ autoDetect_Wrapper = function(can, ref, man, mask=NULL,
       outDir=outDir, sname=sname, plotMatrix=plotMatrix, writeMatrix=writeMatrix,
       dpi=dpi, format=format, datIdx=datIdx, non.ref=non.ref,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     if (!is.null(mask)) {
       jval_sym <- rlang::sym(jval)
       mask_can <- auto_can %>% dplyr::filter(! (!!jval_sym %in% mask) )
-
+      
       mask_tib <- NULL
       mask_tib <- sampleDetect(
         can=mask_can, ref=auto_ref, minPval=minPval, minDelta=minDelta,
@@ -678,7 +678,7 @@ autoDetect_Wrapper = function(can, ref, man, mask=NULL,
         dpi=dpi, format=format, datIdx=datIdx, non.ref=non.ref,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
         purrr::set_names(paste('Mask',names(.), sep='_'))
-
+      
       ret_tib <- ret_tib %>% dplyr::bind_cols(mask_tib)
     }
     
@@ -892,7 +892,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
         rsquaredMatrix(mat1, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
         tibble::as_tibble(rownames='Sample')
       if (verbose>=vt+6) r2m_1_tib %>% head(n=2) %>% print()
-
+      
       # 6.1 Build Deleta Matrix
       dbm_1_tib <- 
         deltaMatrix(mat1, minDelta=minDelta,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
@@ -919,7 +919,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
       ) %>% dplyr::select(AutoSample_Total_1_Cnt, AutoSample_R2_1_Key, AutoSample_R2_1_Val, 
                           AutoSample_dB_1_Key, AutoSample_dB_1_Cnt, AutoSample_dB_1_Val)
       if (verbose>=vt+6) print(sss_1_tib)
-
+      
       # 4.2 Build matrix
       #
       tib2 <- tib %>% 

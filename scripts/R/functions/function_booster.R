@@ -572,18 +572,22 @@ setLaunchExe = function(opts, pars, verbose=0,vt=3,tc=1,tt=NULL) {
 #                     Summarizing Counting Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 cntPer_lte = function(x, min, prc=3) {
+  min <- as.numeric(min)
   round(100*length(x[which(x<=min)])/length(x),prc)
 }
 
 cntPer_gte = function(x, min, prc=3) {
+  min <- as.numeric(min)
   round(100*length(x[which(x>=min)])/length(x),prc)
 }
 
 cntPer_gt = function(x, max, prc=3) {
+  max <- as.numeric(max)
   round(100*length(x[which(x> max)])/length(x),prc)
 }
 
 cntPer_gt0 = function(x, max, prc=3) {
+  max <- as.numeric(max)
   round(length(x[which(x>max)])/length(x),prc)
 }
 
