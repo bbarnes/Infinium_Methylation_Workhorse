@@ -21,4 +21,7 @@ WORKDIR /opt/Infinium_Methylation_Workhorse
 # Args should be passed in. Might need to rework your .sh wrapper (or just ditch it)
 CMD [ Rscript /opt/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R --Rscript /usr/local/bin/Rscript ]
 
+# Do a test run to pull annotation files from remote repos
+RUN mkdir /test_run_res/ && Rscript /opt/Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R --Rscript /usr/local/bin/Rscript --outDir /test_run_res/ --idatsDir /opt/Infinium_Methylation_Workhorse/dat/idats_TestCase/202761400007/ --workflow=ind --pval=pOOBAH,PnegEcdf --minPval=0.1,0.02 --minPerc=90,98 --write_call --save_idat --verbose=0 && rm -R /test_run_res/
+
 # End of file
