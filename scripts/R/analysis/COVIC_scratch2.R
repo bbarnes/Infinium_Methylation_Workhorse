@@ -320,6 +320,11 @@ par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
+image_key <- "bbarnesimdocker/im_workhorse:Infinium_Methylation_Workhorse_Centos"
+image_ver <- "v.1.0"
+image_ssh <- "run_improbe.sh"
+image_str <- glue::glue("{image_key}.{image_ver}")
+
 # old_man_csv <- '/Users/bretbarnes/Documents/data/COVIC/transfer/EPIC-C0.manifest.sesame-base.cpg-sorted_NOTINOTHER.csv.gz'
 # new_man_csv <- '/Users/bretbarnes/Documents/data/COVIC/transfer/GRCh38_COVIC_C0.manifest.sesame-base.pos-sorted_NOTINOTHER.csv.gz'
 
@@ -340,6 +345,125 @@ nztic_man_tib <- nztic_raw_tib %>% dplyr::select(Probe_ID, M, U, Next_Base, Prob
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Check Overlap::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# Make function for address flattening...
+#
+
+cepic_add_tib <- manToAdd(man=cepic_man_tib, verbose=10) %>%
+  dplyr::distinct(Address, .keep_all=TRUE) %>%
+  dplyr::arrange(Probe_ID) %>%
+  # dplyr::add_count(Address, name="Address_Count")
+  dplyr::mutate(Probe_CG=Probe_ID,
+                Infinium_Type=dplyr::case_when(
+                  Design_Type==2 ~ 2,
+                  TRUE ~ 1
+                ),
+                TB=NA_character_,
+                CO=NA_character_) %>%
+  dplyr::mutate(Infinium_Type=as.integer(Infinium_Type)) %>%
+  dplyr::select(Address, Probe_ID, Probe_CG, 
+                TB, CO, 
+                Infinium_Type, Design_Type, Probe_Type, Next_Base, Probe_Source)
+
+covic_org_tib <- manToAdd(man=covic_man_tib, verbose=10)
+
+covic_add_tib <- covic_org_tib %>% 
+  dplyr::distinct() %>%
+  dplyr::arrange(Probe_ID) %>% 
+  tidyr::separate(Probe_ID, into=c("Probe_CG", "Probe_Str"), remove=FALSE) %>%
+  tidyr::separate(Probe_Str, into=c('blank','TB','CO', 'Infinium_Type','Rep'), sep='') %>% 
+  dplyr::select(-blank) %>% 
+  dplyr::mutate(Infinium_Type=as.integer(Infinium_Type)) %>%
+  dplyr::select(Address, Probe_ID, Probe_CG, TB, CO, Infinium_Type, Design_Type, Probe_Type, Next_Base, Probe_Source)
+
+covic_add_tib %>% 
+  # dplyr::select(-Probe_ID, -Rep) %>% 
+  dplyr::group_by(Infinium_Type,Design_Type,Probe_Type) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% 
+  print(n=base::nrow(covic_add_tib))
+
+cepic_add_tib %>% 
+  # dplyr::select(-Probe_ID, -Rep) %>% 
+  dplyr::group_by(Infinium_Type,Design_Type,Probe_Type) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% 
+  dplyr::filter(Probe_Type=='cg') %>%
+  print(n=base::nrow(cepic_add_tib))
+
+#
+# Join Manifests::
+#
+
+join_add_list <- 
+  dplyr::bind_rows(covic_add_tib,cepic_add_tib) %>%
+  dplyr::select(-Infinium_Type) %>%
+  dplyr::distinct(Address, .keep_all=TRUE) %>%
+  dplyr::arrange(Probe_CG,Design_Type,CO,TB) %>%
+  split(.$Design_Type)
+
+
+dplyr::left_join( join_add_list$IM, join_add_list$IU, by="Probe_CG") 
+
+
+
+
+
+
+# Different Addresses::
+# join_add_tib %>% dplyr::anti_join(cepic_add_tib, by="Address")
+# join_add_tib %>% dplyr::anti_join(covic_add_tib, by="Address")
+
+
+
+
+#
+# Above works:: Jan-24-2021
+#
+
+cepic_add_tib %>% dplyr::distinct(Probe_CG) %>% base::nrow()
+covic_add_tib %>% dplyr::distinct(Probe_CG) %>% base::nrow()
+
+cepic_add_tib %>% dplyr::distinct(Address) %>% base::nrow()
+covic_add_tib %>% dplyr::distinct(Address) %>% base::nrow()
+
+cepic_add_cnt <- cepic_add_tib %>% base::nrow()
+covic_add_cnt <- covic_add_tib %>% base::nrow()
+
+cat(glue::glue("cepic_add_cnt={cepic_add_cnt}, covic_add_cnt={covic_add_cnt}.{RET}"))
+
+join_add_tib <- dplyr::inner_join(covic_add_tib,cepic_add_tib, 
+                  by="Address", suffix=c("_EPIC", "_COVIC")) %>%
+  tidyr::separate(Probe_ID_COVIC, into=c("Probe_CG_COVIC", "Probe_Str"), remove=FALSE) %>% 
+  tidyr::separate(Probe_Str, into=c('blank','TB','CO', 'Design_Type','Rep'), sep='') %>% 
+  dplyr::select(-blank)
+
+
+
+
+
+
+
+
+
+
+#
+# Short 
+#
+
+covic_add_tib %>% 
+  tidyr::separate(Probe_ID, into=c("Probe_CG", "Probe_Str"), remove=FALSE) %>% 
+  tidyr::separate(Probe_Str, into=c('blank','TB','CO', 'Design_Type','Rep'), sep='') %>% 
+  dplyr::select(-blank)
+
+# Basic join::
+#
+#  - should really consider how to join based on single tango addresses...
+#    - split by M/U and match by tangos, then check discrepency
+#
+
+cepic_man_tib %>% 
+  dplyr::full_join(covic_man_tib, by=c("M","U"), suffix=c("_EPIC", "_COVIC")) %>% 
+  dplyr::filter(!is.na(Probe_ID_COVIC))
 
 # 1. Build a list of unique tangos for each build
 

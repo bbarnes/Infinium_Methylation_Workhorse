@@ -57,6 +57,62 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Manifest Conversion Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+manToAdd = function(man,
+                    verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'manToAdd'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_tib <- dplyr::bind_rows(
+      
+      man %>% dplyr::filter(!is.na(U)) %>% 
+        dplyr::filter(!is.na(M)) %>% 
+        dplyr::mutate(Design_Type='IM') %>% 
+        dplyr::select(Probe_ID,M,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
+        dplyr::rename(Address=M),
+      
+      man %>% dplyr::filter(!is.na(U)) %>% 
+        dplyr::filter(!is.na(M)) %>% 
+        dplyr::mutate(Design_Type='IU') %>% 
+        dplyr::select(Probe_ID,U,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
+        dplyr::rename(Address=U),
+      
+      man %>% dplyr::filter(!is.na(U)) %>% 
+        dplyr::filter(is.na(M)) %>% 
+        dplyr::mutate(Design_Type='II') %>% 
+        dplyr::select(Probe_ID,U,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
+        dplyr::rename(Address=U)
+    )
+    
+    ret_tib %>% 
+      dplyr::group_by(Design_Type) %>% 
+      dplyr::summarise(Count=n()) %>%
+      print(n=base::nrow(ret_tib))
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
+      print(ret_tib)
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Adhoc CpH/SNP/Ctl Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 

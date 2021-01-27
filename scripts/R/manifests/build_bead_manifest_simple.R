@@ -182,8 +182,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVID'
   par$local_runType <- 'GENK'
-  par$local_runType <- 'COVIC'
   par$local_runType <- 'GRCm38'
+  par$local_runType <- 'COVIC'
   
   if (par$local_runType=='COVID') {
     # opt$fresh  <- TRUE
@@ -239,6 +239,8 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C0'
     opt$version     <- 'B1'
     opt$version     <- 'C2'
+    opt$version     <- 'C3'
+    opt$version     <- 'C4'
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -282,7 +284,7 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'A2'
     opt$version     <- 'A3'
     opt$version     <- 'B2'
-    
+
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     
@@ -564,6 +566,11 @@ opt$design_prb <- 'Probe_Type'
 opt$design_srs <- 'TB'
 opt$design_cos <- 'CO'
 
+image_key <- "bbarnesimdocker/im_workhorse:Infinium_Methylation_Workhorse_Centos"
+image_ver <- "v.1.0"
+image_ssh <- "run_improbe.sh"
+image_str <- glue::glue("{image_key}.{image_ver}")
+
 # design_prb_sym <- rlang::sym(opt$design_prb)
 
 # Input Definitions::
@@ -642,10 +649,15 @@ base_sel_cols <- c("Probe_ID","Seq_ID","M","U","Probe_Type","Next_Base",
                    "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U",
                    "AQP")
 
+base_sel_cols <- c("Probe_ID","M","U","Probe_Type","Next_Base",
+                   "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U",
+                   "AQP")
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         0.0 Pre-defined Manifest:: GS
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+pre_add_tib <- NULL
 man_pre_dat_tib <- NULL
 if (!is.null(opt$pre_man_csv)) {
   new_cols <- 
@@ -675,7 +687,8 @@ if (!is.null(opt$pre_man_csv)) {
                   U=as.integer(U),
                   AQP=as.integer(AQP))
   
-  opt$build_address <- FALSE
+  # opt$build_address <- FALSE
+  opt$build_address <- TRUE
   if (opt$build_address) {
     pre_add_tib <- dplyr::bind_rows(
       man_pre_dat_tib %>% dplyr::filter(!is.na(U) & !is.na(M)) %>% 
@@ -694,6 +707,27 @@ if (!is.null(opt$pre_man_csv)) {
         dplyr::mutate(Infinium_Type='2')
       
     ) %>% dplyr::arrange(Probe_ID)
+  }
+  
+  if (FALSE) {
+    imp_inp_tib <- pre_man_list$man %>% # head() %>% 
+      dplyr::select(IlmnID, Forward_Sequence, Genome_Build, Chromosome, Coordinate, Probe_Type) %>% 
+      dplyr::rename(Seq_ID=IlmnID, Sequence=Forward_Sequence) %>% 
+      dplyr::mutate(CpG_Island="FALSE")
+    
+    imp_des_tib <- improbe_design_all(tib = imp_inp_tib, ptype = 'cg', 
+                                      outDir = opt$outDir, gen = "all",
+                                      image=image_str, shell=image_ssh,
+                                      seqKey="Sequence",
+                                      parse_din=FALSE,
+                                      verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
+    
+    if (FALSE) {
+      dplyr::bind_rows(
+        man_pre_dat_tib %>% dplyr::inner_join(imp_des_tib, by=c("Seq_48U"="Seq_48U_1")),
+        man_pre_dat_tib %>% dplyr::inner_join(imp_des_tib, by=c("Seq_48U"="Seq_48U_2"))
+      )
+    }
   }
 }
 
@@ -730,6 +764,15 @@ man_pqc_dat_tib <- man_pqc_raw_tib %>%
 man_raw_dat_tib <- 
   dplyr::bind_rows(man_pqc_dat_tib,man_pre_dat_tib) %>%
   dplyr::select(dplyr::all_of(base_sel_cols))
+
+
+#
+# Pre-built EPIC-B4 data::
+#
+# pre_EPIC_des_csv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/MethylationEPIC_v-1-0_B4.core.cpg-only.table.csv.gz'
+# pre_EPIC_des_tib <- readr::read_csv(pre_EPIC_des_csv)
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                2.0 Build Probes foreach Type:: RS/CH/CG/etc..
@@ -911,7 +954,8 @@ if (opt$verbose>=1) {
 # Current Error::
 #
 
-man_raw_dat_tib %>% dplyr::filter(Probe_Type=='rs') %>% dplyr::filter(stringr::str_starts(Probe_ID,"chr"))
+man_raw_dat_tib %>% dplyr::filter(Probe_Type=='rs') %>% 
+  dplyr::filter(stringr::str_starts(Probe_ID,"chr"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.0 Join All Detected Probes:: SNP/CpH/CpG

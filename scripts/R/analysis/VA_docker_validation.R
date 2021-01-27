@@ -538,6 +538,44 @@ va19_ss_tib <- readr::read_csv(va19_ss_csv)
 #                Validate Auto Sample Sheet Calls/PercPass::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+old_dir <- '/Users/bretbarnes/Documents/scratch/mlk2/swifthoof_main/CNTL-Samples_VendA_10092020'
+old_ss_csvs <- list.files(path = old_dir, pattern = 'AutoSampleSheet.csv.gz$', full.names = TRUE)
+old_ss_tib <- lapply(old_ss_csvs, readr::read_csv) %>% dplyr::bind_rows()
+
+old_ss_tib %>% 
+  dplyr::select(Sentrix_Name,
+                cg_pass_perc_basic_0,
+                cg_1_pass_cnt_basic_0,cg_1_pass_perc_basic_0,
+                cg_2_pass_cnt_basic_0,cg_2_pass_perc_basic_0,
+                cg_pvals_pOOBAH_pass_perc_1,cg_pvals_pOOBAH_pass_perc_2
+  ) %>% print(n=1000)
+
+
+auto_dir <- '/Users/bretbarnes/Documents/scratch/correct/swifthoof_main/CNTL-Samples_VendA_10092020'
+new_ss_csvs <- list.files(path = auto_dir, pattern = 'AutoSampleSheet.csv.gz$', full.names = TRUE)
+new_ss_tib <- lapply(new_ss_csvs, readr::read_csv) %>% dplyr::bind_rows()
+
+new_ss_tib %>% 
+  dplyr::select(Sentrix_Name,
+                cg_pass_perc_basic_0,
+                cg_1_pass_cnt_basic_0,cg_1_pass_perc_basic_0,
+                cg_2_pass_cnt_basic_0,cg_2_pass_perc_basic_0,
+                cg_pvals_pOOBAH_pass_perc_1,cg_pvals_pOOBAH_pass_perc_2
+  ) %>% print(n=1000)
+
+dplyr::inner_join(old_ss_tib, new_ss_tib, by="Sentrix_Name", suffix=c("_OLD", "_NEW")) %>%
+  dplyr::select(Sentrix_Name, 
+                dplyr::starts_with('cg_pass_perc_basic_0'),
+                dplyr::starts_with('cg_1_pass_cnt_basic_0'),
+                dplyr::starts_with('cg_1_pass_perc_basic_0'),
+                dplyr::starts_with('cg_2_pass_cnt_basic_0'),
+                dplyr::starts_with('cg_2_pass_perc_basic_0'),
+                dplyr::starts_with('cg_pvals_pOOBAH_pass_perc_1'),
+                dplyr::starts_with('cg_pvals_pOOBAH_pass_perc_2')
+  ) %>% head() %>% as.data.frame()
+                
+
+
 auto_ss_tib %>% 
   dplyr::select(Sentrix_Name, AutoSample_dB_1_Key_1, 
                 cg_calls_pass_perc_1,cg_pvals_pOOBAH_pass_perc_1, 

@@ -123,7 +123,7 @@ opt$write_psum  <- FALSE
 opt$write_sigs  <- FALSE
 opt$write_ssum  <- FALSE
 
-opt$write_call  <- FALSE
+opt$write_call  <- TRUE
 opt$write_csum  <- FALSE
 
 opt$write_snps  <- TRUE
@@ -132,7 +132,7 @@ opt$write_auto  <- FALSE
 opt$mask_general <- FALSE
 
 # Threshold Options::
-opt$pval <- "pOOBAH,PnegEcdf"
+opt$pval    <- "pOOBAH,PnegEcdf"
 opt$minPval <- "0.1,0.02"
 opt$minPerc <- "90,98"
 
