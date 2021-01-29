@@ -266,11 +266,11 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
-  par$local_runType <- 'COVIC'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'DELTA'
   par$local_runType <- 'DKFZ'
   par$local_runType <- 'qcMVP'
+  par$local_runType <- 'COVIC'
   
   opt$fresh <- TRUE
   
@@ -290,6 +290,8 @@ if (args.dat[1]=='RStudio') {
     opt$auto_detect <- TRUE
     opt$workflow <- "ind"
     opt$workflow <- "nd,ind"
+    
+    opt$manDirName  <- 'covic'
     
   } else if (par$local_runType=='GRCm38') {
     opt$runName <- 'MURMETVEP_mm10_betaTest_06082020'

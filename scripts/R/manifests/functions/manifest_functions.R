@@ -1758,7 +1758,7 @@ loadORD = function(file, format='old', skip=8, guess=50000, trim=FALSE,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
-    
+
     if (format=='old' || format=='gta') {
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(file, skip=skip, guess_max=guess)  )) %>%
         dplyr::mutate(AlleleB_Probe_Id=as.character(AlleleB_Probe_Id), 

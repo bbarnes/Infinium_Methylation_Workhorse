@@ -20,6 +20,46 @@ BNG <- "|"
 #                          Docker improbe Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+addSeq48U = function(tib, field,
+                     sidx=2, plen=50,
+                     verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'addSeq48U'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
+    
+    field_sym <- rlang::sym(field)
+
+    ret_tib <- tib %>% dplyr::mutate(
+      Seq_48U_1=stringr::str_sub(!!field_sym, idx1,len1) %>% 
+        stringr::str_to_upper() %>% 
+        stringr::str_replace_all('R', 'A') %>% 
+        stringr::str_replace_all('Y', 'T'),
+      
+      Seq_48U_2=stringr::str_sub(!!field_sym, idx2,len2) %>% 
+        stringr::str_to_upper() %>% 
+        stringr::str_replace_all('R', 'A') %>% 
+        stringr::str_replace_all('Y', 'T'),
+    )
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
 improbe_design_all = function(tib, ptype, outDir, gen,
                               image, shell,
                               seqKey="IUPAC_Sequence",strsSR="FR",reduce_imp=TRUE,
@@ -104,11 +144,13 @@ improbe_design_all = function(tib, ptype, outDir, gen,
       dplyr::mutate(
         
         Seq_48U_1=stringr::str_sub(PRB1_U_MAT, idx1,len1) %>% 
-          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_to_upper() %>% 
+          stringr::str_replace_all('R', 'A') %>% 
           stringr::str_replace_all('Y', 'T'),
         
         Seq_48U_2=stringr::str_sub(PRB1_U_MAT, idx2,len2) %>% 
-          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_to_upper() %>% 
+          stringr::str_replace_all('R', 'A') %>% 
           stringr::str_replace_all('Y', 'T'),
       )
     

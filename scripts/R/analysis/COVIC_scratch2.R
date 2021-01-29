@@ -342,6 +342,171 @@ cepic_man_tib <- cepic_raw_tib %>% dplyr::select(Probe_ID, M, U, Next_Base, Prob
 covic_man_tib <- covic_raw_tib %>% dplyr::select(Probe_ID, M, U, Next_Base, Probe_Type, Probe_Source)
 nztic_man_tib <- nztic_raw_tib %>% dplyr::select(Probe_ID, M, U, Next_Base, Probe_Type, Probe_Source)
 
+opt$pre_man_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B2.csv.gz'
+
+#
+# Load Genome Studio Manifest::
+#
+pre_add_tib <- NULL
+man_pre_dat_tib <- NULL
+if (!is.null(opt$pre_man_csv)) {
+  
+  base_sel_cols <- c("Probe_ID","M","U","Probe_Type","Next_Base",
+                     "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U",
+                     "AQP")
+
+  new_cols <- 
+    c("Probe_ID","U","AlleleA_Probe_Sequence","M","AlleleB_Probe_Sequence",
+      "Forward_Sequence","SourceSeq","Probe_Type","Infinium_Design",
+      "Next_Base","Color_Channel","Genome_Build","Chromosome",
+      "Coordinate","FR","CO")
+  
+  # inferManifestFields
+  pre_man_list <- loadManifestGenomeStudio(
+    file=opt$pre_man_csv, normalize=TRUE,
+    verbose=opt$verbose,tc=0,tt=pTracker)
+  
+  opt$pre_platform <- 'EPIC'
+  opt$pre_version  <- 'B2'
+  
+  ctl_pre_dat_tib <- pre_man_list$ctl
+  man_pre_dat_tib <- pre_man_list$man %>% 
+    purrr::set_names(new_cols) %>% # head() %>%
+    inferManifestFields(key="Probe_ID",
+                        seqA="AlleleA_Probe_Sequence",
+                        seqB="AlleleB_Probe_Sequence") %>%
+    dplyr::select(dplyr::all_of(base_sel_cols)) %>%
+    dplyr::mutate(platform=opt$pre_platform,
+                  version=opt$pre_version,
+                  M=as.integer(M),
+                  U=as.integer(U),
+                  AQP=as.integer(AQP))
+  
+  # opt$build_address <- FALSE
+  opt$build_address <- TRUE
+  if (opt$build_address) {
+    pre_add_tib <- dplyr::bind_rows(
+      man_pre_dat_tib %>% dplyr::filter(!is.na(U) & !is.na(M)) %>% 
+        dplyr::rename(Address=M,Probe_Seq=AlleleB_Probe_Sequence) %>%
+        dplyr::select(Probe_ID,Address,Probe_Seq) %>% 
+        dplyr::mutate(Infinium_Type='M'),
+      
+      man_pre_dat_tib %>% dplyr::filter(!is.na(U) & !is.na(M)) %>% 
+        dplyr::rename(Address=U,Probe_Seq=AlleleA_Probe_Sequence) %>%
+        dplyr::select(Probe_ID,Address,Probe_Seq) %>% 
+        dplyr::mutate(Infinium_Type='U'),
+      
+      man_pre_dat_tib %>% dplyr::filter(!is.na(U) &  is.na(M)) %>%  
+        dplyr::rename(Address=U,Probe_Seq=AlleleA_Probe_Sequence) %>%
+        dplyr::select(Probe_ID,Address,Probe_Seq) %>% 
+        dplyr::mutate(Infinium_Type='2')
+      
+    ) %>% 
+      dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2)) %>%
+      dplyr::arrange(Probe_ID)
+  }
+}
+
+#
+# Pre-build Designs::
+#
+pre_imp_des_tsv <- '/Users/bretbarnes/Documents/data/COVIC/transfer/GRCh37_improbe_selected_designOutput.tsv.gz'
+pre_imp_des_tib <- readr::read_tsv(pre_imp_des_tsv) %>% 
+  addSeq48U(field = "UnMethyl_Probe_Sequence")
+
+man_imp_mat_tib <- man_pre_dat_tib %>% dplyr::inner_join(pre_imp_des_tib, by=c("Seq_48U"="Seq_48U_1"))
+man_imp_mis_tib <- man_pre_dat_tib %>% dplyr::anti_join(pre_imp_des_tib, by=c("Seq_48U"="Seq_48U_1"))
+
+# Summary::
+#
+man_imp_mat_tib %>% dplyr::distinct(Probe_ID, .keep_all=TRUE) %>% 
+  dplyr::group_by(Probe_Type,version) %>% dplyr::summarise(Count=n(), .groups='drop')
+
+man_imp_mis_tib %>% dplyr::distinct(Probe_ID, .keep_all=TRUE) %>% 
+  dplyr::group_by(Probe_Type,version) %>% dplyr::summarise(Count=n(), .groups='drop')
+
+# Compare against EPIC::
+#
+man_imp_mat_tib %>% dplyr::filter(! Probe_ID %in% cepic_man_tib$Probe_ID)
+cepic_mis_tib <- cepic_man_tib %>% 
+  dplyr::filter(! Probe_ID %in% man_imp_mat_tib$Probe_ID)
+cepic_mis_tib %>% dplyr::group_by(Probe_Type,Probe_Source) %>% 
+  dplyr::summarise(Count=n(), .groups='drop')
+
+# Compare against COVIC::
+#
+covic_org_tib <- manToAdd(man=covic_man_tib, verbose=10)
+
+covic_add_tib <- covic_org_tib %>% 
+  dplyr::distinct() %>%
+  dplyr::arrange(Probe_ID) %>% 
+  tidyr::separate(Probe_ID, into=c("Probe_CG", "Probe_Str"), remove=FALSE) %>%
+  tidyr::separate(Probe_Str, into=c('blank','TB','CO', 'Infinium_Type','Rep'), sep='') %>% 
+  dplyr::select(-blank) %>% 
+  dplyr::mutate(Infinium_Type=as.integer(Infinium_Type)) %>%
+  dplyr::select(Address, Probe_ID, Probe_CG, TB, CO, Infinium_Type, Design_Type, Probe_Type, Next_Base, Probe_Source)
+
+
+
+
+
+
+
+
+#
+# Pre-built EPIC-B4 data::
+#
+pre_EPIC_des_csv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/MethylationEPIC_v-1-0_B4.core.cpg-only.table.csv.gz'
+pre_EPIC_des_tib <- readr::read_csv(pre_EPIC_des_csv) %>% 
+  dplyr::mutate(Probe_Type=stringr::str_sub(IlmnID, 1,2),
+                Probe_CG=stringr::str_remove(IlmnID, '_.*$'),
+                Probe_Source="EPIC-B4",
+                Infinium_Type=dplyr::case_when(
+                  Infinium_Design_Type=='II' ~ 2,
+                  TRUE ~ 1
+                ),
+                CO='C',
+                AddressA_ID=stringr::str_remove(AddressA_ID, '^0+'), 
+                AddressB_ID=stringr::str_remove(AddressB_ID, '^0+')) %>%
+  dplyr::rename(FR=Strand, TB=StrandTB, 
+                U=AddressA_ID, M=AddressB_ID,
+                Probe_ID=IlmnID) %>%
+  dplyr::select(Probe_ID, M, U, Probe_CG, 
+                FR, TB, CO, 
+                Infinium_Type, Probe_Type, Next_Base, Probe_Source,
+                dplyr::everything())
+
+pepic_add_tib <- dplyr::bind_rows(
+  pre_EPIC_des_tib %>% 
+    dplyr::filter(!is.na(U)) %>% 
+    dplyr::filter(!is.na(M)) %>% 
+    dplyr::mutate(Design_Type='IM') %>% 
+    dplyr::select(-U) %>% dplyr::rename(Address=M),
+  
+  pre_EPIC_des_tib %>% 
+    dplyr::filter(!is.na(U)) %>% 
+    dplyr::filter(!is.na(M)) %>% 
+    dplyr::mutate(Design_Type='IU') %>% 
+    dplyr::select(-M) %>% dplyr::rename(Address=U),
+  
+  pre_EPIC_des_tib %>%
+    dplyr::filter(!is.na(U)) %>% 
+    dplyr::filter( is.na(M)) %>% 
+    dplyr::mutate(Design_Type='II') %>% 
+    dplyr::select(-M) %>% dplyr::rename(Address=U)
+)  %>% 
+  dplyr::select(Address, Probe_ID, Probe_CG, FR, TB, CO, 
+                Infinium_Type, Design_Type, Probe_Type, 
+                Next_Base, Probe_Source, dplyr::everything()) %>%
+  dplyr::arrange(Probe_ID)
+
+pepic_add_tib %>% dplyr::select(Address:Next_Base)
+
+
+pepic_add_tib %>% dplyr::filter(! Address %in% pre_add_tib$Address)
+pre_add_tib %>% dplyr::filter(! Address %in% pepic_add_tib$Address)
+
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Check Overlap::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -356,7 +521,7 @@ cepic_add_tib <- manToAdd(man=cepic_man_tib, verbose=10) %>%
   # dplyr::add_count(Address, name="Address_Count")
   dplyr::mutate(Probe_CG=Probe_ID,
                 Infinium_Type=dplyr::case_when(
-                  Design_Type==2 ~ 2,
+                  Design_Type=='II' ~ 2,
                   TRUE ~ 1
                 ),
                 TB=NA_character_,
@@ -389,6 +554,40 @@ cepic_add_tib %>%
   dplyr::summarise(Count=n(), .groups="drop") %>% 
   dplyr::filter(Probe_Type=='cg') %>%
   print(n=base::nrow(cepic_add_tib))
+
+#
+# Missing Overlap::
+#
+covic_add_tib %>% dplyr::filter(! Address %in% cepic_add_tib$Address)
+
+cepic_add_tib %>% dplyr::filter(  Address %in% covic_add_tib$Address)
+cepic_add_tib %>% dplyr::filter(! Address %in% covic_add_tib$Address) %>% 
+  dplyr::group_by(Probe_Source) %>% dplyr::summarise(Count=n()) 
+cepic_add_tib %>% dplyr::filter(! Address %in% covic_add_tib$Address) %>%
+  dplyr::filter(Probe_Source=='EPIC-C0')
+
+cepic_add_tib %>% dplyr::filter(Address %in% pepic_add_tib$Address)
+
+#
+# Missing summary::
+#
+cepic_add_tib %>% 
+  dplyr::filter(! Address %in% pepic_add_tib$Address) %>% 
+  dplyr::group_by(Probe_Source) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+
+#
+# Missing from B4
+#
+cepic_mis_tib <- cepic_add_tib %>% 
+  dplyr::filter(! Address %in% pepic_add_tib$Address) %>% 
+  dplyr::filter(Probe_Source=="EPIC-B4")
+
+cepic_mis_tib %>% dplyr::group_by(Probe_Type,Probe_Source) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+cepic_mis_tib %>% dplyr::filter(Address %in% pre_add_tib$Address)
 
 #
 # Join Manifests::
