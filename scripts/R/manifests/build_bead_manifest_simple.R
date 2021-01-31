@@ -1466,7 +1466,43 @@ fin_all_man_fns <- paste0( paste('EPIC',opt$version, sep='-'), '.manifest.sesame
 if (!dir.exists(fin_all_out_dir)) dir.create(fin_all_out_dir, recursive=TRUE)
 fin_all_man_csv <- file.path(fin_all_out_dir, fin_all_man_fns)
 
-readr::write_csv(fin_all_man_tib, fin_all_man_csv)
+if (FALSE) readr::write_csv(fin_all_man_tib, fin_all_man_csv)
+
+#
+# Force Subset for Publication::
+#
+if (FALSE) {
+  
+  # covic_org_tib unique total = 875561, raw total = 875654; dup = 93
+  covic_org_tib %>% dplyr::distinct(M,U) %>% base::nrow()
+  
+  # fin_all_man_tib unique total = 875587, raw total = 875587; dup = 
+  fin_all_man_tib %>% dplyr::distinct(M,U) %>% base::nrow()
+  
+  # Missing Probes:: Infinium I:: -26
+  fin_all_man_tib %>% dplyr::filter(!is.na(M) & !is.na(U)) %>% dplyr::anti_join(covic_org_tib, by=c("M","U"))
+  
+  # Missing Probes:: Infinium II:: 0
+  fin_all_man_tib %>% dplyr::filter(is.na(M) & !is.na(U)) %>% dplyr::anti_join(covic_org_tib, by="U")
+  
+  
+  # Cross checking::
+  covic_org_tib %>% dplyr::anti_join(fin_all_man_tib, by=c("M","U"))
+  dplyr::bind_rows(
+    fin_all_man_tib %>% dplyr::filter( is.na(M) & !is.na(U) & U %in% covic_org_tib$U ),
+    fin_all_man_tib %>% dplyr::filter(!is.na(M) & !is.na(U) & U %in% covic_org_tib$U & M %in% covic_org_tib$M )
+  ) %>% dplyr::distinct(M,U, .keep_all=TRUE)
+
+    
+  
+  dplyr::bind_rows(
+    fin_all_man_tib %>% dplyr::filter( is.na(M) & !is.na(U) & U %in% covic_org_tib$U ),
+    fin_all_man_tib %>% dplyr::filter(!is.na(M) & !is.na(U) & U %in% covic_org_tib$U & M %in% covic_org_tib$M )
+  ) %>% dplyr::distinct(M,U, .keep_all=TRUE)
+  
+  # Evidence for duplicates in EPIC-C0 build::
+  covic_org_tib %>% dplyr::add_count(M,U, name="DUP") %>% dplyr::filter(DUP != 1)
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -1479,7 +1515,45 @@ man_pqc_all_tib %>%
 
 man_pqc_all_tib %>% 
   dplyr::inner_join(imp_pos3_tib, by=c("PRB1_U_MAT"="Seq50U"), suffix=c("_PQC", "_IMP")) %>% 
-  dplyr::select(Probe_ID,U_PQC,M_PQC,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,Chromosome,Coordinate)
+  dplyr::select(Probe_ID,U_PQC,M_PQC,
+                AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,Chromosome,Coordinate) %>% 
+  dplyr::distinct()
+
+fin_man_grs_tib <- man_pqc_all_tib %>% 
+  dplyr::inner_join(imp_pos3_tib, by=c("PRB1_U_MAT"="Seq50U"), suffix=c("_PQC", "_IMP")) %>% 
+  dplyr::select(Probe_ID,Chromosome,Coordinate) %>% 
+  dplyr::distinct() %>%
+  dplyr::rename(chrom=Chromosome,
+                chromStart=Coordinate) %>%
+  dplyr::mutate(chrom=stringr::str_remove(chrom,'^chr'),
+                chrom=paste0('chr',chrom),
+                chromEnd=chromStart+1) %>%
+  dplyr::arrange(chrom,chromStart) %>%
+  dplyr::select(chrom,chromStart,chromEnd,Probe_ID) %>%
+  dplyr::rename(Seq_ID=Probe_ID)
+# fin_man_bed_tib <- fin_man_grs_tib %>% dplyr::mutate(Probe_ID=Seq_ID, Seq_ID=stringr::str_remove(Seq_ID, '_.*$'))
+
+fin_man_ana_tib <- NULL
+if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
+  fin_man_ana_tib <- 
+    manifestToAnnotation(tib=fin_man_grs_tib, 
+                         ann=opt$annDir, gen=opt$genomeBuild,
+                         verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
+}
+
+# Write BED & Annotation Files::
+#
+fin_man_ana_dir <- file.path(par$datDir, 'manifest/annotation/covic')
+fin_man_bed_fns <- paste0( paste('EPIC',opt$version, sep='-'), '.bed.gz')
+fin_man_ana_fns <- paste0( paste('EPIC',opt$version, sep='-'), '.annotation.csv.gz')
+
+if (!dir.exists(fin_man_ana_dir)) dir.create(fin_man_ana_dir, recursive=TRUE)
+fin_man_bed_tsv <- file.path(fin_man_ana_dir,fin_man_bed_fns)
+fin_man_ana_csv <- file.path(fin_man_ana_dir,fin_man_ana_fns)
+if (FALSE) readr::write_tsv(fin_man_grs_tib, fin_man_bed_tsv)
+if (FALSE) readr::write_csv(fin_man_ana_tib, fin_man_ana_csv)
+
+
 
 #
 # Something like below::
