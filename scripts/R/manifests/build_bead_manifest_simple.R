@@ -658,6 +658,8 @@ base_sel_cols <- c("Probe_ID","M","U","Probe_Type","Next_Base",
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (par$local_runType=="COVIC") {
+  opt$verbose <- 10
+  
   # Check ORD Data::
   covic_ord_tib <- readr::read_csv(opt$ords[1], skip = 8, guess_max = 50000) %>%
     dplyr::rename(Order_ID=Assay_Design_Id) %>%
@@ -768,15 +770,14 @@ if (par$local_runType=="COVIC") {
                   AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
                   Design_TypeA,Design_TypeB) %>%
     dplyr::rename(Probe_ID=Order_ID) %>%
-    dplyr::mutate(AQP=1,
-                  Probe_Type=stringr::str_sub(Probe_ID, 1,2)) %>%
+    dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2)) %>%
     addSeq48U(field="AlleleA_Probe_Sequence") %>%
     dplyr::mutate(
       Seq_48U=dplyr::case_when( is.na(M) ~ Seq_48U_2,TRUE ~ Seq_48U_1 )
     ) %>%
     dplyr::select(Probe_ID,M,U,Probe_Type,
                   AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                  Seq_48U,AQP)
+                  Seq_48U)
   
   # ##############################################
   #
@@ -797,11 +798,62 @@ if (par$local_runType=="COVIC") {
     new_man_prb_list <- man_prb_list
   }
   
-  # Intialize the new::
-  man_pqc_raw_tib <- covic_man_reclean_tib
-  man_raw_dat_tib <- covic_man_reclean_tib
-  man_raw_dat_tib %>% dplyr::filter(is.na(M) & !is.na(AlleleB_Probe_Sequence)) %>% as.data.frame()
+  #
+  # Adding Sesame EPIC B4 input into redesign::
+  #
+  man_ses_raw_tib <- sesameData::sesameDataGet("EPIC.hg38.manifest") %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column(var="Probe_ID") %>% 
+    tibble::as_tibble() %>% 
+    dplyr::rename(Probe_Type=probeType, U=address_A, M=address_B) %>%
+    dplyr::select(Probe_ID,M,U,Probe_Type,ProbeSeq_A,ProbeSeq_B) %>% 
+    dplyr::rename(AlleleA_Probe_Sequence=ProbeSeq_A,
+                  AlleleB_Probe_Sequence=ProbeSeq_B) %>% 
+    addSeq48U(field = "AlleleA_Probe_Sequence") %>%
+    dplyr::mutate(
+      Seq_48U=dplyr::case_when( is.na(M) ~ Seq_48U_2,TRUE ~ Seq_48U_1 ),
+    ) %>%
+    dplyr::select(Probe_ID,M,U,Probe_Type,
+                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                  Seq_48U)
+  
+  tmp_bnd_tib <- dplyr::bind_rows(
+    man_ses_raw_tib %>% dplyr::mutate(Platform="EPIC", Version="B4"),
+    covic_man_reclean_tib %>% dplyr::mutate(Platform="COVIC", Version="C4"))
+  
+  tmp_bnd_tib %>% base::nrow()
+  man_ses_raw_tib %>% base::nrow()
+  covic_man_reclean_tib %>% base::nrow()
 
+  if (FALSE) {
+    tmp_bnd_tib %>% # dplyr::distinct(Probe_ID) %>% 
+      dplyr::add_count(Probe_ID, name="Prb_Name_CNT") %>% 
+      dplyr::filter(Prb_Name_CNT != 1)
+  }
+  
+  #
+  #
+  # MAIN FOCUS:: 
+  #  - Check New Probe_ID suffix accuracies
+  #  - Add EPIC to Probe Redesign
+  #  - Add Probe Source to Probe Redesign (EPIC/COVIC)
+  #
+  #
+  
+  if (FALSE) {
+    # Intialize the new::
+    man_pqc_raw_tib <- covic_man_reclean_tib
+    man_raw_dat_tib <- covic_man_reclean_tib
+    # man_raw_dat_tib %>% dplyr::filter(is.na(M) & !is.na(AlleleB_Probe_Sequence)) %>% as.data.frame()
+  } else {
+    tmp_bnd_tib <- tmp_bnd_tib %>% dplyr::mutate(AQP=1)
+    
+    man_pqc_raw_tib <- tmp_bnd_tib
+    man_raw_dat_tib <- tmp_bnd_tib
+    
+    rm(tmp_bnd_tib)
+  }
+  
   # Four Previous Categories::
   #
   # covic_old_man_tib
@@ -1113,12 +1165,10 @@ if (opt$verbose>=1) {
   cat(glue::glue("[{par$prgmTag}]: Done. Building Probes.{RET}{RET}"))
 }
 
-#
 # Current Error:: OLD For SNPs Only
 #
-
 man_raw_dat_tib %>% dplyr::filter(Probe_Type=='rs') %>% 
-  dplyr::filter(stringr::str_starts(Probe_ID,"chr"))
+  dplyr::filter(stringr::str_starts(Probe_ID,"chr")) %>% print()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.0 Join All Detected Probes:: SNP/CpH/CpG
@@ -1374,8 +1424,11 @@ for (probe_class in names(man_new_list)) {
 # cmd_1 <- "gzip -dc /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple/GRCh38-COVIC-C4/intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.Seq_48U-sorted.tsv.gz | sort -k 2,2 > /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple/GRCh38-COVIC-C4/intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.cg-sorted.tsv"
 cgn_pos1_tsv <- file.path(opt$outDir, 'intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.Seq_48U-sorted.tsv.gz')
 out_pos1_tsv <- file.path(opt$outDir, 'intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.cg-sorted.tsv')
-int_pos1_cmd <- glue::glue("gzip -dc {cgn_pos1_tsv} | sort -k 2,2 > {out_pos1_tsv}")
-system(int_pos1_cmd)
+
+if (!file.exists(out_pos1_tsv)) {
+  int_pos1_cmd <- glue::glue("gzip -dc {cgn_pos1_tsv} | sort -k 2,2 > {out_pos1_tsv}")
+  system(int_pos1_cmd)
+}
 
 out_pos1_col <- cols(
   Seq_48U = col_character(),
@@ -1392,8 +1445,11 @@ out_pos1_tib <- readr::read_tsv(out_pos1_tsv, col_names=names(out_pos1_col$cols)
 
 imp_pos3_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCh38-21092020_improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz'
 out_pos3_tsv <- file.path(opt$outDir, 'intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.GRCh38.improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz')
-int_pos3_cmd <- glue::glue("gzip -dc {imp_pos3_tsv} | join -t $'\t' -11 -22 - {out_pos1_tsv} | gzip -c - > {out_pos3_tsv}")
-system(int_pos3_cmd)
+
+if (!file.exists(out_pos3_tsv)) {
+  int_pos3_cmd <- glue::glue("gzip -dc {imp_pos3_tsv} | join -t $'\t' -11 -22 - {out_pos1_tsv} | gzip -c - > {out_pos3_tsv}")
+  system(int_pos3_cmd)
+}
 
 imp_pos3_col <- cols(
   Seq_ID = col_character(),
@@ -1420,17 +1476,178 @@ imp_pos3_tib <- readr::read_tsv(out_pos3_tsv, col_names=names(imp_pos3_col$cols)
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# covic_man_csv <- '/Users/bretbarnes/Documents/data/COVIC/transfer/EPIC-C0.manifest.sesame-base.cpg-sorted.csv.gz'
-# covic_org_tib <- readr::read_csv(covic_man_csv) 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   2.1 Load Sesame Product Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# Load Sesame EPIC manifest instead of previous EPIC C0 manifest::
+#
+
+# ses_man_grs <- sesameData::sesameDataGet("EPIC.hg38.manifest")
+# ses_man_grs %>% as.data.frame() %>% tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble() %>% dplyr::rename(Probe_Type=probeType, U=address_A, M=address_B)
 
 covic_org_csv <- file.path(par$datDir, 'manifest/base/EPIC-C0.manifest.sesame-base.cpg-sorted.csv.gz')
 covic_org_tib <- readr::read_csv(covic_org_csv)
 
-fin_ses_man_tib <- man_pqc_all_tib %>% 
-  dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,
-                col,Probe_Type,Probe_Source,Next_Base,Version) %>% 
+epic_b2_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B2.csv.gz'
+epic_b2_tib <- 
+  loadManifestGenomeStudio(file = epic_b2_csv, addSource = TRUE, 
+                           normalize = TRUE, retType = "man", verbose = 10) %>% 
+  dplyr::rename(Probe_ID=IlmnID, U=AddressA_ID, M=AddressB_ID) %>%
+  dplyr::mutate(U=as.integer(U), M=as.integer(M), Version = "B2")
+
+epic_b4_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B4.csv.gz'
+epic_b4_tib <- 
+  loadManifestGenomeStudio(file = epic_b4_csv, addSource = TRUE, 
+                           normalize = TRUE, retType = "man", verbose = 10) %>% 
+  dplyr::rename(Probe_ID=IlmnID, U=AddressA_ID, M=AddressB_ID) %>%
+  dplyr::mutate(U=as.integer(U), M=as.integer(M), Version = "B4")
+
+epic_b2_tag_tib <- dplyr::bind_rows( epic_b4_tib, epic_b2_tib ) %>% 
+  dplyr::mutate(Platform="EPIC",Probe_Source="EPIC") %>%
   dplyr::distinct(M,U, .keep_all=TRUE) %>% 
-  dplyr::distinct(Probe_ID, .keep_all=TRUE)
+  dplyr::mutate(
+    DESIGN=dplyr::case_when(Infinium_Design==1 ~ 'I', 
+                            Infinium_Design==2 ~ 'II', 
+                            TRUE ~ NA_character_), 
+    Infinium_Design=dplyr::case_when(Infinium_Design=="I" ~ "1", 
+                                     Infinium_Design=="II" ~ "2", 
+                                     TRUE ~ NA_character_), 
+    Infinium_Design=as.integer(Infinium_Design) ) %>% 
+  dplyr::left_join(man_pqc_all_tib %>% dplyr::select(M,U,PRB1_U_MAT), by=c("M","U"))
+
+epic_b2_tag_tib %>% 
+  dplyr::group_by(Man_Source,Platform,Probe_Source,Version) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+#
+#
+#
+# Current Issue:: Need to make unique original manifest for Sesame!!!
+#
+#  - Split man_pqc_all_tib into EPIC-B4/COVIC-C4 by U/M
+#  - Assign Original Names to EPIC-B4
+#     - Extra error checking between fields
+#
+#
+
+#
+# 1.) Original COVIC Sesame Tango Pairs::
+#     - Need to add B2/B4 designation::
+#
+epic_man_ses_tib <- sesameData::sesameDataGet("EPIC.hg38.manifest") %>%
+  as.data.frame() %>% tibble::rownames_to_column(var="Probe_ID") %>%
+  tibble::as_tibble() %>%
+  dplyr::rename(Probe_Type=probeType, 
+                U=address_A, M=address_B) %>% 
+  dplyr::mutate(U=as.integer(U), M=as.integer(M),
+                seqnames=as.character(seqnames)) %>%
+  dplyr::distinct(U,M, .keep_all=TRUE)
+
+
+epic_b2_tag_tib %>% dplyr::anti_join(epic_man_ses_tib, by=c("M","U"))
+epic_man_ses_tib %>% dplyr::anti_join(epic_b2_tag_tib, by=c("M","U"))
+
+#
+# 2.) COVIC Only Analytical Probes::
+#
+man_cov_dat_tib <- man_pqc_all_tib %>% 
+  dplyr::anti_join(epic_b2_tag_tib, by=c("U","M")) %>%
+  # dplyr::anti_join(covic_ses_add_tib, by=c("U","M")) %>%
+  dplyr::mutate(Platform="EPIC", Probe_Source="COVIC", Version="C4") %>%
+  dplyr::rename(AlleleA_ProbeSeq=AlleleA_Probe_Sequence,
+                AlleleB_ProbeSeq=AlleleB_Probe_Sequence)
+
+#
+# 3.) Add Controls from covic_org_tib
+#
+all_ctl_dat_csv <- file.path(par$datDir, 'manifest/core/LEGX-C24.manifest.sesame-base.cpg-sorted.csv.gz')
+all_ctl_dat_tib <- readr::read_csv(all_ctl_dat_csv)
+
+man_ctl_dat_tib <- covic_org_tib %>% 
+  dplyr::filter(Probe_Type != "cg") %>%
+  dplyr::filter(Probe_Type != "ch") %>%
+  dplyr::filter(Probe_Type != "rs")
+
+ctl_cov_dat_tib1 <- all_ctl_dat_tib %>% 
+  dplyr::select(-DESIGN,-COLOR_CHANNEL,-col,-Probe_Type,-Probe_Source,-Next_Base,-Version) %>% 
+  dplyr::inner_join(man_ctl_dat_tib %>% dplyr::select(-Probe_ID), by=c("M","U"))
+
+ctl_cov_dat_tib <-dplyr::bind_rows(
+  ctl_cov_dat_tib1,
+  man_ctl_dat_tib %>% dplyr::anti_join(ctl_cov_dat_tib1, by=c("M","U") )
+) %>%
+  dplyr::mutate(M=as.integer(M), U=as.integer(U),
+                Probe_Source="EPIC", Platform="EPIC", Version="B4")
+
+#
+# These three need to be joined::
+#  - epic_b2_tag_tib,man_cov_dat_tib,man_ctl_dat_tib
+#  - ensure we have all original EPIC IDs
+#  - ensure all IDs are unique
+#  - ensure all tango pairs are unique
+#  - cross reference with B2
+#  - cut final manifest to get coordinates
+#  - write full outputs (TB,CO, Probe_Seq...)
+#
+
+fin_epi_cov_ctl_col <- 
+  c("Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col","Probe_Type","Next_Base",
+    "Probe_Source","Platform","Version",
+    "AlleleA_ProbeSeq","AlleleB_ProbeSeq","PRB1_U_MAT","Seq_48U")
+
+fin_epi_cov_ctl_tib <- dplyr::bind_rows(
+  epic_b2_tag_tib,man_cov_dat_tib) %>% 
+  dplyr::bind_rows(ctl_cov_dat_tib) %>% 
+  dplyr::select(dplyr::all_of(fin_epi_cov_ctl_col)) %>%
+  dplyr::arrange(Probe_ID)
+
+# Summary::
+fin_epi_cov_ctl_tib %>% dplyr::filter(is.na(PRB1_U_MAT)) %>% 
+  dplyr::group_by(Probe_Type,Probe_Source,Platform,Version) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% 
+  dplyr::arrange(-Count)
+
+fin_epi_cov_ctl_tib %>% 
+  dplyr::group_by(Probe_Type,Probe_Source,Platform,Version) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% 
+  dplyr::arrange(-Count)
+
+
+
+if (FALSE) {
+  # CG# Discrepencies in EPIC::
+  #
+  # TBD:: Match the discrepency probes::
+  #
+  man_epi_mis_tib <- man_epi_ses_tib %>% 
+    dplyr::filter(Probe_Type_EPI == Probe_Type_PQC) %>% 
+    dplyr::filter(Source_ID != Probe_ID_SES) %>% 
+    dplyr::select(Probe_ID,Source_ID,Source_Tag,Probe_Type_PQC,Probe_ID_SES,
+                  dplyr::everything())
+  
+  man_pqc_sel_col <- c("Source_ID","Source_Tag", "Probe_ID_V1", "Probe_ID_V2",
+                       "Probe_Type_PQC", "Probe_ID_SES",
+                       "Seq_ID_PQC","Seq_ID_IMP")
+  
+  man_cgn_mis_tib <- man_pqc_all_tib %>% 
+    dplyr::inner_join(imp_pos3_tib, by=c("PRB1_U_MAT"="Seq50U"), suffix=c("_PQC", "_IMP")) %>% 
+    dplyr::select(Probe_ID, Seq_ID_PQC, Seq_ID_IMP) %>% 
+    dplyr::inner_join(man_epi_mis_tib, by=c("Seq_ID_PQC"="Seq_ID"), suffix=c("_V1", "_V2")) %>%
+    dplyr::select(dplyr::all_of(man_pqc_sel_col))
+  
+  # 
+  # This verifies all the CpG's in EPIC have other names, but all of them are found!!!
+  #
+  man_epi_mis_tib %>% dplyr::filter(Source_ID %in% man_cgn_mis_tib$Seq_ID_IMP)
+  
+}
+
+#
+# New Version::
+#
+fin_ses_man_tib <- fin_epi_cov_ctl_tib
 
 #
 # Sesame Manifest QC::
@@ -1461,49 +1678,6 @@ fin_all_man_tib %>%
   dplyr::group_by(DESIGN,Probe_Type,Probe_Source,Version) %>% 
   dplyr::summarise(Sum_Count=n(), .groups="drop") %>% print(n=1000)
 
-fin_all_out_dir <- file.path(par$datDir, 'manifest/covic')
-fin_all_man_fns <- paste0( paste('EPIC',opt$version, sep='-'), '.manifest.sesame-base.cpg-sorted.csv.gz')
-if (!dir.exists(fin_all_out_dir)) dir.create(fin_all_out_dir, recursive=TRUE)
-fin_all_man_csv <- file.path(fin_all_out_dir, fin_all_man_fns)
-
-if (FALSE) readr::write_csv(fin_all_man_tib, fin_all_man_csv)
-
-#
-# Force Subset for Publication::
-#
-if (FALSE) {
-  
-  # covic_org_tib unique total = 875561, raw total = 875654; dup = 93
-  covic_org_tib %>% dplyr::distinct(M,U) %>% base::nrow()
-  
-  # fin_all_man_tib unique total = 875587, raw total = 875587; dup = 
-  fin_all_man_tib %>% dplyr::distinct(M,U) %>% base::nrow()
-  
-  # Missing Probes:: Infinium I:: -26
-  fin_all_man_tib %>% dplyr::filter(!is.na(M) & !is.na(U)) %>% dplyr::anti_join(covic_org_tib, by=c("M","U"))
-  
-  # Missing Probes:: Infinium II:: 0
-  fin_all_man_tib %>% dplyr::filter(is.na(M) & !is.na(U)) %>% dplyr::anti_join(covic_org_tib, by="U")
-  
-  
-  # Cross checking::
-  covic_org_tib %>% dplyr::anti_join(fin_all_man_tib, by=c("M","U"))
-  dplyr::bind_rows(
-    fin_all_man_tib %>% dplyr::filter( is.na(M) & !is.na(U) & U %in% covic_org_tib$U ),
-    fin_all_man_tib %>% dplyr::filter(!is.na(M) & !is.na(U) & U %in% covic_org_tib$U & M %in% covic_org_tib$M )
-  ) %>% dplyr::distinct(M,U, .keep_all=TRUE)
-
-    
-  
-  dplyr::bind_rows(
-    fin_all_man_tib %>% dplyr::filter( is.na(M) & !is.na(U) & U %in% covic_org_tib$U ),
-    fin_all_man_tib %>% dplyr::filter(!is.na(M) & !is.na(U) & U %in% covic_org_tib$U & M %in% covic_org_tib$M )
-  ) %>% dplyr::distinct(M,U, .keep_all=TRUE)
-  
-  # Evidence for duplicates in EPIC-C0 build::
-  covic_org_tib %>% dplyr::add_count(M,U, name="DUP") %>% dplyr::filter(DUP != 1)
-}
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #                  7.1 COVIC Sesame Coordinates Construction::
@@ -1519,7 +1693,9 @@ man_pqc_all_tib %>%
                 AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,Chromosome,Coordinate) %>% 
   dplyr::distinct()
 
-fin_man_grs_tib <- man_pqc_all_tib %>% 
+# fin_man_grs_tib <- man_pqc_all_tib %>% 
+fin_man_grs_tib <- fin_ses_man_tib %>% 
+  dplyr::filter(!is.na(PRB1_U_MAT)) %>%
   dplyr::inner_join(imp_pos3_tib, by=c("PRB1_U_MAT"="Seq50U"), suffix=c("_PQC", "_IMP")) %>% 
   dplyr::select(Probe_ID,Chromosome,Coordinate) %>% 
   dplyr::distinct() %>%
@@ -1541,6 +1717,25 @@ if (!is.null(opt$annDir) && dir.exists(opt$annDir)) {
                          verbose=opt$verbose,vt=1,tc=1,tt=pTracker)
 }
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                 7.2 Write Outputs:: Manifest/BED/Annotation
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Add Genomic Counts to BED file as Score::
+#
+fin_man_cnt_tib <- fin_man_grs_tib %>% 
+  dplyr::add_count(Seq_ID, name="Genomic_Map_Count") %>%
+  dplyr::distinct(Seq_ID, Genomic_Map_Count)
+
+fin_man_out_tib <- fin_all_man_tib %>% 
+  dplyr::select(-PRB1_U_MAT,-Seq_48U) %>% 
+  dplyr::left_join(fin_man_cnt_tib, by=c("Probe_ID"="Seq_ID"))
+
+fin_all_out_dir <- file.path(par$datDir, 'manifest/covic')
+fin_all_man_fns <- paste0( paste('EPIC',opt$version, sep='-'), '.manifest.sesame-base.cpg-sorted.csv.gz')
+if (!dir.exists(fin_all_out_dir)) dir.create(fin_all_out_dir, recursive=TRUE)
+fin_all_man_csv <- file.path(fin_all_out_dir, fin_all_man_fns)
+
 # Write BED & Annotation Files::
 #
 fin_man_ana_dir <- file.path(par$datDir, 'manifest/annotation/covic')
@@ -1550,8 +1745,24 @@ fin_man_ana_fns <- paste0( paste('EPIC',opt$version, sep='-'), '.annotation.csv.
 if (!dir.exists(fin_man_ana_dir)) dir.create(fin_man_ana_dir, recursive=TRUE)
 fin_man_bed_tsv <- file.path(fin_man_ana_dir,fin_man_bed_fns)
 fin_man_ana_csv <- file.path(fin_man_ana_dir,fin_man_ana_fns)
-if (FALSE) readr::write_tsv(fin_man_grs_tib, fin_man_bed_tsv)
-if (FALSE) readr::write_csv(fin_man_ana_tib, fin_man_ana_csv)
+
+opt$write_data <- FALSE
+opt$write_data <- TRUE
+
+# if (opt$write_data) readr::write_csv(fin_all_man_tib, fin_all_man_csv)
+# if (opt$write_data) readr::write_csv(fin_ses_man_tib, fin_all_man_csv)
+if (opt$write_data) readr::write_csv(fin_man_out_tib, fin_all_man_csv)
+if (opt$write_data) readr::write_tsv(fin_man_grs_tib, fin_man_bed_tsv)
+if (opt$write_data) readr::write_csv(fin_man_ana_tib, fin_man_ana_csv)
+
+
+
+
+
+
+
+
+
 
 
 
