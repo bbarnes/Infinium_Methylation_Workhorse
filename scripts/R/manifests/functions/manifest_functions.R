@@ -60,7 +60,7 @@ template_func = function(tib,
 #                        Manifest Conversion Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-manToAdd = function(man,
+manToAdd = function(man, sel=c("Probe_ID","Next_Base","Probe_Type","Probe_Source"),
                     verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'manToAdd'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -70,24 +70,30 @@ manToAdd = function(man,
   ret_tib <- NULL
   stime <- system.time({
     
+    # Remove Design_Type from sel vector and then add it back...
+    sel <- sel %>% purrr::discard(~ .x %in% c("Design_Type","M","U") )
+
     ret_tib <- dplyr::bind_rows(
       
       man %>% dplyr::filter(!is.na(U)) %>% 
         dplyr::filter(!is.na(M)) %>% 
         dplyr::mutate(Design_Type='IM') %>% 
-        dplyr::select(Probe_ID,M,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
+        dplyr::select(dplyr::all_of( c(sel,"M","Design_Type") )) %>%
+        # dplyr::select(Probe_ID,M,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
         dplyr::rename(Address=M),
       
       man %>% dplyr::filter(!is.na(U)) %>% 
         dplyr::filter(!is.na(M)) %>% 
         dplyr::mutate(Design_Type='IU') %>% 
-        dplyr::select(Probe_ID,U,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
+        dplyr::select(dplyr::all_of( c(sel,"U","Design_Type") )) %>%
+        # dplyr::select(Probe_ID,U,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
         dplyr::rename(Address=U),
       
       man %>% dplyr::filter(!is.na(U)) %>% 
         dplyr::filter(is.na(M)) %>% 
         dplyr::mutate(Design_Type='II') %>% 
-        dplyr::select(Probe_ID,U,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
+        dplyr::select(dplyr::all_of( c(sel,"U","Design_Type") )) %>%
+        # dplyr::select(Probe_ID,U,Next_Base,Probe_Type,Probe_Source,Design_Type) %>% 
         dplyr::rename(Address=U)
     )
     
@@ -368,7 +374,7 @@ addGenomicToMAN = function(man, pos_tsv, pos_col=NULL,
 #                          Bind Probe Design Lists::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-bindProbeDesignList = function(list, platform, version, 
+bindProbeDesignList = function(list, platform=NULL, version=NULL, 
                                sumDir=NULL,del='.',
                                verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'bindProbeDesignList'
@@ -425,17 +431,22 @@ bindProbeDesignList = function(list, platform, version,
         #   ValidID ~ 'FALSE',
         #   TRUE ~ 'TRUE'),
         M=as.integer(M),
-        U=as.integer(U),
-        Probe_Source=platform,
-        Version=version
+        U=as.integer(U)
+        # Probe_Source=platform,
+        # Version=version
       ) %>%
       dplyr::rename(Strand_TB=Strand_SR,Strand_CO=Strand_CO) %>%
       dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,
-                    Seq_ID,Probe_Type,Probe_Source,Version,
+                    Seq_ID,Probe_Type, # Probe_Source,Version,
                     Strand_TB,Strand_CO,Infinium_Design,
                     AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
                     Top_Sequence, dplyr::everything()) %>%
       dplyr::arrange(Probe_ID)
+    
+    if (!is.null(platform)) 
+      ret_tib <- ret_tib %>% dplyr::mutate(Probe_Source=platform)
+    if (!is.null(version)) 
+      ret_tib <- ret_tib %>% dplyr::mutate(Version=version)
     
     # Matched Group Summary::
     sum_tib <- ret_tib %>% 
@@ -669,7 +680,7 @@ man_join_prbs = function(man, prbs,
     
     man1_tib <- man %>% dplyr::filter(!is.na(U)) %>% dplyr::filter(!is.na(M))
     man2_tib <- man %>% dplyr::filter(!is.na(U)) %>% dplyr::filter( is.na(M))
-
+    
     # man1_tib <- dplyr::filter(man, Infinium_Design==1)
     # man2_tib <- dplyr::filter(man, Infinium_Design==2)
     
@@ -704,7 +715,7 @@ man_join_prbs = function(man, prbs,
     ret_tib <- 
       dplyr::bind_rows(mat1_tib,mat2_tib) %>%
       dplyr::rename(Probe_Type=Probe_Type_Man #, Seq_ID=Seq_ID_Prb
-                    ) %>%
+      ) %>%
       # add_count(U,M,Seq_ID, name='Tango_CGN_Count') %>%
       add_count(U,M,Probe_ID, name='Tango_CGN_Count') %>%
       dplyr::arrange(-Tango_CGN_Count) %>% 
@@ -1758,7 +1769,7 @@ loadORD = function(file, format='old', skip=8, guess=50000, trim=FALSE,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
-
+    
     if (format=='old' || format=='gta') {
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(file, skip=skip, guess_max=guess)  )) %>%
         dplyr::mutate(AlleleB_Probe_Id=as.character(AlleleB_Probe_Id), 

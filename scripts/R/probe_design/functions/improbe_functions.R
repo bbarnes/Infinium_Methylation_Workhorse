@@ -83,9 +83,11 @@ improbe_design_all = function(tib, ptype, outDir, gen,
     if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
     
     imp_fwd_name <- paste(ptype,gen,"improbe_fwd-seq.tsv.gz", sep=del)
-    imp_des_name <- paste(ptype,gen,"improbe-designOutput.tsv.gz", sep=del)
     imp_fwd_path <- file.path(outDir, imp_fwd_name)
-    imp_des_path <- file.path(outDir, imp_des_name)
+    
+    # These are NOT used...
+    # imp_des_name <- paste(ptype,gen,"improbe-designOutput.tsv.gz", sep=del)
+    # imp_des_path <- file.path(outDir, imp_des_name)
     
     imp_fwd_tib <- tib %>% 
       dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island)

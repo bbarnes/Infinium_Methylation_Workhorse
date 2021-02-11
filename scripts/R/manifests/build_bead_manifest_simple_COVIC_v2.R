@@ -51,9 +51,11 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'manifests'
-par$prgmTag <- 'build_bead_manifest_simple'
+par$prgmTag <- 'build_bead_manifest_simple_COVIC_v2'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
+par$manDir        <- NULL
+par$idat_prefix   <- NULL
 par$local_runType <- NULL
 
 # Executables::
@@ -235,6 +237,7 @@ if (args.dat[1]=='RStudio') {
     opt$genomeBuild <- 'GRCh36'
     opt$genomeBuild <- 'GRCh37'
     opt$genomeBuild <- 'GRCh38'
+    
     opt$platform    <- 'COVIC'
     opt$version     <- 'C0'
     opt$version     <- 'B1'
@@ -242,7 +245,11 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C3'
     opt$version     <- 'C4'
     opt$version     <- 'C5'
+    opt$version     <- 'C6'
     
+    par$manDir <- "/Users/bretbarnes/Documents/data/manifests"
+    par$idat_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R01C01"
+
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genomeBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genomeBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     opt$pre_man_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B2.csv.gz'
@@ -377,8 +384,8 @@ if (args.dat[1]=='RStudio') {
     opt$pqcSkip <- 7
     
     opt$genomeBuild <- 'GRCh36'
-    opt$genomeBuild <- 'GRCh37'
     opt$genomeBuild <- 'GRCh38'
+    opt$genomeBuild <- 'GRCh37'
     opt$platform    <- 'NZT'
     opt$version     <- 'N0'
     
@@ -412,6 +419,8 @@ if (args.dat[1]=='RStudio') {
   
   # opt$fresh <- TRUE
   opt$fresh <- FALSE
+  
+  opt$verbose <- 3
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -646,343 +655,70 @@ color_tib <- suppressMessages(suppressWarnings( readr::read_csv(file.path(par$da
 color_vec <- color_tib %>% dplyr::pull(Color) %>% as.vector()
 color_len <- length(color_vec)
 
-base_sel_cols <- c("Probe_ID","Seq_ID","M","U","Probe_Type","Next_Base",
-                   "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U",
-                   "AQP")
-
-base_sel_cols <- c("Probe_ID","M","U","Probe_Type","Next_Base",
-                   "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U",
-                   "AQP")
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     0.0 Clean Tango Build:: COVIC
+#                     1.0 Clean Tango Build:: COVIC
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (par$local_runType=="COVIC") {
-  opt$verbose <- 10
-  
-  # Check ORD Data::
-  covic_ord_tib <- readr::read_csv(opt$ords[1], skip = 8, guess_max = 50000) %>%
-    dplyr::rename(Order_ID=Assay_Design_Id) %>%
-    dplyr::mutate(AlleleA_Probe_Sequence=stringr::str_to_upper(AlleleA_Probe_Sequence),
-                  AlleleB_Probe_Sequence=stringr::str_to_upper(AlleleB_Probe_Sequence),
-                  Design_TypeA=dplyr::case_when(!is.na(AlleleB_Probe_Sequence) ~ 'U', TRUE ~ '2' ), 
-                  Design_TypeB=dplyr::case_when(!is.na(AlleleB_Probe_Sequence) ~ 'M', TRUE ~ '2' ) ) %>% 
-    dplyr::select(-AlleleA_Probe_Id,-AlleleB_Probe_Id,-Normalization_Bin) %>%
-    dplyr::arrange(Order_ID) %>%
-    dplyr::distinct(AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>%
-    dplyr::mutate(Order_ID=stringr::str_remove(Order_ID, '_[0-9]+$') %>%
-                    stringr::str_replace('_','-') %>% 
-                    stringr::str_replace('II', '2') %>% 
-                    stringr::str_replace('I', '1') %>%
-                    stringr::str_remove_all('_') %>%
-                    stringr::str_replace('-','_') )
-  
-  # Build flatten ORD table::
-  #   - Non Unique = 10,537; NEW => 10,462
-  covic_ord_tab <- dplyr::bind_rows(
-    covic_ord_tib %>% dplyr::select(-AlleleB_Probe_Sequence,-Design_TypeB) %>% 
-      dplyr::rename(Probe_Seq=AlleleA_Probe_Sequence,Design_Type=Design_TypeA),
-    covic_ord_tib %>% dplyr::select(-AlleleA_Probe_Sequence,-Design_TypeA) %>% 
-      dplyr::rename(Probe_Seq=AlleleB_Probe_Sequence,Design_Type=Design_TypeB),
-  ) %>% dplyr::filter(!is.na(Probe_Seq) & !is.na(Design_Type)) %>% 
-    dplyr::arrange(Order_ID) %>%
-    dplyr::distinct(Probe_Seq,Design_Type, .keep_all=TRUE)    
-  
-  # Resolve Duplicates:: INCOMPLETE
-  covic_ord_tab %>% 
-    dplyr::add_count(Probe_Seq, name="Seq_Count") %>% 
-    dplyr::filter(Seq_Count!=1) %>% 
-    dplyr::arrange(-Seq_Count,Probe_Seq)
-  
-  # Check MAT Data::
-  covic_mat_tib <- readr::read_tsv(mats_vec[1]) %>%
-    dplyr::rename(Match_ID=probe_id,
-                  Address=address_name,
-                  Probe_Seq=sequence) %>%
-    dplyr::mutate(Address=stringr::str_remove(Address, '^1') %>% 
-                    stringr::str_remove('^0+') %>% as.integer(),
-                  Probe_Seq=stringr::str_to_upper(Probe_Seq)) %>%
-    dplyr::select(Match_ID,Probe_Seq,Address) %>%
-    dplyr::arrange(Address) %>%
-    dplyr::distinct(Address, .keep_all=TRUE) %>%
-    dplyr::mutate(Match_ID=stringr::str_replace(Match_ID, '_','-') %>%
-                    stringr::str_replace('II', '2') %>% 
-                    stringr::str_replace('I', '1') %>%
-                    stringr::str_remove_all('_') %>%
-                    stringr::str_replace('-','_') )
-  
-  # Check PQC Data::
-  #
-  covic_aqp_tib <- loadPQC(file = opt$aqps, format = 'aqp', verbose = 4) %>% 
-    dplyr::mutate(Address=stringr::str_remove(Address, '^1') %>% 
-                    stringr::str_remove('^0+') %>% as.integer(),
-                  Decode_Status=as.integer(Decode_Status)) %>%
-    dplyr::select(Address,Decode_Status) %>%
-    dplyr::arrange(Address) %>%
-    dplyr::distinct(Address, .keep_all=TRUE)
-  
-  # Join MAT & AQP::
-  covic_mat_aqp_raw_tab <- covic_mat_tib %>% 
-    dplyr::inner_join(covic_aqp_tib, by="Address") %>% 
-    dplyr::distinct(Probe_Seq,Address, .keep_all=TRUE)
-  
-  covic_mat_aqp_pas_tab <- covic_mat_aqp_raw_tab %>%
-    dplyr::filter(!is.na(Decode_Status) & Decode_Status==0) %>%
-    dplyr::distinct(Probe_Seq,Address, .keep_all=TRUE)
-  
-  # Join all data:: Decode Pass
-  covic_ann_aqp_tab <- covic_ord_tab %>% 
-    dplyr::inner_join(covic_mat_aqp_pas_tab, by="Probe_Seq") %>% 
-    dplyr::select(-Decode_Status)
-  
-  # Rebuild Pairs:: covic_ord_tib U covic_ann_aqp_tab
-  #
-  covic_man_rebuilt_tib <- dplyr::bind_rows(
-    
-    covic_ord_tib %>% 
-      dplyr::filter(is.na(AlleleB_Probe_Sequence)) %>%
-      dplyr::inner_join(
-        covic_ann_aqp_tab %>% 
-          dplyr::rename(Order_ID_A=Order_ID, Match_ID_A=Match_ID, U=Address), 
-        by=c("AlleleA_Probe_Sequence"="Probe_Seq",
-             "Design_TypeA"="Design_Type")
-      ) %>% dplyr::filter(!is.na(AlleleA_Probe_Sequence) & !is.na(U)),
-    
-    covic_ord_tib %>% 
-      dplyr::filter(!is.na(AlleleB_Probe_Sequence)) %>%
-      dplyr::inner_join(
-        covic_ann_aqp_tab %>% 
-          dplyr::rename(Order_ID_A=Order_ID, Match_ID_A=Match_ID, U=Address), 
-        by=c("AlleleA_Probe_Sequence"="Probe_Seq",
-             "Design_TypeA"="Design_Type")
-      ) %>%
-      dplyr::left_join(
-        covic_ann_aqp_tab %>% 
-          dplyr::rename(Order_ID_B=Order_ID, Match_ID_B=Match_ID, M=Address), 
-        by=c("AlleleB_Probe_Sequence"="Probe_Seq",
-             "Design_TypeB"="Design_Type")
-      ) %>% dplyr::filter(!is.na(AlleleA_Probe_Sequence) & !is.na(U),
-                          !is.na(AlleleB_Probe_Sequence) & !is.na(M))
-  ) %>% dplyr::distinct(M,U, .keep_all=TRUE)
-
-  covic_man_reclean_tib <- covic_man_rebuilt_tib %>% 
-    dplyr::select(Order_ID,M,U,
-                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                  Design_TypeA,Design_TypeB) %>%
-    dplyr::rename(Probe_ID=Order_ID) %>%
-    dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2)) %>%
-    addSeq48U(field="AlleleA_Probe_Sequence") %>%
-    dplyr::mutate(
-      Seq_48U=dplyr::case_when( is.na(M) ~ Seq_48U_2,TRUE ~ Seq_48U_1 )
-    ) %>%
-    dplyr::select(Probe_ID,M,U,Probe_Type,
-                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                  Seq_48U)
-  
-  # ##############################################
-  #
-  #           Start the reclean version::
-  #
-  # ##############################################
-
-  # covic_man_reclean_tib %>% dplyr::anti_join(covic_old_man_tib, by=c("M","U"))
-  # covic_old_man_tib %>% dplyr::anti_join(covic_man_reclean_tib, by=c("M","U"))
-
-  # New Output Directory::
-  opt$outDir <- file.path(opt$outDir, 'reclean')
-  if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-  
-  # Save the old::
-  if (FALSE) {
-    new_man_raw_dat_tib <- man_raw_dat_tib
-    new_man_prb_list <- man_prb_list
-  }
-  
-  #
-  # Adding Original EPIC B2 input into redesign::
-  #
-  opt$use_bs <- TRUE
-  if (opt$use_bs) {
-    epic_b2_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B2.csv.gz'
-    man_ses_raw_tib <- 
-      loadManifestGenomeStudio(file = epic_b2_csv, addSource = TRUE, 
-                               normalize = TRUE, retType = "man", verbose = 10) %>% 
-      dplyr::rename(Probe_ID=IlmnID, U=AddressA_ID, M=AddressB_ID) %>%
-      dplyr::mutate(U=as.integer(U), M=as.integer(M), Version = "B2") %>%
-      dplyr::select(Probe_ID, M,U, Probe_Type, AlleleA_ProbeSeq, AlleleB_ProbeSeq) %>% 
-      dplyr::rename(AlleleA_Probe_Sequence=AlleleA_ProbeSeq, AlleleB_Probe_Sequence=AlleleB_ProbeSeq) %>% 
-      addSeq48U(field = "AlleleA_Probe_Sequence") %>%
-      dplyr::mutate(
-        Seq_48U=dplyr::case_when( is.na(M) ~ Seq_48U_2,TRUE ~ Seq_48U_1 ),
-      ) %>%
-      dplyr::select(Probe_ID,M,U,Probe_Type,
-                    AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                    Seq_48U)
-  } else {
-    #
-    # Adding Sesame EPIC B4 input into redesign::
-    #
-    man_ses_raw_tib <- sesameData::sesameDataGet("EPIC.hg38.manifest") %>% 
-      as.data.frame() %>% 
-      tibble::rownames_to_column(var="Probe_ID") %>% 
-      tibble::as_tibble() %>% 
-      dplyr::rename(Probe_Type=probeType, U=address_A, M=address_B) %>%
-      dplyr::select(Probe_ID,M,U,Probe_Type,ProbeSeq_A,ProbeSeq_B) %>% 
-      dplyr::rename(AlleleA_Probe_Sequence=ProbeSeq_A,
-                    AlleleB_Probe_Sequence=ProbeSeq_B) %>% 
-      addSeq48U(field = "AlleleA_Probe_Sequence") %>%
-      dplyr::mutate(
-        Seq_48U=dplyr::case_when( is.na(M) ~ Seq_48U_2,TRUE ~ Seq_48U_1 ),
-      ) %>%
-      dplyr::select(Probe_ID,M,U,Probe_Type,
-                    AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                    Seq_48U)
-  }
-  
-  if (opt$use_bs) {
-    tmp_bnd_tib <- dplyr::bind_rows(
-      man_ses_raw_tib %>% dplyr::mutate(Platform="EPIC", Version="B2"),
-      covic_man_reclean_tib %>% dplyr::mutate(Platform="COVIC", Version=opt$version))
-  } else {
-    tmp_bnd_tib <- dplyr::bind_rows(
-      man_ses_raw_tib %>% dplyr::mutate(Platform="EPIC", Version=opt$version),
-      covic_man_reclean_tib %>% dplyr::mutate(Platform="COVIC", Version=opt$version))
-  }
-  
-  tmp_bnd_tib %>% base::nrow()
-  man_ses_raw_tib %>% base::nrow()
-  covic_man_reclean_tib %>% base::nrow()
-
-  if (FALSE) {
-    tmp_bnd_tib %>% # dplyr::distinct(Probe_ID) %>% 
-      dplyr::add_count(Probe_ID, name="Prb_Name_CNT") %>% 
-      dplyr::filter(Prb_Name_CNT != 1)
-  }
-  
-  #
-  #
-  # MAIN FOCUS:: 
-  #  - Check New Probe_ID suffix accuracies
-  #  - Add EPIC to Probe Redesign
-  #  - Add Probe Source to Probe Redesign (EPIC/COVIC)
-  #
-  #
-  
-  if (FALSE) {
-    # Intialize the new::
-    man_pqc_raw_tib <- covic_man_reclean_tib
-    man_raw_dat_tib <- covic_man_reclean_tib
-    # man_raw_dat_tib %>% dplyr::filter(is.na(M) & !is.na(AlleleB_Probe_Sequence)) %>% as.data.frame()
-  } else {
-    tmp_bnd_tib <- tmp_bnd_tib %>% dplyr::mutate(AQP=1)
-    
-    man_pqc_raw_tib <- tmp_bnd_tib
-    man_raw_dat_tib <- tmp_bnd_tib
-    
-    rm(tmp_bnd_tib)
-  }
-  
-  # Four Previous Categories::
-  #
-  # covic_old_man_tib
-  # covic_new_man_tib
-  # covic_man_reclean_tib
-  # man_raw_dat_tib
-} else {
-
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                         0.0 Pre-defined Manifest:: GS
+  #               1.1 Load Previous Manifests and AQP Results::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  pre_add_tib <- NULL
-  man_pre_dat_tib <- NULL
-  if (FALSE && !is.null(opt$pre_man_csv)) {
-    new_cols <- 
-      c("Probe_ID","U","AlleleA_Probe_Sequence","M","AlleleB_Probe_Sequence",
-        "Forward_Sequence","SourceSeq","Probe_Type","Infinium_Design",
-        "Next_Base","Color_Channel","Genome_Build","Chromosome",
-        "Coordinate","FR","CO")
+
+  man_raw_dat_tib <- dplyr::bind_rows(
+    # Previous EPIC Designs::
+    loadCoreManifest_COVIC(
+      datDir=par$datDir, manDir=par$manDir,
+      verbose=opt$verbose,tc=0,tt=pTracker),
     
-    # inferManifestFields
-    pre_man_list <- loadManifestGenomeStudio(
-      file=opt$pre_man_csv, normalize=TRUE,
+    # New COVIC Designs::
+    loadAqpWorkflow_COVIC(
+      ords=opt$ords, mats=opt$mats, aqps=opt$aqps,man="C0",
       verbose=opt$verbose,tc=0,tt=pTracker)
+  ) %>% 
+    dplyr::distinct(U,M, .keep_all=TRUE) %>%
+    dplyr::arrange(Probe_ID) %>%
+    dplyr::mutate(AQP=1, AQP=as.integer(AQP))
+  
+  man_add_dat_tib <- 
+    manifestToAddress_COVIC(man_raw_dat_tib, verbose=opt$verbose,tc=0,tt=pTracker)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                 1.2 Load All Full IDAT Chip Validation::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  if (!is.null(par$idat_prefix)) {
+    idat_tib <- 
+      loadIdatAddress(prefix=par$idat_prefix, verbose=opt$verbose,tc=0,tt=pTracker)
     
-    opt$pre_platform <- 'EPIC'
-    opt$pre_version  <- 'B2'
+    man_add_dat_tib <- man_add_dat_tib %>% 
+      dplyr::mutate(isIDAT=dplyr::case_when(
+        Address %in% idat_tib$Address ~ TRUE,
+        TRUE ~ FALSE)
+      )
     
-    ctl_pre_dat_tib <- pre_man_list$ctl
-    man_pre_dat_tib <- pre_man_list$man %>% 
-      purrr::set_names(new_cols) %>% # head() %>%
-      inferManifestFields(key="Probe_ID",
-                          seqA="AlleleA_Probe_Sequence",
-                          seqB="AlleleB_Probe_Sequence") %>%
-      dplyr::select(dplyr::all_of(base_sel_cols)) %>%
-      dplyr::mutate(platform=opt$pre_platform,
-                    version=opt$pre_version,
-                    M=as.integer(M),
-                    U=as.integer(U),
-                    AQP=as.integer(AQP))
-    
-    # opt$build_address <- FALSE
-    opt$build_address <- TRUE
-    if (opt$build_address) {
-      pre_add_tib <- dplyr::bind_rows(
-        man_pre_dat_tib %>% dplyr::filter(!is.na(U) & !is.na(M)) %>% 
-          dplyr::rename(Address=M,Probe_Seq=AlleleB_Probe_Sequence) %>%
-          dplyr::select(Probe_ID,Address,Probe_Seq) %>% 
-          dplyr::mutate(Infinium_Type='M'),
-        
-        man_pre_dat_tib %>% dplyr::filter(!is.na(U) & !is.na(M)) %>% 
-          dplyr::rename(Address=U,Probe_Seq=AlleleA_Probe_Sequence) %>%
-          dplyr::select(Probe_ID,Address,Probe_Seq) %>% 
-          dplyr::mutate(Infinium_Type='U'),
-        
-        man_pre_dat_tib %>% dplyr::filter(!is.na(U) &  is.na(M)) %>%  
-          dplyr::rename(Address=U,Probe_Seq=AlleleA_Probe_Sequence) %>%
-          dplyr::select(Probe_ID,Address,Probe_Seq) %>% 
-          dplyr::mutate(Infinium_Type='2')
-        
-      ) %>% dplyr::arrange(Probe_ID)
-    }
-    
-    if (FALSE) {
-      imp_inp_tib <- pre_man_list$man %>% # head() %>% 
-        dplyr::select(IlmnID, Forward_Sequence, Genome_Build, Chromosome, Coordinate, Probe_Type) %>% 
-        dplyr::rename(Seq_ID=IlmnID, Sequence=Forward_Sequence) %>% 
-        dplyr::mutate(CpG_Island="FALSE")
-      
-      imp_des_tib <- improbe_design_all(tib = imp_inp_tib, ptype = 'cg', 
-                                        outDir = opt$outDir, gen = "all",
-                                        image=image_str, shell=image_ssh,
-                                        seqKey="Sequence",
-                                        parse_din=FALSE,
-                                        verbose=opt$verbose, vt=1,tc=1,tt=pTracker)
-      
-      if (FALSE) {
-        dplyr::bind_rows(
-          man_pre_dat_tib %>% dplyr::inner_join(imp_des_tib, by=c("Seq_48U"="Seq_48U_1")),
-          man_pre_dat_tib %>% dplyr::inner_join(imp_des_tib, by=c("Seq_48U"="Seq_48U_2"))
-        )
-      }
-    }
+    man_add_dat_tib %>% 
+      dplyr::group_by(Probe_Type,Probe_Design,Manifest,isIDAT) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% print()
   }
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       1.2 Summaries Raw Manifest::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  man_raw_sum_tib <- man_raw_dat_tib %>% 
+    dplyr::group_by(Probe_Type,Manifest) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  man_raw_sum_tib %>% print(n=base::nrow(man_raw_sum_tib))
   
-  # Mouse Manifest::
-  #
-  # '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/manifest/base/LEGX-C18.manifest.sesame-base.cpg-sorted.csv.gz'
-  
+  # Only Select a subset of fields:: Skip this for now...
+  # man_epic_tib %>% dplyr::select(dplyr::all_of( man_new_raw_tib %>% names() ))
+
+} else {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                         1.0 Process AQP/PQC Data::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  opt$verbose <- 40
-  opt$verbose <- 3
-  opt$verbose <- 4
-  
-  # aqps_vec   <- NULL
-  # opt$fresh  <- TRUE
+  base_sel_cols <- c("Probe_ID","M","U","Probe_Type","Next_Base",
+                     "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Seq_48U",
+                     "AQP")
   
   man_pqc_raw_tib <- 
     decodeAqpPqcWrapper(
@@ -994,22 +730,12 @@ if (par$local_runType=="COVIC") {
       pqcSkip=opt$pqcSkip,
       name=opt$runName,outDir=opt$manDir,origin=opt$time_org_txt,
       fresh=opt$fresh,fixIds=opt$fixIds,full=par$retData,trim=TRUE,
-      verbose=opt$verbose,vt=1,tc=0,tt=pTracker)
-  
-  man_pqc_dat_tib <- man_pqc_raw_tib %>%
+      verbose=opt$verbose,vt=1,tc=0,tt=pTracker) %>%
     dplyr::select(dplyr::all_of(base_sel_cols))
   
   man_raw_dat_tib <- 
-    dplyr::bind_rows(man_pqc_dat_tib,man_pre_dat_tib) %>%
+    dplyr::bind_rows(man_pqc_raw_tib,man_pre_dat_tib) %>%
     dplyr::select(dplyr::all_of(base_sel_cols))
-  
-  
-  #
-  # Pre-built EPIC-B4 data::
-  #
-  # pre_EPIC_des_csv <- '/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/MethylationEPIC_v-1-0_B4.core.cpg-only.table.csv.gz'
-  # pre_EPIC_des_tib <- readr::read_csv(pre_EPIC_des_csv)
-
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1018,21 +744,6 @@ if (par$local_runType=="COVIC") {
 
 man_prb_list <- NULL
 man_raw_list <- man_raw_dat_tib %>% split(.$Probe_Type)
-
-# man_unq_keys <- NULL
-
-# prb_cols <- 
-#   c("Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col","Next_Base","Seq_ID",
-#     "Probe_Type","Probe_Source","Version","Strand_TB","Strand_CO","Infinium_Design",
-#     "AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Probe_Class",
-#     "AlleleA_Probe_Sequence_MIX","AlleleB_Probe_Sequence_MIX",
-#     "Normalization_Bin","PD",
-#     "Address_Seq_A","Decode_Status_A","Address_Seq_B","Decode_Status_B",
-#     "BP","AQP","AlleleA_Probe_Length","AlleleB_Probe_Length","Di",
-#     "Seq_48U,platform","version","FR","Rep_Cnt","ValidID","Assay_Class",
-#     "Top_Sequence","Design_ID","PIDX,Design_Base_ID","Design_Base_AB",
-#     "Control_Group","Control_Group_Str","DiNuc","N1","N2",
-#     "COLOR_CHANNEL_A","COLOR_CHANNEL_B")
 
 for (probe_type in rev(names(man_raw_list)) ) {
   
@@ -1068,22 +779,6 @@ for (probe_type in rev(names(man_raw_list)) ) {
           verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
     }
     
-    next
-    
-    # OLD Adhoc Methods for Non-CpG's
-    
-    # man_prb_list[[probe_type]] <- NULL
-    # if (!is.null(opt$snp_des_csv) && file.exists(opt$snp_des_csv) ) {
-    #   man_prb_list[[probe_type]] = 
-    #     adhoc_desToMAN(man=man_raw_dat_tib, des_csv=opt$snp_des_csv, probe_type=probe_type,
-    #                    name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
-    #                    idsKey=opt$design_key,
-    #                    seqKey=opt$design_seq,prbKey=opt$design_prb,
-    #                    strsSR=opt$design_srs,strsCO=opt$design_cos,
-    #                    parallel=opt$parallel,fresh=opt$fresh,fixIds=FALSE,
-    #                    verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
-    # 
-    # }
   } else if (probe_type == 'ch') {
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1112,22 +807,7 @@ for (probe_type in rev(names(man_raw_list)) ) {
           
           verbose=opt$verbose,vt=3,tc=0,tt=pTracker)
     }
-    
-    next
-    
-    # OLD Adhoc Methods for Non-CpG's
-    
-    # man_prb_list[[probe_type]] <- NULL
-    # if (!is.null(opt$cph_des_csv) && file.exists(opt$cph_des_csv) ) {
-    #   man_prb_list[[probe_type]] =
-    #     adhoc_desToMAN(man=man_raw_dat_tib, des_csv=opt$cph_des_csv, probe_type=probe_type,
-    #                    name=opt$runName,outDir=opt$desDir,origin=opt$time_org_txt,
-    #                    idsKey=opt$design_key,
-    #                    seqKey=opt$design_seq,prbKey=opt$design_prb,
-    #                    strsSR=opt$design_srs,strsCO=opt$design_cos,
-    #                    parallel=opt$parallel,fresh=opt$fresh,fixIds=FALSE,
-    #                    verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
-    # }
+
   } else if (probe_type == 'cg') {
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1194,11 +874,6 @@ if (opt$verbose>=1) {
   cat(glue::glue("[{par$prgmTag}]: Done. Building Probes.{RET}{RET}"))
 }
 
-# Current Error:: OLD For SNPs Only
-#
-# man_raw_dat_tib %>% dplyr::filter(Probe_Type=='rs') %>% 
-#   dplyr::filter(stringr::str_starts(Probe_ID,"chr")) %>% print()
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.0 Join All Detected Probes:: SNP/CpH/CpG
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1217,7 +892,7 @@ if (opt$verbose>=1) {
 #
 
 man_pqc_prb_tib <- bindProbeDesignList(
-  list=man_prb_list, platform=opt$platform, version=opt$version,
+  list=man_prb_list, # platform=opt$platform, version=opt$version,
   sumDir=opt$sumDir,del='.',
   verbose=opt$verbose,vt=3,tc=1,tt=pTracker) %>% 
   dplyr::mutate(Assay_Class='Analytical')
@@ -1225,145 +900,102 @@ man_pqc_prb_tib <- bindProbeDesignList(
 core_prb_type_vec <- man_pqc_prb_tib %>% 
   dplyr::distinct(Probe_Type) %>% dplyr::pull(Probe_Type)
 
-#
-# Compare Discrepency COVIC::
-#
-# reclean_mis_adds_tib <- man_raw_dat_tib %>% dplyr::anti_join(man_pqc_prb_tib, by=c("M","U"))
-# man_pqc_prb_tib %>% dplyr::filter(AlleleA_Probe_Sequence %in% reclean_mis_adds_tib$AlleleA_Probe_Sequence)
+# Clear up memory::
+# rm(man_prb_list)
 
-# Testing for Seq_48U
-if (FALSE) {
-  man_prb_list %>% 
-    dplyr::bind_rows(.id="Probe_Class") %>%
-    dplyr::distinct(M,U, .keep_all=TRUE) %>%
-    dplyr::filter(is.na(Seq_48U))
-  
-  man_prb_list %>% 
-    dplyr::bind_rows(.id="Probe_Class") %>%
-    dplyr::distinct(M,U, .keep_all=TRUE) %>%
-    dplyr::filter(is.na(Seq_48U)) %>% 
-    dplyr::group_by(Probe_Class,Probe_Type,AQP) %>% 
-    dplyr::summarise(Count=n(), .groups='drop')
-  
-}
+# man_pqc_prb_tib %>% dplyr::group_by(Platform, Version) %>% dplyr::summarise(Count=n(), .groups="drop")
+# man_pqc_prb_tib %>% dplyr::group_by(Platform, Manifest) %>% dplyr::summarise(Count=n(), .groups="drop")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #            Extract Missing Probes from Manifest:: i.e. CTL/UNK
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-#
-# TBD:: Issue:: Need to find original design files for controls...
-#
-# TBD:: See above function request...
-#
-# TBD:: Why not do most of the below upfront???
-#
-# TBD:: Investigate Control Probe Designs ***
-#
-
 man_pqc_unk_tib <- NULL
-if (par$local_runType!="COVIC") {
-  
-  man_pqc_unk_tib <- dplyr::anti_join(
-    # With subs-selecting columns is the next line::
-    # dplyr::distinct(man_raw_dat_tib, M,U, .keep_all=TRUE),
-    # Without subs-selecting columns is the next line::
-    dplyr::distinct(man_pqc_raw_tib, M,U, .keep_all=TRUE),
-    dplyr::distinct(man_pqc_prb_tib, M,U, .keep_all=TRUE),
-    by=c("M","U")) %>% 
-    dplyr::distinct(M,U, .keep_all=TRUE) %>%
-    dplyr::mutate(
-      Infinium_Design=dplyr::case_when(
-        !is.na(AlleleA_Probe_Sequence) & !is.na(AlleleB_Probe_Sequence) ~ 1,
-        !is.na(AlleleA_Probe_Sequence) &  is.na(AlleleB_Probe_Sequence) ~ 2,
-        TRUE ~ NA_real_)
-    ) %>%
-    # Without subs-selecting columns is the next line:: i.e. man_pqc_raw_tib
-    dplyr::rename(Strand_TB=TB, Strand_CO=CO) %>% 
-    dplyr::mutate(
-      Strand_TB=as.character(Strand_TB),
-      Strand_CO=as.character(Strand_CO),
-      Strand_TB=dplyr::case_when(
-        is.na(Strand_TB) ~ 'N',
-        TRUE ~ Strand_TB),
-      Strand_CO=dplyr::case_when(
-        is.na(Strand_CO) ~ 'N',
-        TRUE ~ Strand_CO)
-    ) %>%
-    # dplyr::add_count(Seq_ID,Strand_TB,Strand_CO,Infinium_Design, name='Rep_Max') %>%
-    dplyr::group_by(Seq_ID,Strand_TB,Strand_CO,Infinium_Design) %>%
-    dplyr::mutate(
-      Rep_Cnt=dplyr::row_number(),
-      Probe_ID=paste0(Seq_ID,'_',Strand_TB,Strand_CO,Infinium_Design,Rep_Cnt) ) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate(
-      Probe_Class=dplyr::case_when(
-        Probe_Type=='cg' ~ 'UK',
-        Probe_Type=='ch' ~ 'UK',
-        Probe_Type=='mu' ~ 'UK',
-        Probe_Type=='rp' ~ 'UK',
-        Probe_Type=='rs' ~ 'UK',
-        Probe_Type=='BS' ~ 'BS',
-        Probe_Type=='NG' ~ 'NG',
-        Probe_Type=='NP' ~ 'NP',
-        TRUE ~ 'UK'),
-      Assay_Class=dplyr::case_when(
-        !Probe_Type %in% core_prb_type_vec ~ 'Control',
-        TRUE ~ 'Testing'),
-      Probe_ID=dplyr::case_when(
-        Assay_Class=='Control' ~ paste('ctl',Probe_ID, sep='-'),
-        TRUE ~ Probe_ID),
-      FN=NA_character_,
-      Probe_Source=opt$platform,
-      Version=opt$version,
-      M=as.integer(M),
-      U=as.integer(U),
-      Strand_TB=as.character(Strand_TB),
-      Strand_CO=as.character(Strand_CO),
-      Infinium_Design=as.integer(Infinium_Design),
-      Di=as.character(Di),
-      # DS=as.integer(DS),
-      # HS=as.integer(HS),
-      # FN=as.character(FN),
-      ValidID=FALSE,
-      Probe_ID=dplyr::case_when(
-        Probe_Type %in% core_prb_type_vec ~ stringr::str_replace(Probe_ID, '^[a-zA-Z][a-zA-Z]','uk'),
-        TRUE ~ Probe_ID
-      )
-    ) %>% 
-    dplyr::select(Probe_ID,M,U,DESIGN,COLOR_CHANNEL,col,Next_Base,
-                  Seq_ID,Probe_Type,Probe_Source,Version,
-                  Strand_TB,Strand_CO,Infinium_Design,
-                  AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                  dplyr::everything()) %>%
-    dplyr::arrange(Probe_ID)
-}
+man_pqc_all_tib <- man_pqc_prb_tib %>% 
+  tidyr::separate(Probe_ID, into=c("Source_ID","Source_Tag"), 
+                  sep="_", remove=FALSE) 
 
-if (! is.null(man_pqc_unk_tib)) {
-  #
-  # Check is.na(Seq_48U)
-  #   man_pqc_unk_tib %>% dplyr::filter(is.na(Seq_48U))
-  #
-  man_pqc_unk_tib %>% 
-    dplyr::mutate(TS=stringr::str_sub(Probe_ID,1,2)) %>% 
-    dplyr::group_by(TS,Probe_Type,Probe_Class,Assay_Class,AQP) %>% 
-    dplyr::summarise(Count=n(), .groups='drop')
-  
-  # Full Unite::
-  #  TBD:: Should remove Rep_Num from source...
-  #
-  man_pqc_all_col <- names(man_pqc_prb_tib)[names(man_pqc_prb_tib) %in% names(man_pqc_unk_tib)]
-  man_pqc_prb_col <- c(man_pqc_all_col, 'Top_Sequence')
-  man_pqc_unk_col <- c(man_pqc_all_col)
-  # man_pqc_unk_col <- c(man_pqc_all_col)
-  man_pqc_all_tib <- dplyr::bind_rows(
-    dplyr::select(man_pqc_prb_tib, dplyr::all_of(man_pqc_prb_col)),
-    dplyr::select(man_pqc_unk_tib, dplyr::all_of(man_pqc_unk_col))
-  )
-} else {
-  man_pqc_all_tib <- man_pqc_prb_tib %>% 
-    tidyr::separate(Probe_ID, into=c("Source_ID","Source_Tag"), sep="_", remove=FALSE) 
-}
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       0.5 Manifest Summary: S4/C0/B4/B2
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+epic_b2_tag_tib <- dplyr::bind_rows( epic_b4_tib, epic_b2_tib ) %>% 
+  dplyr::mutate(Platform="EPIC",Probe_Source="EPIC") %>%
+  dplyr::distinct(M,U, .keep_all=TRUE) %>% 
+  dplyr::mutate(
+    DESIGN=Infinium_Design,
+    Infinium_Design=dplyr::case_when(Infinium_Design=="I" ~ "1", 
+                                     Infinium_Design=="II" ~ "2", 
+                                     TRUE ~ NA_character_), 
+    Infinium_Design=as.integer(Infinium_Design) ) %>% 
+  dplyr::left_join(man_pqc_all_tib %>% dplyr::select(M,U,PRB1_U_MAT), by=c("M","U"))
+
+
+epic_b2_sum_tib <- epic_b2_tag_tib %>% 
+  dplyr::group_by(Man_Source,Probe_Type,Infinium_Design,
+                  Probe_Source,Platform,Version) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+# Quick QC::
+epic_b2_ses_mis_cnt <- epic_S4_tib %>% 
+  dplyr::anti_join(epic_b2_tag_tib, by=c("M","U")) %>% base::nrow()
+cat(glue::glue("[{par$prgmTag}]: epic_b2_ses_mis_cnt={epic_b2_ses_mis_cnt}.{RET}"))
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        0.6 IDATs Stats Summary: S4/C0/B4/B2
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Compare IDATS to Original MAT/AQP and ORD/MAT/AQP Passing::
+mis_add_idats_raw_tib <- covic_mat_aqp_raw_tab %>% dplyr::anti_join(idat_tib, by="Address")
+mis_add_idats_pas_tib <- covic_mat_aqp_pas_tab %>% dplyr::anti_join(idat_tib, by="Address")
+covic_ann_aqp_tab %>% dplyr::anti_join(idat_tib, by="Address")
+
+# Compare new AQP data::
+man_pqc_all_tib %>% dplyr::filter(!is.na(U)) %>%
+  dplyr::anti_join(idat_tib, by=c("U"="Address"))
+
+# Summary::
+man_pqc_all_tib %>% dplyr::filter(!is.na(U)) %>%
+  dplyr::anti_join(idat_tib, by=c("U"="Address")) %>% 
+  dplyr::group_by(Probe_Type,DESIGN) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       0.7 Build Label Table: S4/C0/B4/B2
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+# Build labeld M/U Versions::
+#
+#   RECALCULATE FOR ACCURACY!!!
+#
+man_ver_all_tib <- dplyr::bind_rows(
+  epic_S4_tib %>% dplyr::select(Probe_ID,Probe_Type,U,M) %>% dplyr::mutate(M=as.integer(M), U=as.integer(U), Version="S4"),
+  epic_b4_tib %>% dplyr::select(Probe_ID,Probe_Type,U,M) %>% dplyr::mutate(M=as.integer(M), U=as.integer(U), Version="B4"),
+  epic_b2_tib %>% dplyr::select(Probe_ID,Probe_Type,U,M) %>% dplyr::mutate(M=as.integer(M), U=as.integer(U), Version="B2"),
+  man_pqc_all_tib %>% dplyr::select(Probe_ID,Probe_Type,U,M) %>% dplyr::mutate(M=as.integer(M), U=as.integer(U), Version="C0"),
+) %>% dplyr::distinct(M,U, .keep_all=TRUE)
+
+# Compare Labeled Sources vs. Idats:: Tables
+man_src_mat_idats_tib <- dplyr::bind_rows(
+  man_ver_all_tib %>% 
+    dplyr::filter(!is.na(M)) %>% dplyr::inner_join(idat_tib, by=c("M"="Address")),
+  man_ver_all_tib %>% 
+    dplyr::filter(!is.na(U)) %>% dplyr::inner_join(idat_tib, by=c("U"="Address"))
+) %>% dplyr::distinct(M,U, .keep_all=TRUE)
+
+man_src_mis_idats_tib <- dplyr::bind_rows(
+  man_ver_all_tib %>% 
+    dplyr::filter(!is.na(M)) %>% dplyr::anti_join(idat_tib, by=c("M"="Address")),
+  man_ver_all_tib %>% 
+    dplyr::filter(!is.na(U)) %>% dplyr::anti_join(idat_tib, by=c("U"="Address"))
+) %>% dplyr::distinct(M,U, .keep_all=TRUE)
+
+# Compare Labeled Sources vs. Idats:: Summary
+man_src_mat_idats_sum <- man_src_mat_idats_tib %>%
+  dplyr::group_by(Version) %>% dplyr::summarise(Count=n(), .groups="drop")
+man_src_mis_idats_sum <- man_src_mis_idats_tib %>%
+  dplyr::group_by(Version) %>% dplyr::summarise(Count=n(), .groups="drop")
+
 
 #
 # Validation Stats::
@@ -1398,52 +1030,51 @@ man_all_sum_tib <- man_pqc_all_tib %>%
 print(man_all_sum_tib,n=base::nrow(man_all_sum_tib))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#
 #            4.0 Load all Coordinates for Detected Manifest Probes::
+#
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 #
-# TBD:: make function()
+# NOT NEEDED ANY MORE:: Better method below...
 #
-
-#
-# TBD: make pos_tsv into vector input...
-#
-
-man_new_list <- NULL
-man_pos_list <- NULL
-man_new_list <- man_pqc_all_tib %>% split(.$Probe_Class)
-
-for (probe_class in names(man_new_list)) {
-  if (opt$verbose>=3)
-    cat(glue::glue("[{par$prgmTag}]: Loading Coordinates; probe_class={probe_class}...{RET}"))
+if (FALSE) {
+  man_new_list <- NULL
+  man_pos_list <- NULL
+  man_new_list <- man_pqc_all_tib %>% split(.$Probe_Class)
   
-  pos_key <- paste(opt$runName,probe_class, sep='.')
-  pos_col <- 
-    cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
-
-  pos_tsv <- NULL
-  if (probe_class=='cg') pos_tsv <- opt$cpg_pos_tsv
-  if (probe_class=='ch') pos_tsv <- opt$cph_pos_tsv
-  if (probe_class=='rs') pos_tsv <- opt$snp_pos_tsv
-  if (is.null(pos_tsv)) {
-    cat(glue::glue("{RET}[{par$prgmTag}]: Skipping: Unsupported probe_class={probe_class}!{RET}{RET}"))
-    next
+  for (probe_class in names(man_new_list)) {
+    if (opt$verbose>=3)
+      cat(glue::glue("[{par$prgmTag}]: Loading Coordinates; probe_class={probe_class}...{RET}"))
+    
+    pos_key <- paste(opt$runName,probe_class, sep='.')
+    pos_col <- 
+      cols(Seq_ID=col_character(),Gen_Chr=col_character(),Gen_Pos=col_double() )
+    
+    pos_tsv <- NULL
+    if (probe_class=='cg') pos_tsv <- opt$cpg_pos_tsv
+    if (probe_class=='ch') pos_tsv <- opt$cph_pos_tsv
+    if (probe_class=='rs') pos_tsv <- opt$snp_pos_tsv
+    if (is.null(pos_tsv)) {
+      cat(glue::glue("{RET}[{par$prgmTag}]: Skipping: Unsupported probe_class={probe_class}!{RET}{RET}"))
+      next
+    }
+    
+    man_pos_list[[probe_class]] <- NULL
+    man_pos_list[[probe_class]] =
+      loadAllGenomicByMAN(
+        man=man_new_list[[probe_class]], pos_tsv=pos_tsv, 
+        pos_col=pos_col,name=pos_key, outDir=opt$genDir,
+        verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
+    
+    if (opt$verbose>=3)
+      man_pos_list[[probe_class]] %>% 
+      dplyr::group_by(Genomic_CGN_Count) %>% 
+      dplyr::summarise(Genomic_Count_Hist=n(), .groups='drop') %>% print()
+    
+    if (opt$verbose>=3)
+      cat(glue::glue("[{par$prgmTag}]: Done. Loading Coordinates.{RET}{RET}"))
   }
-
-  man_pos_list[[probe_class]] <- NULL
-  man_pos_list[[probe_class]] =
-    loadAllGenomicByMAN(
-      man=man_new_list[[probe_class]], pos_tsv=pos_tsv, 
-      pos_col=pos_col,name=pos_key, outDir=opt$genDir,
-      verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
-  
-  if (opt$verbose>=3)
-    man_pos_list[[probe_class]] %>% 
-    dplyr::group_by(Genomic_CGN_Count) %>% 
-    dplyr::summarise(Genomic_Count_Hist=n(), .groups='drop') %>% print()
-  
-  if (opt$verbose>=3)
-    cat(glue::glue("[{par$prgmTag}]: Done. Loading Coordinates.{RET}{RET}"))
 }
 
 #
@@ -1455,11 +1086,15 @@ cgn_pos1_pre <- paste(opt$genomeBuild,par$local_runType,opt$version, sep='-')
 cgn_pos1_tsv <- file.path(cgn_pos1_dir, paste(cgn_pos1_pre,'seq48U_to_cgn.int.Seq_48U-sorted.tsv.gz', sep='.'))
 out_pos1_tsv <- file.path(cgn_pos1_dir, paste(cgn_pos1_pre,'seq48U_to_cgn.int.cg-sorted.tsv', sep='.'))
 out_pos3_tsv <- file.path(cgn_pos1_dir, paste(cgn_pos1_pre,'seq48U_to_cgn.int.improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz', sep='.'))
-imp_pos3_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCh38-21092020_improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz'
+
+imp_pos3_dir <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020"
+cgn_pos3_fns <- paste(opt$genomeBuild,"21092020_improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz", sep='-' )
+imp_pos3_tsv <- file.path(imp_pos3_dir, cgn_pos3_fns)
 
 # cgn_pos1_tsv <- file.path(opt$outDir, 'intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.Seq_48U-sorted.tsv.gz')
 # out_pos1_tsv <- file.path(opt$outDir, 'intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.cg-sorted.tsv')
 # out_pos3_tsv <- file.path(opt$outDir, 'intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.GRCh38.improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz')
+# imp_pos3_tsv <- '/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCh38-21092020_improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz'
 
 if (!file.exists(out_pos1_tsv)) {
   # cmd_1 <- "gzip -dc /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple/GRCh38-COVIC-C4/intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.Seq_48U-sorted.tsv.gz | sort -k 2,2 > /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple/GRCh38-COVIC-C4/intersection/cg/GRCh38-COVIC-C4.seq48U_to_cgn.int.cg-sorted.tsv"
@@ -1497,10 +1132,14 @@ imp_pos3_col <- cols(
   Seq_ID = col_character(),
   Chromosome = col_character(),
   Coordinate = col_integer(),
-  FR_DB1 = col_character(),
-  TB_DB1 = col_character(),
-  CO_DB1 = col_character(),
-  NB_DB1 = col_character(),
+  # FR_DB1 = col_character(),
+  # TB_DB1 = col_character(),
+  # CO_DB1 = col_character(),
+  # NB_DB1 = col_character(),
+  FR_IMP = col_character(),
+  TB_IMP = col_character(),
+  CO_IMP = col_character(),
+  NB_IMP = col_character(),
   Seq50U = col_character(),
   
   Seq48U = col_character(),
@@ -1512,132 +1151,415 @@ imp_pos3_col <- cols(
 imp_pos3_tib <- readr::read_tsv(out_pos3_tsv, col_names=names(imp_pos3_col$cols), col_types=imp_pos3_col)
 
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#                  7.0 COVIC Sesame Manifest Construction::
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                   2.1 Load Sesame Product Manifest::
+#             4.1 Match All Probes To CG# Database Coordinates::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+# Data Structures:: 
+#   All DES = man_pqc_all_tib
+#   All POS = man_pqc_grs_tib
+man_pqc_grs_tib <- man_pqc_all_tib %>% 
+  dplyr::filter(!is.na(PRB1_U_MAT)) %>%
+  dplyr::inner_join(imp_pos3_tib, 
+                    by=c("PRB1_U_MAT"="Seq50U"), 
+                    suffix=c("_PQC", "_IMP")) %>% 
+  dplyr::select(Probe_ID,Chromosome,Coordinate, dplyr::everything()) %>% 
+  dplyr::distinct(Probe_ID,Chromosome,Coordinate, .keep_all=TRUE) %>%
+  dplyr::rename(chrom=Chromosome,
+                chromStart=Coordinate) %>%
+  dplyr::mutate(chrom=stringr::str_remove(chrom,'^chr'),
+                chrom=paste0('chr',chrom),
+                chrom=dplyr::case_when(
+                  chrom=="chrMT" ~ "chrM",
+                  TRUE ~ chrom
+                ),
+                chromEnd=chromStart+1) %>%
+  dplyr::arrange(chrom,chromStart) %>%
+  dplyr::select(chrom,chromStart,chromEnd,Probe_ID, dplyr::everything())
 
+# chrM QC::
+# man_pqc_grs_tib %>% dplyr::filter(chrom=="chrM")  # Should be non-zero
+# man_pqc_grs_tib %>% dplyr::filter(chrom=="chrMT") # Should be zero
+
+# Collapse down redundant fields::
 #
-# Load Sesame EPIC manifest instead of previous EPIC C0 manifest::
-#
+# man_pqc_grs_tib %>% dplyr::filter(Seq_48U != Seq48U) %>% dplyr::select(Seq_ID_IMP,PRB1_U_MAT,Seq_48U,Seq48U)
 
-# ses_man_grs <- sesameData::sesameDataGet("EPIC.hg38.manifest")
-# ses_man_grs %>% as.data.frame() %>% tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble() %>% dplyr::rename(Probe_Type=probeType, U=address_A, M=address_B)
+min_pqc_grs_tib <- 
+  man_pqc_all_tib %>% dplyr::select(-Probe_Source,-Version) %>%
+  dplyr::left_join(man_ver_all_tib %>% dplyr::rename(M_Lab=M), 
+                   by=c("U","Probe_Type"), suffix=c("_PQC","_LAB") ) %>%
+  dplyr::filter(!is.na(PRB1_U_MAT)) %>%
+  
+  dplyr::inner_join(imp_pos3_tib %>% dplyr::distinct(Seq_ID,Chromosome,Coordinate,FR_IMP,TB_IMP,CO_IMP,NB_IMP,Seq50U),
+                    by=c("PRB1_U_MAT"="Seq50U"), 
+                    suffix=c("_PQC", "_IMP")) %>% 
+  # dplyr::select(Probe_ID,Chromosome,Coordinate, dplyr::everything()) %>% 
+  # dplyr::distinct(Probe_ID,Chromosome,Coordinate, .keep_all=TRUE) %>%
+  dplyr::rename(chrom=Chromosome,
+                chromStart=Coordinate) %>%
+  dplyr::mutate(chrom=stringr::str_remove(chrom,'^chr'),
+                chrom=paste0('chr',chrom),
+                chrom=dplyr::case_when(
+                  chrom=="chrMT" ~ "chrM",
+                  TRUE ~ chrom
+                ),
+                chromEnd=chromStart+1) %>%
+  dplyr::arrange(chrom,chromStart) %>%
+  dplyr::select(chrom,chromStart,chromEnd, 
+                Seq_ID_IMP,FR_IMP,TB_IMP,CO_IMP,NB_IMP,
+                PRB1_U_MAT,
+                dplyr::everything())
 
-covic_org_csv <- file.path(par$datDir, 'manifest/base/EPIC-C0.manifest.sesame-base.cpg-sorted.csv.gz')
-covic_org_tib <- readr::read_csv(covic_org_csv)
+min_pqc_grs_tib %>% 
+  dplyr::group_by(Platform,Version,Probe_Type) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
 
-epic_b2_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B2.csv.gz'
-epic_b2_tib <- 
-  loadManifestGenomeStudio(file = epic_b2_csv, addSource = TRUE, 
-                           normalize = TRUE, retType = "man", verbose = 10) %>% 
-  dplyr::rename(Probe_ID=IlmnID, U=AddressA_ID, M=AddressB_ID) %>%
-  dplyr::mutate(U=as.integer(U), M=as.integer(M), Version = "B2")
+unq_pqc_cnt_tib <- min_pqc_grs_tib %>% 
+  dplyr::add_count(U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                   chrom,chromStart,chromEnd,Seq_ID_IMP,TB_IMP,CO_IMP, name="Unq_Cnt")
 
-epic_b4_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B4.csv.gz'
-epic_b4_tib <- 
-  loadManifestGenomeStudio(file = epic_b4_csv, addSource = TRUE, 
-                           normalize = TRUE, retType = "man", verbose = 10) %>% 
-  dplyr::rename(Probe_ID=IlmnID, U=AddressA_ID, M=AddressB_ID) %>%
-  dplyr::mutate(U=as.integer(U), M=as.integer(M), Version = "B4")
-
-epic_b2_tag_tib <- dplyr::bind_rows( epic_b4_tib, epic_b2_tib ) %>% 
-  dplyr::mutate(Platform="EPIC",Probe_Source="EPIC") %>%
-  dplyr::distinct(M,U, .keep_all=TRUE) %>% 
-  dplyr::mutate(
-    DESIGN=Infinium_Design,
-    # DESIGN=dplyr::case_when(Infinium_Design==1 ~ 'I', 
-    #                         Infinium_Design==2 ~ 'II', 
-    #                         TRUE ~ NA_character_), 
-    Infinium_Design=dplyr::case_when(Infinium_Design=="I" ~ "1", 
-                                     Infinium_Design=="II" ~ "2", 
-                                     TRUE ~ NA_character_), 
-    Infinium_Design=as.integer(Infinium_Design) ) %>% 
-  dplyr::left_join(man_pqc_all_tib %>% dplyr::select(M,U,PRB1_U_MAT), by=c("M","U"))
-
-epic_b2_tag_tib %>% 
-  dplyr::group_by(Man_Source,Probe_Type,Infinium_Design,
-                  Probe_Source,Platform,Version) %>% 
+unq_pqc_cnt_tib %>% dplyr::filter(Unq_Cnt != 1) %>% 
+  dplyr::distinct(U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                  chrom,chromStart,chromEnd,Seq_ID_IMP,TB_IMP,CO_IMP, 
+                  Probe_Type,Platform, Version, Unq_Cnt) %>%
+  dplyr::group_by(Platform,Version,Probe_Type) %>% 
   dplyr::summarise(Count=n(), .groups="drop")
 
 #
+# Below we really only need to check for Tango U matching!!!
 #
+if (FALSE) {
+  # Check for completely missing tango M/U pairs::
+  man_pqc_sum_tib <- man_pqc_all_tib %>% 
+    dplyr::anti_join(man_pqc_grs_tib, by=c("M"="M_PQC","U"="U_PQC")) %>% 
+    dplyr::anti_join(man_pqc_grs_tib, by=c("M"="M_IMP","U"="U_IMP")) %>%
+    dplyr::group_by(Probe_Type,DESIGN,Probe_Source,Version) %>%
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  man_imp_sum_tib <- man_pqc_all_tib %>% 
+    dplyr::anti_join(man_pqc_grs_tib, by=c("M"="M_IMP","U"="U_IMP")) %>% 
+    # dplyr::anti_join(man_pqc_grs_tib, by=c("M"="M_PQC","U"="U_PQC")) %>%
+    dplyr::group_by(Probe_Type,DESIGN,Probe_Source,Version) %>%
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  # Flip Comparison::
+  mis_pqc_grs_tib <- man_pqc_grs_tib %>%
+    dplyr::anti_join(man_pqc_all_tib, by=c("M_IMP"="M","U_IMP"="U")) %>%
+    # dplyr::anti_join(man_pqc_all_tib, by=c("M_PQC"="M","U_PQC"="U")) %>%
+    dplyr::filter(Seq_48U==Seq48U | AlleleA_Probe_Sequence==PRB2_D_MAT) 
+  
+  man_pqc_all_tib %>% dplyr::inner_join(
+    mis_pqc_grs_tib %>% dplyr::select(AlleleA_Probe_Sequence), by="AlleleA_Probe_Sequence") %>%
+    dplyr::inner_join(imp_pos3_tib, 
+                      by=c("Seq_48U"="Seq48U"),
+                      suffix=c("_PQC", "_IMP")) %>%
+    dplyr::select(Probe_ID,Chromosome,Coordinate, dplyr::everything()) %>% 
+    dplyr::distinct(Probe_ID,Chromosome,Coordinate, .keep_all=TRUE) %>%
+    dplyr::rename(chrom=Chromosome,
+                  chromStart=Coordinate) %>%
+    dplyr::mutate(chrom=stringr::str_remove(chrom,'^chr'),
+                  chrom=paste0('chr',chrom),
+                  chromEnd=chromStart+1) %>%
+    dplyr::arrange(chrom,chromStart) %>%
+    dplyr::select(chrom,chromStart,chromEnd,Probe_ID, dplyr::everything()) %>%
+    dplyr::select(# chrom,chromStart,chromEnd,
+      Probe_ID,PRB1_U_MAT,Seq50U, U_PQC,U_IMP, M_PQC,M_IMP)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                 7.1 Extract Predefined Sesame Mappings: S4
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Data Structures:: 
+#   All DES = man_pqc_all_tib
+#   All POS = man_pqc_grs_tib
 #
-# Current Issue:: Need to make unique original manifest for Sesame!!!
-#
-#  - Split man_pqc_all_tib into EPIC-B4/COVIC-C4 by U/M
-#  - Assign Original Names to EPIC-B4
-#     - Extra error checking between fields
-#
-#
-#
+# TBD:: Need to include man_ver_all_tib labels!!!
 
-#
-# 1.) Original COVIC Sesame Tango Pairs::
-#     - Need to add B2/B4 designation::
-#
-epic_man_ses_tib <- sesameData::sesameDataGet("EPIC.hg38.manifest") %>%
-  as.data.frame() %>% 
-  tibble::rownames_to_column(var="Probe_ID") %>%
-  tibble::as_tibble() %>%
-  dplyr::rename(Probe_Type=probeType, 
-                U=address_A, M=address_B,
-                chrom=seqnames, chromStart=start, chromEnd=end, DESIGN=designType) %>% 
-  dplyr::mutate(U=as.integer(U), M=as.integer(M),
-                chrom=as.character(chrom),
-                ProbeSeq_B=dplyr::case_when(stringr::str_length(ProbeSeq_B)==0 ~ NA_character_, TRUE ~ ProbeSeq_B)) %>%
-  dplyr::distinct(U,M, .keep_all=TRUE)
-
-# Quick QC::
-epic_b2_ses_mis_cnt <- epic_man_ses_tib %>% 
-  dplyr::anti_join(epic_b2_tag_tib, by=c("M","U")) %>% base::nrow()
-cat(glue::glue("[{par$prgmTag}]: epic_b2_ses_mis_cnt={epic_b2_ses_mis_cnt}.{RET}"))
-
-only_b2_tag_tib <- epic_b2_tag_tib %>% dplyr::anti_join(epic_man_ses_tib, by=c("M","U"))
-only_b4_ses_tib <- epic_man_ses_tib %>% dplyr::anti_join(only_b2_tag_tib, by=c("M","U"))
-
-# Get the B2 Only Probes::
-#
-man_pqc_all_tib %>% dplyr::inner_join(only_b2_tag_tib %>% dplyr::select(M,U), by=c("M","U") )
-
-# MISSING 7::
-only_b2_tag_tib %>% dplyr::anti_join(man_pqc_all_tib, by=c("M","U"))
-only_b2_tag_tib %>% dplyr::anti_join(man_pqc_prb_tib, by=c("M","U"))
-only_b2_tag_tib %>% dplyr::anti_join(man_raw_dat_tib, by=c("M","U"))
-man_raw_dat_tib %>% dplyr::anti_join( man_pqc_all_tib %>% dplyr::distinct(M,U), by=c("M","U") ) %>% as.data.frame()
-
-
-only_b2_tag_tib %>% dplyr::anti_join(man_pqc_all_tib, by="M")
-only_b2_tag_tib %>% dplyr::anti_join(man_pqc_all_tib, by="U")
-
-
-only_b2_tag_tib %>% 
-  dplyr::rename(COLOR_CHANNEL=Color_Channel) %>% 
-  dplyr::select(dplyr::all_of(fin_epi_cov_ctl_col))
-
-# This is to be used for top map position selection::
-epic_sub_ses_tib <- epic_man_ses_tib %>% 
-  dplyr::select(Probe_ID,U,M,ProbeSeq_A,ProbeSeq_B,
-                chrom,chromStart,chromEnd,
-                DESIGN,MASK_mapping,MASK_general) %>% 
+epic_S4_grs_tib <- epic_S4_tib %>% 
+  dplyr::select(Probe_ID,
+                chrom,chromStart,chromEnd,strand,DESIGN,
+                U,M,ProbeSeq_A,ProbeSeq_B,
+                DESIGN,gene,MASK_mapping,MASK_general) %>% 
   dplyr::arrange(Probe_ID)
 
+
+# Basic re-ordr of probes based on man_ver_all_tib
+man_S4_PQC_grs_intPrb_tib <- epic_S4_grs_tib %>% 
+  dplyr::inner_join(man_pqc_grs_tib, 
+                    by=c("ProbeSeq_A"="AlleleA_Probe_Sequence", "DESIGN"),
+                    suffix=c("_SES", "_PQC") ) %>%
+  dplyr::mutate(begDif=chromStart_SES-chromStart_PQC,
+                endDif=chromEnd_SES-chromEnd_PQC,
+                cgFlag=dplyr::case_when(
+                  Probe_ID_SES==Seq_ID_PQC ~ 0,
+                  TRUE ~ 1
+                ),
+                chrFlag=dplyr::case_when(
+                  chrom_SES==chrom_PQC ~ 0,
+                  TRUE ~ 1
+                ),
+                absDif=base::abs(begDif)) %>%
+  dplyr::arrange(ProbeSeq_A, chrFlag, absDif, cgFlag)
+
+# Visual Inspection::
 #
+man_S4_PQC_grs_intPrb_tib %>%
+  dplyr::select(Probe_ID_SES,Seq_ID_IMP,Seq_ID_PQC,Probe_ID_PQC,
+                chrom_SES, chrom_PQC,
+                chromStart_SES, chromStart_PQC, begDif,
+                # chromEnd_PQC, chromEnd_SES,  endDif,
+                ProbeSeq_A,Seq48U,Seq_48U)
+
+# hg38: 861,533 unique ProbeSeq_A
+# hg19: 862,799 unique ProbeSeq_A
+cur_mat_prb_tib <- man_S4_PQC_grs_intPrb_tib %>% 
+  dplyr::filter(begDif == 0 & endDif == 0 & chrom_SES==chrom_PQC) %>% 
+  dplyr::distinct(ProbeSeq_A, .keep_all=TRUE)
+
+cur_mat_prb_tib %>%
+  dplyr::group_by(chrFlag,absDif,cgFlag,MASK_mapping,MASK_general) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+
+# Missing Probes: This has to be unique from cur_mat_prb_tib
+cur_mis_prb_tib <- man_S4_PQC_grs_intPrb_tib %>% 
+  dplyr::filter(! ProbeSeq_A %in% cur_mat_prb_tib$ProbeSeq_A)
+  # Old Filtering Method Below:: replaced with line above!!!
+  # dplyr::filter(begDif != 0 | endDif != 0 | chrom_SES!=chrom_PQC) %>% 
+  # dplyr::arrange(begDif) %>%
+  # dplyr::distinct(ProbeSeq_A, .keep_all=TRUE)
+
+cur_mis_prb_tib %>%
+  dplyr::group_by(chrFlag,absDif,cgFlag,MASK_mapping,MASK_general) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>%
+  print(n=base::nrow(cur_mis_prb_tib))
+
+# chrM Probes, total: 8
+cur_mis_prb_tib %>% 
+  dplyr::filter(absDif < 4 & chrFlag==0) %>% 
+  dplyr::select(Probe_ID_SES, Probe_ID_PQC, DESIGN, 
+                chrFlag,absDif,cgFlag,MASK_mapping,MASK_general, 
+                chromStart_SES,chromStart_PQC)
+
+# Example of cgn's not matching (hg38):: 1,701
+# Example of cgn's not matching (hg19)::     8
+cur_mat_prb_tib %>% 
+  dplyr::filter(cgFlag == 1) %>%   
+  dplyr::select(Probe_ID_SES,Seq_ID_IMP,Seq_ID_PQC,Probe_ID_PQC,
+                chrom_SES, chrom_PQC,
+                chromStart_SES, chromStart_PQC, begDif,
+                # chromEnd_PQC, chromEnd_SES,  endDif,
+                ProbeSeq_A,Seq48U,Seq_48U) %>%
+  dplyr::distinct(ProbeSeq_A, .keep_all=TRUE)
+
+if (FALSE) {
+  # Check cgn mismatches:: ProbeSeq_A=AAAAAAAAAAATTCTACTACTAAAAACCTCCTCCCCCTCCAAAAATATAC
+  epic_b2_tib %>% dplyr::filter(Probe_ID=="cg11769960") %>% dplyr::select(Forward_Sequence)
+  # AAGAGGGACGGGAGGAGGGAGATTCTGCTGCTAAGAGCCTCCTCCCCCTCCAAAGATGTG[CG]CTGCGCTTGGGACAAACTTCCAGGTCAAGAAAGTACGGGGGGACAATGGCAACAGCCGCT
+  man_pqc_all_tib %>% dplyr::filter(Seq_ID=="cg22471585") %>% dplyr::select(Top_Sequence)
+  # AAGAGGGACGGGAGGAGGGAGATTCTGCTGCTAAGAGCCTCCTCCCCCTCCAAAGATGTG[CG]CTGCGCTTGGGACAAACTTCCAGCTCAAGAAAGTACGGGGGGACAATGGCAACAGCCGCT
+  
+  man_pqc_all_tib %>% dplyr::filter(AlleleA_Probe_Sequence=="AAAAAAAAAAATTCTACTACTAAAAACCTCCTCCCCCTCCAAAAATATAC")
+  man_pqc_grs_tib %>% dplyr::filter(AlleleA_Probe_Sequence=="AAAAAAAAAAATTCTACTACTAAAAACCTCCTCCCCCTCCAAAAATATAC")
+  
+  # How to get any TB/CO
+  out_pos1_tib %>% dplyr::filter(CGN_Imp=="cg11769960" | CGN_Imp=="cg22471585")
+  
+  # Seq_48U                                          CGN_Imp    TB    CO        M        U
+  # <chr>                                            <chr>      <chr> <chr> <int>    <int>
+  # 1 AAAAAAAAATTCTACTACTAAAAACCTCCTCCCCCTCCAAAAATATAC cg11769960 B     C        NA 59807194
+  # 2 AAAAAAAAATTCTACTACTAAAAACCTCCTCCCCCTCCAAAAATATAC cg22471585 B     C        NA 59807194
+  
+  # Recover TB/CO for cgn mismatches (hg38):: 1,697
+  # Recover TB/CO for cgn mismatches (hg19)::     0
+  cur_mat_prb_tib %>% 
+    dplyr::filter(cgFlag == 1) %>%   
+    dplyr::select(Probe_ID_SES,Seq_ID_IMP,Seq_ID_PQC,Probe_ID_PQC,
+                  chrom_SES, chrom_PQC,
+                  chromStart_SES, chromStart_PQC, begDif,
+                  # chromEnd_PQC, chromEnd_SES,  endDif,
+                  ProbeSeq_A,Seq48U,Seq_48U) %>% 
+    dplyr::inner_join(out_pos1_tib, by="Seq_48U") %>% 
+    dplyr::distinct(ProbeSeq_A, .keep_all=TRUE) %>%
+    dplyr::filter(Probe_ID_SES==CGN_Imp) %>%
+    dplyr::distinct(ProbeSeq_A, .keep_all=TRUE)
+  
+  # Re-run command with two missing example test case::
+  # gzip -dc /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCh38-21092020_improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz | join -t $'  ' -11 -22 - tmp/two-int-seqs.tsv > tmp/two-int-seqs.results.tsv
+  #
+  # Re-run single missing example test case::
+  # gzip -dc /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCh38-21092020_improbe-designOutput.cgn-map-seq.cgn-sorted.tsv.gz | join -t $'  ' -11 -22 - tmp/one-int-seqs.tsv > tmp/one-int-seqs.results.tsv
+  #
+}
+
+
+
+
+
+
 #
-# TBD:: EPIC B2 needs to be split from EPIC B4 and B4 needs to be replaced with Sesame Coordinates::
+# OLD STUFF BELOW::
 #
+
+
+
+
+man_S4_PQC_grs_intPrb_tib %>% 
+  dplyr::filter(ProbeSeq_A %in% cur_mis_prb_tib$ProbeSeq_A) %>% 
+  dplyr::arrange(ProbeSeq_A) %>%
+  dplyr::select(Probe_ID_SES,Seq_ID_IMP,Seq_ID_PQC,Probe_ID_PQC,
+                chrom_SES, chrom_PQC,
+                chromStart_SES, chromStart_PQC, begDif,
+                # chromEnd_PQC, chromEnd_SES,  endDif,
+                ProbeSeq_A)
+                # gene,DESIGN)
+
+
+epic_S4_grs_tib %>% 
+  dplyr::filter(ProbeSeq_A %in% cur_mis_prb_tib$ProbeSeq_A) %>% 
+  dplyr::group_by(MASK_mapping,MASK_general) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+man_S4_PQC_grs_intPrb_tib %>% 
+  dplyr::filter(ProbeSeq_A %in% cur_mis_prb_tib$ProbeSeq_A) %>% 
+  dplyr::distinct(ProbeSeq_A, .keep_all=TRUE) %>%
+  dplyr::group_by(MASK_mapping,MASK_general) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+epic_S4_grs_tib %>% 
+  dplyr::filter(ProbeSeq_A %in% cur_mat_prb_tib$ProbeSeq_A) %>% 
+  dplyr::group_by(MASK_mapping,MASK_general) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+
+cur_mat_pos_tib <- man_S4_PQC_grs_intPrb_tib %>% 
+  # dplyr::distinct(ProbeSeq_A, .keep_all=TRUE) %>%
+  dplyr::anti_join(cur_mis_prb_tib, by="ProbeSeq_A") %>% 
+  # dplyr::anti_join(cur_mat_prb_tib, by="ProbeSeq_A") %>% 
+  dplyr::select(Probe_ID_SES,Seq_ID_IMP,Seq_ID_PQC,Probe_ID_PQC,
+                # chrom_SES, chrom_PQC, 
+                # chromStart_SES, chromStart_PQC, begDif,
+                # chromEnd_PQC, chromEnd_SES,  endDif,
+                begDif,gene,
+                
+                # strand,
+                # TB_DB1,TB_DB2,Strand_TB,
+                # CO_DB1,CO_DB2,Strand_CO,CO,
+                
+                U,U_IMP,U_PQC, M,M_IMP,M_PQC,
+                ProbeSeq_A,ProbeSeq_B,AlleleB_Probe_Sequence,
+                
+                DESIGN # DESIGN_SES, DESIGN_PQC,
+  )
+
+cur_mat_pos_tib %>% 
+  # dplyr::filter(Probe_ID_SES == Seq_ID_IMP) %>%
+  dplyr::distinct(Probe_ID_SES,ProbeSeq_A, .keep_all=TRUE)
+
+# BLAT Source Sequece 
+#  9 cg00699997   cg00699997 cg00699997 cg00699997_BC11 chr19     chr1               27109958      121743261  -94633303    121743262     27109959  -94633303 I     
+# dplyr::filter(Probe_ID_SES=="cg00699997")
+
+
+man_S4_PQC_grs_intPrb_tib %>% 
+  dplyr::select(Probe_ID_SES,Seq_ID_IMP,Seq_ID_PQC,Probe_ID_PQC,
+                chrom_SES, chrom_PQC, 
+                chromStart_SES, chromStart_PQC, begDif,
+                chromEnd_PQC, chromEnd_SES,  endDif,
+                
+                # strand,
+                # TB_DB1,TB_DB2,Strand_TB,
+                # CO_DB1,CO_DB2,Strand_CO,CO,
+                
+                # U,U_IMP,U_PQC, M,M_IMP,M_PQC,
+                # ProbeSeq_A,ProbeSeq_B,AlleleB_Probe_Sequence,
+                
+                DESIGN # DESIGN_SES, DESIGN_PQC,
+  )  %>% 
+  dplyr::filter(begDif == 0 & endDif == 0) %>% 
+  # dplyr::filter(begDif != 0 | endDif != 0) %>% # dplyr::filter(Probe_ID_SES != Seq_ID_PQC & Probe_ID_SES != Seq_ID_IMP)
+  dplyr::distinct(ProbeSeq_A)
+
+
+#  dplyr::distinct(strand,DESIGN, .keep_all=TRUE)
+
+man_S4_PQC_grs_intA_tib <- epic_S4_grs_tib %>% 
+  dplyr::inner_join(man_pqc_all_tib, by="U", suffix=c("_SES", "_IMP")) %>% 
+  dplyr::inner_join(idat_tib, by=c("U"="Address"))
+
+man_S4_PQC_grs_intS_tib <- epic_S4_grs_tib %>% 
+  dplyr::inner_join(man_pqc_all_tib, 
+                    by=c("ProbeSeq_A"="AlleleA_Probe_Sequence"),
+                    suffix=c("_SES", "_IMP")) %>%
+  dplyr::rename(AlleleA_Probe_Sequence=ProbeSeq_A)
+
+man_S4_PQC_grs_intS_tib %>% 
+  dplyr::inner_join(idat_tib, by=c("U_IMP"="Address"))
+man_S4_PQC_grs_intS_tib %>% 
+  dplyr::inner_join(idat_tib, by=c("U_SES"="Address"))
+
+# THIS IS ALL FINE BELOW, Just use Sesame hg38 Probe_IDs
+man_S4_PQC_grs_intS_tib %>% 
+  dplyr::anti_join(idat_tib, by=c("U_SES"="Address"))
+
+man_S4_PQC_grs_intS_tib %>% 
+  dplyr::anti_join(idat_tib, by=c("U_IMP"="Address")) %>%
+  dplyr::left_join(man_ver_all_tib, by=c("U_SES"="U"), suffix=c("_MIS","_LAB")) %>%
+  dplyr::select(Probe_ID_SES,Probe_ID_IMP, U_SES,U_IMP, Probe_ID,Version_LAB,Probe_Type_LAB)
+
+
 #
-epic_sub_ses_tib %>% 
-  dplyr::inner_join(
-    fin_ses_man_tib, 
-    by=c("Probe_ID","U","M","DESIGN", 
-         "ProbeSeq_A"="AlleleA_ProbeSeq", 
-         "ProbeSeq_B"="AlleleB_ProbeSeq") )
+# NOW:: We should use this set to build hg38 coordindates:: man_S4_PQC_grs_intS_tib
+#
+
+
+# Some QC Checks::
+if (FALSE) {
+  man_pqc_all_tib %>% dplyr::anti_join(man_S4_PQC_grs_tib, by="U")
+  man_pqc_all_tib %>% dplyr::anti_join(man_ver_all_tib, by="U")
+  
+  man_ver_all_tib %>% dplyr::anti_join(man_pqc_all_tib, by="U") %>% 
+    dplyr::inner_join(idat_tib, by=c("U"="Address"))
+}
+
+# Determine how many other probes can be removed from remainder (non-S4) by
+#   comparing ProbeSeqU Sequences::
+man_pqc_all_tib %>% dplyr::anti_join(man_S4_PQC_grs_tib, by="U")
+
+man_pqc_all_tib %>% 
+  dplyr::anti_join(epic_S4_grs_tib, by=c("AlleleA_Probe_Sequence"="ProbeSeq_A"))
+
+
+#
+# LEFT OFF HERE!!!!
+#
+
+# 1.) Extract Sesame hg38 M/U: S4 and format into Genomic Region (grs)
+
+#
+# TBD:: Need to pull original and formatted data from source!!!
+#  - Add Seq48U to each manifest
+#  - Match Seq48U for each manifest against imp_pos3_tib to extract Seq50U
+#     this needs to be done based on Infinium I/II
+#  - Now remove non-S4 that have the same Seq50U probes
+#  - Update all S4 loci with TB/CO and check coordinates
+#
+
+
+man_pqc_new_tib <- man_pqc_all_tib %>% 
+  dplyr::anti_join(dplyr::filter(man_ver_all_tib, Version=="S4"), by=c("M","U")) %>%
+  dplyr::distinct(U,M, .keep_all=TRUE)
+
+man_pqc_new2_tib <- dplyr::filter(man_ver_all_tib, Version!="S4") %>% 
+  dplyr::distinct(U,M, .keep_all=TRUE)
+
+man_pqc_new_tib %>% dplyr::anti_join(man_pqc_new2_tib, by=c("M","U"))
+man_pqc_new2_tib %>% dplyr::anti_join(man_pqc_new_tib, by=c("M","U")) %>% 
+  dplyr::anti_join(idat_tib, by=c("U"="Address"))
 
 
 #
@@ -1653,12 +1575,12 @@ man_cov_dat_tib <- man_pqc_all_tib %>%
 man_cov_dat_tib %>% dplyr::select(dplyr::all_of(fin_epi_cov_ctl_col))
 
 #
-# 3.) Add Controls from covic_org_tib
+# 3.) Add Controls from covic_c0_tib
 #
 all_ctl_dat_csv <- file.path(par$datDir, 'manifest/core/LEGX-C24.manifest.sesame-base.cpg-sorted.csv.gz')
 all_ctl_dat_tib <- readr::read_csv(all_ctl_dat_csv, guess_max = 50000)
 
-man_ctl_dat_tib <- covic_org_tib %>% 
+man_ctl_dat_tib <- covic_c0_tib %>% 
   dplyr::filter(Probe_Type != "cg") %>%
   dplyr::filter(Probe_Type != "ch") %>%
   dplyr::filter(Probe_Type != "rs")
@@ -1744,7 +1666,7 @@ fin_ses_man_tib <- fin_epi_cov_ctl_tib
 # Sesame Manifest QC::
 #
 # This should be zero::
-check0_val <- covic_org_tib %>% 
+check0_val <- covic_c0_tib %>% 
   dplyr::anti_join(fin_ses_man_tib, by=c("M","U")) %>% 
   dplyr::distinct(M,U, .keep_all=TRUE) %>%
   dplyr::filter(stringr::str_detect(Probe_ID, "_")) %>% 
@@ -1752,7 +1674,7 @@ check0_val <- covic_org_tib %>%
   base::nrow()
 cat(glue::glue("COVIC Validation Checks: 0:{check0_val}{RET}{RET}"))
 
-epi_ses_man_tib <- covic_org_tib %>% 
+epi_ses_man_tib <- covic_c0_tib %>% 
   dplyr::anti_join(fin_ses_man_tib, by=c("M","U")) %>%
   dplyr::distinct(M,U, .keep_all=TRUE)
 
@@ -2038,7 +1960,7 @@ if (FALSE) {
   
   # Original COVIC Manifest::
   covic_man_csv <- '/Users/bretbarnes/Documents/data/COVIC/transfer/EPIC-C0.manifest.sesame-base.cpg-sorted.csv.gz'
-  covic_org_tib <- readr::read_csv(covic_man_csv) 
+  covic_c0_tib <- readr::read_csv(covic_man_csv) 
   covic_man_tib <- readr::read_csv(covic_man_csv) %>% 
     dplyr::mutate(U=as.integer(U),
                   M=as.integer(M),
@@ -2524,27 +2446,6 @@ readr::write_csv(man_prd_all_tib,ses_base_csv)
 # man_pqc_all_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "ukr") )
 # man_prd_all_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "ukr") )
 pre_man_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "ukr") )
-
-#
-# PREVIOUS BUILD COMPARISON::
-#
-
-#
-# Extra QC::
-#
-if (FALSE) {
-  man_prd_all_tib %>% dplyr::distinct(Probe_ID,M,U) %>% base::nrow()
-  man_prd_all_tib %>% dplyr::distinct(Probe_ID) %>% base::nrow()
-  man_prd_all_tib %>% dplyr::distinct(M,U) %>% base::nrow()
-  
-  man_prd_all_tib %>% dplyr::add_count(Probe_ID, name="PID_Count") %>% 
-    dplyr::filter(PID_Count!=1) %>% 
-    base::nrow()
-  
-  tar_col <- dplyr::filter(man_prd_all_tib, is.na(COLOR_CHANNEL)) %>% dplyr::pull(U)
-  man_pqc_dat_tib %>% dplyr::filter(U %in%  tar_col)
-}
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #          Load Previous dat/manifest and compare based on M/U::
