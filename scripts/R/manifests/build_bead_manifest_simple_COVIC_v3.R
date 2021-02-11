@@ -1003,6 +1003,180 @@ for (gb in gbs) {
   # dplyr::mutate(Genome_Build=gb)
 }
 
+man_ses_grs_tib <- man_pqc_all_tib %>%
+  dplyr::filter(!is.na(chrom_GRCh37) & !is.na(chromStart_GRCh37))
+
+man_ses_grs_tib %>% 
+  dplyr::select(Probe_ID,Source_ID,Seq_ID, chrom_GRCh37,chromStart_GRCh37) %>% 
+  dplyr::filter(Source_ID != Seq_ID)
+
+man_cov_grs_tib <- man_pqc_all_tib %>% 
+  dplyr::filter(is.na(chrom_GRCh37) | is.na(chromStart_GRCh37))
+
+man_cov_sum_tib <- man_cov_grs_tib %>% 
+  dplyr::group_by(Manifest) %>% dplyr::summarise(Count=n())
+
+# Rejoin all::
+dplyr::bind_rows(man_ses_grs_tib, man_cov_grs_tib) %>% 
+  dplyr::distinct(U,M, .keep_all=TRUE)
+
+
+#
+# Write Probes in FASTA Format:: man_cov_grs_tib
+#
+opt$fasDir <- file.path(opt$outDir, "fas")
+if (!dir.exists(opt$fasDir)) dir.create(opt$fasDir, recursive=TRUE)
+
+out_fas <- file.path(opt$fasDir, paste(cgn_pos_pre,"prb50U.fa.gz", sep="_"))
+fas_vec <- dplyr::bind_rows(
+  man_cov_grs_tib %>% dplyr::distinct(PRB1_U_MAT)
+) %>% 
+  dplyr::distinct(PRB1_U_MAT) %>%
+  dplyr::mutate(
+    line=paste0('>',PRB1_U_MAT,'\n',PRB1_U_MAT)
+  ) %>%
+  dplyr::filter(!is.na(line)) %>% dplyr::pull(line)
+readr::write_lines(x=fas_vec, file=out_fas)
+
+#
+# Try writing the original sequences with _INF 
+#
+out_fas2 <- file.path(opt$fasDir, paste(cgn_pos_pre,"prb50U.2.fa.gz", sep="_"))
+fas_vec2 <- man_cov_grs_tib %>% 
+  dplyr::mutate(
+    Probe_Seq=AlleleA_Probe_Sequence %>% 
+      stringr::str_to_upper() %>% 
+      stringr::str_replace_all("R","A") %>% 
+      stringr::str_replace_all("Y","T"),
+    Probe_Inf=dplyr::case_when(
+      is.na(M) ~ 2,
+      TRUE ~ 1
+    ),
+    Probe_Key=paste(Probe_Seq,Probe_Inf, sep="_")
+  ) %>% 
+  dplyr::distinct(Probe_Key,Probe_Seq) %>%
+  dplyr::mutate(
+    line=paste0('>',Probe_Key,'\n',Probe_Seq)
+  ) %>%
+  dplyr::distinct(line) %>%
+  dplyr::filter(!is.na(line)) %>% dplyr::pull(line)
+readr::write_lines(x=fas_vec2, file=out_fas2)
+
+  
+
+
+#
+# New full alignment command::
+#
+# /Users/bretbarnes/Documents/programs/BSMAPz/bsmapz -a /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.fa.gz -d /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.fa.gz -o /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full.bsp -s 10 -v 5 -n 1 -r 2 -V 2
+# cat /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full.bsp | cut -f 1,2,4-11 | perl -pe 's/_/\t/gi' | perl -pe 's/:/\t/gi' | gzip -c - > /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full.bsp.gz
+
+#
+# /Users/bretbarnes/Documents/programs/BSMAPz/bsmapz -a /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.fa.gz -d /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.fa.gz -o /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full-u.bsp -s 10 -v 5 -n 1 -r 2 -V 2 -u
+# cat /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full-u.bsp | cut -f 1,2,4-11 | perl -pe 's/_/\t/gi' | perl -pe 's/:/\t/gi' | gzip -c - > /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full-u.bsp.gz
+#
+# LEFT OFF HERE!
+#   1. Check above results should contain the full list of inputs
+#   2. Run::
+# /Users/bretbarnes/Documents/programs/BSMAPz/bsmapz -a /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.2.fa.gz -d /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.fa.gz -o /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full-u2.bsp -s 10 -v 5 -n 1 -r 2 -V 2 -u
+#
+
+
+
+
+# OLD COMMANDS BELOW::
+# /Users/bretbarnes/Documents/programs/BSMAPz/bsmapz -a /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.fa.gz -d /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCh38.improbeDesignInput.fa.gz -o /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.hg38.bsp -s 10 -v 5 -n 1 -r 2 -V 2
+# cat /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.hg38.bsp | cut -f 1,2,4-11 | perl -pe 's/_/\t/gi' | perl -pe 's/:/\t/gi' | gzip -c - > /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.hg38.bsp.gz
+#
+# /Users/bretbarnes/Documents/programs/BSMAPz/bsmapz -a /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.fa.gz -d /Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCh37.improbeDesignInput.fa.gz -o /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.hg37.bsp -s 10 -v 5 -n 1 -r 2 -V 2
+# cat /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.hg37.bsp | cut -f 1,2,4-11 | perl -pe 's/_/\t/gi' | perl -pe 's/:/\t/gi' | gzip -c - > /Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.hg37.bsp.gz
+#
+
+# MOUSE Command::
+# - join -t $'\t' -11 -21 data/manifests/LEGX-C24A.manifest.sesame-base.cpg-only-sorted.csv data/improbe/designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv > data/manifests/LEGX-C24A.manifest.sesame-base.cpg-top-only.cpg-sorted.tsv
+
+
+bsp_col <- cols(
+  prb_seq = col_character(),
+  # prb_inf = col_integer(),
+  
+  bsp_seq = col_character(),
+  bsp_tag = col_character(),
+  # bsp_chr = col_character(),
+  bsp_cgn = col_character(),
+  # bsp_chr = col_character(),
+  # bsp_pos = col_integer(),
+  
+  bsp_beg = col_integer(),
+  bsp_srd = col_character(),
+  bsp_mis = col_integer(),
+  bsp_ref = col_character(),
+  bsp_gap = col_integer(),
+  # bsp_str = col_character()
+  
+  bsp_hit0 = col_integer(),
+  bsp_hit1 = col_integer(),
+  bsp_hit2 = col_integer(),
+  bsp_hit3 = col_integer(),
+  bsp_hit4 = col_integer(),
+  bsp_hit5 = col_integer()
+)
+
+# bsp_tsv <- "/Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.bsp.gz"
+bsp_full_tsv <- "/Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full.bsp.gz"
+bsp_full_tib <- readr::read_tsv(bsp_full_tsv, col_names=names(bsp_col$cols), col_types=bsp_col)
+
+bsp_full_u_tsv <- "/Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.full-u.bsp.gz"
+bsp_full_u_tib <- readr::read_tsv(bsp_full_u_tsv, col_names=names(bsp_col$cols), col_types=bsp_col)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Straight forward selection::
+man_hg37_mat_tib <- man_pqc_grs_tibs$GRCh37 %>% 
+  dplyr::select(Manifest,chrom:U,PRB1_U_MAT,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                chrom_GRCh37,chromStart_GRCh37,chromEnd_GRCh37,FR_GRCh37,
+                nextBase_GRCh37,gene_GRCh37,MASK_mapping_GRCh37,MASK_general_GRCh37,
+                cgnFlag:srcFlag) %>% 
+  dplyr::filter(chrom==chrom_GRCh37,chromStart==chromStart_GRCh37)
+
+man_hg37_mis_tib <- man_pqc_grs_tibs$GRCh37 %>% 
+  dplyr::anti_join(man_hg37_mat_tib, by="PRB1_U_MAT")
+
+man_hg37_mis_sum <- man_hg37_mis_tib %>%
+  dplyr::distinct(U,M, .keep_all=TRUE) %>%
+  dplyr::group_by(Manifest,cgnFlag,chrFlag,difFlag,srcFlag) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+
+
+man_hg38_mat_tib <- man_pqc_grs_tibs$GRCh38 %>% 
+  dplyr::filter(PRB1_U_MAT %in% man_hg37_mis_tib$PRB1_U_MAT) %>%
+  dplyr::select(Manifest,chrom:U,PRB1_U_MAT,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                chrom_GRCh38,chromStart_GRCh38,chromEnd_GRCh38,FR_GRCh38,
+                nextBase_GRCh38,gene_GRCh38,MASK_mapping_GRCh38,MASK_general_GRCh38,
+                cgnFlag:srcFlag) %>% 
+  dplyr::filter(chrom==chrom_GRCh38,chromStart==chromStart_GRCh38)
+
+man_hg38_mis_tib <- man_pqc_grs_tibs$GRCh38 %>% 
+  dplyr::anti_join(man_hg38_mat_tib, by="PRB1_U_MAT")
+
+
+
+#
+# Write Probes in FASTA Format::
+#
 opt$fasDir <- file.path(opt$outDir, "fas")
 if (!dir.exists(opt$fasDir)) dir.create(opt$fasDir, recursive=TRUE)
 
@@ -1049,7 +1223,8 @@ bsp_col <- cols(
   bsp_hit5 = col_integer()
 )
 
-bsp_tsv <- "/Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.bsp.n1000.2.gz"
+# bsp_tsv <- "/Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.bsp.n1000.2.gz"
+bsp_tsv <- "/Users/bretbarnes/Documents/scratch/build_bead_manifest_simple_COVIC_v3/COVIC-C6/fas/COVIC-C6_prb50U.bsp.gz"
 bsp_tib <- readr::read_tsv(bsp_tsv, col_names=names(bsp_col$cols), col_types=bsp_col)
 
 # Only care about alignments with bsp_beg = [13,61]

@@ -564,7 +564,7 @@ if (opt$verbose>=0)
                  "General Source={par$gen_src_dir}!{RET}{RET}") )
 
 # TestCase::
-if (is.null(opt$idatsDir) || !dir.exists(opt$idatsDir)) {
+if (FALSE && is.null(opt$idatsDir) || !dir.exists(opt$idatsDir)) {
   opt$runName  <- "TestCase"
   opt$idatsDir <- file.path(par$datDir,"idats_TestCase")
   
