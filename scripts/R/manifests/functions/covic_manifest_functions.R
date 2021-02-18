@@ -17,12 +17,594 @@ COM <- ","
 TAB <- "\t"
 RET <- "\n"
 
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                            Build Annotations::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+loadNcbiGene_COVIC = function(file,
+                              verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'loadNcbiGene_COVIC'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
+    
+    ret_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) )) %>%
+      dplyr::mutate(
+        strand_FR=stringr::str_replace(strand,'\\+',"F") %>% stringr::str_replace("-","R"), 
+        Unique_ID=paste(name,chrom,strand_FR,txStart, sep="_")
+      ) %>%
+      dplyr::select(Unique_ID,dplyr::everything())
+    
+    # colnames(ret_tib)[1] <- stringr::str_remove(colnames(ret_tib)[1], '^#')
+    # ret_tib <- ret_tib %>% dplyr::distinct(name, .keep_all=TRUE) # %>% dplyr::mutate(transcript=name, name=name2)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
+    if (verbose>=vt+4) print(ret_tib)
+    
+    ret_tib <- ret_tib %>% 
+      dplyr::mutate(
+        gene_tss=dplyr::case_when(
+          strand=='+' ~ txStart,
+          strand=='-' ~ txEnd,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_200_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss,
+          TRUE ~ NA_real_
+        ),
+        tss_200_end=dplyr::case_when(
+          strand=='+' ~ gene_tss,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_1500_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-1500,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_
+        ),
+        tss_1500_end=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss+1500,
+          TRUE ~ NA_real_
+        ),
+      )
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
+    
+    ret_tib <- dplyr::bind_rows(
+      dplyr::select(ret_tib, Unique_ID, chrom,tss_200_beg,tss_200_end,strand,name,name2) %>% 
+        dplyr::mutate(Feature="TSS200",
+                      Unique_ID=paste(Unique_ID,Feature, sep="_")) %>% 
+        purrr::set_names("Unique_ID","chr","beg","end","srd","tran","gene","feat"),
+      
+      dplyr::select(ret_tib, Unique_ID, chrom,tss_1500_beg,tss_1500_end,strand,name,name2) %>% 
+        dplyr::mutate(Feature="TSS1500",
+                      Unique_ID=paste(Unique_ID,Feature, sep="_")) %>% 
+        purrr::set_names("Unique_ID","chr","beg","end","srd","tran","gene","feat"),
+      
+      dplyr::select(ret_tib, Unique_ID, chrom,txStart,txEnd,strand,name,name2) %>% 
+        dplyr::mutate(Feature="TSSBody",
+                      Unique_ID=paste(Unique_ID,Feature, sep="_")) %>% 
+        purrr::set_names("Unique_ID","chr","beg","end","srd","tran","gene","feat")
+    )
+    
+    ret_cnt <- ret_tib %>% names %>% length()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Genomic Ranges Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+intersectGranges_COVIC = function(can,ref,
+                                  verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'intersectGranges_COVIC'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    map_tib <- 
+      GenomicRanges::findOverlaps(can,ref, ignore.strand=TRUE) %>%
+      as.data.frame() %>% tibble::as_tibble()
+    
+    can_tib <- can %>% as.data.frame() %>%
+      rownames_to_column(var='ID') %>% tibble::as_tibble() %>%
+      purrr::set_names(paste(names(.),"CAN", sep="_"))
+    can_len <- can_tib %>% base::nrow()
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} can_tib({can_len})={RET}"))
+      print(can_tib)
+    }
+    
+    ref_tib <- ref %>% as.data.frame() %>%
+      rownames_to_column(var='ID') %>% tibble::as_tibble() %>% 
+      purrr::set_names(paste(names(.),"REF", sep="_"))
+    ref_len <- ref_tib %>% base::nrow()
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ref_tib({ref_len})={RET}"))
+      print(ref_tib)
+    }
+    
+    # Column Bind Datasets::
+    ret_tib <- dplyr::bind_cols(
+      can_tib[map_tib$queryHits, ],
+      ref_tib[map_tib$subjectHits,]
+    ) %>% 
+      # Add Best Matching Top/Bot & Converted/Opposite Strand::
+      dplyr::mutate(
+        imp_prbTC=dplyr::case_when(
+          prb_des_CAN=="2" ~ stringr::str_remove(prb1U_TC_REF, "[A-Za-z]$"),
+          TRUE ~ prb1U_TC_REF
+        ),
+        imp_prbTO=dplyr::case_when(
+          prb_des_CAN=="2" ~ stringr::str_remove(prb1U_TO_REF, "[A-Za-z]$"),
+          TRUE ~ prb1U_TO_REF
+        ),
+        imp_prbBC=dplyr::case_when(
+          prb_des_CAN=="2" ~ stringr::str_remove(prb1U_BC_REF, "[A-Za-z]$"),
+          TRUE ~ prb1U_BC_REF
+        ),
+        imp_prbBO=dplyr::case_when(
+          prb_des_CAN=="2" ~ stringr::str_remove(prb1U_BO_REF, "[A-Za-z]$"),
+          TRUE ~ prb1U_BO_REF
+        ),
+        imp_mat_srd=dplyr::case_when(
+          prb_des_CAN=="U" & prb_aln_50U_CAN==imp_prbTC ~ "TC",
+          prb_des_CAN=="U" & prb_aln_50U_CAN==imp_prbTO ~ "TO",
+          prb_des_CAN=="U" & prb_aln_50U_CAN==imp_prbBC ~ "BC",
+          prb_des_CAN=="U" & prb_aln_50U_CAN==imp_prbBO ~ "BO",
+          
+          prb_des_CAN=="M" & prb_aln_50M_CAN==imp_prbTC ~ "TC",
+          prb_des_CAN=="M" & prb_aln_50M_CAN==imp_prbTO ~ "TO",
+          prb_des_CAN=="M" & prb_aln_50M_CAN==imp_prbBC ~ "BC",
+          prb_des_CAN=="M" & prb_aln_50M_CAN==imp_prbBO ~ "BO",
+          
+          prb_des_CAN=="2" & prb_aln_49U_CAN==imp_prbTC ~ "TC",
+          prb_des_CAN=="2" & prb_aln_49U_CAN==imp_prbTO ~ "TO",
+          prb_des_CAN=="2" & prb_aln_49U_CAN==imp_prbBC ~ "BC",
+          prb_des_CAN=="2" & prb_aln_49U_CAN==imp_prbBO ~ "BO",
+          TRUE ~ NA_character_)
+      )
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      sum_tib <- ret_tib %>% 
+        dplyr::group_by(prb_src_CAN,prb_des_CAN,bsp_din_scr_CAN,
+                        bsp_srd_CAN,imp_mat_srd) %>% 
+        dplyr::summarise(Count=n(), .groups="drop")
+      sum_tib %>% print(n=base::nrow(sum_tib))
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Standard UCSC Loading Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+loadNcbiGeneGR_COVIC = function(file,
+                                verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'loadNcbiGeneGR_COVIC'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_grs <- NULL
+  stime <- system.time({
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
+    
+    dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
+    # colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
+    dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE)
+    # %>% dplyr::mutate(transcript=name, name=name2)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
+    if (verbose>=vt+4) print(dat_tib)
+    
+    dat_tib <- dat_tib %>% 
+      dplyr::mutate(
+        gene_tss=dplyr::case_when(
+          strand=='+' ~ txStart,
+          strand=='-' ~ txEnd,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_200_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss,
+          TRUE ~ NA_real_
+        ),
+        tss_200_end=dplyr::case_when(
+          strand=='+' ~ gene_tss,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_1500_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-1500,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_
+        ),
+        tss_1500_end=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss+1500,
+          TRUE ~ NA_real_
+        ),
+      )
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
+    ret_grs$tss_1500 <- 
+      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+              IRanges(start=dat_tib$tss_1500_beg, end=dat_tib$tss_1500_end, names=dat_tib$name) )
+    ret_grs$tss_200 <- 
+      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+              IRanges(start=dat_tib$tss_200_beg, end=dat_tib$tss_200_end, names=dat_tib$name) )
+    ret_grs$tss_body <- 
+      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+              IRanges(start=dat_tib$txStart, end=dat_tib$txEnd, names=dat_tib$name) )
+    
+    ret_cnt <- ret_grs %>% names %>% length()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_grs
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                            Formatted BSP IO::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+bspToGenomicRegion_COVIC = function(bsp, rds=NULL,
+                                    verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'bspToGenomicRegion_COVIC'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_grs <- NULL
+  stime <- system.time({
+    
+    if (!is.null(rds)) {
+      dir <- base::dirname(rds)
+      if (!dir.exists(dir)) dir.create(dir, recursive=TRUE)
+    }
+    
+    ret_grs <- 
+      GRanges(
+        seqnames = Rle(paste0("chr",bsp$bsp_chr)),
+        strand=Rle(stringr::str_sub( bsp$bsp_srd, 1,1 ) ),
+        
+        prb_add = bsp$prb_add,
+        prb_cgn = bsp$prb_cgn,
+        prb_srd = bsp$prb_srd,
+        prb_des = bsp$prb_des,
+        prb_src = bsp$prb_src,
+        
+        prb_ord_seq  = bsp$ord_seq,
+        prb_aln_49U  = stringr::str_sub(bsp$aln_seq,2),
+        prb_aln_50U  = bsp$aln_seq,
+        prb_aln_50M  = stringr::str_replace_all(bsp$ord_seq,"G","A"),
+        bsp_ref_seq  = bsp$bsp_ref,
+        
+        bsp_din_scr = bsp$bsp_din_scr,
+        bsp_din_ref = bsp$bsp_din_ref,
+        bsp_nxb_ref = bsp$bsp_nxb_ref,
+        bsp_din_bsc = bsp$bsp_din_bsc,
+        bsp_nxb_bsc = bsp$bsp_nxb_bsc,
+        
+        bsp_tag = bsp$bsp_tag,
+        bsp_srd = bsp$bsp_srd,
+        bsp_mis   = bsp$bsp_mis,
+        bsp_gap   = bsp$bsp_gap,
+        
+        bsp_hit0=bsp$bsp_hit0,
+        bsp_hit1=bsp$bsp_hit1,
+        bsp_hit2=bsp$bsp_hit2,
+        bsp_hit3=bsp$bsp_hit3,
+        bsp_hit4=bsp$bsp_hit4,
+        bsp_hit5=bsp$bsp_hit5,
+        
+        IRanges(start=bsp$bsp_pos,
+                end=bsp$bsp_pos+1,
+                names=bsp$Unique_ID
+        )
+      )
+    
+    if (!is.null(rds)) {
+      if (verbose>=1)
+        cat(glue::glue("[{par$prgmTag}]: Writing Probe GRS RDS={rds}...{RET}"))
+      readr::write_rds(ret_grs, rds, compress="gz")
+    }
+    ret_cnt <- bsp %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_grs
+}
+
+loadBspFormatted_COVIC = function(bsp, src, col=NULL,fields=NULL, sort=TRUE,
+                                  verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'loadBspFormatted_COVIC'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    if (is.null(col)) {
+      col <- cols(
+        # bsp_key = col_character()
+        prb_cgn = col_character(),
+        prb_srd = col_character(),
+        prb_add = col_integer(),
+        prb_des = col_character(),
+        prb_src = col_character(),
+        
+        bsp_seq = col_character(),
+        bsp_tag = col_character(),
+        bsp_chr = col_character(),
+        bsp_beg = col_integer(),
+        bsp_srd = col_character(),
+        bsp_mis = col_integer(),
+        
+        bsp_ref = col_character(),
+        bsp_gap = col_integer(),
+        
+        # bsp_str = col_character()
+        bsp_hit0 = col_integer(),
+        bsp_hit1 = col_integer(),
+        bsp_hit2 = col_integer(),
+        bsp_hit3 = col_integer(),
+        bsp_hit4 = col_integer(),
+        bsp_hit5 = col_integer()
+      )
+    }
+    
+    if (is.null(fields))
+      fields=c("prb_cgn","prb_srd","prb_add","prb_des","prb_src")
+    
+    # Load BSP
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading BSP={bsp}...{RET}"))
+    bsp_tib <- NULL
+    bsp_tib <- readr::read_tsv(bsp,col_names=names(col$cols),col_types=col)
+    
+    # Join with source data::
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Joining source data...{RET}"))
+    
+    ret_tib <- dplyr::inner_join(src,bsp_tib, by=dplyr::all_of(fields))
+    ret_tib <- ret_tib %>%
+      dplyr::mutate(
+        # Generate bisulfite converted Reference Sequences::
+        bsp_refU=bscUs(bsp_ref,uc=TRUE),
+        bsp_refM=bscMs(bsp_ref,uc=TRUE),
+        bsp_refD=bscDs(bsp_ref,uc=TRUE),
+        
+        # Generate RevComp for Probe Sequence::
+        prc_seq=revCmp(aln_seq),
+        
+        # Confirm Alignment Orientation from Probe Sequence/BSP Seq::
+        prb_mat=dplyr::case_when(
+          aln_seq==bsp_seq ~ "f",
+          prc_seq==bsp_seq ~ "r",
+          TRUE ~ NA_character_),
+        
+        # TBD:: For bsp_ref it should be bisulfite converted to U,M,D
+        #  - The actual converted base should then be extracted to 
+        #     provide both Ref and Bsc versions. 
+        #  - Below only show Ref for now...
+        
+        # Need both Ref and Converted bsp_refUMD...
+        
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        #                      Di-Nucleotide & Next Base:: Reference
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        # Extract Potential Next Base from Reference Sequence::
+        NB_F1=stringr::str_sub(bsp_ref,-2,-2),
+        NB_R1=stringr::str_sub(bsp_ref, 2, 2),
+        NB_F2=stringr::str_sub(bsp_ref,-1,-1),
+        NB_R2=stringr::str_sub(bsp_ref, 1, 1),
+        
+        # Extract Potential CG di-nucleotide from Reference Sequence::
+        CG_F1=stringr::str_sub(bsp_ref,-4,-3),
+        CG_R1=stringr::str_sub(bsp_ref, 3, 4),
+        CG_F2=stringr::str_sub(bsp_ref,-3,-2),
+        CG_R2=stringr::str_sub(bsp_ref, 2, 3),
+        
+        # Set Expected target Next Base from Alignment Orientation::
+        bsp_nxb_ref=dplyr::case_when(
+          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ NB_F1,
+          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ NB_R1,
+          
+          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ NB_F1,
+          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ NB_R1,
+          
+          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ NB_F2,
+          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ NB_R2,
+          TRUE ~ NA_character_
+        ), # %>% stringr::str_to_upper(),
+        
+        # Set Expected target CG di-nucleotide from Alignment Orientation::
+        bsp_din_ref=dplyr::case_when(
+          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ CG_F1,
+          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ CG_R1,
+          
+          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ CG_F1,
+          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ CG_R1,
+          
+          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ CG_F2,
+          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ CG_R2,
+          TRUE ~ NA_character_
+        ) %>% stringr::str_to_upper(),
+        
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        #             Di-Nucleotide & Next Base:: Bisulfite Converted
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        # Extract Potential Next Base from Reference Sequence::
+        NB_F1M=stringr::str_sub(bsp_refM,-2,-2),
+        NB_R1M=stringr::str_sub(bsp_refM, 2, 2),
+        
+        NB_F1U=stringr::str_sub(bsp_refU,-2,-2),
+        NB_R1U=stringr::str_sub(bsp_refU, 2, 2),
+        
+        NB_F2D=stringr::str_sub(bsp_refD,-1,-1),
+        NB_R2D=stringr::str_sub(bsp_refD, 1, 1),
+        
+        # Extract Potential CG di-nucleotide from Reference Sequence::
+        CG_F1M=stringr::str_sub(bsp_refM,-4,-3),
+        CG_R1M=stringr::str_sub(bsp_refM, 3, 4),
+        
+        CG_F1U=stringr::str_sub(bsp_refU,-4,-3),
+        CG_R1U=stringr::str_sub(bsp_refU, 3, 4),
+        
+        CG_F2D=stringr::str_sub(bsp_refD,-3,-2),
+        CG_R2D=stringr::str_sub(bsp_refD, 2, 3),
+        
+        # Set Expected target Next Base from Alignment Orientation::
+        bsp_nxb_bsc=dplyr::case_when(
+          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ NB_F1M,
+          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ NB_R1M,
+          
+          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ NB_F1U,
+          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ NB_R1U,
+          
+          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ NB_F2D,
+          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ NB_R2D,
+          TRUE ~ NA_character_
+        ), # %>% stringr::str_to_upper(),
+        
+        # Set Expected target CG di-nucleotide from Alignment Orientation::
+        bsp_din_bsc=dplyr::case_when(
+          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ CG_F1M,
+          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ CG_R1M,
+          
+          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ CG_F1U,
+          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ CG_R1U,
+          
+          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ CG_F2D,
+          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ CG_R2D,
+          TRUE ~ NA_character_
+        ) %>% stringr::str_to_upper(),
+        
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        #                      Correct CG# Alignment Position::
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        # Update Correct Genomic CG# Location based on alignment orientation::
+        bsp_pos=dplyr::case_when(
+          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ bsp_beg +48,
+          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ bsp_beg + 0,
+          
+          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ bsp_beg +48,
+          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ bsp_beg + 0,
+          
+          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & prb_mat=="f" ~ bsp_beg +49,
+          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & prb_mat=="r" ~ bsp_beg - 1,
+          TRUE ~ NA_real_
+        ) %>% as.integer(),
+        bsp_din_scr=dplyr::case_when(
+          bsp_srd=="--" & bsp_din_ref=="CG" ~ 0,
+          bsp_srd=="+-" & bsp_din_ref=="CG" ~ 1,
+          bsp_srd=="-+" & stringr::str_starts(bsp_din_ref,"G") ~ 2,
+          bsp_srd=="++" & stringr::str_ends(bsp_din_ref,"C") ~ 3,
+          TRUE ~ 4) %>% as.integer()
+      ) %>% 
+      dplyr::group_by(prb_cgn,prb_srd,prb_des,prb_src) %>% 
+      dplyr::mutate(Unique_ID=paste(prb_cgn,prb_srd,prb_add,prb_des,prb_src, dplyr::row_number(), sep="_")) %>%
+      dplyr::ungroup()
+    
+    if (sort) ret_tib <- ret_tib %>% dplyr::arrange(bsp_chr, bsp_beg)
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} summary level 1={RET}"))
+      sum1_tib <- ret_tib %>% 
+        dplyr::select(prb_cgn,prb_srd, starts_with("CG"), 
+                      bsp_ref,prb_des,bsp_srd,bsp_chr,bsp_beg) %>% 
+        dplyr::arrange(prb_cgn) %>% 
+        dplyr::group_by(prb_des,bsp_din_ref) %>% 
+        dplyr::summarise(Count=n(), .groups="drop") %>% 
+        dplyr::arrange(-Count)
+      sum1_tib %>% print(n=base::nrow(sum1_tib))
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr} summary level 2={RET}"))
+      sum2_tib <- ret_tib %>% 
+        dplyr::select(prb_cgn,prb_srd, starts_with("CG"), 
+                      bsp_ref,prb_des,bsp_srd,bsp_chr,bsp_beg) %>% 
+        dplyr::arrange(prb_cgn) %>% 
+        dplyr::group_by(bsp_din_ref) %>% 
+        dplyr::summarise(Count=n(), .groups="drop") %>% 
+        dplyr::arrange(-Count)
+      sum2_tib %>% print(n=base::nrow(sum2_tib))
+    }
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}{RET}"))
+      print(ret_tib)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                  Manifest Coordinate Intersection Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 impBuildSummary = function(tib,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'impBuildSummary'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -39,10 +621,10 @@ impBuildSummary = function(tib,
                       Infinium_Design) %>%
       #                srcFlagU,srcFlagM) %>% 
       dplyr::summarise(Count=n(), .groups="drop")
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt) {
-      cat(glue::glue("[Summary]: sum_tib({ret_cnt})={RET}"))
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} sum_tib({ret_cnt})={RET}"))
       ret_tib %>% print(n=base::nrow(ret_tib))
     }
   })
@@ -55,15 +637,10 @@ impBuildSummary = function(tib,
   ret_tib
 }
 
-# tsv=out_pos1_tsv
-# datDir="/Users/bretbarnes/Documents/data/improbe/designOutput_21092020"
-# inpDir=cgn_pos1_dir
-# runType=par$local_runType
-# ver=opt$version
-# build="GRCh37"
-intersectCgnMap_COVIC = function(tsv, man, src=NULL,
+# DELETE:: This is old and can probably be removed::
+intersectCgnMap_COVIC = function(tsv, man, src=NULL, addBuild=FALSE,
                                  build, datDir, inpDir, runType, ver,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                                 verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'intersectCgnMap_COVIC'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -134,94 +711,98 @@ intersectCgnMap_COVIC = function(tsv, man, src=NULL,
                        chrom,chromStart,chromEnd,CGN_IMP,TB_IMP,CO_IMP, 
                        name="Unq_Cnt")
     
-    if (build=="GRCh37") {
-      ret_tib <- ret_tib %>%
-        dplyr::mutate(
-          begDif=chromStart-chromStart_GRCh37,
-          endDif=chromEnd-chromEnd_GRCh37,
-          absDif=base::abs(begDif),
-          cgnFlag=dplyr::case_when(
-            is.na(CGN_IMP) ~ -2,
-            is.na(Seq_ID) ~ -1,
-            CGN_IMP==Seq_ID ~ 0,
-            TRUE ~ 1
-          ),
-          chrFlag=dplyr::case_when(
-            is.na(chrom) ~ -2,
-            is.na(chrom_GRCh37) ~ -1,
-            chrom==chrom_GRCh37 ~ 0,
-            TRUE ~ 1
-          ),
-          difFlag=dplyr::case_when(
-            is.na(absDif) ~ -1,
-            absDif==0 ~ 0,
-            TRUE ~ 1
+    if (addBuild) {
+      if (build=="GRCh37") {
+        ret_tib <- ret_tib %>%
+          dplyr::mutate(
+            begDif=chromStart-chromStart_GRCh37,
+            endDif=chromEnd-chromEnd_GRCh37,
+            absDif=base::abs(begDif),
+            cgnFlag=dplyr::case_when(
+              is.na(CGN_IMP) ~ -2,
+              is.na(Seq_ID) ~ -1,
+              CGN_IMP==Seq_ID ~ 0,
+              TRUE ~ 1
+            ),
+            chrFlag=dplyr::case_when(
+              is.na(chrom) ~ -2,
+              is.na(chrom_GRCh37) ~ -1,
+              chrom==chrom_GRCh37 ~ 0,
+              TRUE ~ 1
+            ),
+            difFlag=dplyr::case_when(
+              is.na(absDif) ~ -1,
+              absDif==0 ~ 0,
+              TRUE ~ 1
+            )
           )
-        )
-    } else if (build=="GRCh38") {
-      ret_tib <- ret_tib %>%
-        dplyr::mutate(
-          begDif=chromStart-chromStart_GRCh38,
-          endDif=chromEnd-chromEnd_GRCh38,
-          absDif=base::abs(begDif),
-          cgnFlag=dplyr::case_when(
-            is.na(CGN_IMP) ~ -2,
-            is.na(Seq_ID) ~ -1,
-            CGN_IMP==Seq_ID ~ 0,
-            TRUE ~ 1
-          ),
-          chrFlag=dplyr::case_when(
-            is.na(chrom) ~ -2,
-            is.na(chrom_GRCh38) ~ -1,
-            chrom==chrom_GRCh38 ~ 0,
-            TRUE ~ 1
-          ),
-          difFlag=dplyr::case_when(
-            is.na(absDif) ~ -1,
-            absDif==0 ~ 0,
-            TRUE ~ 1
+      } else if (build=="GRCh38") {
+        ret_tib <- ret_tib %>%
+          dplyr::mutate(
+            begDif=chromStart-chromStart_GRCh38,
+            endDif=chromEnd-chromEnd_GRCh38,
+            absDif=base::abs(begDif),
+            cgnFlag=dplyr::case_when(
+              is.na(CGN_IMP) ~ -2,
+              is.na(Seq_ID) ~ -1,
+              CGN_IMP==Seq_ID ~ 0,
+              TRUE ~ 1
+            ),
+            chrFlag=dplyr::case_when(
+              is.na(chrom) ~ -2,
+              is.na(chrom_GRCh38) ~ -1,
+              chrom==chrom_GRCh38 ~ 0,
+              TRUE ~ 1
+            ),
+            difFlag=dplyr::case_when(
+              is.na(absDif) ~ -1,
+              absDif==0 ~ 0,
+              TRUE ~ 1
+            )
           )
-        )
-    } else {
-      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: Unsupported build type={build}!{RET}{RET}"))
-      return(NULL)
+      } else {
+        stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: Unsupported build type={build}!{RET}{RET}"))
+        return(NULL)
+      }
+      
+      if (build=="GRCh38" | build=="GRCh38") {
+        ret_tib <- ret_tib %>%
+          dplyr::mutate(
+            begDif=as.integer(begDif),
+            endDif=as.integer(endDif),
+            absDif=as.integer(absDif),
+            cgnFlag=as.integer(cgnFlag),
+            chrFlag=as.integer(chrFlag),
+            difFlag=as.integer(difFlag)
+          )
+      }
+      
+      if (!is.null(src)) {
+        ret_tib <- ret_tib %>%
+          dplyr::mutate(
+            srcFlagU=dplyr::case_when(
+              U %in% src$U ~ 0,
+              TRUE ~ 1),
+            srcFlagM=dplyr::case_when(
+              is.na(M) ~ 0,
+              M %in% src$M ~ 0,
+              TRUE ~ 1),
+            srcFlagU=as.integer(srcFlagU),
+            srcFlagM=as.integer(srcFlagM),
+            srcFlag=dplyr::case_when(
+              srcFlagU==0 & srcFlagM==0 ~ 0,
+              TRUE ~ 1
+            ),
+            srcFlag=as.integer(srcFlag)
+          ) %>%
+          dplyr::arrange(AlleleA_Probe_Sequence, chrFlag, difFlag, cgnFlag, absDif, 
+                         srcFlagM, srcFlagU, srcFlagM)
+      } else {
+        ret_tib <- ret_tib %>%
+          dplyr::arrange(AlleleA_Probe_Sequence, chrFlag, difFlag, cgnFlag, absDif)
+      }
     }
     
-    ret_tib <- ret_tib %>%
-      dplyr::mutate(
-        begDif=as.integer(begDif),
-        endDif=as.integer(endDif),
-        absDif=as.integer(absDif),
-        cgnFlag=as.integer(cgnFlag),
-        chrFlag=as.integer(chrFlag),
-        difFlag=as.integer(difFlag)
-      )
-    
-    if (!is.null(src)) {
-      ret_tib <- ret_tib %>%
-        dplyr::mutate(
-          srcFlagU=dplyr::case_when(
-            U %in% src$U ~ 0,
-            TRUE ~ 1),
-          srcFlagM=dplyr::case_when(
-            is.na(M) ~ 0,
-            M %in% src$M ~ 0,
-            TRUE ~ 1),
-          srcFlagU=as.integer(srcFlagU),
-          srcFlagM=as.integer(srcFlagM),
-          srcFlag=dplyr::case_when(
-            srcFlagU==0 & srcFlagM==0 ~ 0,
-            TRUE ~ 1
-          ),
-          srcFlag=as.integer(srcFlag)
-        ) %>%
-        dplyr::arrange(AlleleA_Probe_Sequence, chrFlag, difFlag, cgnFlag, absDif, 
-                       srcFlagM, srcFlagU, srcFlagM)
-    } else {
-      ret_tib <- ret_tib %>%
-        dplyr::arrange(AlleleA_Probe_Sequence, chrFlag, difFlag, cgnFlag, absDif)
-    }
-
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt) {
       sum1_tib <- ret_tib %>% 
@@ -229,19 +810,23 @@ intersectCgnMap_COVIC = function(tsv, man, src=NULL,
         dplyr::summarise(Count=n(), .groups="drop")
       cat(glue::glue("[{funcTag}]: sum1_tib({ret_cnt})={RET}"))
       sum1_tib %>% print(n=base::nrow(sum1_tib))
-
+      
       # For hg19 & hg38 this has nrows = 0
-      mis_cnt <- ret_tib %>% dplyr::filter(Unq_Cnt != 1) %>% base::nrow()
-      cat(glue::glue("[{funcTag}]: mis_cnt({ret_cnt})={mis_cnt}.{RET}"))
-
-      sum2_tib <- ret_tib %>% 
-        dplyr::distinct(U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
-                        chrom,chromStart,chromEnd,CGN_IMP,TB_IMP,CO_IMP, 
-                        Probe_Type,Manifest,Unq_Cnt, .keep_all=TRUE) %>%
-        dplyr::group_by(Manifest,Probe_Type,chrFlag,difFlag,cgnFlag,Infinium_Design) %>% 
-        dplyr::summarise(Count=n(), .groups="drop")
-      cat(glue::glue("[{funcTag}]: sum2_tib({ret_cnt})={RET}"))
-      sum2_tib %>% print(n=base::nrow(sum2_tib))
+      if (addBuild) {
+        if (build=="GRCh38" | build=="GRCh38") {
+          mis_cnt <- ret_tib %>% dplyr::filter(Unq_Cnt != 1) %>% base::nrow()
+          cat(glue::glue("[{funcTag}]: mis_cnt({ret_cnt})={mis_cnt}.{RET}"))
+          
+          sum2_tib <- ret_tib %>% 
+            dplyr::distinct(U,M,AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,
+                            chrom,chromStart,chromEnd,CGN_IMP,TB_IMP,CO_IMP, 
+                            Probe_Type,Manifest,Unq_Cnt, .keep_all=TRUE) %>%
+            dplyr::group_by(Manifest,Probe_Type,chrFlag,difFlag,cgnFlag,Infinium_Design) %>% 
+            dplyr::summarise(Count=n(), .groups="drop")
+          cat(glue::glue("[{funcTag}]: sum2_tib({ret_cnt})={RET}"))
+          sum2_tib %>% print(n=base::nrow(sum2_tib))
+        }
+      }
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -257,9 +842,11 @@ intersectCgnMap_COVIC = function(tsv, man, src=NULL,
 #                   Standard Manifest Loading Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-manifestToAddress_COVIC = function(tib,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'manifestToAddress_COVIC'
+extractAddressRow_COVIC = function(tib, 
+                                   tarAdd=NULL, remAdd=NULL, remVec=NULL, 
+                                   oldNames=NULL, newNames=NULL,
+                                   verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'extractAddressRow_COVIC'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -267,31 +854,124 @@ manifestToAddress_COVIC = function(tib,
   ret_tib <- NULL
   stime <- system.time({
     
-    ret_tib <- dplyr::bind_rows(
-      
-      tib %>% dplyr::filter(!is.na(U)) %>%
-        dplyr::filter(is.na(M)) %>% 
-        dplyr::select(U, Probe_ID,Probe_Type,Manifest) %>%
-        dplyr::rename(Address=U) %>%
-        dplyr::mutate(Probe_Design="2"),
-      
-      tib %>% dplyr::filter(!is.na(U)) %>%
-        dplyr::filter(!is.na(M)) %>% 
-        dplyr::select(U, Probe_ID,Probe_Type,Manifest) %>%
-        dplyr::rename(Address=U) %>%
-        dplyr::mutate(Probe_Design="U"),
-      
-      tib %>% dplyr::filter(!is.na(U)) %>%
-        dplyr::filter(!is.na(M)) %>% 
-        dplyr::select(M, Probe_ID,Probe_Type,Manifest) %>%
-        dplyr::rename(Address=M) %>%
-        dplyr::mutate(Probe_Design="M")
-    ) %>%
-      dplyr::mutate(Address=as.integer(Address)) %>%
-      dplyr::arrange(Address) %>%
-      dplyr::select(Address,Probe_ID,Probe_Type,Probe_Design,Manifest)
+    ret_tib <- tib
+    
+    # Remove NA fields::
+    if (!is.null(remAdd)) {
+      remAdd_sym <- rlang::sym(remAdd)
+      ret_tib <- ret_tib %>% dplyr::filter(is.na(!!remAdd_sym))
+    }
+    
+    # Select NOT NA fields::
+    if (!is.null(tarAdd)) {
+      tarAdd_sym <- rlang::sym(tarAdd)
+      ret_tib <- ret_tib %>% dplyr::filter(!is.na(!!tarAdd_sym))
+    }
+    
+    # Remove fields::
+    if (!is.null(remVec)) {
+      print(remVec)
+      ret_tib <- ret_tib %>%
+        dplyr::select(!dplyr::any_of(c(remAdd,remVec)))
+    }
+    
+    # Rename fields::
+    if (!is.null(oldNames) && ! is.null(newNames))
+      # TBD:: Need to use all_of()
+      ret_tib <- ret_tib %>% 
+        rename_with(~ newNames[which(dplyr::all_of(oldNames) == .x)], 
+                    .cols = dplyr::all_of(oldNames))
+    #  rename_with(~ newNames[which(oldNames == .x)], .cols = oldNames)
     
     ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+manifestToAddress_COVIC = function(tib, 
+                                   prbA="AlleleA_Probe_Sequence", 
+                                   prbB="AlleleB_Probe_Sequence",
+                                   verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'manifestToAddress_COVIC'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} prbA={prbA}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} prbB={prbB}.{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    prbA_sym <- rlang::sym(prbA)
+    prbB_sym <- rlang::sym(prbB)
+    
+    tib <- tib %>% dplyr::filter(!is.na(U))
+    
+    ret_tib <- dplyr::bind_rows(
+      
+      extractAddressRow_COVIC(
+        tib=tib, tarAdd="U",remAdd="M",
+        remVec=c("AlleleB_Probe_Sequence"),
+        oldNames=c("U","AlleleA_Probe_Sequence"),
+        newNames=c("prb_add","ord_seq"),
+        verbose=verbose+1,vt=vt+1,tc=tc+1,tt=pTracker) %>%
+        dplyr::mutate(Probe_Design="2"),
+      
+      extractAddressRow_COVIC(
+        tib=tib, tarAdd="M",
+        remVec=c("M","AlleleB_Probe_Sequence"),
+        oldNames=c("U","AlleleA_Probe_Sequence"),
+        newNames=c("prb_add","ord_seq"),
+        verbose=verbose+1,vt=vt+1,tc=tc+1,tt=pTracker) %>%
+        dplyr::mutate(Probe_Design="U"),
+      
+      extractAddressRow_COVIC(
+        tib=tib, tarAdd="M",
+        remVec=c("U","AlleleA_Probe_Sequence"),
+        oldNames=c("M","AlleleB_Probe_Sequence"),
+        newNames=c("prb_add","ord_seq"),
+        verbose=verbose+1,vt=vt+1,tc=tc+1,tt=pTracker) %>%
+        dplyr::mutate(Probe_Design="M")
+      
+    ) %>%
+      dplyr::mutate(prb_add=as.integer(prb_add),
+                    ord_seq=stringr::str_to_upper(ord_seq),
+                    aln_seq=ord_seq %>%
+                      stringr::str_replace_all("R","A") %>%
+                      stringr::str_replace_all("Y","T") ) %>%
+      dplyr::rename(
+        prb_des=Probe_Design,prb_src=Manifest) %>%
+      dplyr::distinct(prb_add,ord_seq, .keep_all=TRUE) %>%
+      # dplyr::arrange(prb_add) %>%
+      # dplyr::select(Address,Probe_ID,Probe_Type,Probe_Design,Manifest,
+      #               ord_seq,aln_seq, dplyr::everything()) %>%
+      tidyr::separate(
+        Probe_ID, into=c("prb_cgn","prb_srd"), sep="_") %>%
+      dplyr::mutate(
+        prb_srd=dplyr::case_when(
+          is.na(prb_srd) ~ paste0("xxx",prb_des),
+          TRUE ~ prb_srd),
+        aln_key=paste(prb_cgn,prb_srd,prb_add,prb_des,prb_src, sep="_")
+      )
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      ret_tib %>% print()
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -310,7 +990,10 @@ loadCoreManifest_COVIC = function(datDir, manDir,
                                   verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'loadCoreManifest_COVIC'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; manDir={manDir}...{RET}"))
+  
+  stopifnot(dir.exists(manDir))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -326,7 +1009,7 @@ loadCoreManifest_COVIC = function(datDir, manDir,
     ses_hg38_tib <-
       loadSesameManifest_COVIC(build="GRCh38", tag=TRUE,
                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     ret_tib <- dplyr::inner_join(
       ses_hg37_tib,ses_hg38_tib, 
       by=c("Probe_ID","Probe_Type","U","M",
@@ -344,10 +1027,19 @@ loadCoreManifest_COVIC = function(datDir, manDir,
     #                       1.1 Load EPIC Manifest:: B2
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     epic_csv <- file.path(manDir, 'MethylationEPIC_v-1-0_B2.csv.gz')
+    if (verbose>=vt+4)
+      cat(glue::glue("[{funcTag}]:{tabsStr} EPIC(B2) manifest={epic_csv}{RET}"))
+    
     epic_tib <- 
       loadManifestGenomeStudio(file = epic_csv, addSource = TRUE, 
                                normalize = TRUE, retType = "man", 
-                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
+                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} EPIC(B2) manifest={RET}"))
+      print(epic_tib)
+    }
+    
+    epic_tib <- epic_tib %>%
       dplyr::rename(Probe_ID=IlmnID, 
                     chrom_GRCh37=Chromosome,
                     chromStart_GRCh37=Coordinate,
@@ -366,7 +1058,7 @@ loadCoreManifest_COVIC = function(datDir, manDir,
                     Manifest,chrom_GRCh37,chromStart_GRCh37,chromEnd_GRCh37,
                     FR_GRCh37,nextBase_GRCh37)
     if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} EPIC(B2) manifest={RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} EPIC(B2) manifest(cleaned)={RET}"))
       print(epic_tib)
     }
     
@@ -637,7 +1329,7 @@ loadAqpWorkflow_COVIC = function(ords, mats, aqps, man=NULL,
                     AlleleA_Probe_Sequence,AlleleB_Probe_Sequence,Seq_48U)
     
     if (!is.null(man)) ret_tib <- ret_tib %>% dplyr::mutate(Manifest=man)
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} AQP({ret_cnt})={RET}{RET}"))
@@ -680,28 +1372,28 @@ loadIdatAddress = function(prefix,
     
     if (FALSE) {
       idat1_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R01C01"
-      idat1_tib <- prefixToIdat(prefix = idat1_prefix, verbose=opt$verbose)
+      idat1_tib <- prefixToIdat(prefix = idat1_prefix, verbose=verbose)
       
       # idat2_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R02C01"
-      # idat2_tib <- prefixToIdat(prefix = idat2_prefix, verbose=opt$verbose)
+      # idat2_tib <- prefixToIdat(prefix = idat2_prefix, verbose=verbose)
       # 
       # idat3_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R03C01"
-      # idat3_tib <- prefixToIdat(prefix = idat3_prefix, verbose=opt$verbose)
+      # idat3_tib <- prefixToIdat(prefix = idat3_prefix, verbose=verbose)
       # 
       # idat4_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R04C01"
-      # idat4_tib <- prefixToIdat(prefix = idat4_prefix, verbose=opt$verbose)
+      # idat4_tib <- prefixToIdat(prefix = idat4_prefix, verbose=verbose)
       # 
       # idat5_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R05C01"
-      # idat5_tib <- prefixToIdat(prefix = idat5_prefix, verbose=opt$verbose)
+      # idat5_tib <- prefixToIdat(prefix = idat5_prefix, verbose=verbose)
       # 
       # idat6_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R06C01"
-      # idat6_tib <- prefixToIdat(prefix = idat6_prefix, verbose=opt$verbose)
+      # idat6_tib <- prefixToIdat(prefix = idat6_prefix, verbose=verbose)
       # 
       # idat7_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R07C01"
-      # idat7_tib <- prefixToIdat(prefix = idat7_prefix, verbose=opt$verbose)
+      # idat7_tib <- prefixToIdat(prefix = idat7_prefix, verbose=verbose)
       
       idat8_prefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R08C01"
-      idat8_tib <- prefixToIdat(prefix = idat8_prefix, verbose=opt$verbose)
+      idat8_tib <- prefixToIdat(prefix = idat8_prefix, verbose=verbose)
       
       # Combine all tangos::
       idats_tib <- 
@@ -744,5 +1436,109 @@ loadIdatAddress = function(prefix,
   
   ret_tib
 }
+
+if (FALSE) {
+  
+  #
+  # NOW JUST Missing the ones below::
+  #
+  # add_cor_all_tib %>% 
+  #   dplyr::anti_join(add_fin_all_tib, by="prb_add") %>% 
+  #   dplyr::left_join(add_fin_all_tib, by=c("ord_seq"="prb_ord_seq") )
+  #
+  # Found earlier::
+  #  add_cor_mis_tib %>% dplyr::inner_join(add_imp_all2_tib, by="prb_add") %>% dplyr::distinct(ord_seq, .keep_all=TRUE)
+  #
+  # No Gene Annotation...
+  #  add_cor_mis_tib %>% dplyr::inner_join(add_imp_all_ncbi_tib, by="prb_add") %>% dplyr::distinct(ord_seq, .keep_all=TRUE)
+  #
+  # Missing Probes Found::
+  #  add_imp_all2_tib %>% dplyr::filter(prb_add %in% add_cor_mis_tib$prb_add) %>% dplyr::filter(prb_des != "M") %>% dplyr::distinct(prb_add, .keep_all=TRUE)
+  #
+  
+  
+  if (FALSE) {
+    
+    # Raw::
+    add_raw_ses_tib %>% dplyr::group_by(ses_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_raw_all_tib %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    add_raw_ses_tib %>% dplyr::distinct(ses_add, .keep_all=TRUE) %>% dplyr::group_by(ses_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_raw_all_tib %>% dplyr::distinct(prb_add, .keep_all=TRUE) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    # Imp::
+    add_imp_ses2_tib %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_imp_all2_tib %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    add_imp_ses2_tib %>% dplyr::distinct(prb_add, .keep_all=TRUE) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_imp_all2_tib %>% dplyr::distinct(prb_add, .keep_all=TRUE) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    # Should be only B4
+    add_imp_ses2_tib %>% dplyr::anti_join(add_imp_all2_tib, by="prb_add") %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_imp_ses2_tib %>% dplyr::anti_join(add_imp_all2_tib, by="prb_ord") %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    add_imp_ses2_tib %>% dplyr::filter(prb_add %in% add_imp_all2_tib$prb_add) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_imp_ses2_tib %>% dplyr::filter(prb_ord %in% add_imp_all2_tib$prb_ord) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    # Should be only C0
+    add_imp_all2_tib %>% dplyr::anti_join(add_imp_ses2_tib, by="prb_add") %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_imp_all2_tib %>% dplyr::anti_join(add_imp_ses2_tib, by="prb_ord") %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    add_imp_all2_tib %>% dplyr::filter(prb_add %in% add_imp_ses2_tib$prb_add) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_imp_all2_tib %>% dplyr::filter(prb_ord %in% add_imp_ses2_tib$prb_ord) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    # Gene Annotated
+    add_imp_ses_ncbi_tib %>% dplyr::distinct(prb_add, .keep_all=TRUE) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    add_imp_all_ncbi_tib %>% dplyr::distinct(prb_add, .keep_all=TRUE) %>% dplyr::group_by(prb_src) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                Reconcile Sesame/Previous Manifest with 
+  #                   New Address Alignment/Annotation::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                        Orientations Investigation::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # Need to add this step back into original source data file...
+  # man_imp_int_tib <- man_imp_int_tib %>% 
+  #   dplyr::mutate(prb_aln_seq2U=stringr::str_remove(prb_aln_seq, "^[A-Za-z]"), 
+  #                 imp_seq2U=stringr::str_remove(imp_seq1U, "[A-Za-z]$"))
+  # 
+  # man_add_bsp_tib %>% dplyr::select(Unique_ID,prb_add) %>%
+  #   dplyr::inner_join(man_imp_int_tib, by=c("Unique_ID"="Seq_ID") ) %>%
+  #   dplyr::filter(prb_aln_seq==imp_seq1U | prb_aln_seq2U==imp_seq2U) %>%
+  #   dplyr::mutate(CO=stringr::str_remove(prb_srd, "^[A-Z][A-Z]") %>%
+  #                   stringr::str_remove("[0-9]+$"),
+  #                 FR=stringr::str_remove(prb_srd, "[A-Z][A-Z][0-9]+$")) %>%
+  #   dplyr::group_by(CO,FR,bsp_srd,prb_des,bsp_din) %>%
+  #   dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+  # 
+  # BSMAP Language::
+  #
+  #  C = [--] CG
+  #  C = [+-] CG
+  #  O = [-+] G*
+  #  O = [++] *C
+  #
+  
+  # Code for Scoring Sesame/Previous Gene Matching::
+  #
+  # dplyr::mutate(
+  #   gene_mat_scr=dplyr::case_when(
+  #     is.na(ses_gene) ~ 2,
+  #     is.na(ses_HGNC) ~ 3,
+  #     is.na(Gene_NCBI_Simple) ~ 4,
+  #     stringr::str_detect(ses_gene,Gene_NCBI_Simple) ~ 0,
+  #     stringr::str_detect(ses_HGNC,Gene_NCBI_Simple) ~ 1,
+  #     TRUE ~ 5
+  #   )
+  # )
+  
+}
+
 
 # End of file

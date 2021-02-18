@@ -344,7 +344,7 @@ loadProbeAlignBowtieInfI = function(sam, reduced=FALSE, filtered=FALSE, flipSeq=
   sam_tib
 }
 
-bowtieProbeAlign = function(exe, fas, gen, dir, lan=NULL,
+bowtieProbeAlign = function(exe, fas, gen, dir, lan=NULL, run=FALSE,
                             verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'bowtieProbeAlign'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -363,28 +363,31 @@ bowtieProbeAlign = function(exe, fas, gen, dir, lan=NULL,
     if (!dir.exists(sh_dir)) dir.create(sh_dir, recursive=TRUE)
     if (!dir.exists(al_dir)) dir.create(al_dir, recursive=TRUE)
     
-    aln_sh  <- file.path(sh_dir, paste0('run_bow-',fas_name,'-',gen_name,'.sh') )
+    aln_ssh <- file.path(sh_dir, paste0('run_bow-',fas_name,'-',gen_name,'.sh') )
     aln_sam <- file.path(al_dir, paste0(fas_name,'-',gen_name,'.bowtie.sam.gz') )
     aln_cmd <- paste(exe, '-f -x',gen_file, '-U',fas, '| gzip -c ->',aln_sam, sep=' ')
 
     cat(glue::glue("[{funcTag}]:{TAB} Launching bowtie alignments: {fas_name} vs. {gen_name}...{RET}"))
-    readr::write_lines(x=aln_cmd, path=aln_sh, append=FALSE)
-    Sys.chmod(paths=aln_sh, mode="0777")
-    if (!is.null(lan)) aln_sh <- paste(lan,aln_sh, sep=' ')
-    base::system(aln_sh)
+    readr::write_lines(x=aln_cmd, file=aln_ssh, append=FALSE)
+    Sys.chmod(paths=aln_ssh, mode="0777")
+    if (!is.null(lan)) aln_ssh <- paste(lan,aln_ssh, sep=' ')
+    if (run) base::system(aln_ssh)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
 
-  aln_sam
+  if (run) return(aln_sam)
+  aln_ssh
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Bowtie Alignment Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-bsmapProbeAlign = function(exe, fas, gen, dir, lan=NULL,
+bsmapProbeAlign = function(exe, fas, gen, dir, 
+                           opt="-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R", 
+                           lan=NULL, run=FALSE,
                            verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'bsmapProbeAlign'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -392,6 +395,9 @@ bsmapProbeAlign = function(exe, fas, gen, dir, lan=NULL,
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} dir={dir}.{RET}"))
   
   stime <- system.time({
+    if (is.null(opt) || length(opt)==0)
+      opt="-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
+    
     fas_name <- fas %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
     gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
     
@@ -402,28 +408,91 @@ bsmapProbeAlign = function(exe, fas, gen, dir, lan=NULL,
     if (!dir.exists(sh_dir)) dir.create(sh_dir, recursive=TRUE)
     if (!dir.exists(al_dir)) dir.create(al_dir, recursive=TRUE)
 
-    aln_sh  <- file.path(sh_dir, paste0('run_bsp-',fas_name,'-',gen_name,'.sh') )
-    aln_sam <- file.path(al_dir, paste0(fas_name,'-',gen_name,'.bsmap.bsp') )
-    aln_cmd <- paste(exe, '-a',fas, '-d',gen, '-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R','-o',aln_sam, sep=' ')
-    aln_cmd <- glue::glue("{aln_cmd}{RET}gzip {aln_sam}{RET}")
+    aln_ssh <- file.path(sh_dir, paste0('run_bsp-',fas_name,'-',gen_name,'.sh') )
+    aln_bsp <- file.path(al_dir, paste0(fas_name,'-',gen_name,'.bsmap.bsp') )
+    ret_tsv <- file.path(al_dir, paste0(fas_name,'-',gen_name,'.bsmap.formatted.tsv.gz') )
+    aln_cmd <- paste(exe, '-a',fas, '-d',gen, opt,'-o',aln_bsp, sep=' ')
+    aln_cmd <- glue::glue("{aln_cmd}{RET}",
+                          "gzip {aln_bsp}{RET}",
+                          "gzip -dc {aln_bsp}.gz | cut -f 1,2,4-11 | perl -pe 's/_/\t/gi; s/:/\t/gi' | ",
+                          "gzip -c - > {ret_tsv}{RET}")
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{TAB} Launching; CMD={aln_cmd}...{RET}"))
     
-    cat(glue::glue("[{funcTag}]:{TAB} Launching bsmap alignments: {fas_name} vs. {gen_name}...{RET}"))
-    readr::write_lines(x=aln_cmd, path=aln_sh, append=FALSE)
-    Sys.chmod(paths=aln_sh, mode="0777")
-    if (!is.null(lan)) aln_sh <- paste(lan,aln_sh, sep=' ')
-    base::system(aln_sh)
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{TAB} Launching bsmap alignments: {fas_name} vs. {gen_name}...{RET}"))
+    readr::write_lines(x=aln_cmd, file=aln_ssh, append=FALSE)
+    Sys.chmod(paths=aln_ssh, mode="0777")
+    
+    if (!is.null(lan)) aln_ssh <- paste(lan,aln_ssh, sep=' ')
+    if (run) base::system(aln_ssh)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
   
-  aln_sam
+  if (run) return(ret_tsv)
+  aln_ssh
 }
 
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                Infinium Methylation Probe toStrings::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+tibToFas = function(tib, key,seq, prefix,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'tibToFas'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; key={key}, seq={seq}, prefix={prefix}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    dir <- base::dirname(prefix)
+    if (!dir.exists(dir)) dir.create(dir, recursive=TRUE)
+    
+    file_fas <- paste0(prefix, ".fa.gz")
+    file_csv <- paste0(prefix, ".csv.gz")
+    
+    key_sym <- rlang::sym(key)
+    seq_sym <- rlang::sym(seq)
+    
+    ret_tib <- tib %>% dplyr::mutate(
+      # fas_line=paste0(">",!!key, "\n",!!seq)
+      fas_line=paste0(">",!!key_sym, "\n",!!seq_sym)
+    )  %>%
+      dplyr::filter(!is.na(fas_line))
+    
+    fas_vec <- ret_tib %>%
+      # dplyr::distinct(fas_line) %>%
+      dplyr::pull(fas_line)
+    
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Writing Data CSV={file_csv}...{RET}"))
+    readr::write_csv(ret_tib, file_csv)
+    
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Writing Data FAS={file_fas}...{RET}"))
+    readr::write_lines(x=fas_vec, file=file_fas)
+
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      ret_tib %>% print()
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
 
 ordToFas = function(tib, dir, name, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'writeBedFas'
@@ -442,7 +511,7 @@ ordToFas = function(tib, dir, name, verbose=0,vt=5,tc=1,tt=NULL) {
       TRUE ~ NA_character_ ) ) %>%
     dplyr::filter(!is.na(line)) %>% dplyr::pull(line)
   
-  readr::write_lines(x=fas_tib, path=fas_file)
+  readr::write_lines(x=fas_tib, file=fas_file)
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
   
@@ -468,7 +537,7 @@ writeBedFas = function(tib, dir, name, verbose=0,vt=5,tc=1,tt=NULL) {
     dplyr::mutate(line=paste0('>',Full_ID,'\n',PRB1_U)) %>% dplyr::pull(line)
   bed_tib <- tib %>% dplyr::select(Chrom, Beg, End, Full_ID, MinScore, FR_Imp, TB_Imp, CO_Imp, everything())
   
-  readr::write_lines(x=fas_tib, path=fas_file)
+  readr::write_lines(x=fas_tib, file=fas_file)
   readr::write_tsv(bed_tib, bed_file)
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))

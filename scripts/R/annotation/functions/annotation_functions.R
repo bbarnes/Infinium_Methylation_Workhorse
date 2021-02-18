@@ -25,31 +25,53 @@ RET <- "\n"
 #                      Manifest Intersection Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-manifestToAnnotation = function(tib, ann, gen,
+manifestToAnnotation = function(tib, ann, gen, csv=NULL, key="Seq_ID",
+                                tar=c("UCSC_Islands","UCSC_Genes","NCBI_Genes"),
                                 verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'manifestToAnnotation'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; key={key}...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
     
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Annotation   = {ann}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} Genome Build = {gen}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} Targets={RET}"))
+      tar %>% print()
+      cat("\n")
+    }
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                      4.2 Build Genomic Region Set::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    # Force ID's to be unique::
-    tib <- tib %>% dplyr::mutate(
-      rep=row_number(),
-      Seq_ID=paste(Seq_ID,rep, sep='_')) %>% 
-      ungroup()
-
+    # key_sym <- rlang::sym(key)
+    
+    # Ensure we have unique key fields::
+    tib <- makeFieldUnique(
+      tib=tib, field=key, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} tib={RET}"))
+      print(tib)
+      cat("\n")
+    }
+    
     man_grs <- GRanges(
       seqnames = Rle(tib$chrom), 
       IRanges(start=tib$chromStart, 
               end=tib$chromEnd, 
               names=tib$Seq_ID) )
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} man_grs={RET}"))
+      print(man_grs)
+      cat("\n")
+    }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                5.1 Intersect Mapped Probes with Annotation::
@@ -57,70 +79,98 @@ manifestToAnnotation = function(tib, ann, gen,
     
     # NCBI Genes::
     ncbi_mat_tib <- NULL
-    ncbi_ann_tsv <- file.path(ann,gen,paste(gen,'ncbi.RefSeqGenes.tsv.gz', sep='.') )
-    
-    if (!is.null(ncbi_ann_tsv) && file.exists(ncbi_ann_tsv)) {
-      if (verbose>=1) cat(glue::glue("[{funcTag}]:{tabsStr} ncbi_ann_tsv={ncbi_ann_tsv}...{RET}"))
+    if ("NCBI_Genes" %in% tar) {
+      ncbi_ann_tsv <- file.path(ann,gen,paste(gen,'ncbi.RefSeqGenes.tsv.gz', sep='.') )
       
-      ncbi_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(ncbi_ann_tsv) ))
-      colnames(ncbi_ann_tib)[1] <- stringr::str_remove(colnames(ncbi_ann_tib)[1], '^#')
-      
-      ncbi_ref_grs <- loadNcbiGeneGR(file=ncbi_ann_tsv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      ncbi_mat_tib <- intersectGranges(man=man_grs,ref=ncbi_ref_grs,
-                                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
-        dplyr::left_join(dplyr::select(ncbi_ann_tib,name,name2), by=c("Gene"="name")) %>% 
-        dplyr::rename(Transcript=Gene, Gene=name2) %>% 
-        dplyr::select(Seq_ID, Gene,Transcript,dplyr::everything()) %>%
-        dplyr::mutate(Source="NCBI")
-      
-      if (verbose>=1) cat(glue::glue("[{funcTag}]:{tabsStr} Done. ncbi.{RET}{RET}"))
+      if (!is.null(ncbi_ann_tsv) && file.exists(ncbi_ann_tsv)) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} ncbi_ann_tsv={ncbi_ann_tsv}...{RET}"))
+        
+        ncbi_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(ncbi_ann_tsv) ))
+        colnames(ncbi_ann_tib)[1] <- stringr::str_remove(colnames(ncbi_ann_tib)[1], '^#')
+        
+        ncbi_ref_grs <- loadNcbiGeneGR(file=ncbi_ann_tsv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        ncbi_mat_tib <- intersectGranges(man=man_grs,ref=ncbi_ref_grs,
+                                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
+          dplyr::left_join(dplyr::select(ncbi_ann_tib,name,name2), by=c("Gene"="name")) %>% 
+          dplyr::rename(Transcript=Gene, Gene=name2) %>% 
+          dplyr::select(Seq_ID, Gene,Transcript,dplyr::everything()) %>%
+          dplyr::mutate(Source="NCBI")
+        
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. ncbi.{RET}{RET}"))
+      } else {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Failed to find NCBI_Genes={ncbi_ann_tsv}...{RET}"))
+      }
+    } else {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will skip NCBI_Genes...{RET}"))
     }
     
     # UCSC Genes::
     gene_mat_tib <- NULL
-    gene_ann_tsv <- file.path(ann,gen,paste(gen,'ucsc.knownGene.tsv.gz', sep='.') )
-    if (!is.null(gene_ann_tsv) && file.exists(gene_ann_tsv)) {
-      if (verbose>=1) cat(glue::glue("[{funcTag}]:{tabsStr} gene_ann_tsv={gene_ann_tsv}...{RET}"))
-      
-      gene_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(gene_ann_tsv) )) %>% 
-        dplyr::rename(name2=proteinID)
-      colnames(gene_ann_tib)[1] <- stringr::str_remove(colnames(gene_ann_tib)[1], '^#')
-      
-      # proteinID
-      gene_ref_grs <- loadUcscGeneGR(file=gene_ann_tsv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      gene_mat_tib <- intersectGranges(man=man_grs,ref=gene_ref_grs,
-                                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        dplyr::left_join(dplyr::select(gene_ann_tib,name,name2), by=c("Gene"="name")) %>% 
-        dplyr::rename(Transcript=Gene, Gene=name2) %>% 
-        dplyr::select(Seq_ID, Gene,Transcript,dplyr::everything()) %>%
-        dplyr::mutate(Source="UCSC")
-      
-      if (verbose>=1) cat(glue::glue("[{funcTag}]:{tabsStr} Done. ucsc.{RET}{RET}"))
+    if ("UCSC_Genes" %in% tar) {
+      gene_ann_tsv <- file.path(ann,gen,paste(gen,'ucsc.knownGene.tsv.gz', sep='.') )
+      if (!is.null(gene_ann_tsv) && file.exists(gene_ann_tsv)) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} gene_ann_tsv={gene_ann_tsv}...{RET}"))
+        
+        gene_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(gene_ann_tsv) )) %>% 
+          dplyr::rename(name2=proteinID)
+        colnames(gene_ann_tib)[1] <- stringr::str_remove(colnames(gene_ann_tib)[1], '^#')
+        
+        # proteinID
+        gene_ref_grs <- loadUcscGeneGR(file=gene_ann_tsv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        gene_mat_tib <- intersectGranges(man=man_grs,ref=gene_ref_grs,
+                                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+          dplyr::left_join(dplyr::select(gene_ann_tib,name,name2), by=c("Gene"="name")) %>% 
+          dplyr::rename(Transcript=Gene, Gene=name2) %>% 
+          dplyr::select(Seq_ID, Gene,Transcript,dplyr::everything()) %>%
+          dplyr::mutate(Source="UCSC")
+        
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. ucsc.{RET}{RET}"))
+      } else {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Failed to find UCSC_Genes={ucsc_ann_tsv}...{RET}"))
+      }
+    } else {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will skip UCSC_Genes...{RET}"))
     }
     
     # CpG Islands::
     cpgs_mat_tib <- NULL
-    cpgs_ann_tsv <- file.path(ann,gen,paste(gen,'ucsc.CpG-Islands.tsv.gz', sep='.') )
-    if (!is.null(cpgs_ann_tsv) && file.exists(cpgs_ann_tsv)) {
-      if (verbose>=1) cat(glue::glue("[{funcTag}]:{tabsStr} cpgs_ann_tsv={cpgs_ann_tsv}...{RET}"))
-      
-      cpgs_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(cpgs_ann_tsv) )) %>% dplyr::select(-1)
-      cpgs_ref_grs <- loadUcscCpgsGR(file=cpgs_ann_tsv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      cpgs_mat_tib <- intersectGranges(man=man_grs,ref=cpgs_ref_grs,
-                                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-        dplyr::mutate(Source="UCSC")
-      
-      if (verbose>=1) cat(glue::glue("[{funcTag}]:{tabsStr} Done. cpgs.{RET}{RET}"))
+    if ("UCSC_Islands" %in% tar) {
+      cpgs_ann_tsv <- file.path(ann,gen,paste(gen,'ucsc.CpG-Islands.tsv.gz', sep='.') )
+      if (!is.null(cpgs_ann_tsv) && file.exists(cpgs_ann_tsv)) {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} cpgs_ann_tsv={cpgs_ann_tsv}...{RET}"))
+        
+        cpgs_ann_tib <- suppressMessages(suppressWarnings( readr::read_tsv(cpgs_ann_tsv) )) %>% dplyr::select(-1)
+        cpgs_ref_grs <- loadUcscCpgsGR(file=cpgs_ann_tsv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        cpgs_mat_tib <- intersectGranges(man=man_grs,ref=cpgs_ref_grs,
+                                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+          dplyr::mutate(Source="UCSC")
+        
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. cpgs.{RET}{RET}"))
+      } else {
+        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Failed to find UCSC_Islands={cpgs_ann_tsv}...{RET}"))
+      }
+    } else {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will skip UCSC_Islands...{RET}"))
     }
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done. Mapping Annotation.{RET}{RET}"))
     
     ret_tib <- dplyr::bind_rows(ncbi_mat_tib,gene_mat_tib,cpgs_mat_tib) %>% 
       dplyr::arrange(chrom,chromStart,chromEnd) %>%
       dplyr::mutate(Seq_Rep=stringr::str_remove(Seq_ID, '^.*_'),
                     Seq_ID=stringr::str_remove(Seq_ID, '_[0-9]+$'))
     
-    if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: Writing annotation mappings={ann_base_csv}...{RET}"))
-    readr::write_csv(ret_tib, ann_base_csv)
-    if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: Done. Writing annotation mappings.{RET}{RET}"))
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
+    
+    if (!is.null(csv)) {
+      outDir <- base::dirname(csv)
+      if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: Writing annotation mappings={csv}...{RET}"))
+      readr::write_csv(ret_tib, csv)
+      if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: Done. Writing annotation mappings.{RET}{RET}"))
+    }
     
     # man_ana_key <- names(ret_tib)[1]
     # man_ana_beg <- names(ret_tib)[2]
@@ -128,9 +178,6 @@ manifestToAnnotation = function(tib, ann, gen,
     # 
     # man_ana_col <- ret_tib %>% dplyr::select(-1) %>% names()
     # man_all_col <- ret_tib %>% names()
-    
-    
-    ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -190,7 +237,7 @@ intersectGranges = function(man,ref,
       }
       
       #
-      # Last chage:: # dplyr::select(Seq_ID),
+      # Last change:: # dplyr::select(Seq_ID),
       #
       cur_tib <- dplyr::bind_cols(
         mani_tib[map_tib$queryHits, ], # %>% dplyr::select(Seq_ID),
@@ -275,7 +322,7 @@ intersectGranges = function(man,ref,
 
 loadNcbiGeneGR = function(file,
                           verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'loadUcscGeneGR'
+  funcTag <- 'loadNcbiGeneGR'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -289,8 +336,7 @@ loadNcbiGeneGR = function(file,
     dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
     colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
     dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE) # %>% dplyr::mutate(transcript=name, name=name2)
-    print(dat_tib)
-    
+
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
     if (verbose>=vt+4) print(dat_tib)
     
@@ -361,8 +407,7 @@ loadUcscGeneGR = function(file,
     dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
     colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
     dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE)
-    print(dat_tib)
-    
+
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
     if (verbose>=vt+4) print(dat_tib)
     

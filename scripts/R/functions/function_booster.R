@@ -11,6 +11,60 @@ RET <- "\n"
 #                         Common Booster Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+makeFieldUnique = function(tib, field, add=NULL,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'makeFieldUnique'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; field={field}...{RET}"))
+  
+  field_sym <- rlang::sym(field)
+  outkey_sym <- rlang::sym(field)
+  if (!is.null(add)) outkey_sym <- rlang::sym(add)
+    
+  tot_cnt <- tib %>% base::nrow()
+  unq_cnt <- tib %>% dplyr::distinct(!!field_sym) %>% base::nrow()
+  # unq_cnt <- tib %>% dplyr::distinct(!!field_sym) %>% base::nrow()
+  
+  if (tot_cnt==unq_cnt) {
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Field({field}) already unique!",
+                     "Total={tot_cnt}, Unique={unq_cnt}.{RET}"))
+    return(tib)
+  }
+  stopifnot(tot_cnt>unq_cnt)
+  
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Field({field}): ",
+                   "Total={tot_cnt}, Unique={unq_cnt}.{RET}"))
+  
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    # Force ID's to be unique::
+    ret_tib <- tib %>% 
+      dplyr::group_by(!!field_sym) %>%
+      dplyr::mutate(
+        !!outkey_sym := paste(!!field_sym,row_number(), sep='')) %>% 
+      ungroup()
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

@@ -292,6 +292,7 @@ if (args.dat[1]=='RStudio') {
     opt$workflow <- "nd,ind"
     
     opt$manDirName  <- 'covic'
+    opt$manDirName  <- 'core'
     
   } else if (par$local_runType=='GRCm38') {
     opt$runName <- 'MURMETVEP_mm10_betaTest_06082020'
@@ -766,7 +767,7 @@ if (opt$cluster) {
       
       # Testing code only::
       #
-      if (par$runMode=='RStudio' && !is.null(par$expSampNum)) {
+      if (FALSE && par$runMode=='RStudio' && !is.null(par$expSampNum)) {
         prefix <- par$expSampNum
         opt$single <- TRUE
         opt$fresh  <- TRUE

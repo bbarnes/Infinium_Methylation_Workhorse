@@ -102,12 +102,11 @@ manToAdd = function(man, sel=c("Probe_ID","Next_Base","Probe_Type","Probe_Source
       dplyr::summarise(Count=n()) %>%
       print(n=base::nrow(ret_tib))
     
+    ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
       print(ret_tib)
     }
-    
-    ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
