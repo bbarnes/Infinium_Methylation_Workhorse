@@ -8,6 +8,31 @@ TAB <- "\t"
 RET <- "\n"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Standard Function Template::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+template_func = function(tib,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'template_func'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Common Booster Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -64,22 +89,23 @@ makeFieldUnique = function(tib, field, add=NULL,
   ret_tib
 }
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-template_func = function(tib,
+get_fileSuffix = function(file,
                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'template_func'
+  funcTag <- 'get_fileSuffix'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   ret_cnt <- 0
-  ret_tib <- NULL
+  ret_val <- NULL
   stime <- system.time({
     
-    ret_cnt <- ret_tib %>% base::nrow()
+    ret_val <- stringr::str_remove(file, "\\.gz$") %>% stringr::str_remove("^.*\\.")
+    ret_cnt <- ret_val %>% length()
+    # ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -87,8 +113,10 @@ template_func = function(tib,
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  ret_tib
+  ret_val
 }
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Clean Files for docker::
@@ -124,6 +152,8 @@ clean_file = function(file,
   
   file
 }
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                General Program Initialization Functions::
@@ -167,7 +197,10 @@ program_init = function(name,defs=NULL,
   # if (!is.null(defs))
   #   def_tib <- dplyr::bind_rows(defs) %>% tidyr::gather("Params", "Value")
   opt_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
-  par_tib <- dplyr::bind_rows(pars) %>% tidyr::gather("Params", "Value")
+  par_tib <- pars %>%
+    unlist(recursive = TRUE) %>%
+    dplyr::bind_rows() %>% 
+    tidyr::gather("Params", "Value")
   if (opts$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
   if (opts$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
   
@@ -218,15 +251,21 @@ program_init = function(name,defs=NULL,
   opts
 }
 
-# program_done(name=)
 program_done = function(opts,pars,
                         verbose=0,vt=3,tc=1,tt) {
   funcTag <- 'program_done'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
-  opts_tib  <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
-  pars_tib  <- dplyr::bind_rows(pars) %>% tidyr::gather("Params", "Value")
+  opts_tib  <- opts %>%
+    unlist(recursive=TRUE) %>%
+    dplyr::bind_rows() %>% 
+    tidyr::gather("Option", "Value")
+  
+  pars_tib  <- pars %>%
+    unlist(recursive=TRUE) %>%
+    dplyr::bind_rows() %>% 
+    tidyr::gather("Params", "Value")
   time_tib <- tt$time %>% dplyr::mutate_if(is.numeric, list(round), 4)
   
   readr::write_csv(opts_tib, opts$opt_csv)
