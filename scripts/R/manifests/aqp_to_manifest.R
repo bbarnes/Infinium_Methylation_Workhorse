@@ -66,12 +66,19 @@ opt$bsmap_exe <- "/Users/bretbarnes/Documents/programs/BSMAPz/bsmapz"
 opt$runName    <- NULL
 opt$idatPrefix <- NULL
 
+# Null Place Holders::
+opt$cpg_top_tsv <- NULL
+opt$cpg_pos_tsv <- NULL
+opt$cph_pos_tsv <- NULL
+opt$snp_pos_tsv <- NULL
+
 # Directories::
-opt$outDir <- NULL
-opt$impDir <- NULL
-opt$annDir <- NULL
-opt$genDir <- NULL
-opt$manDir <- NULL
+opt$outDir  <- NULL
+opt$impDir  <- NULL
+opt$annDir  <- NULL
+opt$genDir  <- NULL
+opt$manDir  <- NULL
+opt$idatDir <- NULL
 
 # Required Inputs::
 opt$ords <- NULL
@@ -349,6 +356,7 @@ if (args.dat[1]=='RStudio') {
   opt$fresh <- FALSE
   
   opt$verbose <- 3
+  opt$verbose <- 10
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -376,7 +384,16 @@ if (args.dat[1]=='RStudio') {
                 help="Run Name [default= %default]", metavar="character"),
     make_option(c("--pre_man_csv"), type="character", default=opt$pre_man_csv, 
                 help="Previously defined manifest [default= %default]", metavar="character"),
-
+    
+    make_option(c("--cpg_pos_tsv"), type="character", default=opt$cpg_pos_tsv, 
+                help="Null value for passing arguments [default= %default]", metavar="character"),
+    make_option(c("--cpg_top_tsv"), type="character", default=opt$cpg_top_tsv, 
+                help="Null value for passing arguments [default= %default]", metavar="character"),
+    make_option(c("--cph_pos_tsv"), type="character", default=opt$cph_pos_tsv, 
+                help="Null value for passing arguments [default= %default]", metavar="character"),
+    make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv, 
+                help="Null value for passing arguments [default= %default]", metavar="character"),
+    
     # Directories::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
@@ -389,6 +406,8 @@ if (args.dat[1]=='RStudio') {
                 help="Genomic data directory [default= %default]", metavar="character"),
     make_option(c("--manDir"), type="character", default=opt$manDir, 
                 help="Pre-built Manifest data directory [default= %default]", metavar="character"),
+    make_option(c("--idatDir"), type="character", default=opt$idatDir, 
+                help="Pre-built IDAT data directory [default= %default]", metavar="character"),
     
     # Pre-defined files (controls)
     make_option(c("--ords"), type="character", default=opt$ords, 
@@ -405,7 +424,7 @@ if (args.dat[1]=='RStudio') {
                 help="idat directories (comma seperated) [default= %default]", metavar="character"),
     
     # Platform/Method Options::
-    make_option(c("--opt$genBuild"), type="character", default=opt$genBuild, 
+    make_option(c("--genBuild"), type="character", default=opt$genBuild, 
                 help="Genome Build (e.g. GRCh36, GRCh37, GRCh38, GRCm38) [default= %default]", metavar="character"),
     make_option(c("--platform"), type="character", default=opt$platform, 
                 help="Platform (e.g. HM450, EPIC, LEGX, NZT, COVIC) [default= %default]", metavar="character"),
@@ -456,6 +475,9 @@ par$gen_src_dir <- file.path(par$scrDir, 'functions')
 if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
+
+# print(opt)
+# print(opt$genBuild)
 
 opt <- program_init(name=par$prgmTag,
                     opts=opt, opt_reqs=opt_reqs, 
@@ -646,6 +668,38 @@ cat(glue::glue("[{par$prgmTag}]: add_pqc_mis_cnt={add_pqc_mis_cnt}{RET}{RET}"))
 # Done::This should be moved into format_ORD()
 #
 if (FALSE) {
+  
+  man_hov_csv <- "/Users/bretbarnes/Documents/data/manifests/HorvathMammal40-A2.sesame-base.cpg-sorted.csv.gz"
+  man_hov_tib <- 
+    readr::read_csv( file.path(par$datDir, "manifest/core/HorvathMammal40-A1.sesame-base.cpg-sorted.csv.gz") ) %>% 
+    dplyr::mutate(
+      DESIGN_COLOR=dplyr::case_when(
+        col=="R" ~ "Red", 
+        col=="G" ~ "Grn", 
+        TRUE ~ NA_character_),
+      Probe_Type=stringr::str_sub(Probe_ID, 1,2),
+      Next_Base=dplyr::case_when(
+        col=="R" ~ "T",
+        col=="G" ~ "C",
+        TRUE ~ NA_character_
+      ),
+      DESIGN=dplyr::case_when(
+        !is.na(U) & !is.na(M) ~ "I",
+        !is.na(U) &  is.na(M) ~ "II",
+        TRUE ~ NA_character_
+      ),
+      Probe_Design=dplyr::case_when(
+        !is.na(U) & !is.na(M) ~ 1,
+        !is.na(U) &  is.na(M) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      Probe_Source="HorvathMammal40"
+    )
+    readr::write_csv(man_hov_tib, man_hov_csv)
+    
+  
+  # DESIGN_COLOR,col,Probe_Type,Probe_Source,Next_Base,Probe_Design
+  
 
   add_ord_unq_tib <- 
     dplyr::select(add_ord_tib, ord_id,ord_des,ord_aqp,ord_seq) %>% 
@@ -787,11 +841,11 @@ if (!file.exists(man_add_bsp_tsv) |
 imp_prb49U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq49U.prb-sorted.tsv.gz"
 imp_prb50U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq50U.prb-sorted.tsv.gz"
 
-add_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb49U.seq_sorted.tsv", sep="_"))
+add_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb49U.seq-sorted.tsv", sep="_"))
 add_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb50U.seq-sorted.tsv", sep="_"))
 
-int_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb49U.seq_intersect.tsv.gz", sep="_"))
-int_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb50U.seq_intersect.tsv.gz", sep="_"))
+int_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb49U.seq-intersect.tsv.gz", sep="_"))
+int_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb50U.seq-intersect.tsv.gz", sep="_"))
 
 # Address BSP tibble instead of GRS::
 man_add_bsp_tib <- man_add_bsp_grs %>% 
@@ -855,27 +909,47 @@ if (!file.exists(imp_prb50U_tsv) ||
 #    i.e. split this file: "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.short-fields.tsv.gz"
 #    [done]::
 
-if (!file.exists(imp_prb49U_tsv) ||
+# opt$fresh <- TRUE
+
+int_seq_col <- cols(
+  mat_seq = col_character(),
+  mat_cgn = col_integer(),
+  mat_sr2 = col_integer(),
+  mat_can = col_character()
+)
+
+if (opt$fresh ||
+    !file.exists(imp_prb49U_tsv) ||
     !file.exists(add_prb49U_tsv) ||
     !file.exists(int_prb49U_tsv) ||
     file.mtime(imp_prb49U_tsv) > file.mtime(add_prb49U_tsv) ||
     file.mtime(add_prb49U_tsv) > file.mtime(int_prb49U_tsv) ) {
 
-  int_49U_cmd = glue::glue("gzip -dc {imp_prb49U_tsv} | join -t $'\t' -13 -22 - {add_prb49U_tsv} | cut -f 1,2,3,5,6,7,8 | gzip -c - > {int_prb49U_tsv}")
+  int_49U_cmd = glue::glue("gzip -dc {imp_prb49U_tsv} | join -t $'\t' -13 -22 - {add_prb49U_tsv} | gzip -c - > {int_prb49U_tsv}")
   int_49U_ret <- system(int_49U_cmd)
 }
-int_prb49U_tib <- readr::read_tsv(int_prb49U_tsv)
 
-if (!file.exists(imp_prb50U_tsv) ||
+int_prb49U_tib <- 
+  readr::read_tsv(int_prb49U_tsv,
+                  col_names=names(int_seq_col$cols),
+                  col_types=int_seq_col)
+
+if (opt$fresh ||
+    !file.exists(imp_prb50U_tsv) ||
     !file.exists(add_prb50U_tsv) ||
     !file.exists(int_prb50U_tsv) ||
     file.mtime(imp_prb50U_tsv) > file.mtime(add_prb50U_tsv) ||
     file.mtime(add_prb50U_tsv) > file.mtime(int_prb50U_tsv) ) {
 
-  int_50U_cmd = glue::glue("gzip -dc {imp_prb50U_tsv} | join -t $'\t' -13 -22 - {add_prb50U_tsv} | cut -f 1,2,3,5,6,7,8 | gzip -c - > {int_prb50U_tsv}")
+  int_50U_cmd = glue::glue("gzip -dc {imp_prb50U_tsv} | join -t $'\t' -13 -22 - {add_prb50U_tsv} | gzip -c - > {int_prb50U_tsv}")
   int_50U_ret <- system(int_50U_cmd)
 }
-int_prb50U_tib <- readr::read_tsv(int_prb50U_tsv)
+
+int_prb50U_tib <- 
+  readr::read_tsv(int_prb50U_tsv,
+                  col_names=names(int_seq_col$cols),
+                  col_types=int_seq_col)
+
 
 
 
