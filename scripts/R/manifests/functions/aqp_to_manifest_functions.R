@@ -667,10 +667,104 @@ get_headerSkipCount = function(file, field="Assay_Design_Id", n_max=50,
 #                Build Improbe Position Genomic Region:: RDS
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# Example Build Commands::
+#
+# cur_pos_db_grs <- write_impTopGenomeGRS(genBuild="GRCm10", verbose=10, tt=pTracker)
+# cur_pos_db_grs <- write_impTopGenomeGRS(genBuild="GRCh37", verbose=10, tt=pTracker)
+# cur_pos_db_grs <- write_impTopGenomeGRS(genBuild="GRCh38", verbose=10, tt=pTracker)
+write_impTopGenomeGRS = function(genBuild,
+                              impDir="/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designInput",
+                              verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'write_impTopGenomeGRS'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    imp_pos_col <- NULL
+    imp_pos_col <- cols(
+      imp_chr = col_integer(),
+      imp_pos = col_integer(),
+      imp_cgn = col_integer(),
+      imp_srd = col_integer(),
+      imp_top = col_character()
+    )
+    print(imp_pos_col)
+    
+    pos_tsv <- ""
+    pos_rds <- ""
+    
+    pos_tsv <- file.path(impDir, paste0(genBuild,'.cgn-pos-fwd.base.tsv.gz') )
+    pos_rds <- file.path(impDir, paste0(genBuild,'.cgn-pos-fwd.base.rds') )
+    
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading TSV={pos_tsv}...{RET}"))
+    
+    pos_tib <- NULL
+    pos_tib <- readr::read_tsv(pos_tsv, 
+                               col_names=names(imp_pos_col$cols),
+                               col_types=imp_pos_col)
+    
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} pos_tib={RET}"))
+      print(pos_tib)
+    }
+    ret_cnt <- pos_tib %>% base::nrow()
+    
+    if (FALSE) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Building GRS..{RET}"))
+      
+      ret_grs <- NULL
+      ret_grs <- 
+        GRanges(
+          seqnames = Rle(paste0("chr",pos_tib$imp_chr)),
+          # strand=Rle(stringr::str_sub( bsp$bsp_srd, 1,1 ) ),
+          
+          imp_cg=pos_tib$imp_cgn,
+          imp_fr=pos_tib$imp_fr,
+          imp_tb=pos_tib$imp_tb,
+          imp_co=pos_tib$imp_co,
+          
+          IRanges(start=pos_tib$imp_pos,
+                  width=2,
+                  # end=pos_tib$Coordinate+1,
+                  names=paste(pos_tib$imp_cgn,
+                              pos_tib$imp_chr,
+                              pos_tib$imp_pos,
+                              sep="_")
+          )
+        )
+      
+      if (verbose>=vt) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} ret_grs={RET}"))
+        print(ret_grs)
+      }
+      
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing RDS={pos_rds}...{RET}"))
+      readr::write_rds(ret_grs, pos_rds, compress="gz")
+      
+      ret_cnt <- ret_grs %>% length()
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  # ret_grs
+  pos_tib
+}
+
+# Example Build Commands::
+#
 # cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCm10", verbose=10, tt=pTracker)
 # cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCh37", verbose=10, tt=pTracker)
 # cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCh38", verbose=10, tt=pTracker)
-
 write_impGenomeGRS = function(genBuild,
                               impDir="/Users/bretbarnes/Documents/data/improbe/designOutput_21092020",
                               verbose=0,vt=3,tc=1,tt=NULL) {
@@ -703,9 +797,9 @@ write_impGenomeGRS = function(genBuild,
       cat(glue::glue("[{funcTag}]:{tabsStr} Loading TSV={pos_tsv}...{RET}"))
     
     pos_tib <- NULL
-    pos_tib <- readr::read_tsv(opt$pos_tsv, 
-                                   col_names=names(imp_pos_col$cols),
-                                   col_types=imp_pos_col)
+    pos_tib <- readr::read_tsv(pos_tsv, 
+                               col_names=names(imp_pos_col$cols),
+                               col_types=imp_pos_col)
     
     if (verbose>=vt) {
       cat(glue::glue("[{funcTag}]:{tabsStr} pos_tib={RET}"))
@@ -756,8 +850,5 @@ write_impGenomeGRS = function(genBuild,
   
   ret_grs
 }
-
-
-
 
 # End of file

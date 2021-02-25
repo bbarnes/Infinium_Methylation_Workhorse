@@ -228,7 +228,7 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C2'
     opt$version     <- 'C11'
     opt$version     <- 'C12'
-    
+
     opt$idatPrefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R01C01"
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genBuild,'-21092020.cgnTop.sorted.tsv') )
@@ -263,6 +263,8 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'C0'
     opt$version  <- 'C8'
     opt$version  <- 'C25'
+    opt$version  <- 'C26'
+    
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
     
@@ -507,7 +509,7 @@ cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 opt$preDir <- file.path(opt$outDir, 'manifest')
 if (!dir.exists(opt$preDir)) dir.create(opt$preDir, recursive=TRUE)
 
-opt$intDir <- file.path(opt$outDir, 'intersection')
+opt$intDir <- file.path(opt$outDir, 'intersect')
 if (!dir.exists(opt$intDir)) dir.create(opt$intDir, recursive=TRUE)
 
 opt$bspDir <- file.path(opt$outDir, 'bspmap')
@@ -749,6 +751,8 @@ if (!file.exists(man_add_bsp_tsv)) {
     verbose=opt$verbose,tt=pTracker)
 }
 
+man_add_bsp_tib <- NULL
+man_add_bsp_grs <- NULL
 if (!file.exists(man_add_bsp_tsv) |
     !file.exists(man_add_bsp_rds) |
     file.mtime(man_add_bsp_rds) < file.mtime(man_add_bsp_tsv) ) {
@@ -776,151 +780,404 @@ if (!file.exists(man_add_bsp_tsv) |
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
-#               4.0 Annotate All Probe Alignments:: CG# Database
+#                       STEP 3:: Annotate:: by 50U/49U
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-#
-# New Method::
-#
-#  1. Build cpg_pos_rds (add Top => FR) [ cgn, chr, pos, Top, F/R ]
-#  2. cgn/pos <- Intersect(man_add_bsp_grs,cpg_pos_rds)
-#  3.0 - Fix Pre-loading issues...
-#
-#
-#  3.1 - NEXT:: Load cpg_top_tsv
-#
-#
-#
-#
-#  4. Pull all cpgs
-#
-# opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genBuild,'-21092020.cgnTop.sorted.tsv.gz') )
-# opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
+imp_prb49U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq49U.prb-sorted.tsv.gz"
+imp_prb50U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq50U.prb-sorted.tsv.gz"
 
-# opt$cph_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.chn-sorted.tsv.gz') )
-# opt$snp_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.snp-sorted.tsv.gz') )
+add_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb49U.seq_sorted.tsv", sep="_"))
+add_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb50U.seq-sorted.tsv", sep="_"))
 
+int_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb49U.seq_intersect.tsv.gz", sep="_"))
+int_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb50U.seq_intersect.tsv.gz", sep="_"))
 
-imp_top_col <- col <- cols(
-  imp_cgn = col_character(),
-  imp_top = col_character()
-)
+# Address BSP tibble instead of GRS::
+man_add_bsp_tib <- man_add_bsp_grs %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column(var="unq_add_id") %>% 
+  tibble::as_tibble()
 
-imp_pos_rds <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.cgn-pos-srd.rds"
-imp_top_tsv <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz"
+# The aln_seq code should be pulled from above...
+#
+add_prbAll_tib <- 
+  man_add_bsp_tib %>%
+  dplyr::mutate(
+    add_prb50U=prb_ord_seq %>%
+      stringr::str_replace_all("R","A") %>% 
+      stringr::str_replace_all("Y","T")
+  ) %>%
+  dplyr::select(unq_add_id,add_prb50U, prb_des) %>% 
+  dplyr::arrange(add_prb50U)
 
-imp_pos_grs <- readr::read_rds(imp_pos_rds)
-imp_top_tib <- readr::read_tsv(imp_top_tsv, 
-                               col_names=names(imp_top_col$cols), 
-                               col_types=imp_top_col)
+# Build/Write prb49U
+add_prb49U_tib <- 
+  add_prbAll_tib %>%
+  dplyr::filter(prb_des=="2") %>%
+  dplyr::mutate(
+    add_prb49U=stringr::str_sub(add_prb50U, 2)
+  ) %>%
+  dplyr::select(unq_add_id,add_prb49U)
 
-# cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCm10", verbose=10, tt=pTracker)
-# cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCh37", verbose=10, tt=pTracker)
-# cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCh38", verbose=10, tt=pTracker)
-
-#
-# NEXT:: Test intersect( man_add_bsp_grs,cur_pos_db_grs )
-#
-add_imp_all_tib <- 
-  intersectGranges(
-    man=man_add_bsp_grs, ref=imp_pos_grs,
-    verbose=opt$verbose, tt=pTracker)
-
-add_imp_all_tib
-
-#
-# Others::
-#
-#   1. Extract Forward Sequence from BSMAP Alignment...
-#
-# seqnames   start     end width strand              ord_id  prb_add  prb_cgn prb_des                                        prb_ord_seq
-# 20700992_U_1       chr1 3005998 3005999     2      +  cg36602742_F_T_C_I 20700992 20700992       U TTATAAACTTCTCTACAAAACCCAAAACATCACTAACCCTAAATAATTCA
-# 28608858_M_1       chr1 3005998 3005999     2      +  cg36602742_F_T_C_I 28608858 28608858       M TTATAAACTTCTCTACAAAACCCAAAACATCACTAACCCTAAATAATTCG
-#
-#  beg=3005998-3005938; end=3006059-3005999
-#  CMD="samtools faidx /Users/bretbarnes/Documents/data/iGenomes/Mus_musculus/NCBI/GRCm10/Sequence/WholeGenomeFasta/GRCm10.genome.fa 1:3005938-3006059"
-#  >1:3005938-3006059
-#  GATTGGACTTACAATCCATTCAATAACAACAAAAAGTCATGCTTGGTCCTGAAAACCTAA[CG]AACTACCCAGGGCTAGTGATGTCCTGGGTCTTGTAGAGAAGCCCACAACTTTTACTTTAA
-#
-#   2. Add CH/RS via extraction method above::
-#
-#   3. Simplify non-improbe design code to run on full cg# database
-#
-
-
-#
-# New Method Takes too much memory::
-#
-if (FALSE) {
-
-  cgn_pos_db_rds  <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.cgn-map-prb.rds"
-  cgn_pos_db_tsv  <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.cgn-map-prb.tsv.gz"
+if (!file.exists(imp_prb49U_tsv) ||
+    !file.exists(add_prb49U_tsv) ||
+    file.mtime(imp_prb49U_tsv) > file.mtime(add_prb49U_tsv) ) {
   
-  if (file.exists(cgn_pos_db_tsv)) cgn_pos_db_tib <- readr::read_tsv(cgn_pos_db_tsv)
-  # 6:49 to 7:16
-  
-  if (!file.exists(cgn_pos_db_rds)) {
-    
-    cgn_pos_db_grs <- 
-      GRanges(
-        seqnames = Rle(cgn_pos_db_tib$chrChromosome),
-        # strand=Rle(stringr::str_sub( bsp$bsp_srd, 1,1 ) ),
-        
-        imp_cg=cgn_pos_db_tib$Seq_ID,
-        imp_fr=cgn_pos_db_tib$Methyl_Allele_FR_Strand,
-        imp_tb=cgn_pos_db_tib$Methyl_Allele_TB_Strand,
-        imp_co=cgn_pos_db_tib$Methyl_Allele_CO_Strand,
-        imp_nb=cgn_pos_db_tib$Methyl_Next_Base,
-        
-        imp_seq1U=cgn_pos_db_tib$UnMethyl_Probe_Sequence,
-        imp_seq1M=cgn_pos_db_tib$Methyl_Probe_Sequence,
-        
-        IRanges(start=cgn_pos_db_tib$Coordinate,
-                end=cgn_pos_db_tib$Coordinate+1,
-                names=paste(cgn_pos_db_tib$Seq_ID,
-                            paste0(cgn_pos_db_tib$Methyl_Allele_TB_Strand,
-                                   cgn_pos_db_tib$Methyl_Allele_CO_Strand),
-                            paste0(cgn_pos_db_tib$Methyl_Allele_FR_Strand,
-                                   imp_nb=cgn_pos_db_tib$Methyl_Next_Base),
-                            cgn_pos_db_tib$chrChromosome,
-                            cgn_pos_db_tib$Coordinate,
-                            sep="_")
-        )
-      )
-    
-  }
+  readr::write_tsv(
+    add_prb49U_tib, add_prb49U_tsv, col_names=FALSE)
+}
+
+# Build/Write prb50U
+add_prb50U_tib <- 
+  add_prbAll_tib %>%
+  dplyr::filter(prb_des!="2") %>%
+  dplyr::select(unq_add_id,add_prb50U)
+
+if (!file.exists(imp_prb50U_tsv) ||
+    !file.exists(add_prb50U_tsv) ||
+    file.mtime(imp_prb50U_tsv) > file.mtime(add_prb50U_tsv) ) {
+
+  readr::write_tsv(
+    add_prb50U_tib, add_prb50U_tsv, col_names=FALSE)
 }
 
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# TBD:: 
+#  Candidate::
+#  - Don't need to add ord_id,prb_des
+#  - Split files by aln_prb50U,aln_prb49U
 #
-#                     5.0 Rebuild Manifest:: ord_tib
+#  Reference::
+#  - Combine cgn_int,srd_int
+#  - Split files by aln_prb50U,aln_prb49U
+#    i.e. split this file: "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.short-fields.tsv.gz"
+#    [done]::
+
+if (!file.exists(imp_prb49U_tsv) ||
+    !file.exists(add_prb49U_tsv) ||
+    !file.exists(int_prb49U_tsv) ||
+    file.mtime(imp_prb49U_tsv) > file.mtime(add_prb49U_tsv) ||
+    file.mtime(add_prb49U_tsv) > file.mtime(int_prb49U_tsv) ) {
+
+  int_49U_cmd = glue::glue("gzip -dc {imp_prb49U_tsv} | join -t $'\t' -13 -22 - {add_prb49U_tsv} | cut -f 1,2,3,5,6,7,8 | gzip -c - > {int_prb49U_tsv}")
+  int_49U_ret <- system(int_49U_cmd)
+}
+int_prb49U_tib <- readr::read_tsv(int_prb49U_tsv)
+
+if (!file.exists(imp_prb50U_tsv) ||
+    !file.exists(add_prb50U_tsv) ||
+    !file.exists(int_prb50U_tsv) ||
+    file.mtime(imp_prb50U_tsv) > file.mtime(add_prb50U_tsv) ||
+    file.mtime(add_prb50U_tsv) > file.mtime(int_prb50U_tsv) ) {
+
+  int_50U_cmd = glue::glue("gzip -dc {imp_prb50U_tsv} | join -t $'\t' -13 -22 - {add_prb50U_tsv} | cut -f 1,2,3,5,6,7,8 | gzip -c - > {int_prb50U_tsv}")
+  int_50U_ret <- system(int_50U_cmd)
+}
+int_prb50U_tib <- readr::read_tsv(int_prb50U_tsv)
+
+
+
+
+
+
+
+
+# Add Extra Infinum II Column::
 #
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-
-
-
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+# cmd="gzip -dc /Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.short-fields.tsv.gz | perl -pe 's/\n$//; @d=split("\t",$_); s/^.*$//; print "$d[0]\t$d[1]\t$d[2]\t".substr($d[2],0,length($d[2])-1)."\n"; ' | gzip -c -> /Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.both-fields.tsv.gz"
+# Script=/Users/bretbarnes/Documents/tools/shells/improbe/sort-prb50U-all.sh
 #
-#                             6.0 Add Controls:: 
+
 #
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-
-
-
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+# Run Basic Probe seq50U intersection::
+#  - This needs to be cleaned up for seq49U Infinium II matching...
+# cmd="gzip -dc /Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.short-fields.tsv.gz | join -t $'\t' -13 -24 - /Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/manifest/LEGX-C25-GRCm10_aln-prbs-GRCm10.UniqueID-AlnSeq.tsv > /Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/intersection/intersect-seq50U.tsv"
 #
-#                        7.0 Convert To Genome Studo:: 
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+# cmd="gzip -dc /Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.both-fields.tsv.gz | join -t $'\t' -13 -24 - /Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/manifest/LEGX-C25-GRCm10_aln-prbs-GRCm10.UniqueID-AlnSeq.tsv > /Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/intersection/intersect-seq50U.tsv"
+# cmd="gzip -dc /Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.both-fields.tsv.gz | join -t $'\t' -14 -25 - /Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/manifest/LEGX-C25-GRCm10_aln-prbs-GRCm10.UniqueID-AlnSeq.tsv > /Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/intersection/intersect-seq49U.tsv"
 
+# Run Intersection::
+
+# man_add_prb_tsv2   <- "/Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/manifest/LEGX-C25-GRCm10_aln-prbs-GRCm10.UniqueID-AlnSeq.tsv"
+
+# cgn_ann_seq50U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.both-fields.tsv.gz"
+# cmd_49U=glue::glue("gzip -dc {cgn_ann_seq50U_tsv} | join -t $'\t' -14 -25 - {man_add_prb_tsv} | cut -f 1,2,3,5,6,7,8 | gzip -c - > {man_add_int49U_tsv}")
+# cmd_50U=glue::glue("gzip -dc {cgn_ann_seq50U_tsv} | join -t $'\t' -13 -24 - {man_add_prb_tsv} | cut -f 1,2,3,5,6,7,8 | gzip -c - > {man_add_int50U_tsv}")
+
+if (FALSE) {
+
+  
+  # Load First Round:: II
+  
+  int_seq49U_col <- cols(
+    mat_49U = col_character(),
+    
+    imp_cgn = col_integer(),
+    imp_srd = col_integer(),
+    
+    # mat_50U = col_character(),
+    # mat_49U = col_character(),
+    
+    unq_id    = col_character(),
+    ord_id    = col_character(),
+    ord_des   = col_character(),
+    aln_prb50U = col_character()
+  )
+  
+  int_seq49U_tsv <- "/Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C26-GRCm10/intersection/intersect-seq49U.tsv.gz"
+  int_seq49U_tib <- readr::read_tsv(int_seq49U_tsv,
+                                    col_names=names(int_seq49U_col$cols),
+                                    col_types=int_seq49U_col)
+  
+  
+  # Load Second Round:: I
+  int_seq50U_tsv <- "/Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/intersection/intersect-seq50U.tsv.gz"
+  int_seq50U_tib <- readr::read_tsv(int_seq50U_tsv)
+  
+  # Build Address Data (add = prb)
+  # Align 
+  #  - Need to improve alignment summary
+  # Annotate
+  #  - Load seq50U
+  #  - Parse imp48U
+  #  - Parse prb48U
+  #  - Join by imp48U/prb48
+  #  - Add Canonical cg# flag
+  # Redesign
+  #  - Extract 122mer (ref/snp)
+  #  - Redesign
+  #  - SNP affect summary
+  
+  imp_cgn_prb_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd-sorted.short-fields.tsv.gz"
+  imp_cgn_prb_rds <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd-sorted.short-fields.rds"
+  
+  if (file.exists(imp_cgn_prb_rds)) {
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Loading imp_cgn_prb_rds (RDS)={imp_cgn_prb_rds}...{RET}"))
+    
+    imp_cgn_prb_tib <- readr::read_rds(imp_cgn_prb_rds)
+  } else {
+    if (file.exists(imp_cgn_prb_tsv)) {
+      if (opt$verbose>=1)
+        cat(glue::glue("[{par$prgmTag}]: Loading imp_cgn_prb_tsv (TSV)={imp_cgn_prb_tsv}...{RET}"))
+      
+      imp_time <- system.time({
+        imp_cgn_prb_col <- cols(
+          imp_cgn = col_integer(),
+          imp_srd = col_integer(),
+          imp_seq = col_character()
+        )
+        
+        imp_cgn_prb_tib <- 
+          readr::read_tsv(imp_cgn_prb_tsv,
+                          col_names=names(imp_cgn_prb_col$cols),
+                          col_types=imp_cgn_prb_col)
+        
+        if (opt$verbose>=1)
+          cat(glue::glue("[{par$prgmTag}]: Writing imp_cgn_prb_rds (RDS)={imp_cgn_prb_rds}...{RET}"))
+        
+        # readr::write_rds(imp_cgn_prb_tib, imp_cgn_prb_rds, compress="gz")
+      })
+    } else {
+      cat(glue::glue("ERROR: Failed to find imp_cgn_prb_tsv={imp_cgn_prb_tsv}!!!{RET}{RET}"))
+    }
+  }
+  
+  add_bsp_imp_tib <- man_add_bsp_tib2 %>% 
+    dplyr::left_join(imp_cgn_prb_tib, by=c("aln_prb"="imp_seq"))
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #
+  #               4.0 Annotate All Probe Alignments:: CG# Database
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  gen_map_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designInput/GRCm10.cgn-pos-fwd.base.tsv.gz"
+  gen_map_tib <- write_impTopGenomeGRS(genBuild = opt$genBuild, verbose = 10)
+  
+  # Load genome for sub-string of design sequence::
+  #
+  tmp_fas_dat <- Biostrings::readDNAStringSet(filepath = man_gen_fas, format = "fasta", nrec = 2)
+  
+  #
+  # Tasks::
+  #  - Extract (sub-string) forward sequence from NCBI Reference Genome
+  #  - Convert designOutput.cgn-pos-fwd.tsv.gz to GR Range
+  #    Unique_ID=[cg,srd,chr,pos], chr=paste("chr",chr), top_seq, start=pos, width=2
+  #  - Validate forward sequence
+  #  - Extract (sub-string) forward sequence from dbSNP151 Reference Genome
+  #  
+  #
+  
+  
+  man_add_bsp_tib %>% dplyr::filter(seqnames=="chr10") %>% head() %>% tail(n=3) %>% as.data.frame()
+  # cg28108104_F_T_C_II
+  # 3102674
+  bsp_pos=3102674
+  
+  # How to extract forward sequence::
+  subseq(tmp_fas_dat[["10"]], start=bsp_pos - 60, width = 60)
+  subseq(tmp_fas_dat[["10"]], start=bsp_pos +  0, width = 2)
+  subseq(tmp_fas_dat[["10"]], start=bsp_pos +  2, width = 60)
+  
+  fwd_seq <- subseq(tmp_fas_dat[["10"]], start=bsp_pos - 60, width = 122) %>% as.character()
+  rev_seq <- fwd_seq %>% revCmp()
+  
+  fwd_brac_seq <- fwd_seq %>% addBrac()
+  rev_brac_seq <- rev_seq %>% addBrac()
+  
+  
+  # cgn_pos_db_tsv <- file.path("/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh37-21022021_improbe-designOutput.cgn-pos-fwd.tsv.gz")
+  
+  cur_pos_db_grs <- write_impTopGenomeGRS(genBuild=opt$genBuild, verbose=10, tt=pTracker)
+  cur_pos_db_grs %>% dplyr::filter(imp_chr==10 && imp_pos==bsp_pos)
+  
+  
+  #
+  # New Method::
+  #
+  #  1. Build cpg_pos_rds (add Top => FR) [ cgn, chr, pos, Top, F/R ]
+  #  2. cgn/pos <- Intersect(man_add_bsp_grs,cpg_pos_rds)
+  #  3.0 - Fix Pre-loading issues...
+  #
+  #
+  #  3.1 - NEXT:: Load cpg_top_tsv
+  #
+  #
+  #
+  #
+  #  4. Pull all cpgs
+  #
+  # opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genBuild,'-21092020.cgnTop.sorted.tsv.gz') )
+  # opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
+  
+  # opt$cph_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.chn-sorted.tsv.gz') )
+  # opt$snp_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.snp-sorted.tsv.gz') )
+  
+  
+  imp_top_col <- col <- cols(
+    imp_cgn = col_character(),
+    imp_top = col_character()
+  )
+  
+  imp_pos_rds <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.cgn-pos-srd.rds"
+  imp_top_tsv <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz"
+  
+  imp_pos_grs <- readr::read_rds(imp_pos_rds)
+  imp_top_tib <- readr::read_tsv(imp_top_tsv, 
+                                 col_names=names(imp_top_col$cols), 
+                                 col_types=imp_top_col)
+  
+  # cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCm10", verbose=10, tt=pTracker)
+  # cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCh37", verbose=10, tt=pTracker)
+  # cur_pos_db_grs <- write_impGenomeGRS(genBuild="GRCh38", verbose=10, tt=pTracker)
+  
+  #
+  # NEXT:: Test intersect( man_add_bsp_grs,cur_pos_db_grs )
+  #
+  add_imp_all_tib <- 
+    intersectGranges(
+      man=man_add_bsp_grs, ref=imp_pos_grs,
+      verbose=opt$verbose, tt=pTracker)
+  
+  add_imp_all_tib
+  
+  #
+  # Others::
+  #
+  #   1. Extract Forward Sequence from BSMAP Alignment...
+  #
+  # seqnames   start     end width strand              ord_id  prb_add  prb_cgn prb_des                                        prb_ord_seq
+  # 20700992_U_1       chr1 3005998 3005999     2      +  cg36602742_F_T_C_I 20700992 20700992       U TTATAAACTTCTCTACAAAACCCAAAACATCACTAACCCTAAATAATTCA
+  # 28608858_M_1       chr1 3005998 3005999     2      +  cg36602742_F_T_C_I 28608858 28608858       M TTATAAACTTCTCTACAAAACCCAAAACATCACTAACCCTAAATAATTCG
+  #
+  #  beg=3005998-3005938; end=3006059-3005999
+  #  CMD="samtools faidx /Users/bretbarnes/Documents/data/iGenomes/Mus_musculus/NCBI/GRCm10/Sequence/WholeGenomeFasta/GRCm10.genome.fa 1:3005938-3006059"
+  #  >1:3005938-3006059
+  #  GATTGGACTTACAATCCATTCAATAACAACAAAAAGTCATGCTTGGTCCTGAAAACCTAA[CG]AACTACCCAGGGCTAGTGATGTCCTGGGTCTTGTAGAGAAGCCCACAACTTTTACTTTAA
+  #
+  #   2. Add CH/RS via extraction method above::
+  #
+  #   3. Simplify non-improbe design code to run on full cg# database
+  #
+  
+  
+  #
+  # New Method Takes too much memory::
+  #
+  if (FALSE) {
+    
+    cgn_pos_db_rds  <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.cgn-map-prb.rds"
+    cgn_pos_db_tsv  <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.cgn-map-prb.tsv.gz"
+    
+    if (file.exists(cgn_pos_db_tsv)) cgn_pos_db_tib <- readr::read_tsv(cgn_pos_db_tsv)
+    # 6:49 to 7:16
+    
+    if (!file.exists(cgn_pos_db_rds)) {
+      
+      cgn_pos_db_grs <- 
+        GRanges(
+          seqnames = Rle(cgn_pos_db_tib$chrChromosome),
+          # strand=Rle(stringr::str_sub( bsp$bsp_srd, 1,1 ) ),
+          
+          imp_cg=cgn_pos_db_tib$Seq_ID,
+          imp_fr=cgn_pos_db_tib$Methyl_Allele_FR_Strand,
+          imp_tb=cgn_pos_db_tib$Methyl_Allele_TB_Strand,
+          imp_co=cgn_pos_db_tib$Methyl_Allele_CO_Strand,
+          imp_nb=cgn_pos_db_tib$Methyl_Next_Base,
+          
+          imp_seq1U=cgn_pos_db_tib$UnMethyl_Probe_Sequence,
+          imp_seq1M=cgn_pos_db_tib$Methyl_Probe_Sequence,
+          
+          IRanges(start=cgn_pos_db_tib$Coordinate,
+                  end=cgn_pos_db_tib$Coordinate+1,
+                  names=paste(cgn_pos_db_tib$Seq_ID,
+                              paste0(cgn_pos_db_tib$Methyl_Allele_TB_Strand,
+                                     cgn_pos_db_tib$Methyl_Allele_CO_Strand),
+                              paste0(cgn_pos_db_tib$Methyl_Allele_FR_Strand,
+                                     imp_nb=cgn_pos_db_tib$Methyl_Next_Base),
+                              cgn_pos_db_tib$chrChromosome,
+                              cgn_pos_db_tib$Coordinate,
+                              sep="_")
+          )
+        )
+      
+    }
+  }
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #
+  #                     5.0 Rebuild Manifest:: ord_tib
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  
+  
+  
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #
+  #                             6.0 Add Controls:: 
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  
+  
+  
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #
+  #                        7.0 Convert To Genome Studo:: 
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  
+}
 
 
 
