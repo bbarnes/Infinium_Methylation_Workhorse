@@ -325,8 +325,22 @@ bspToGenomicRegion = function(bsp, rds=NULL,
         # prb_src = bsp$prb_src,
         
         prb_ord_seq  = bsp$ord_seq,
+        prb_aln_50U  = bsp$ord_seq %>%
+          stringr::str_replace_all("R","A") %>% # A/G
+          stringr::str_replace_all("Y","T") %>% # C/T
+          
+          stringr::str_replace_all("S","C") %>% # G/C
+          stringr::str_replace_all("W","A") %>% # A/T
+          stringr::str_replace_all("K","T") %>% # G/T
+          stringr::str_replace_all("M","A") %>% # A/C
+          
+          stringr::str_replace_all("B","T") %>% # C/G/T
+          stringr::str_replace_all("D","A") %>% # A/G/T
+          stringr::str_replace_all("H","A") %>% # A/C/T
+          stringr::str_replace_all("V","A") %>% # A/C/G
+          
+          stringr::str_replace_all("N","A"), # A/C/T/G
         # prb_aln_49U  = stringr::str_sub(bsp$aln_seq,2),
-        # prb_aln_50U  = bsp$aln_seq,
         # prb_aln_50M  = stringr::str_replace_all(bsp$ord_seq,"G","A"),
         bsp_ref_seq  = bsp$bsp_ref,
         

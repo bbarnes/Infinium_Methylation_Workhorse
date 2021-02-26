@@ -271,6 +271,7 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'C8'
     opt$version  <- 'C25'
     opt$version  <- 'C26'
+    opt$version  <- 'C27'
     
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
@@ -355,8 +356,8 @@ if (args.dat[1]=='RStudio') {
   # opt$fresh <- TRUE
   opt$fresh <- FALSE
   
-  opt$verbose <- 3
   opt$verbose <- 10
+  opt$verbose <- 3
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -492,7 +493,7 @@ par_tib <- par %>%
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                              Preprocessing::
+#                              Pre-processing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
@@ -663,55 +664,6 @@ add_pqc_mis_cnt <-
   base::nrow()
 cat(glue::glue("[{par$prgmTag}]: add_pqc_mis_cnt={add_pqc_mis_cnt}{RET}{RET}"))
 
-
-#
-# Done::This should be moved into format_ORD()
-#
-if (FALSE) {
-  
-  man_hov_csv <- "/Users/bretbarnes/Documents/data/manifests/HorvathMammal40-A2.sesame-base.cpg-sorted.csv.gz"
-  man_hov_tib <- 
-    readr::read_csv( file.path(par$datDir, "manifest/core/HorvathMammal40-A1.sesame-base.cpg-sorted.csv.gz") ) %>% 
-    dplyr::mutate(
-      DESIGN_COLOR=dplyr::case_when(
-        col=="R" ~ "Red", 
-        col=="G" ~ "Grn", 
-        TRUE ~ NA_character_),
-      Probe_Type=stringr::str_sub(Probe_ID, 1,2),
-      Next_Base=dplyr::case_when(
-        col=="R" ~ "T",
-        col=="G" ~ "C",
-        TRUE ~ NA_character_
-      ),
-      DESIGN=dplyr::case_when(
-        !is.na(U) & !is.na(M) ~ "I",
-        !is.na(U) &  is.na(M) ~ "II",
-        TRUE ~ NA_character_
-      ),
-      Probe_Design=dplyr::case_when(
-        !is.na(U) & !is.na(M) ~ 1,
-        !is.na(U) &  is.na(M) ~ 2,
-        TRUE ~ NA_real_
-      ),
-      Probe_Source="HorvathMammal40"
-    )
-    readr::write_csv(man_hov_tib, man_hov_csv)
-    
-  
-  # DESIGN_COLOR,col,Probe_Type,Probe_Source,Next_Base,Probe_Design
-  
-
-  add_ord_unq_tib <- 
-    dplyr::select(add_ord_tib, ord_id,ord_des,ord_aqp,ord_seq) %>% 
-    dplyr::arrange(ord_seq, -ord_aqp, ord_des) %>% 
-    dplyr::add_count(ord_seq, name="Prb_Cnt") %>%
-    dplyr::distinct(ord_seq, .keep_all=TRUE)
-  
-  add_ord_unq_tib %>% dplyr::filter(Prb_Cnt!=1)
-  add_ord_unq_tib %>% dplyr::distinct(ord_seq)
-  
-}
-
 # Final PQC Address Data::
 add_pqc_all_tib <-
   dplyr::inner_join(
@@ -791,11 +743,17 @@ add_raw_all_tib <-
                 aln_key=paste(prb_add,prb_des, sep="_")
   )
 
+#
+# TBD:: Understand why we change the name of prb_add -> as.character(prb_cgn)
+#
+
+
 # Write Fasta File::
 man_fas_tib <- 
   tibToFas(tib=add_raw_all_tib, 
            key="aln_key",seq="aln_seq", prefix=man_fas_pre, 
-           verbose=opt$verbose, tt=pTracker)
+           verbose=opt$verbose, tt=pTracker) %>%
+  dplyr::mutate(prb_cgn=as.character(prb_add))
 
 if (!file.exists(man_add_bsp_tsv)) {
   man_add_bsp_tsv <- bsmapProbeAlign(
@@ -815,7 +773,8 @@ if (!file.exists(man_add_bsp_tsv) |
     cat(glue::glue("[{par$prgmTag}]: Loading man_add_bsp (TSV)={man_add_bsp_tsv}...{RET}"))
   
   man_add_bsp_tib <- loadBspFormatted(
-    bsp=man_add_bsp_tsv, src=dplyr::mutate(man_fas_tib, prb_cgn=as.character(prb_add)), sort=TRUE,
+    bsp=man_add_bsp_tsv, src=man_fas_tib, sort=TRUE,
+    # bsp=man_add_bsp_tsv, src=dplyr::mutate(man_fas_tib, prb_cgn=as.character(prb_add)), sort=TRUE,
     # bsp=man_add_bsp_tsv, src=man_fas_tib, sort=TRUE,
     verbose=opt$verbose,tt=pTracker)
   
@@ -824,7 +783,7 @@ if (!file.exists(man_add_bsp_tsv) |
   
   man_add_bsp_grs <-bspToGenomicRegion(
     bsp=man_add_bsp_tib, rds=man_add_bsp_rds,
-    verbose=opt$verbose+10,tt=pTracker)
+    verbose=opt$verbose,tt=pTracker)
   
 } else {
   if (opt$verbose>=1)
@@ -838,122 +797,133 @@ if (!file.exists(man_add_bsp_tsv) |
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-imp_prb49U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq49U.prb-sorted.tsv.gz"
-imp_prb50U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq50U.prb-sorted.tsv.gz"
+run_cgn_mat <- FALSE
+if (run_cgn_mat) {
 
-add_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb49U.seq-sorted.tsv", sep="_"))
-add_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb50U.seq-sorted.tsv", sep="_"))
-
-int_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb49U.seq-intersect.tsv.gz", sep="_"))
-int_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb50U.seq-intersect.tsv.gz", sep="_"))
-
-# Address BSP tibble instead of GRS::
-man_add_bsp_tib <- man_add_bsp_grs %>% 
-  as.data.frame() %>% 
-  tibble::rownames_to_column(var="unq_add_id") %>% 
-  tibble::as_tibble()
-
-# The aln_seq code should be pulled from above...
-#
-add_prbAll_tib <- 
-  man_add_bsp_tib %>%
-  dplyr::mutate(
-    add_prb50U=prb_ord_seq %>%
-      stringr::str_replace_all("R","A") %>% 
-      stringr::str_replace_all("Y","T")
-  ) %>%
-  dplyr::select(unq_add_id,add_prb50U, prb_des) %>% 
-  dplyr::arrange(add_prb50U)
-
-# Build/Write prb49U
-add_prb49U_tib <- 
-  add_prbAll_tib %>%
-  dplyr::filter(prb_des=="2") %>%
-  dplyr::mutate(
-    add_prb49U=stringr::str_sub(add_prb50U, 2)
-  ) %>%
-  dplyr::select(unq_add_id,add_prb49U)
-
-if (!file.exists(imp_prb49U_tsv) ||
-    !file.exists(add_prb49U_tsv) ||
-    file.mtime(imp_prb49U_tsv) > file.mtime(add_prb49U_tsv) ) {
+  imp_prb49U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq49U.prb-sorted.tsv.gz"
+  imp_prb50U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq50U.prb-sorted.tsv.gz"
   
-  readr::write_tsv(
-    add_prb49U_tib, add_prb49U_tsv, col_names=FALSE)
+  add_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb49U.seq-sorted.tsv", sep="_"))
+  add_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"add-prb50U.seq-sorted.tsv", sep="_"))
+  
+  int_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb49U.seq-intersect.tsv.gz", sep="_"))
+  int_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb50U.seq-intersect.tsv.gz", sep="_"))
+  
+  # Address BSP tibble instead of GRS::
+  man_add_bsp_tib <- 
+    man_add_bsp_grs %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column(var="unq_add_id") %>% 
+    tibble::as_tibble() %>%
+    dplyr::mutate(
+      add_prb50U=prb_ord_seq %>%
+        stringr::str_replace_all("R","A") %>% 
+        stringr::str_replace_all("Y","T")
+    ) %>%
+    dplyr::arrange(add_prb50U) %>%
+    dplyr::distinct(add_prb50U, .keep_all=TRUE)
+  
+  # The aln_seq code should be pulled from above...
+  #
+  add_prbAll_tib <- 
+    man_add_bsp_tib %>%
+    dplyr::mutate(
+      add_prb50U=prb_ord_seq %>%
+        stringr::str_replace_all("R","A") %>% 
+        stringr::str_replace_all("Y","T")
+    ) %>%
+    dplyr::arrange(add_prb50U) %>%
+    dplyr::distinct(add_prb50U, .keep_all=TRUE) %>%
+    dplyr::select(unq_add_id,add_prb50U, prb_des)
+  
+  # Build/Write prb49U
+  add_prb49U_tib <- 
+    add_prbAll_tib %>%
+    dplyr::filter(prb_des=="2") %>%
+    dplyr::mutate(
+      add_prb49U=stringr::str_sub(add_prb50U, 2)
+    ) %>%
+    dplyr::select(unq_add_id,add_prb49U)
+  
+  if (!file.exists(imp_prb49U_tsv) ||
+      !file.exists(add_prb49U_tsv) ||
+      file.mtime(imp_prb49U_tsv) > file.mtime(add_prb49U_tsv) ) {
+    
+    readr::write_tsv(
+      add_prb49U_tib, add_prb49U_tsv, col_names=FALSE)
+  }
+  
+  # Build/Write prb50U
+  add_prb50U_tib <- 
+    add_prbAll_tib %>%
+    dplyr::filter(prb_des!="2") %>%
+    dplyr::select(unq_add_id,add_prb50U)
+  
+  if (!file.exists(imp_prb50U_tsv) ||
+      !file.exists(add_prb50U_tsv) ||
+      file.mtime(imp_prb50U_tsv) > file.mtime(add_prb50U_tsv) ) {
+    
+    readr::write_tsv(
+      add_prb50U_tib, add_prb50U_tsv, col_names=FALSE)
+  }
+  
+  
+  
+  # TBD:: 
+  #  Candidate::
+  #  - Don't need to add ord_id,prb_des
+  #  - Split files by aln_prb50U,aln_prb49U
+  #
+  #  Reference::
+  #  - Combine cgn_int,srd_int
+  #  - Split files by aln_prb50U,aln_prb49U
+  #    i.e. split this file: "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.short-fields.tsv.gz"
+  #    [done]::
+  
+  # opt$fresh <- TRUE
+  
+  int_seq_col <- cols(
+    mat_seq = col_character(),
+    mat_cgn = col_integer(),
+    mat_sr2 = col_integer(),
+    mat_can = col_character()
+  )
+  
+  if (opt$fresh ||
+      !file.exists(imp_prb49U_tsv) ||
+      !file.exists(add_prb49U_tsv) ||
+      !file.exists(int_prb49U_tsv) ||
+      file.mtime(imp_prb49U_tsv) > file.mtime(add_prb49U_tsv) ||
+      file.mtime(add_prb49U_tsv) > file.mtime(int_prb49U_tsv) ) {
+    
+    int_49U_cmd = glue::glue("gzip -dc {imp_prb49U_tsv} | join -t $'\t' -13 -22 - {add_prb49U_tsv} | gzip -c - > {int_prb49U_tsv}")
+    int_49U_ret <- system(int_49U_cmd)
+  }
+  
+  int_prb49U_tib <- 
+    readr::read_tsv(int_prb49U_tsv,
+                    col_names=names(int_seq_col$cols),
+                    col_types=int_seq_col)
+  
+  if (opt$fresh ||
+      !file.exists(imp_prb50U_tsv) ||
+      !file.exists(add_prb50U_tsv) ||
+      !file.exists(int_prb50U_tsv) ||
+      file.mtime(imp_prb50U_tsv) > file.mtime(add_prb50U_tsv) ||
+      file.mtime(add_prb50U_tsv) > file.mtime(int_prb50U_tsv) ) {
+    
+    int_50U_cmd = glue::glue("gzip -dc {imp_prb50U_tsv} | join -t $'\t' -13 -22 - {add_prb50U_tsv} | gzip -c - > {int_prb50U_tsv}")
+    int_50U_ret <- system(int_50U_cmd)
+  }
+  
+  int_prb50U_tib <- 
+    readr::read_tsv(int_prb50U_tsv,
+                    col_names=names(int_seq_col$cols),
+                    col_types=int_seq_col)
+  
+  
+  
 }
-
-# Build/Write prb50U
-add_prb50U_tib <- 
-  add_prbAll_tib %>%
-  dplyr::filter(prb_des!="2") %>%
-  dplyr::select(unq_add_id,add_prb50U)
-
-if (!file.exists(imp_prb50U_tsv) ||
-    !file.exists(add_prb50U_tsv) ||
-    file.mtime(imp_prb50U_tsv) > file.mtime(add_prb50U_tsv) ) {
-
-  readr::write_tsv(
-    add_prb50U_tib, add_prb50U_tsv, col_names=FALSE)
-}
-
-
-
-# TBD:: 
-#  Candidate::
-#  - Don't need to add ord_id,prb_des
-#  - Split files by aln_prb50U,aln_prb49U
-#
-#  Reference::
-#  - Combine cgn_int,srd_int
-#  - Split files by aln_prb50U,aln_prb49U
-#    i.e. split this file: "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.short-fields.tsv.gz"
-#    [done]::
-
-# opt$fresh <- TRUE
-
-int_seq_col <- cols(
-  mat_seq = col_character(),
-  mat_cgn = col_integer(),
-  mat_sr2 = col_integer(),
-  mat_can = col_character()
-)
-
-if (opt$fresh ||
-    !file.exists(imp_prb49U_tsv) ||
-    !file.exists(add_prb49U_tsv) ||
-    !file.exists(int_prb49U_tsv) ||
-    file.mtime(imp_prb49U_tsv) > file.mtime(add_prb49U_tsv) ||
-    file.mtime(add_prb49U_tsv) > file.mtime(int_prb49U_tsv) ) {
-
-  int_49U_cmd = glue::glue("gzip -dc {imp_prb49U_tsv} | join -t $'\t' -13 -22 - {add_prb49U_tsv} | gzip -c - > {int_prb49U_tsv}")
-  int_49U_ret <- system(int_49U_cmd)
-}
-
-int_prb49U_tib <- 
-  readr::read_tsv(int_prb49U_tsv,
-                  col_names=names(int_seq_col$cols),
-                  col_types=int_seq_col)
-
-if (opt$fresh ||
-    !file.exists(imp_prb50U_tsv) ||
-    !file.exists(add_prb50U_tsv) ||
-    !file.exists(int_prb50U_tsv) ||
-    file.mtime(imp_prb50U_tsv) > file.mtime(add_prb50U_tsv) ||
-    file.mtime(add_prb50U_tsv) > file.mtime(int_prb50U_tsv) ) {
-
-  int_50U_cmd = glue::glue("gzip -dc {imp_prb50U_tsv} | join -t $'\t' -13 -22 - {add_prb50U_tsv} | gzip -c - > {int_prb50U_tsv}")
-  int_50U_ret <- system(int_50U_cmd)
-}
-
-int_prb50U_tib <- 
-  readr::read_tsv(int_prb50U_tsv,
-                  col_names=names(int_seq_col$cols),
-                  col_types=int_seq_col)
-
-
-
-
-
 
 
 
@@ -981,7 +951,54 @@ int_prb50U_tib <-
 # cmd_50U=glue::glue("gzip -dc {cgn_ann_seq50U_tsv} | join -t $'\t' -13 -24 - {man_add_prb_tsv} | cut -f 1,2,3,5,6,7,8 | gzip -c - > {man_add_int50U_tsv}")
 
 if (FALSE) {
+  
+  #
+  # Done::This should be moved into format_ORD()
+  #
+  if (FALSE) {
+    add_ord_unq_tib <- 
+      dplyr::select(add_ord_tib, ord_id,ord_des,ord_aqp,ord_seq) %>% 
+      dplyr::arrange(ord_seq, -ord_aqp, ord_des) %>% 
+      dplyr::add_count(ord_seq, name="Prb_Cnt") %>%
+      dplyr::distinct(ord_seq, .keep_all=TRUE)
+    
+    add_ord_unq_tib %>% dplyr::filter(Prb_Cnt!=1)
+    add_ord_unq_tib %>% dplyr::distinct(ord_seq)
+  }
 
+  if (FALSE) {
+    
+    man_hov_csv <- "/Users/bretbarnes/Documents/data/manifests/HorvathMammal40-A2.sesame-base.cpg-sorted.csv.gz"
+    man_hov_tib <- 
+      readr::read_csv( file.path(par$datDir, "manifest/core/HorvathMammal40-A1.sesame-base.cpg-sorted.csv.gz") ) %>% 
+      dplyr::mutate(
+        DESIGN_COLOR=dplyr::case_when(
+          col=="R" ~ "Red", 
+          col=="G" ~ "Grn", 
+          TRUE ~ NA_character_),
+        Probe_Type=stringr::str_sub(Probe_ID, 1,2),
+        Next_Base=dplyr::case_when(
+          col=="R" ~ "T",
+          col=="G" ~ "C",
+          TRUE ~ NA_character_
+        ),
+        DESIGN=dplyr::case_when(
+          !is.na(U) & !is.na(M) ~ "I",
+          !is.na(U) &  is.na(M) ~ "II",
+          TRUE ~ NA_character_
+        ),
+        Probe_Design=dplyr::case_when(
+          !is.na(U) & !is.na(M) ~ 1,
+          !is.na(U) &  is.na(M) ~ 2,
+          TRUE ~ NA_real_
+        ),
+        Probe_Source="HorvathMammal40"
+      )
+    readr::write_csv(man_hov_tib, man_hov_csv)
+    
+    
+    # DESIGN_COLOR,col,Probe_Type,Probe_Source,Next_Base,Probe_Design
+  }
   
   # Load First Round:: II
   
