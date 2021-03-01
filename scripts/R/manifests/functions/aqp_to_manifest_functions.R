@@ -63,6 +63,7 @@ loadBspFormatted = function(bsp, src, col=NULL,fields=NULL, sort=TRUE,
         prb_cgn = col_character(),
         # prb_srd = col_character(),
         # prb_add = col_integer(),
+        prb_type = col_character(),
         prb_des = col_character(),
         # prb_src = col_character(),
         
@@ -86,8 +87,7 @@ loadBspFormatted = function(bsp, src, col=NULL,fields=NULL, sort=TRUE,
       )
     }
     
-    if (is.null(fields))
-      fields=c("prb_cgn","prb_des")
+    if (is.null(fields)) fields=c("prb_cgn","prb_type","prb_des")
     #  fields=c("prb_cgn","prb_srd","prb_add","prb_des","prb_src")
     
     # Load BSP
@@ -316,16 +316,17 @@ bspToGenomicRegion = function(bsp, rds=NULL,
         seqnames = Rle(paste0("chr",bsp$bsp_chr)),
         strand=Rle(stringr::str_sub( bsp$bsp_srd, 1,1 ) ),
         
-        ord_id  = bsp$ord_id,
-        
-        prb_add = bsp$prb_add,
+        # ord_id  = bsp$ord_id,
+
+        # prb_add = bsp$prb_add,
+        prb_add = bsp$Address,
         prb_cgn = bsp$prb_cgn,
         # prb_srd = bsp$prb_srd,
         prb_des = bsp$prb_des,
         # prb_src = bsp$prb_src,
         
-        prb_ord_seq  = bsp$ord_seq,
-        prb_aln_50U  = bsp$ord_seq %>%
+        prb_ord_seq  = bsp$prb_seq,
+        prb_aln_50U  = bsp$prb_seq %>%
           stringr::str_replace_all("R","A") %>% # A/G
           stringr::str_replace_all("Y","T") %>% # C/T
           
@@ -388,7 +389,7 @@ bspToGenomicRegion = function(bsp, rds=NULL,
 #                    Manifest File Methods:: Formatting
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-format_ORD = function(tib,
+format_ORD = function(tib, idx_key="IDX", uniq=TRUE,
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'format_ORD'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -398,11 +399,18 @@ format_ORD = function(tib,
   ret_tib <- NULL
   stime <- system.time({
     
+    idx_sym <- rlang::sym(idx_key)
+    add_col  <- c(idx_key,"ord_id","prb_des","prb_seq","prb_par")
+    sel_colA <- c(idx_key,"Assay_Design_Id","DesA","PrbA","PrbB")
+    sel_colB <- c(idx_key,"Assay_Design_Id","DesB","PrbB","PrbA")
+
     tmp_tib <- tib %>%
       dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id, -Normalization_Bin) %>% 
       dplyr::rename(PrbA=AlleleA_Probe_Sequence,
                     PrbB=AlleleB_Probe_Sequence) %>%
       dplyr::mutate(
+        PrbA=stringr::str_to_upper(PrbA),
+        PrbB=stringr::str_to_upper(PrbB),
         DesA=dplyr::case_when(
           !is.na(PrbA) & !is.na(PrbB) ~ "U",
           !is.na(PrbA) &  is.na(PrbB) ~ "2",
@@ -414,25 +422,21 @@ format_ORD = function(tib,
         )
       )
     
-    add_col <- c("ord_id","ord_des","ord_aqp","ord_seq")
     ret_tib <- dplyr::bind_rows(
       tmp_tib %>% dplyr::filter(DesB=="M") %>% 
-        dplyr::select(Assay_Design_Id,DesB,ord_aqp,PrbB) %>%
+        dplyr::select(dplyr::all_of(sel_colB)) %>%
         purrr::set_names(add_col),
       tmp_tib %>% dplyr::filter(DesA=="U") %>% 
-        dplyr::select(Assay_Design_Id,DesA,ord_aqp,PrbA) %>%
+        dplyr::select(dplyr::all_of(sel_colA)) %>%
         purrr::set_names(add_col),
       tmp_tib %>% dplyr::filter(DesA=="2") %>% 
-        dplyr::select(Assay_Design_Id,DesA,ord_aqp,PrbA) %>%
+        dplyr::select(dplyr::all_of(sel_colA)) %>%
         purrr::set_names(add_col)
     ) %>%
-      dplyr::mutate(ord_seq=stringr::str_to_upper(ord_seq)) %>%
-      utils::type.convert() %>% 
-      dplyr::mutate(across(where(is.factor),  as.character) ) %>%
-      dplyr::arrange(-ord_aqp) %>%
-      dplyr::distinct(ord_seq, .keep_all=TRUE)
-    # dplyr::arrange(ord_id)
+      dplyr::arrange(plyr::desc(!!idx_sym))
     
+    if (uniq) ret_tib <- ret_tib %>% dplyr::distinct(prb_seq, .keep_all=TRUE)
+
     ret_tib <- ret_tib %>% 
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor),  as.character) )
@@ -452,7 +456,7 @@ format_ORD = function(tib,
   ret_tib
 }
 
-format_MAT = function(tib, trim=TRUE,
+format_MAT = function(tib, idx_key="IDX", uniq=TRUE, trim=TRUE,
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'format_MAT'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -461,6 +465,8 @@ format_MAT = function(tib, trim=TRUE,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
+    
+    idx_sym <- rlang::sym(idx_key)
     
     ret_tib <- tib
     if (trim) {
@@ -478,18 +484,15 @@ format_MAT = function(tib, trim=TRUE,
     }
     
     ret_tib <- ret_tib %>% 
-      dplyr::mutate(tan_seq=stringr::str_sub(Sequence,1,45) %>%
-                      stringr::str_to_upper(),
-                    mat_seq=stringr::str_sub(Sequence,46)  %>%
-                      stringr::str_to_upper() ) %>%
+      dplyr::mutate(Sequence=stringr::str_to_upper(Sequence),
+                    tan_seq=stringr::str_sub(Sequence,1,45),
+                    prb_seq=stringr::str_sub(Sequence,46)
+      ) %>%
       dplyr::filter(!is.na(Address)) %>%
-      utils::type.convert() %>% 
-      dplyr::mutate(across(where(is.factor),  as.character) ) %>%
-      dplyr::arrange(Address,-mat_aqp,mat_seq) %>% 
-      dplyr::rename(mat_add=Address) %>%
-      dplyr::select(mat_add,mat_aqp,mat_seq,
-                    dplyr::everything()) %>% 
-      dplyr::distinct(mat_add, .keep_all=TRUE)
+      dplyr::select(Address,!!idx_sym,prb_seq, dplyr::everything()) %>% 
+      dplyr::arrange(plyr::desc(!!idx_sym))
+    
+    if (uniq) ret_tib <- ret_tib %>% dplyr::distinct(Address, .keep_all=TRUE)
     
     ret_tib <- ret_tib %>% 
       utils::type.convert() %>% 
@@ -510,7 +513,7 @@ format_MAT = function(tib, trim=TRUE,
   ret_tib
 }
 
-format_AQP = function(tib, sort=TRUE,filt=TRUE,
+format_AQP = function(tib, idx_key="IDX", uniq=TRUE,filt=TRUE,
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'format_AQP'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -520,6 +523,8 @@ format_AQP = function(tib, sort=TRUE,filt=TRUE,
   ret_tib <- NULL
   stime <- system.time({
     
+    idx_sym <- rlang::sym(idx_key)
+    
     # Determine if its AQP & PQC::
     #
     ret_tib <- tib %>% 
@@ -528,30 +533,27 @@ format_AQP = function(tib, sort=TRUE,filt=TRUE,
     
     if (c("Decode_Status") %in% names(tib)) {
       ret_tib <- ret_tib %>% 
-        dplyr::select(Address,Decode_Status,aqp_idx) %>%
-        dplyr::rename(aqp_add=Address,
-                      aqp_val=Decode_Status) %>%
+        dplyr::select(Address,Decode_Status,!!idx_sym) %>%
+        dplyr::rename(aqp_val=Decode_Status) %>%
         dplyr::mutate(aqp_src="AQP")
     } else if (c("Status") %in% names(tib)) {
       ret_tib <- ret_tib %>% 
-        dplyr::select(Address,Status,aqp_idx) %>%
-        dplyr::rename(aqp_add=Address,
-                      aqp_val=Status) %>%
+        dplyr::select(Address,Status,!!idx_sym) %>%
+        dplyr::rename(aqp_val=Status) %>%
         dplyr::mutate(aqp_src="PQC")
     } else {
       stop(glue::glue("{RET}[{funcTag}]:ERROR: Unable to match AQP/PQC!{RET}{RET}"))
       return(NULL)
-    }
-    pre_cnt <- ret_tib %>% base::nrow()
+    } %>% dplyr::arrange(plyr::desc(!!idx_sym))
     
+    pre_cnt <- ret_tib %>% base::nrow()
     ret_tib <- ret_tib %>% 
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor),  as.character) )
-    
-    if (sort) ret_tib <- ret_tib %>% dplyr::arrange(-aqp_idx)
-    if (filt) ret_tib <- ret_tib %>% dplyr::filter(aqp_val==0) %>%
-      dplyr::distinct(aqp_add, .keep_all=TRUE)
-    
+
+    if (filt) ret_tib <- ret_tib %>% dplyr::filter(aqp_val==0)
+    if (uniq) ret_tib <- ret_tib %>% dplyr::distinct(Address, .keep_all=TRUE)
+
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib=({ret_cnt}/{pre_cnt})={RET}"))
@@ -572,6 +574,7 @@ format_AQP = function(tib, sort=TRUE,filt=TRUE,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 load_manifestBuildFile = function(file, field="Assay_Design_Id", cols=NULL,
+                                  # aqp=NULL, bpn=NULL,
                                   n_max=50, guess=1000,
                                   verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'load_manifestBuildFile'
@@ -614,6 +617,11 @@ load_manifestBuildFile = function(file, field="Assay_Design_Id", cols=NULL,
       }
     }
     
+    # To be removed:: Not the correct place for this assignment::
+    #
+    # if (!is.null(aqp)) ret_tib <- ret_tib %>% dplyr::mutate(AQP=aqp)
+    # if (!is.null(bpn)) ret_tib <- ret_tib %>% dplyr::mutate(BPN=bpn)
+
     ret_tib <- ret_tib %>% 
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor),  as.character) )

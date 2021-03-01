@@ -80,11 +80,18 @@ opt$genDir  <- NULL
 opt$manDir  <- NULL
 opt$idatDir <- NULL
 
-# Required Inputs::
+# Manufacturing Files:: Required
 opt$ords <- NULL
 opt$mats <- NULL
 opt$aqps <- NULL
 opt$pqcs <- NULL
+
+# Manufacturing Info:: Required
+opt$bpns <- NULL
+opt$aqpn <- NULL
+opt$pqcn <- NULL
+
+# Pre-defined files (Controls & IDAT Validation):: Optional
 opt$ctls <- NULL
 opt$idat <- NULL
 
@@ -260,6 +267,10 @@ if (args.dat[1]=='RStudio') {
     #   file.path(par$aqpDir, 'BS0032581-AQP.txt.gz'),
     #   sep=',')
     
+    opt$bpns <- paste(1, sep=",")
+    opt$aqpn <- paste(1, sep=",")
+    opt$pqcn <- NULL
+
     par$idatsTopDir <- file.path(opt$idatDir,'idats_COVIC-Set1-15052020')
     opt$idat <- paste(
       file.path(par$idatsTopDir, '204500250013'),
@@ -272,6 +283,7 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'C25'
     opt$version  <- 'C26'
     opt$version  <- 'C27'
+    opt$version  <- 'C28'
     
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
@@ -313,6 +325,10 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
       sep=',')
     
+    opt$bpns <- paste(1,2,2,3, sep=",")
+    opt$aqpn <- paste(1,1,2,1, sep=",")
+    opt$pqcn <- paste(1, sep=",")
+    
     par$idatsTopDir <- file.path(opt$idatDir,'idats_ILMN_mm10_betaTest_17082020')
     opt$idat <- paste(
       file.path(par$idatsTopDir, '204637490025'),
@@ -344,6 +360,10 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, 'BS0032272-AQP2.txt.gz'),
       sep=',')
     
+    opt$bpns <- paste(1,2, sep=",")
+    opt$aqpn <- paste(1,2, sep=",")
+    opt$pqcn <- NULL
+
     opt$pqcs <- NULL
     opt$idat <- NULL
   } else {
@@ -410,7 +430,7 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--idatDir"), type="character", default=opt$idatDir, 
                 help="Pre-built IDAT data directory [default= %default]", metavar="character"),
     
-    # Pre-defined files (controls)
+    # Manufacturing Files:: Required
     make_option(c("--ords"), type="character", default=opt$ords, 
                 help="Order files (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--mats"), type="character", default=opt$mats, 
@@ -419,6 +439,16 @@ if (args.dat[1]=='RStudio') {
                 help="AQP files (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--pqcs"), type="character", default=opt$pqcs, 
                 help="PQC files (comma seperated) [default= %default]", metavar="character"),
+    
+    # Manufacturing Info:: Required
+    make_option(c("--bpns"), type="character", default=opt$bpns, 
+                help="Bead Pool Numbers (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--aqpn"), type="character", default=opt$aqpn, 
+                help="AQP Numbers (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--pqcn"), type="character", default=opt$pqcn, 
+                help="PQC Numbers; should be 1 (comma seperated) [default= %default]", metavar="character"),
+    
+    # Pre-defined files (Controls & IDAT Validation):: Optional
     make_option(c("--ctls"), type="character", default=opt$ctls, 
                 help="Pre-Defined Infinium Methylation Controls (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--idat"), type="character", default=opt$idat, 
@@ -493,7 +523,7 @@ par_tib <- par %>%
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                              Pre-processing::
+#                    Pre-processing:: Parse List Options
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
@@ -512,23 +542,44 @@ ords_vec <- NULL
 mats_vec <- NULL
 aqps_vec <- NULL
 pqcs_vec <- NULL
-ctls_vec <- NULL
-idat_vec <- NULL
 if (!is.null(opt$ords)) ords_vec <- opt$ords %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$mats)) mats_vec <- opt$mats %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$aqps)) aqps_vec <- opt$aqps %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$pqcs)) pqcs_vec <- opt$pqcs %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+
+ords_len <- length(ords_vec)
+mats_len <- length(mats_vec)
+stopifnot(ords_len>0)
+stopifnot(mats_len>0)
+stopifnot(ords_len==mats_len)
+
+bpns_vec <- NULL
+aqpn_vec <- NULL
+pqcn_vec <- NULL
+if (!is.null(opt$bpns)) bpns_vec <- opt$bpns %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$aqpn)) aqpn_vec <- opt$aqpn %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$pqcn)) pqcn_vec <- opt$pqcn %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+
+if (is.null(bpns_vec)) bpns_vec <- c(1:ords_len)
+if (is.null(aqpn_vec)) aqpn_vec <- c(1:ords_len)
+
+man_info_tib <- 
+  tibble::tibble(BPN=bpns_vec, AQP=aqpn_vec, PQC=pqcn_vec) %>% 
+  dplyr::mutate(IDX=dplyr::row_number()) %>% 
+  dplyr::select(IDX, dplyr::everything()) %>% 
+  utils::type.convert()
+
+ctls_vec <- NULL
+idat_vec <- NULL
 if (!is.null(opt$ctls)) ctls_vec <- opt$ctls %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$idat)) idat_vec <- opt$idat %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
-stopifnot(length(ords_vec)>0)
-stopifnot(length(mats_vec)>0)
-stopifnot(length(mats_vec)==length(ords_vec))
-
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
-# Output Definitions::
-#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Pre-processing:: Output Directories
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 opt$preDir <- file.path(opt$outDir, 'manifest')
 if (!dir.exists(opt$preDir)) dir.create(opt$preDir, recursive=TRUE)
 
@@ -554,63 +605,143 @@ if (opt$verbose>=1)
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# TBD::
-#
-#  - Create Function for 1.1 - 1.3
-#  - Pass in ord,mat,aqp,pqc strings and pars into vectors in function
-#
-#  - Add 2.0 Data Merging into 1.0 Data Collection
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     1.1.1 Data Collection:: Order Files
+#                     1.0.0 Data Collection:: IDAT Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-man_ord_tib <- 
+if (!is.null(opt$idat)) {
+  grn_idat_dat <- 
+    loadIdat(prefix=file.path(opt$idat, paste(base::basename(opt$idat),"R01C01", sep="_")), 
+             col="Grn", gzip=TRUE, verbose=opt$verbose, tt=pTracker )
+  
+  add_idat_tib <- 
+    grn_idat_dat$Quants %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column(var="Address") %>% 
+    tibble::as_tibble() %>% 
+    dplyr::mutate(Address=as.integer(Address)) %>%
+    dplyr::distinct(Address)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     1.1.0 Data Collection:: Order Files
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+add_ord_tib <- NULL
+add_ord_tib <- 
   lapply(ords_vec, load_manifestBuildFile, 
          field=par$ord_col[1], cols=par$ord_col,
          verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="ord_aqp")
+  dplyr::bind_rows(.id="IDX") %>%
+  format_ORD(idx_key="IDX", uniq=TRUE,
+             verbose=opt$verbose, tt=pTracker) %>%
+  dplyr::left_join(man_info_tib, by="IDX") %>% 
+  dplyr::mutate(prb_type=stringr::str_sub(ord_id, 1,2)) %>%
+  dplyr::select(IDX,BPN,AQP,PQC,prb_type,prb_des,prb_seq) %>% 
+  dplyr::distinct()
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                    1.1.2 Gather (Stack):: Order Files
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+add_ord_sum <- add_ord_tib %>%
+  dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+add_ord_sum %>% print(n=base::nrow(add_ord_sum))
 
-add_ord_tib <- 
-  format_ORD(man_ord_tib, verbose=opt$verbose, tt=pTracker)
+# all_ord_tib <- NULL
+# all_ord_tib <- 
+#   lapply(ords_vec, load_manifestBuildFile, 
+#          field=par$ord_col[1], cols=par$ord_col,
+#          verbose=opt$verbose,tt=pTracker) %>% 
+#   dplyr::bind_rows(.id="IDX") %>%
+#   format_ORD(idx_key="IDX", uniq=FALSE,
+#              verbose=opt$verbose, tt=pTracker) %>%
+#   dplyr::left_join(man_info_tib, by="IDX")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    1.2.0 Data Collection:: Match Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+add_mat_tib <- NULL
 add_mat_tib <- 
   lapply(mats_vec, load_manifestBuildFile, 
          field=par$mat_col[1], cols=par$mat_col,
          verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="mat_aqp") %>%
-  format_MAT(trim=TRUE, verbose=opt$verbose, tt=pTracker)
+  dplyr::bind_rows(.id="IDX") %>%
+  format_MAT(idx_key="IDX",uniq=TRUE,trim=TRUE, 
+             verbose=opt$verbose, tt=pTracker) %>%
+  dplyr::left_join(man_info_tib, by="IDX") %>% 
+  dplyr::select(IDX,BPN,AQP,PQC,Address,prb_seq,tan_seq) %>% 
+  dplyr::distinct()
+
+add_mat_sum <- add_mat_tib %>%
+  dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+add_mat_sum %>% print(n=base::nrow(add_mat_sum))
+
+# all_mat_tib <- NULL
+# all_mat_tib <- 
+#   lapply(mats_vec, load_manifestBuildFile, 
+#          field=par$mat_col[1], cols=par$mat_col,
+#          verbose=opt$verbose,tt=pTracker) %>% 
+#   dplyr::bind_rows(.id="IDX") %>%
+#   format_MAT(idx_key="IDX",uniq=FALSE,trim=TRUE, 
+#              verbose=opt$verbose, tt=pTracker) %>%
+#   dplyr::left_join(man_info_tib, by="IDX")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     1.3.1 Data Collection:: AQP Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+add_aqp_tib <- NULL
 add_aqp_tib <- 
   lapply(aqps_vec, load_manifestBuildFile, 
          field=par$aqp_col[1], cols=par$aqp_col,
          verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="aqp_idx") %>%
-  format_AQP(sort=TRUE,filt=TRUE,
-             verbose=opt$verbose,tt=pTracker)
+  dplyr::bind_rows(.id="IDX") %>%
+  format_AQP(idx_key="IDX",uniq=TRUE,filt=TRUE,
+             verbose=opt$verbose,tt=pTracker) %>%
+  dplyr::left_join(man_info_tib, by="IDX")
+
+add_aqp_sum <- add_aqp_tib %>% 
+  dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+add_aqp_sum %>% print(n=base::nrow(add_aqp_sum))
+
+# all_aqp_tib <- NULL
+# all_aqp_tib <- 
+#   lapply(aqps_vec, load_manifestBuildFile, 
+#          field=par$aqp_col[1], cols=par$aqp_col,
+#          verbose=opt$verbose,tt=pTracker) %>% 
+#   dplyr::bind_rows(.id="IDX") %>%
+#   format_AQP(idx_key="IDX",uniq=FALSE,filt=FALSE,
+#              verbose=opt$verbose,tt=pTracker) %>%
+#   dplyr::left_join(man_info_tib, by="IDX")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     1.3.2 Data Collection:: PQC Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+add_pqc_tib <- NULL
 add_pqc_tib <- 
   lapply(pqcs_vec, load_manifestBuildFile, 
          field=par$pqc_col[1], cols=par$pqc_col,
          verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="aqp_idx") %>%
-  format_AQP(sort=TRUE,filt=TRUE,
-             verbose=opt$verbose,tt=pTracker)
+  dplyr::bind_rows(.id="PQC") %>%
+  format_AQP(idx_key="PQC",uniq=TRUE,filt=TRUE,
+             verbose=opt$verbose,tt=pTracker) %>%
+  dplyr::distinct(Address)
+
+# add_pqc_sum <- add_pqc_tib %>%
+#   dplyr::group_by(PQC) %>%
+#   dplyr::summarise(Count=n(), .groups="drop")
+# add_pqc_sum %>% print(n=base::nrow(add_pqc_sum))
+# 
+# all_pqc_tib <- NULL
+# all_pqc_tib <- 
+#   lapply(pqcs_vec, load_manifestBuildFile, 
+#          field=par$pqc_col[1], cols=par$pqc_col,
+#          verbose=opt$verbose,tt=pTracker) %>% 
+#   dplyr::bind_rows(.id="PQC") %>%
+#   format_AQP(idx_key="PQC",uniq=FALSE,filt=FALSE,
+#              verbose=opt$verbose,tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -618,81 +749,60 @@ add_pqc_tib <-
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+add_pas_tib <- NULL
+if (!is.null(add_pqc_tib)) {
+  add_pas_pqc_mat_tib <- 
+    add_mat_tib %>% 
+    dplyr::filter(Address %in% add_pqc_tib$Address) %>%
+    dplyr::filter(Address %in% add_idat_tib$Address) %>%
+    dplyr::inner_join(add_ord_tib, by=c("prb_seq"="prb_seq","IDX","BPN","AQP","PQC") )
+  
+  add_pas_pqc_mat_sum <- 
+    add_pas_pqc_mat_tib %>%
+    dplyr::group_by( dplyr::across( c(prb_type,prb_des,base::names(man_info_tib)) )) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  add_pas_pqc_mat_sum %>% 
+    print(n=base::nrow(add_pas_pqc_mat_sum))
+  
+  # QC: This should be zero
+  add_pas_pqc_mat_cnt <- 
+    add_pas_pqc_mat_tib %>% 
+    dplyr::add_count(Address, name="Add_Cnt") %>% 
+    dplyr::filter(Add_Cnt != 1 ) %>% 
+    base::nrow()
+  cat(glue::glue("[{par$prgmTag}]: add_pas_pqc_mat_cnt={add_pas_pqc_mat_cnt}{RET}{RET}"))
+
+  add_pas_tib <- add_pas_pqc_mat_tib
+} else if (!is.null(add_aqp_tib)) {
+  add_pas_aqp_mat_tib <- 
+    add_mat_tib %>% 
+    dplyr::filter(Address %in% add_aqp_tib$Address) %>%
+    dplyr::filter(Address %in% add_idat_tib$Address) %>%
+    dplyr::inner_join(add_ord_tib, by=c("prb_seq"="prb_seq","IDX","BPN","AQP","PQC") )
+  
+  add_pas_aqp_mat_sum <- 
+    add_pas_aqp_mat_tib %>%
+    dplyr::group_by( dplyr::across( c(prb_type,prb_des,base::names(man_info_tib)) )) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  add_pas_aqp_mat_sum %>% 
+    print(n=base::nrow(add_pas_aqp_mat_sum))
+  
+  # QC: This should be zero
+  add_pas_aqp_mat_cnt <- 
+    add_pas_aqp_mat_tib %>% 
+    dplyr::add_count(Address, name="Add_Cnt") %>% 
+    dplyr::filter(Add_Cnt != 1 ) %>% 
+    base::nrow()
+  cat(glue::glue("[{par$prgmTag}]: add_pas_aqp_mat_cnt={add_pas_aqp_mat_cnt}{RET}{RET}"))
+  
+  add_pas_tib <- add_pas_aqp_mat_tib
+} else {
+  stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Both AQP and PQC are length zero!!!{RET}{RET}"))
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     2.2 Join All Stack:: Ord/Mat/AQP/PQC
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# AQC Join::
-#
-add_aqp_pas_tib <- 
-  dplyr::inner_join(
-    add_mat_tib, add_aqp_tib,
-    by=c("mat_add"="aqp_add")
-  ) %>% 
-  dplyr::select(mat_add,mat_aqp,mat_seq) %>% 
-  dplyr::distinct()
-
-# QC: This should be zero
-#
-add_aqp_mis_cnt <- 
-  add_aqp_pas_tib %>% 
-  dplyr::add_count(mat_add, name="Add_Cnt") %>% 
-  dplyr::filter(Add_Cnt != 1 ) %>% 
-  dplyr::arrange(mat_add) %>%
-  base::nrow()
-cat(glue::glue("[{par$prgmTag}]: add_aqp_mis_cnt={add_aqp_mis_cnt}{RET}{RET}"))
-
-
-# PQC Join::
-#
-add_pqc_pas_tib <- 
-  dplyr::inner_join(
-    add_mat_tib, add_pqc_tib,
-    by=c("mat_add"="aqp_add")
-  ) %>% 
-  dplyr::select(mat_add,mat_aqp,mat_seq) %>% 
-  dplyr::distinct()
-
-# QC: This should be zero
-#
-add_pqc_mis_cnt <- 
-  add_pqc_pas_tib %>% 
-  dplyr::add_count(mat_add, name="Add_Cnt") %>% 
-  dplyr::filter(Add_Cnt != 1 ) %>% 
-  dplyr::arrange(mat_add) %>%
-  base::nrow()
-cat(glue::glue("[{par$prgmTag}]: add_pqc_mis_cnt={add_pqc_mis_cnt}{RET}{RET}"))
-
-# Final PQC Address Data::
-add_pqc_all_tib <-
-  dplyr::inner_join(
-    add_ord_tib,add_pqc_pas_tib,
-    by=c("ord_seq"="mat_seq")) %>%
-  dplyr::arrange(ord_seq) %>%
-  dplyr::select(mat_add, mat_aqp, ord_seq,
-                ord_id, ord_des, ord_aqp) %>%
-  dplyr::rename(prb_add=mat_add,prb_des=ord_des)
-
-# Summary::
-add_pqc_all_tib %>%
-  dplyr::group_by(mat_aqp,prb_des) %>%
-  dplyr::summarise(Count=n(), .groups="drop") %>%
-  print(n=100)
-
-# Double Check::
-# add_pqc_all_tib <-
-#   dplyr::inner_join(
-#     add_pqc_pas_tib,add_ord_tib,
-#     by=c("mat_seq"="ord_seq")) %>%
-#   dplyr::arrange(mat_seq) %>%
-#   dplyr::select(mat_add, mat_aqp, mat_seq, 
-#                 ord_id, ord_des, ord_aqp)
-# 
-# add_pqc_all_tib %>% 
-#   dplyr::group_by(mat_aqp,ord_des) %>% 
-#   dplyr::summarise(Count=n(), .groups="drop") %>%
-#   print(n=100)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -734,33 +844,43 @@ man_add_bsp_rds <- file.path(
                              opt$genBuild,".genome.bsmap.formatted.rds"))
 
 # Add Fasta File::
-add_raw_all_tib <- 
-  add_pqc_all_tib %>%
-  dplyr::mutate(aln_seq=ord_seq %>%
-                  stringr::str_replace_all("R","A") %>%
-                  stringr::str_replace_all("Y","T"),
-                aln_rev=revCmp(aln_seq),
-                aln_key=paste(prb_add,prb_des, sep="_")
+add_pas_fas_tib <- 
+  add_pas_tib %>%
+  dplyr::mutate(
+    aln_seq=prb_seq %>%
+      stringr::str_replace_all("R","A") %>% # A/G
+      stringr::str_replace_all("Y","T") %>% # C/T
+      
+      stringr::str_replace_all("S","C") %>% # G/C
+      stringr::str_replace_all("W","A") %>% # A/T
+      stringr::str_replace_all("K","T") %>% # G/T
+      stringr::str_replace_all("M","A") %>% # A/C
+      
+      stringr::str_replace_all("B","T") %>% # C/G/T
+      stringr::str_replace_all("D","A") %>% # A/G/T
+      stringr::str_replace_all("H","A") %>% # A/C/T
+      stringr::str_replace_all("V","A") %>% # A/C/G
+      
+      stringr::str_replace_all("N","A"), # A/C/T/G
+    
+    aln_rev=revCmp(aln_seq),
+    aln_key=paste(Address,prb_type,prb_des, sep="_")
   )
-
-#
-# TBD:: Understand why we change the name of prb_add -> as.character(prb_cgn)
-#
-
 
 # Write Fasta File::
 man_fas_tib <- 
-  tibToFas(tib=add_raw_all_tib, 
-           key="aln_key",seq="aln_seq", prefix=man_fas_pre, 
+  tibToFas(tib=add_pas_fas_tib, 
+           key="aln_key",seq="aln_seq", 
+           prefix=man_fas_pre, 
            verbose=opt$verbose, tt=pTracker) %>%
-  dplyr::mutate(prb_cgn=as.character(prb_add))
+  dplyr::mutate(prb_cgn=as.character(Address))
 
 if (!file.exists(man_add_bsp_tsv)) {
-  man_add_bsp_tsv <- bsmapProbeAlign(
-    exe=opt$bsmap_exe, fas=man_prb_fas, gen=man_gen_fas, 
-    dir=opt$bspDir, opt=NULL, run=TRUE,
-    # dir=opt$bspDir, opt=opt$bsmap_opt, run=TRUE,
-    verbose=opt$verbose,tt=pTracker)
+  man_add_bsp_tsv <- 
+    bsmapProbeAlign(
+      exe=opt$bsmap_exe, fas=man_prb_fas, gen=man_gen_fas, 
+      dir=opt$bspDir, opt=NULL, run=TRUE,
+      verbose=opt$verbose,tt=pTracker)
 }
 
 man_add_bsp_tib <- NULL
@@ -791,13 +911,16 @@ if (!file.exists(man_add_bsp_tsv) |
   man_add_bsp_grs <- readr::read_rds(man_add_bsp_rds)
 }
 
+
+
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #                       STEP 3:: Annotate:: by 50U/49U
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-run_cgn_mat <- FALSE
+run_cgn_mat <- TRUE
 if (run_cgn_mat) {
 
   imp_prb49U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq49U.prb-sorted.tsv.gz"
@@ -815,33 +938,28 @@ if (run_cgn_mat) {
     as.data.frame() %>% 
     tibble::rownames_to_column(var="unq_add_id") %>% 
     tibble::as_tibble() %>%
-    dplyr::mutate(
-      add_prb50U=prb_ord_seq %>%
-        stringr::str_replace_all("R","A") %>% 
-        stringr::str_replace_all("Y","T")
-    ) %>%
-    dplyr::arrange(add_prb50U) %>%
-    dplyr::distinct(add_prb50U, .keep_all=TRUE)
+    dplyr::arrange(prb_aln_50U) %>%
+    dplyr::distinct(prb_aln_50U, .keep_all=TRUE)
   
   # The aln_seq code should be pulled from above...
   #
-  add_prbAll_tib <- 
-    man_add_bsp_tib %>%
-    dplyr::mutate(
-      add_prb50U=prb_ord_seq %>%
-        stringr::str_replace_all("R","A") %>% 
-        stringr::str_replace_all("Y","T")
-    ) %>%
-    dplyr::arrange(add_prb50U) %>%
-    dplyr::distinct(add_prb50U, .keep_all=TRUE) %>%
-    dplyr::select(unq_add_id,add_prb50U, prb_des)
+  # add_prbAll_tib <- 
+  #   man_add_bsp_tib %>%
+  #   dplyr::mutate(
+  #     add_prb50U=prb_prb_seq %>%
+  #       stringr::str_replace_all("R","A") %>% 
+  #       stringr::str_replace_all("Y","T")
+  #   ) %>%
+  #   dplyr::arrange(add_prb50U) %>%
+  #   dplyr::distinct(add_prb50U, .keep_all=TRUE) %>%
+  #   dplyr::select(unq_add_id,add_prb50U, prb_des)
   
   # Build/Write prb49U
   add_prb49U_tib <- 
-    add_prbAll_tib %>%
+    man_add_bsp_tib %>%
     dplyr::filter(prb_des=="2") %>%
     dplyr::mutate(
-      add_prb49U=stringr::str_sub(add_prb50U, 2)
+      add_prb49U=stringr::str_sub(prb_aln_50U, 2)
     ) %>%
     dplyr::select(unq_add_id,add_prb49U)
   
@@ -855,9 +973,9 @@ if (run_cgn_mat) {
   
   # Build/Write prb50U
   add_prb50U_tib <- 
-    add_prbAll_tib %>%
+    man_add_bsp_tib %>%
     dplyr::filter(prb_des!="2") %>%
-    dplyr::select(unq_add_id,add_prb50U)
+    dplyr::select(unq_add_id,prb_aln_50U)
   
   if (!file.exists(imp_prb50U_tsv) ||
       !file.exists(add_prb50U_tsv) ||
@@ -957,13 +1075,13 @@ if (FALSE) {
   #
   if (FALSE) {
     add_ord_unq_tib <- 
-      dplyr::select(add_ord_tib, ord_id,ord_des,ord_aqp,ord_seq) %>% 
-      dplyr::arrange(ord_seq, -ord_aqp, ord_des) %>% 
-      dplyr::add_count(ord_seq, name="Prb_Cnt") %>%
-      dplyr::distinct(ord_seq, .keep_all=TRUE)
+      dplyr::select(add_ord_tib, ord_id,prb_des,ord_aqp,prb_seq) %>% 
+      dplyr::arrange(prb_seq, -ord_aqp, prb_des) %>% 
+      dplyr::add_count(prb_seq, name="Prb_Cnt") %>%
+      dplyr::distinct(prb_seq, .keep_all=TRUE)
     
     add_ord_unq_tib %>% dplyr::filter(Prb_Cnt!=1)
-    add_ord_unq_tib %>% dplyr::distinct(ord_seq)
+    add_ord_unq_tib %>% dplyr::distinct(prb_seq)
   }
 
   if (FALSE) {
@@ -1013,7 +1131,7 @@ if (FALSE) {
     
     unq_id    = col_character(),
     ord_id    = col_character(),
-    ord_des   = col_character(),
+    prb_des   = col_character(),
     aln_prb50U = col_character()
   )
   
@@ -1180,7 +1298,7 @@ if (FALSE) {
   #
   #   1. Extract Forward Sequence from BSMAP Alignment...
   #
-  # seqnames   start     end width strand              ord_id  prb_add  prb_cgn prb_des                                        prb_ord_seq
+  # seqnames   start     end width strand              ord_id  prb_add  prb_cgn prb_des                                        prb_prb_seq
   # 20700992_U_1       chr1 3005998 3005999     2      +  cg36602742_F_T_C_I 20700992 20700992       U TTATAAACTTCTCTACAAAACCCAAAACATCACTAACCCTAAATAATTCA
   # 28608858_M_1       chr1 3005998 3005999     2      +  cg36602742_F_T_C_I 28608858 28608858       M TTATAAACTTCTCTACAAAACCCAAAACATCACTAACCCTAAATAATTCG
   #
