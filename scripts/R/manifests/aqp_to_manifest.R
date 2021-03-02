@@ -64,7 +64,6 @@ opt$bsmap_exe <- "/Users/bretbarnes/Documents/programs/BSMAPz/bsmapz"
 
 # Run Parameters::
 opt$runName    <- NULL
-opt$idatPrefix <- NULL
 
 # Null Place Holders::
 opt$cpg_top_tsv <- NULL
@@ -78,11 +77,11 @@ opt$impDir  <- NULL
 opt$annDir  <- NULL
 opt$genDir  <- NULL
 opt$manDir  <- NULL
-opt$idatDir <- NULL
 
 # Manufacturing Files:: Required
 opt$ords <- NULL
 opt$mats <- NULL
+opt$mat2 <- NULL
 opt$aqps <- NULL
 opt$pqcs <- NULL
 
@@ -145,6 +144,16 @@ par_cols$mat <-
     Comments = col_character()
   )
 
+par_cols$ma2 <- 
+  cols(
+    address_names = col_integer(),
+    probe_id      = col_character(),
+    sequence      = col_character(),
+    type_b        = col_character(),
+    address_name  = col_integer(),
+    bo_seq        = col_character()
+  )
+
 par_cols$aqp <- 
   cols(
     Address           = col_integer(),
@@ -166,7 +175,10 @@ par_cols$pqc <-
   )
 
 par$ord_col <- par_cols$ord$cols %>% names()
+
 par$mat_col <- par_cols$mat$cols %>% names()
+par$ma2_col <- par_cols$ma2$cols %>% names()
+
 par$aqp_col <- par_cols$aqp$cols %>% names()
 par$pqc_col <- par_cols$pqc$cols %>% names()
 
@@ -214,7 +226,7 @@ if (args.dat[1]=='RStudio') {
   opt$annDir  <- file.path(par$topDir, 'data/annotation')
   opt$manDir  <- file.path(par$topDir, 'data/manifests')
   opt$genDir  <- file.path(par$topDir, 'data/iGenomes/Homo_sapiens/NCBI')
-  opt$idatDir <- file.path(par$topDir, 'data/idats')
+  # opt$idatDir <- file.path(par$topDir, 'data/idats')
   
   opt$bsmap_opt <- "\"-s 10 -v 5 -n 1 -r 2 -V 2\""
   opt$bsmap_exe <- "/Users/bretbarnes/Documents/programs/BSMAPz/bsmapz"
@@ -225,13 +237,33 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GRCm10'
-
-  if (par$local_runType=='COVIC') {
-    opt$matFormat <- 'old'
-    opt$ordFormat <- 'old'
-    opt$matSkip <- 0
-    opt$ordSkip <- 8
+  par$local_runType <- 'Chicago'
+  
+  if (par$local_runType=='Chicago') {
+    opt$genBuild <- 'GRCh37'
+    opt$platform <- 'EPIC'
+    opt$version  <- 'A1'
     
+    opt$idat   <- NULL
+    par$aqpDir <- file.path(par$topDir, 'data/CustomContent/UnivChicago/latest')
+    
+    opt$ords <- paste(
+      file.path(par$aqpDir, 'UofChicago-A_A_Array-CpG-order-FINAL.csv'),
+      sep=',')
+    
+    opt$mats <- NULL
+    
+    opt$mat2 <- paste(
+      file.path(par$aqpDir, '20504790_probes.match.tsv'),
+      sep=',')
+    
+    opt$aqps <- NULL
+    
+    opt$pqcs <- paste(
+      file.path(par$aqpDir, '329922X374054_A_ProductQC.txt'),
+      sep=',')
+    
+  } else if (par$local_runType=='COVIC') {
     opt$genBuild <- 'GRCh36'
     opt$genBuild <- 'GRCh38'
     opt$genBuild <- 'GRCh37'
@@ -243,12 +275,11 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C11'
     opt$version     <- 'C12'
 
-    opt$idatPrefix <- "/Users/bretbarnes/Documents/data/idats/idats_COVIC-Set1-15052020/204500250025/204500250025_R01C01"
-    
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     opt$pre_man_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B2.csv.gz'
     
+    opt$idat  <- NULL
     par$aqpDir <- file.path(par$topDir, 'data/CustomContent/COVID-19_HLA/AQP/COVIC-Host-Immune-Detection')
     opt$ords <- paste(
       file.path(par$aqpDir, 'COVID_EPIC_Round1.03172020.unique.order_AP.csv.gz'),
@@ -257,6 +288,8 @@ if (args.dat[1]=='RStudio') {
     opt$mats <- paste(
       file.path(par$aqpDir, '20447043_probes.match.gz'),
       sep=',')
+    
+    opt$mat2 <- NULL
     
     opt$aqps <- paste(
       file.path(par$aqpDir, 'BS0032581-AQP.txt.gz'),
@@ -271,11 +304,6 @@ if (args.dat[1]=='RStudio') {
     opt$aqpn <- paste(1, sep=",")
     opt$pqcn <- NULL
 
-    par$idatsTopDir <- file.path(opt$idatDir,'idats_COVIC-Set1-15052020')
-    opt$idat <- paste(
-      file.path(par$idatsTopDir, '204500250013'),
-      sep=',')
-    
   } else if (par$local_runType=='GRCm10') {
     opt$platform <- 'LEGX'
     opt$version  <- 'C0'
@@ -315,6 +343,8 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, 'BP4/20455357_AQP1_LifeEpigen_BP4.txt.gz'),
       sep=',')
     
+    opt$mat2 <- NULL
+    
     opt$aqps <- paste(
       file.path(par$aqpDir, 'AQP_Copy/BS0032527-AQP.txt.gz'),
       file.path(par$aqpDir, 'AQP_Copy/BS0032533-AQP.txt.gz'),
@@ -329,11 +359,6 @@ if (args.dat[1]=='RStudio') {
     opt$bpns <- paste(1,2,2,3, sep=",")
     opt$aqpn <- paste(1,1,2,1, sep=",")
     opt$pqcn <- paste(1, sep=",")
-    
-    par$idatsTopDir <- file.path(opt$idatDir,'idats_ILMN_mm10_betaTest_17082020')
-    opt$idat <- paste(
-      file.path(par$idatsTopDir, '204637490025'),
-      sep=',')
     
   } else if (par$local_runType=='NZT') {
     opt$genBuild <- 'GRCh36'
@@ -356,6 +381,8 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, '20297484_probes.match2.tsv.gz'),
       sep=',')
     
+    opt$mat2 <- NULL
+    
     opt$aqps <- paste(
       file.path(par$aqpDir, 'BS0031918-AQP1.txt.gz'),
       file.path(par$aqpDir, 'BS0032272-AQP2.txt.gz'),
@@ -372,7 +399,7 @@ if (args.dat[1]=='RStudio') {
   }
   
   opt$parallel <- TRUE
-  opt$runName <- paste(opt$platform,opt$version,opt$genBuild, sep='-')
+  opt$runName <- paste(par$local_runType,opt$platform,opt$version,opt$genBuild, sep='-')
   
   # opt$fresh <- TRUE
   opt$fresh <- FALSE
@@ -428,18 +455,20 @@ if (args.dat[1]=='RStudio') {
                 help="Genomic data directory [default= %default]", metavar="character"),
     make_option(c("--manDir"), type="character", default=opt$manDir, 
                 help="Pre-built Manifest data directory [default= %default]", metavar="character"),
-    make_option(c("--idatDir"), type="character", default=opt$idatDir, 
-                help="Pre-built IDAT data directory [default= %default]", metavar="character"),
-    
+
     # Manufacturing Files:: Required
     make_option(c("--ords"), type="character", default=opt$ords, 
-                help="Order files (comma seperated) [default= %default]", metavar="character"),
+                help="Order file(s) (comma seperated) [default= %default]", metavar="character"),
+    
     make_option(c("--mats"), type="character", default=opt$mats, 
-                help="Match files (comma seperated) [default= %default]", metavar="character"),
+                help="Match (format 1) file(s) (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--mat2"), type="character", default=opt$mat2, 
+                help="Match (format 2) file(s) (comma seperated) [default= %default]", metavar="character"),
+    
     make_option(c("--aqps"), type="character", default=opt$aqps, 
-                help="AQP files (comma seperated) [default= %default]", metavar="character"),
+                help="AQP file(s) (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--pqcs"), type="character", default=opt$pqcs, 
-                help="PQC files (comma seperated) [default= %default]", metavar="character"),
+                help="PQC file(s) (comma seperated) [default= %default]", metavar="character"),
     
     # Manufacturing Info:: Required
     make_option(c("--bpns"), type="character", default=opt$bpns, 
@@ -499,7 +528,7 @@ if (args.dat[1]=='RStudio') {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
-opt_reqs <- c('outDir','impDir','ords','mats',
+opt_reqs <- c('outDir','impDir','ords',
               'genBuild','platform','version','bsmap_exe', # 'bsmap_opt',
               'Rscript','verbose')
 
@@ -541,18 +570,21 @@ if (is.null(opt$ctls)) {
 
 ords_vec <- NULL
 mats_vec <- NULL
+mat2_vec <- NULL
 aqps_vec <- NULL
 pqcs_vec <- NULL
 if (!is.null(opt$ords)) ords_vec <- opt$ords %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$mats)) mats_vec <- opt$mats %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$mat2)) mat2_vec <- opt$mat2 %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$aqps)) aqps_vec <- opt$aqps %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$pqcs)) pqcs_vec <- opt$pqcs %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 ords_len <- length(ords_vec)
 mats_len <- length(mats_vec)
+mat2_len <- length(mat2_vec)
 stopifnot(ords_len>0)
-stopifnot(mats_len>0)
-stopifnot(ords_len==mats_len)
+stopifnot(mats_len>0 || mat2_len>0)
+stopifnot(ords_len==mats_len || ords_len==mat2_len)
 
 bpns_vec <- NULL
 aqpn_vec <- NULL
@@ -563,6 +595,7 @@ if (!is.null(opt$pqcn)) pqcn_vec <- opt$pqcn %>% str_split(pattern=',', simplify
 
 if (is.null(bpns_vec)) bpns_vec <- c(1:ords_len)
 if (is.null(aqpn_vec)) aqpn_vec <- c(1:ords_len)
+if (is.null(pqcn_vec)) pqcn_vec <- c(1:ords_len)
 
 man_info_tib <- 
   tibble::tibble(BPN=bpns_vec, AQP=aqpn_vec, PQC=pqcn_vec) %>% 
@@ -610,7 +643,11 @@ if (opt$verbose>=1)
 #                     1.0.0 Data Collection:: IDAT Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+add_idat_tib <- NULL
 if (!is.null(opt$idat)) {
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading idats from dir={opt$idat}.{RET}"))
+  
   grn_idat_dat <- 
     loadIdat(prefix=file.path(opt$idat, paste(base::basename(opt$idat),"R01C01", sep="_")), 
              col="Grn", gzip=TRUE, verbose=opt$verbose, tt=pTracker )
@@ -628,6 +665,17 @@ if (!is.null(opt$idat)) {
 #                     1.1.0 Data Collection:: Order Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# man_ord_tib <- NULL
+# man_ord_tib <-
+#   lapply(ords_vec, load_manifestBuildFile,
+#          field=par$ord_col[1], cols=par$ord_col,
+#          verbose=opt$verbose,tt=pTracker) %>%
+#   dplyr::bind_rows(.id="IDX")
+# 
+# We need the mappings::
+#  man_ord_tib %>% dplyr::filter(!is.na(AlleleB_Probe_Id))
+#
+
 add_ord_tib <- NULL
 add_ord_tib <- 
   lapply(ords_vec, load_manifestBuildFile, 
@@ -638,13 +686,14 @@ add_ord_tib <-
              verbose=opt$verbose, tt=pTracker) %>%
   dplyr::left_join(man_info_tib, by="IDX") %>% 
   dplyr::mutate(prb_type=stringr::str_sub(ord_id, 1,2)) %>%
-  dplyr::select( dplyr::any_of( c( base::names(man_info_tib),
-                                  "prb_type","prb_des","prb_seq" )) ) %>%
-  # dplyr::select(IDX,BPN,AQP,PQC,prb_type,prb_des,prb_seq) %>% 
+  dplyr::select( dplyr::any_of( 
+    c( base::names(man_info_tib),
+       "ord_id","prb_type","prb_des","prb_col","prb_seq","prb_par" )) ) %>%
   dplyr::distinct()
 
 add_ord_sum <- add_ord_tib %>%
-  dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
+  dplyr::group_by( dplyr::across( 
+    c(base::names(man_info_tib),"prb_type","prb_des","prb_col") ) ) %>% 
   dplyr::summarise(Count=n(), .groups="drop")
 add_ord_sum %>% print(n=base::nrow(add_ord_sum))
 
@@ -663,90 +712,138 @@ add_ord_sum %>% print(n=base::nrow(add_ord_sum))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 add_mat_tib <- NULL
-add_mat_tib <- 
-  lapply(mats_vec, load_manifestBuildFile, 
-         field=par$mat_col[1], cols=par$mat_col,
-         verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="IDX") %>%
-  format_MAT(idx_key="IDX",uniq=TRUE,trim=TRUE, 
-             verbose=opt$verbose, tt=pTracker) %>%
-  dplyr::left_join(man_info_tib, by="IDX") %>% 
-  dplyr::select( dplyr::any_of( c( base::names(man_info_tib),
-                                   "Address","prb_seq","tan_seq" )) ) %>%
-  # dplyr::select(IDX,BPN,AQP,PQC,Address,prb_seq,tan_seq) %>% 
-  dplyr::distinct()
+if (!is.null(mats_vec)) {
 
-add_mat_sum <- add_mat_tib %>%
-  dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-add_mat_sum %>% print(n=base::nrow(add_mat_sum))
+  add_mat_tib <- 
+    lapply(mats_vec, load_manifestBuildFile, 
+           field=par$mat_col[1], cols=par$mat_col,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="IDX") %>%
+    format_MAT(idx_key="IDX",uniq=TRUE,trim=TRUE, 
+               verbose=opt$verbose, tt=pTracker) %>%
+    dplyr::left_join(man_info_tib, by="IDX") %>% 
+    dplyr::select( dplyr::any_of( 
+      c( base::names(man_info_tib), "Address","prb_seq","tan_seq" )) ) %>%
+    dplyr::distinct()
+  
+  add_mat_sum <- add_mat_tib %>%
+    dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  add_mat_sum %>% print(n=base::nrow(add_mat_sum))
+  
+  # all_mat_tib <- NULL
+  # all_mat_tib <- 
+  #   lapply(mats_vec, load_manifestBuildFile, 
+  #          field=par$mat_col[1], cols=par$mat_col,
+  #          verbose=opt$verbose,tt=pTracker) %>% 
+  #   dplyr::bind_rows(.id="IDX") %>%
+  #   format_MAT(idx_key="IDX",uniq=FALSE,trim=TRUE, 
+  #              verbose=opt$verbose, tt=pTracker) %>%
+  #   dplyr::left_join(man_info_tib, by="IDX")
+  
+} else if (!is.null(mat2_vec)) {
+  
+  add_mat_tib <- 
+    lapply(mat2_vec, load_manifestBuildFile, 
+           field=par$ma2_col[1], cols=par$ma2_col,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="IDX") %>%
+    format_MAT(idx_key="IDX",uniq=TRUE,trim=TRUE, 
+               verbose=opt$verbose, tt=pTracker) %>%
+    dplyr::left_join(man_info_tib, by="IDX") %>% 
+    dplyr::select( dplyr::any_of( 
+      c( base::names(man_info_tib), "Address","prb_seq","tan_seq" )) ) %>%
+    dplyr::distinct()
+  
+  add_mat_sum <- add_mat_tib %>%
+    dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  add_mat_sum %>% print(n=base::nrow(add_mat_sum))
 
-# all_mat_tib <- NULL
-# all_mat_tib <- 
-#   lapply(mats_vec, load_manifestBuildFile, 
-#          field=par$mat_col[1], cols=par$mat_col,
-#          verbose=opt$verbose,tt=pTracker) %>% 
-#   dplyr::bind_rows(.id="IDX") %>%
-#   format_MAT(idx_key="IDX",uniq=FALSE,trim=TRUE, 
-#              verbose=opt$verbose, tt=pTracker) %>%
-#   dplyr::left_join(man_info_tib, by="IDX")
+} else {
+  stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Neither mats or mat2 defined!!!{RET}{RET}"))
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#             1.2.1 Data Collection:: Remove Missing IDAT Tangos
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (!is.null(add_idat_tib)) {
+  if (opt$verbose>=1) {
+    cat(glue::glue("[{par$prgmTag}]: Removing tangos missing in IDATs; Beg={RET}"))
+    print(add_mat_tib)
+  }
+  
+  add_mat_tib <- 
+    dplyr::filter(Address %in% add_idat_tib$Address)
+
+  if (opt$verbose>=1) {
+    cat(glue::glue("[{par$prgmTag}]: Removing tangos missing in IDATs; End={RET}"))
+    print(add_mat_tib)
+    cat("\n")
+  }
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     1.3.1 Data Collection:: AQP Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 add_aqp_tib <- NULL
-add_aqp_tib <- 
-  lapply(aqps_vec, load_manifestBuildFile, 
-         field=par$aqp_col[1], cols=par$aqp_col,
-         verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="IDX") %>%
-  format_AQP(idx_key="IDX",uniq=TRUE,filt=TRUE,
-             verbose=opt$verbose,tt=pTracker) %>%
-  dplyr::left_join(man_info_tib, by="IDX")
-
-add_aqp_sum <- add_aqp_tib %>% 
-  dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-add_aqp_sum %>% print(n=base::nrow(add_aqp_sum))
-
-# all_aqp_tib <- NULL
-# all_aqp_tib <- 
-#   lapply(aqps_vec, load_manifestBuildFile, 
-#          field=par$aqp_col[1], cols=par$aqp_col,
-#          verbose=opt$verbose,tt=pTracker) %>% 
-#   dplyr::bind_rows(.id="IDX") %>%
-#   format_AQP(idx_key="IDX",uniq=FALSE,filt=FALSE,
-#              verbose=opt$verbose,tt=pTracker) %>%
-#   dplyr::left_join(man_info_tib, by="IDX")
+if (!is.null(aqps_vec)) {
+  add_aqp_tib <- 
+    lapply(aqps_vec, load_manifestBuildFile, 
+           field=par$aqp_col[1], cols=par$aqp_col,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="IDX") %>%
+    format_AQP(idx_key="IDX",uniq=TRUE,filt=TRUE,
+               verbose=opt$verbose,tt=pTracker) %>%
+    dplyr::left_join(man_info_tib, by="IDX")
+  
+  add_aqp_sum <- add_aqp_tib %>% 
+    dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  add_aqp_sum %>% print(n=base::nrow(add_aqp_sum))
+  
+  # all_aqp_tib <- NULL
+  # all_aqp_tib <- 
+  #   lapply(aqps_vec, load_manifestBuildFile, 
+  #          field=par$aqp_col[1], cols=par$aqp_col,
+  #          verbose=opt$verbose,tt=pTracker) %>% 
+  #   dplyr::bind_rows(.id="IDX") %>%
+  #   format_AQP(idx_key="IDX",uniq=FALSE,filt=FALSE,
+  #              verbose=opt$verbose,tt=pTracker) %>%
+  #   dplyr::left_join(man_info_tib, by="IDX")
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     1.3.2 Data Collection:: PQC Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 add_pqc_tib <- NULL
-add_pqc_tib <- 
-  lapply(pqcs_vec, load_manifestBuildFile, 
-         field=par$pqc_col[1], cols=par$pqc_col,
-         verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="PQC") %>%
-  format_AQP(idx_key="PQC",uniq=TRUE,filt=TRUE,
-             verbose=opt$verbose,tt=pTracker) %>%
-  dplyr::distinct(Address)
-
-# add_pqc_sum <- add_pqc_tib %>%
-#   dplyr::group_by(PQC) %>%
-#   dplyr::summarise(Count=n(), .groups="drop")
-# add_pqc_sum %>% print(n=base::nrow(add_pqc_sum))
-# 
-# all_pqc_tib <- NULL
-# all_pqc_tib <- 
-#   lapply(pqcs_vec, load_manifestBuildFile, 
-#          field=par$pqc_col[1], cols=par$pqc_col,
-#          verbose=opt$verbose,tt=pTracker) %>% 
-#   dplyr::bind_rows(.id="PQC") %>%
-#   format_AQP(idx_key="PQC",uniq=FALSE,filt=FALSE,
-#              verbose=opt$verbose,tt=pTracker)
+if (!is.null(pqcs_vec)) {
+  add_pqc_tib <- 
+    lapply(pqcs_vec, load_manifestBuildFile, 
+           field=par$pqc_col[1], cols=par$pqc_col,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="PQC") %>%
+    format_AQP(idx_key="PQC",uniq=TRUE,filt=TRUE,
+               verbose=opt$verbose,tt=pTracker) %>%
+    dplyr::distinct(Address)
+  
+  # add_pqc_sum <- add_pqc_tib %>%
+  #   dplyr::group_by(PQC) %>%
+  #   dplyr::summarise(Count=n(), .groups="drop")
+  # add_pqc_sum %>% print(n=base::nrow(add_pqc_sum))
+  # 
+  # all_pqc_tib <- NULL
+  # all_pqc_tib <- 
+  #   lapply(pqcs_vec, load_manifestBuildFile, 
+  #          field=par$pqc_col[1], cols=par$pqc_col,
+  #          verbose=opt$verbose,tt=pTracker) %>% 
+  #   dplyr::bind_rows(.id="PQC") %>%
+  #   format_AQP(idx_key="PQC",uniq=FALSE,filt=FALSE,
+  #              verbose=opt$verbose,tt=pTracker)
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -759,12 +856,11 @@ if (!is.null(add_pqc_tib)) {
   add_pas_pqc_mat_tib <- 
     add_mat_tib %>% 
     dplyr::filter(Address %in% add_pqc_tib$Address) %>%
-    dplyr::filter(Address %in% add_idat_tib$Address) %>%
-    dplyr::inner_join(add_ord_tib, by=c("prb_seq"="prb_seq","IDX","BPN","AQP","PQC") )
+    dplyr::inner_join(add_ord_tib, by=c("prb_seq","IDX","BPN","AQP","PQC") )
   
   add_pas_pqc_mat_sum <- 
     add_pas_pqc_mat_tib %>%
-    dplyr::group_by( dplyr::across( c(prb_type,prb_des,base::names(man_info_tib)) )) %>% 
+    dplyr::group_by( dplyr::across( c(prb_type,prb_des,prb_col,base::names(man_info_tib)) )) %>% 
     dplyr::summarise(Count=n(), .groups="drop")
   add_pas_pqc_mat_sum %>% 
     print(n=base::nrow(add_pas_pqc_mat_sum))
@@ -782,8 +878,7 @@ if (!is.null(add_pqc_tib)) {
   add_pas_aqp_mat_tib <- 
     add_mat_tib %>% 
     dplyr::filter(Address %in% add_aqp_tib$Address) %>%
-    dplyr::filter(Address %in% add_idat_tib$Address) %>%
-    dplyr::inner_join(add_ord_tib, by=c("prb_seq"="prb_seq","IDX","BPN","AQP","PQC") )
+    dplyr::inner_join(add_ord_tib, by=c("prb_seq","IDX","BPN","AQP","PQC") )
   
   add_pas_aqp_mat_sum <- 
     add_pas_aqp_mat_tib %>%
@@ -806,8 +901,83 @@ if (!is.null(add_pqc_tib)) {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     2.2 Join All Stack:: Ord/Mat/AQP/PQC
+#                  2.1 Functional Manifest Generation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Manifest Directory::
+#  opt$preDir
+
+#
+# TBD:: 
+#  - Clear up extra validation
+#  - Write Functional Manifest with ord_id's
+#  - Write Function 
+#     addressToManifest(add=add_pas_tib, outDir=opt$preDir, name=paste(opt$runName,"functional", sep="_"), validate=TRUE, verbose=opt$verbose, tt=pTracker)
+#
+man_fun_csv <- file.path(opt$preDir, paste(opt$runName,"functional-sesame.manifest.csv.gz", sep="_"))
+man_fun_vec <- c("ord_id","prb_type","prb_col", "prb_par",
+                 dplyr::all_of(base::names(man_info_tib) ) )
+
+man_fun_tib <- add_pas_tib %>% # dplyr::select(-prb_par) %>%
+  addressToManifest(des="prb_des", join=man_fun_vec,
+                    csv=man_fun_csv, 
+                    validate=TRUE, 
+                    verbose=opt$verbose, tt=pTracker)
+
+
+
+
+
+
+
+
+#
+# OLD CODE FOR ERROR CHECKING::
+#
+if (FALSE) {
+  
+  # add_ord_tib %>% dplyr::group_by(IDX,prb_type,prb_des) %>% dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+  
+  # add_pas_des_list <- add_pas_tib %>% split(.$prb_des)
+  
+  # dplyr::filter(add_pas_tib, prb_des=="U")
+  # dplyr::filter(add_pas_tib, prb_des=="M")
+  # dplyr::filter(add_pas_tib, prb_des=="2")
+  
+  man_pas1_tib <- dplyr::full_join(
+    add_pas_des_list[["U"]], add_pas_des_list[["M"]],
+    by=c("ord_id","prb_type", dplyr::all_of(base::names(man_info_tib)) ), 
+    suffix=c("_U","_M")
+  )
+  
+  #
+  # TBD:: 
+  #  - Clear up extra validation
+  #  - Write Functional Manifest with ord_id's
+  #
+  
+  man_pas2_tib <- dplyr::full_join(
+    add_pas_des_list[["U"]], add_pas_des_list[["M"]],
+    by=c("ord_id","IDX","BPN","AQP","PQC"), 
+    suffix=c("_U","_M")
+  )
+  
+  man_pas3_tib <- dplyr::full_join(
+    add_pas_des_list[["U"]], add_pas_des_list[["M"]],
+    by="ord_id", suffix=c("_U","_M")
+  )
+  
+  man_pas1_tib %>% dplyr::anti_join(man_pas2_tib, by=c("Address_U","Address_M"))
+  man_pas1_tib %>% dplyr::anti_join(man_pas3_tib, by=c("Address_U","Address_M"))
+  
+  # Validate anything unexpected matches::
+  man_pas3_tib %>% dplyr::filter(IDX_U != IDX_M)
+  man_pas3_tib %>% dplyr::filter(BPN_U != BPN_M)
+  man_pas3_tib %>% dplyr::filter(AQP_U != AQP_M)
+  man_pas3_tib %>% dplyr::filter(PQC_U != PQC_M)
+
+}
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -880,7 +1050,9 @@ man_fas_tib <-
            key="aln_key",seq="aln_seq", 
            prefix=man_fas_pre, 
            verbose=opt$verbose, tt=pTracker) %>%
-  dplyr::mutate(prb_cgn=as.character(Address))
+  dplyr::rename(prb_cgn=Address) %>%
+  dplyr::mutate(prb_des=as.character(prb_des)) # %>% 
+  # dplyr::mutate(prb_cgn=as.character(Address))
 
 if (!file.exists(man_add_bsp_tsv)) {
   man_add_bsp_tsv <- 
@@ -935,6 +1107,13 @@ if (run_cgn_mat) {
   
   int_prb49U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb49U.seq-intersect.tsv.gz", sep="_"))
   int_prb50U_tsv <- file.path(opt$outDir,"intersect", paste(opt$runName,"imp-add-prb50U.seq-intersect.tsv.gz", sep="_"))
+  
+  #
+  #
+  # Big Change:: 
+  #  - add_pas_tib should replace man_add_bsp_tib below::
+  #
+  #
   
   # Address BSP tibble instead of GRS::
   man_add_bsp_tib <- 

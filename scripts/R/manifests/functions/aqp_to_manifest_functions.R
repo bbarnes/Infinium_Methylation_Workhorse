@@ -44,6 +44,81 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Address To Manifest Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+addressToManifest = function(tib, des="prb_des", join,
+                             csv=NULL, validate=TRUE,
+                             verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'addressToManifest'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    if (!is.null(csv)) {
+      outDir <- base::dirname(csv)
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    }
+    
+    des_list <- NULL
+    des_list <- tib %>% split(.[[des]])
+    des_cnt  <- des_list %>% names() %>% length()
+
+    # Ensure Unique contains all fields::
+    #  join <- dplyr::all_of(base::unique(c(des,join)))
+
+    ret1_tib <- NULL
+    if (!is.null(des_list[["U"]]) && !is.null(des_list[["M"]])) {
+      ret1_tib <- dplyr::full_join(
+        dplyr::select(des_list[["U"]], -dplyr::all_of(des)), 
+        dplyr::select(des_list[["M"]], -dplyr::all_of(des)), 
+        by=dplyr::all_of(join),
+        suffix=c("_U","_M")
+      )
+    }
+    
+    ret2_tib <- NULL
+    ret2_tib <- dplyr::bind_cols(
+      dplyr::select(des_list[["2"]],  dplyr::all_of(join)),
+      dplyr::select(des_list[["2"]], -dplyr::all_of(join)) %>% 
+        purrr::set_names(paste(names(.),"U", sep="_"))
+    )
+    
+    # ret2_col <- ret2_tib %>% 
+    #   dplyr::select(-dplyr::all_of(join)) %>%
+    #   names()
+    # ret2_tib %>%
+    #   purrr::set_names(paste(names(.),"U", sep="_"))
+    # 
+    
+    ret_tib <- dplyr::bind_rows(ret1_tib, ret2_tib) %>%
+      dplyr::arrange(ord_id)
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib=({ret_cnt})={RET}"))
+      print(ret_tib)
+    }
+    
+    if (!is.null(csv)) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing Manifest CSV=({csv})={RET}"))
+      readr::write_csv(ret_tib, csv)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             BSMAP Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -60,7 +135,9 @@ loadBspFormatted = function(bsp, src, col=NULL,fields=NULL, sort=TRUE,
     if (is.null(col)) {
       col <- cols(
         # bsp_key = col_character()
-        prb_cgn = col_character(),
+        # prb_cgn = col_character(),
+        prb_cgn = col_integer(),
+        
         # prb_srd = col_character(),
         # prb_add = col_integer(),
         prb_type = col_character(),
@@ -249,7 +326,9 @@ loadBspFormatted = function(bsp, src, col=NULL,fields=NULL, sort=TRUE,
       dplyr::mutate(Unique_ID=paste(prb_cgn,prb_des, dplyr::row_number(), sep="_")) %>%
       # dplyr::group_by(prb_cgn,prb_srd,prb_des,prb_src) %>% 
       # dplyr::mutate(Unique_ID=paste(prb_cgn,prb_srd,prb_add,prb_des,prb_src, dplyr::row_number(), sep="_")) %>%
-      dplyr::ungroup()
+      dplyr::ungroup() %>%
+      utils::type.convert() %>% 
+      dplyr::mutate(across(where(is.factor),  as.character) )
     
     if (sort) ret_tib <- ret_tib %>% dplyr::arrange(bsp_chr, bsp_beg)
     
@@ -317,9 +396,10 @@ bspToGenomicRegion = function(bsp, rds=NULL,
         strand=Rle(stringr::str_sub( bsp$bsp_srd, 1,1 ) ),
         
         # ord_id  = bsp$ord_id,
-
+        
         # prb_add = bsp$prb_add,
-        prb_add = bsp$Address,
+        # prb_add = bsp$Address,
+        
         prb_cgn = bsp$prb_cgn,
         # prb_srd = bsp$prb_srd,
         prb_des = bsp$prb_des,
@@ -400,12 +480,12 @@ format_ORD = function(tib, idx_key="IDX", uniq=TRUE,
   stime <- system.time({
     
     idx_sym <- rlang::sym(idx_key)
-    add_col  <- c(idx_key,"ord_id","prb_des","prb_seq","prb_par")
-    sel_colA <- c(idx_key,"Assay_Design_Id","DesA","PrbA","PrbB")
-    sel_colB <- c(idx_key,"Assay_Design_Id","DesB","PrbB","PrbA")
-
+    add_col  <- c(idx_key,"ord_id","prb_des","prb_seq","prb_par","prb_col")
+    sel_colA <- c(idx_key,"Assay_Design_Id","DesA","PrbA","PrbB","PrbCol")
+    sel_colB <- c(idx_key,"Assay_Design_Id","DesB","PrbB","PrbA","PrbCol")
+    
     tmp_tib <- tib %>%
-      dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id, -Normalization_Bin) %>% 
+      dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id) %>% # , -Normalization_Bin) %>% 
       dplyr::rename(PrbA=AlleleA_Probe_Sequence,
                     PrbB=AlleleB_Probe_Sequence) %>%
       dplyr::mutate(
@@ -418,6 +498,12 @@ format_ORD = function(tib, idx_key="IDX", uniq=TRUE,
         ),
         DesB=dplyr::case_when(
           !is.na(PrbA) & !is.na(PrbB) ~ "M",
+          TRUE ~ NA_character_
+        ),
+        PrbCol=dplyr::case_when(
+          DesA=="2" ~ NA_character_,
+          DesA=="U" & DesB=="M" & Normalization_Bin=="A" ~ "R",
+          DesA=="U" & DesB=="M" & Normalization_Bin=="B" ~ "G",
           TRUE ~ NA_character_
         )
       )
@@ -436,7 +522,7 @@ format_ORD = function(tib, idx_key="IDX", uniq=TRUE,
       dplyr::arrange(plyr::desc(!!idx_sym))
     
     if (uniq) ret_tib <- ret_tib %>% dplyr::distinct(prb_seq, .keep_all=TRUE)
-
+    
     ret_tib <- ret_tib %>% 
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor),  as.character) )
@@ -469,18 +555,59 @@ format_MAT = function(tib, idx_key="IDX", uniq=TRUE, trim=TRUE,
     idx_sym <- rlang::sym(idx_key)
     
     ret_tib <- tib
-    if (trim) {
-      trim_cnt <- ret_tib %>% 
-        dplyr::filter(!stringr::str_starts(Address, '1')) %>% base::nrow()
-      if (trim_cnt==0) {
-        ret_tib <- ret_tib %>% 
-          dplyr::mutate(Address=as.numeric(
-            stringr::str_remove(stringr::str_remove(Address, '^1'), '^0+')) )
-      } else {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Attempting to trim new tango fomrat, ",
-                        "but format doesn't match; trim_cnt={trim_cnt}!!!{RET}{RET}"))
-        return(NULL)
+    if (c("address_names") %in% names(tib)) {
+      
+      if (trim) {
+        trim_cnt <- ret_tib %>% 
+          dplyr::filter(!stringr::str_starts(address_names, '1')) %>% base::nrow()
+        if (trim_cnt==0) {
+          ret_tib <- ret_tib %>% 
+            dplyr::mutate(address_names=as.numeric(
+              stringr::str_remove(stringr::str_remove(address_names, '^1'), '^0+')) )
+        } else {
+          stop(glue::glue("{RET}[{funcTag}]: ERROR: Attempting to trim new tango fomrat, ",
+                          "but format doesn't match; trim_cnt={trim_cnt}!!!{RET}{RET}"))
+          return(NULL)
+        }
       }
+      
+      ret_tib <- ret_tib %>% 
+        dplyr::rename(Address=address_names,
+                      Sequence=bo_seq) # %>%
+        # dplyr::mutate(Sequence=stringr::str_to_upper(Sequence),
+        #               tan_seq=stringr::str_sub(Sequence,1,45),
+        #               prb_seq=stringr::str_sub(Sequence,46)
+        # ) %>%
+        # dplyr::filter(!is.na(Address)) %>%
+        # dplyr::select(Address,!!idx_sym,prb_seq, dplyr::everything()) %>% 
+        # dplyr::arrange(plyr::desc(!!idx_sym))
+
+    } else if (c("Address") %in% names(tib)) {
+      if (trim) {
+        trim_cnt <- ret_tib %>% 
+          dplyr::filter(!stringr::str_starts(Address, '1')) %>% base::nrow()
+        if (trim_cnt==0) {
+          ret_tib <- ret_tib %>% 
+            dplyr::mutate(Address=as.numeric(
+              stringr::str_remove(stringr::str_remove(Address, '^1'), '^0+')) )
+        } else {
+          stop(glue::glue("{RET}[{funcTag}]: ERROR: Attempting to trim new tango fomrat, ",
+                          "but format doesn't match; trim_cnt={trim_cnt}!!!{RET}{RET}"))
+          return(NULL)
+        }
+      }
+      
+      # ret_tib <- ret_tib %>% 
+      #   dplyr::mutate(Sequence=stringr::str_to_upper(Sequence),
+      #                 tan_seq=stringr::str_sub(Sequence,1,45),
+      #                 prb_seq=stringr::str_sub(Sequence,46)
+      #   ) %>%
+      #   dplyr::filter(!is.na(Address)) %>%
+      #   dplyr::select(Address,!!idx_sym,prb_seq, dplyr::everything()) %>% 
+      #   dplyr::arrange(plyr::desc(!!idx_sym))
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed to match 'addres_names' or 'Address'!!!{RET}{RET}"))
+      return(NULL)
     }
     
     ret_tib <- ret_tib %>% 
@@ -491,6 +618,7 @@ format_MAT = function(tib, idx_key="IDX", uniq=TRUE, trim=TRUE,
       dplyr::filter(!is.na(Address)) %>%
       dplyr::select(Address,!!idx_sym,prb_seq, dplyr::everything()) %>% 
       dplyr::arrange(plyr::desc(!!idx_sym))
+    
     
     if (uniq) ret_tib <- ret_tib %>% dplyr::distinct(Address, .keep_all=TRUE)
     
@@ -550,10 +678,10 @@ format_AQP = function(tib, idx_key="IDX", uniq=TRUE,filt=TRUE,
     ret_tib <- ret_tib %>% 
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor),  as.character) )
-
+    
     if (filt) ret_tib <- ret_tib %>% dplyr::filter(aqp_val==0)
     if (uniq) ret_tib <- ret_tib %>% dplyr::distinct(Address, .keep_all=TRUE)
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib=({ret_cnt}/{pre_cnt})={RET}"))
@@ -599,11 +727,11 @@ load_manifestBuildFile = function(file, field="Assay_Design_Id", cols=NULL,
     if (file_type=="csv") {
       ret_tib <- suppressMessages(suppressWarnings(
         readr::read_csv(file, skip=skip_cnt, guess_max=guess, skip_empty_rows=FALSE)))
-    } else if (file_type=="tsv" || file_type=="txt") {
+    } else if (file_type=="tsv" || file_type=="txt" || file_type=="match") {
       ret_tib <- suppressMessages(suppressWarnings(
         readr::read_tsv(file, skip=skip_cnt, guess_max=guess, skip_empty_rows=FALSE)))
     } else {
-      stop(glue::glue("{RET}[{funcTag}]:ERROR: Unsupporte fileType={file_type}!!!{RET}{RET}"))
+      stop(glue::glue("{RET}[{funcTag}]:ERROR: Unsupported fileType={file_type}!!!{RET}{RET}"))
       return(NULL)
     }
     if (!is.null(cols)) {
@@ -617,11 +745,6 @@ load_manifestBuildFile = function(file, field="Assay_Design_Id", cols=NULL,
       }
     }
     
-    # To be removed:: Not the correct place for this assignment::
-    #
-    # if (!is.null(aqp)) ret_tib <- ret_tib %>% dplyr::mutate(AQP=aqp)
-    # if (!is.null(bpn)) ret_tib <- ret_tib %>% dplyr::mutate(BPN=bpn)
-
     ret_tib <- ret_tib %>% 
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor),  as.character) )
@@ -695,8 +818,8 @@ get_headerSkipCount = function(file, field="Assay_Design_Id", n_max=50,
 # cur_pos_db_grs <- write_impTopGenomeGRS(genBuild="GRCh37", verbose=10, tt=pTracker)
 # cur_pos_db_grs <- write_impTopGenomeGRS(genBuild="GRCh38", verbose=10, tt=pTracker)
 write_impTopGenomeGRS = function(genBuild,
-                              impDir="/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designInput",
-                              verbose=0,vt=3,tc=1,tt=NULL) {
+                                 impDir="/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designInput",
+                                 verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'write_impTopGenomeGRS'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -814,7 +937,7 @@ write_impGenomeGRS = function(genBuild,
     
     pos_tsv <- file.path(impDir, paste0(genBuild,'-21092020_improbe-designOutput.cgn-pos-srd.tsv.gz') )
     pos_rds <- file.path(impDir, paste0(genBuild,'-21092020_improbe-designOutput.cgn-pos-srd.rds') )
-
+    
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr} Loading TSV={pos_tsv}...{RET}"))
     
@@ -857,7 +980,7 @@ write_impGenomeGRS = function(genBuild,
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_grs={RET}"))
       print(ret_grs)
     }
-
+    
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr} Writing RDS={pos_rds}...{RET}"))
     readr::write_rds(ret_grs, pos_rds, compress="gz")

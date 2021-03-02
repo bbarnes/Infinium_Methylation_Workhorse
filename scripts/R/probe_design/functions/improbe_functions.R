@@ -36,7 +36,7 @@ addSeq48U = function(tib, field,
     len2 <- plen
     
     field_sym <- rlang::sym(field)
-
+    
     ret_tib <- tib %>% dplyr::mutate(
       Seq_48U_1=stringr::str_sub(!!field_sym, idx1,len1) %>% 
         stringr::str_to_upper() %>% 
@@ -79,7 +79,7 @@ improbe_design_all = function(tib, ptype, outDir, gen,
     len1 <- plen - 1
     idx2 <- sidx + 1
     len2 <- plen
-
+    
     if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
     
     imp_fwd_name <- paste(ptype,gen,"improbe_fwd-seq.tsv.gz", sep=del)
@@ -113,7 +113,7 @@ improbe_design_all = function(tib, ptype, outDir, gen,
         Probe_Score_Min=pmin(Methyl_Final_Score,UnMethyl_Final_Score),
         Underlying_CpG_Count=as.integer(Methyl_Underlying_CpG_Count),
         Underlying_CpG_Min_Dist=as.integer(Methyl_Underlying_CpG_Min_Dist)
-        )
+      )
     
     if (parse_din) imp_des_tib <- imp_des_tib %>%
       tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
@@ -185,7 +185,7 @@ improbe_design_all = function(tib, ptype, outDir, gen,
 }
 
 improbe_docker = function(dir, file, name, image, shell, 
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'improbe_docker'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
@@ -332,7 +332,7 @@ loadProbeAlignBowtieInfI = function(sam, reduced=FALSE, filtered=FALSE, flipSeq=
     sam_1A_tib <- snp_raw_tib %>% dplyr::filter(stringr::str_ends(QNAME,'_IA')) %>% dplyr::mutate(QNAME=stringr::str_remove(QNAME, '_IA$'))
     sam_1B_tib <- snp_raw_tib %>% dplyr::filter(stringr::str_ends(QNAME,'_IB')) %>% dplyr::mutate(QNAME=stringr::str_remove(QNAME, '_IB$'))
     sam_tib <- dplyr::inner_join(sam_1A_tib,sam_1B_tib, by=c("QNAME","FLAG","RNAME","POS"), suffix=c("_IA", "_IB")) # %>%
-
+    
     MD_IA_cnt <- sam_tib %>% dplyr::filter(MD_IA %in% art_snp_md_vec) %>% base::nrow()
     MD_IB_cnt <- sam_tib %>% dplyr::filter(MD_IB %in% art_snp_md_vec) %>% base::nrow()
     if (verbose>=vt) cat(glue::glue("[{par$prgmTag}]: IA/IB = {MD_IA_cnt}, {MD_IB_cnt}{RET}"))
@@ -366,7 +366,7 @@ bowtieProbeAlign = function(exe, fas, gen, dir, lan=NULL, run=FALSE,
     aln_ssh <- file.path(sh_dir, paste0('run_bow-',fas_name,'-',gen_name,'.sh') )
     aln_sam <- file.path(al_dir, paste0(fas_name,'-',gen_name,'.bowtie.sam.gz') )
     aln_cmd <- paste(exe, '-f -x',gen_file, '-U',fas, '| gzip -c ->',aln_sam, sep=' ')
-
+    
     cat(glue::glue("[{funcTag}]:{TAB} Launching bowtie alignments: {fas_name} vs. {gen_name}...{RET}"))
     readr::write_lines(x=aln_cmd, file=aln_ssh, append=FALSE)
     Sys.chmod(paths=aln_ssh, mode="0777")
@@ -376,7 +376,7 @@ bowtieProbeAlign = function(exe, fas, gen, dir, lan=NULL, run=FALSE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
-
+  
   if (run) return(aln_sam)
   aln_ssh
 }
@@ -407,7 +407,7 @@ bsmapProbeAlign = function(exe, fas, gen, dir,
     
     if (!dir.exists(sh_dir)) dir.create(sh_dir, recursive=TRUE)
     if (!dir.exists(al_dir)) dir.create(al_dir, recursive=TRUE)
-
+    
     aln_ssh <- file.path(sh_dir, paste0('run_bsp-',fas_name,'-',gen_name,'.sh') )
     aln_bsp <- file.path(al_dir, paste0(fas_name,'-',gen_name,'.bsmap.bsp') )
     ret_tsv <- file.path(al_dir, paste0(fas_name,'-',gen_name,'.bsmap.formatted.tsv.gz') )
@@ -442,7 +442,7 @@ bsmapProbeAlign = function(exe, fas, gen, dir,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 tibToFas = function(tib, key,seq, prefix,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                    verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'tibToFas'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
@@ -465,7 +465,9 @@ tibToFas = function(tib, key,seq, prefix,
       # fas_line=paste0(">",!!key, "\n",!!seq)
       fas_line=paste0(">",!!key_sym, "\n",!!seq_sym)
     )  %>%
-      dplyr::filter(!is.na(fas_line))
+      dplyr::filter(!is.na(fas_line)) %>%
+      utils::type.convert() %>% 
+      dplyr::mutate(across(where(is.factor),  as.character) )
     
     fas_vec <- ret_tib %>%
       # dplyr::distinct(fas_line) %>%
@@ -478,7 +480,7 @@ tibToFas = function(tib, key,seq, prefix,
     if (opt$verbose>=1)
       cat(glue::glue("[{par$prgmTag}]: Writing Data FAS={file_fas}...{RET}"))
     readr::write_lines(x=fas_vec, file=file_fas)
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
@@ -532,7 +534,7 @@ writeBedFas = function(tib, dir, name, verbose=0,vt=5,tc=1,tt=NULL) {
     dplyr::arrange(Chromosome,Coordinate) %>% dplyr::rename(Chrom=Chromosome, Beg=Coordinate) %>%
     dplyr::mutate(End=Beg+stringr::str_length(PRB1_U), 
                   Full_ID=paste(Seq_ID,FR_Imp,TB_Imp,CO_Imp,Beg, sep='_') )
-
+  
   fas_tib <- tib %>% dplyr::select(Full_ID, PRB1_U) %>% 
     dplyr::mutate(line=paste0('>',Full_ID,'\n',PRB1_U)) %>% dplyr::pull(line)
   bed_tib <- tib %>% dplyr::select(Chrom, Beg, End, Full_ID, MinScore, FR_Imp, TB_Imp, CO_Imp, everything())
@@ -592,7 +594,7 @@ printPrbs = function(tib, pr='cg', org=NULL, outDir, plotName, max=NULL,
     # org_str <- stringr::str_c(org_str, collapse=';')
     # org_str <- stringr::str_c(unique(org_str), collapse=';')
     # print(org_str)
-
+    
     cur_tib <- prb_mat_tibs %>% dplyr::filter(Seq_ID==cur_SeqID)
     tibs <- cur_tib %>% srdsToBrac()
     # print(cur_tib)
@@ -606,7 +608,7 @@ printPrbs = function(tib, pr='cg', org=NULL, outDir, plotName, max=NULL,
     strs <- NULL
     strs$F <- prbsToStr(tibs$F, pr=tag_tib$PRB_DES[1], verbose=verbose, vt=6)
     strs$R <- prbsToStr(tibs$R, pr=tag_tib$PRB_DES[1], verbose=verbose, vt=6)
-
+    
     # Determine which file to write to::
     #   - Failed if both F/R strands have equal PRB1_U==PRB1_M
     #   - Passed otherwise
@@ -701,7 +703,7 @@ prbsToStr = function(tib, pr, verbose=0,vt=5,tc=1,tt=NULL) {
   if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} fr1Key={fr1Key}, fr2Key={fr2Key}, co1Key={co1Key}, co2Key={co2Key}.{RET}"))
   
   mud <- list('U'='U','M'='M','D'='D')
-
+  
   desSeq <- 'DesSeqN'
   bscKey <- lapply(mud, function(x) { paste('DesBsc',x,sep='')} )
   nxbKey <- lapply(mud, function(x) { paste('NXB',x,sep='_')} )
@@ -710,7 +712,7 @@ prbsToStr = function(tib, pr, verbose=0,vt=5,tc=1,tt=NULL) {
   secKey <- lapply(mud, function(x) { paste('SEC',x,sep='_')} )
   bodKey <- lapply(mud, function(x) { paste('BOD',x,sep='_')} )
   endKey <- lapply(mud, function(x) { paste('END',x,sep='_')} )
-
+  
   # Dertermine if the probes on this strand were designable::
   pass_cnt <- tib %>% dplyr::filter(PRB1_U!=PRB1_M) %>% base::nrow()
   pass_str <- 'PASS: '
@@ -1042,9 +1044,9 @@ desAllPrbs = function(tib, verbose=0,vt=5,tc=1,tt=NULL) {
     pr <- tib %>% dplyr::distinct(PRB_DES) %>% base::as.character()
     
     ret_tib <- dplyr::bind_rows(tib %>% 
-                       des2prbs(fwd=fr, con=co, pr=pr, mu='U', desSeq='DesBscU', verbose=verbose, vt=vt, tc=tc+1) %>%
-                       des2prbs(fwd=fr, con=co, pr=pr, mu='M', desSeq='DesBscM', verbose=verbose, vt=vt, tc=tc+1) %>%
-                       des2prbs(fwd=fr, con=co, pr=pr, mu='D', desSeq='DesBscD', verbose=verbose, vt=vt, tc=tc+1) )
+                                  des2prbs(fwd=fr, con=co, pr=pr, mu='U', desSeq='DesBscU', verbose=verbose, vt=vt, tc=tc+1) %>%
+                                  des2prbs(fwd=fr, con=co, pr=pr, mu='M', desSeq='DesBscM', verbose=verbose, vt=vt, tc=tc+1) %>%
+                                  des2prbs(fwd=fr, con=co, pr=pr, mu='D', desSeq='DesBscD', verbose=verbose, vt=vt, tc=tc+1) )
     
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
@@ -1066,11 +1068,11 @@ des2prbs = function(tib, fwd, con, pr, mu, desSeq='DesSeqN', len=48, del='_',QC_
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; fwd={fwd}, con={con}, pr={pr}, mu={mu}, desSeq={desSeq}.{RET}"))
-
+  
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
-
+    
     stopifnot(is.logical(fwd))
     stopifnot(is.logical(con))
     
@@ -1119,7 +1121,7 @@ des2prbs = function(tib, fwd, con, pr, mu, desSeq='DesSeqN', len=48, del='_',QC_
       else {
         stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination fwd={fwd}, con={con}!!!{RET}{RET}"))
       }
-
+      
     } else if (pr=='cg' || pr=='rp' || pr=='mu' || stringr::str_starts(pr,'ct')) {
       # $prb_F_C_I  = revCmp(substr($des_F_C, 60, 50));
       # $prb_F_O_I  = revCmp(substr($des_F_O, 61, 50));
@@ -1204,7 +1206,7 @@ des2prbs = function(tib, fwd, con, pr, mu, desSeq='DesSeqN', len=48, del='_',QC_
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-
+  
   ret_tib
 }
 
@@ -1274,7 +1276,7 @@ writeImprobeInput = function(tib, name, dir, run=FALSE,
   imp_log_txt <- file.path(dir, paste0(name,'.improbe-output.log'))
   imp_fin_txt <- file.path(dir, paste0(name,'.improbe-output.fin.txt'))
   imp_cmd_str <- ''
-
+  
   readr::write_tsv(tib, imp_inp_tsv)
   
   if (!is.null(exe) && ! is.null(impTango) && !is.null(imp13mer)) {
@@ -1428,7 +1430,7 @@ loadImprobeDesign = function(file=NULL, src_des_tib=NULL,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading improbe={file}.{RET}"))
-
+  
   if (!is.null(file)) src_des_tib <- suppressMessages(suppressWarnings(readr::read_tsv(file)))
   stopifnot(!is.null(src_des_tib))
   
@@ -1561,7 +1563,7 @@ addDesignSeqCG = function(tib, seq, add, din=NULL,
         !!din := !!seq_sym %>%
           stringr::str_remove("\\].*$") %>%
           stringr::str_remove("^.*\\[") )
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -1574,7 +1576,7 @@ addDesignSeqCG = function(tib, seq, add, din=NULL,
 }
 
 replaceDesignSeqCG = function(tib, seq, add, nuc,
-                          verbose=0,vt=3,tc=1,tt=NULL) {
+                              verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'replaceDesignSeqCG'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -1592,7 +1594,7 @@ replaceDesignSeqCG = function(tib, seq, add, nuc,
                     PosSeq=stringr::str_remove(!!seq_sym, "^.*\\]"),
                     !!add:=paste0(PreSeq,"[",!!nuc_sym,"]",PosSeq) ) %>%
       dplyr::select(-PreSeq, -PosSeq)
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -1695,7 +1697,7 @@ isTopBot_single = function(seq, verbose=0, vt=4) {
   seq <- seq %>% stringr::str_to_upper() %>% 
     stringr::str_replace_all('T', 'A') %>% 
     stringr::str_replace_all('G', 'C')
-
+  
   seq_vec <- stringr::str_split(seq,'\\[', simplify=TRUE) %>% as.vector()
   pre_seq <- seq_vec[1] %>% Biostrings::reverse()
   seq_vec <- stringr::str_split(seq,'\\]', simplify=TRUE) %>% as.vector()
@@ -1835,7 +1837,7 @@ cmpInfI_MisMatch = function(tib, fieldAU, fieldBU, fieldAM, fieldBM, del='_',
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]: fieldAU={fieldAU}, fieldBU={fieldBU}{RET}"))
   if (verbose>=vt) cat(glue::glue("[{funcTag}]: fieldAM={fieldAM}, fieldBM={fieldBM}{RET}"))
-
+  
   tib <- tib %>% cmpInfIMU_MisMatch(fieldAU, fieldBU, mu='U', del=del,verbose=verbose, vt=vt+1,tc=tc+1)
   tib <- tib %>% cmpInfIMU_MisMatch(fieldAM, fieldBM, mu='M', del=del,verbose=verbose, vt=vt+1,tc=tc+1)
   tib <- tib %>% dplyr::mutate(
@@ -1858,8 +1860,8 @@ cmpInfII_MisMatch = function(tib, fieldA, fieldB, mu='D', del='_',
     dplyr::rename(
       Man_MisMatch=BOD_NumMM_D,
       Man_TarMatch=TAR_EQU_D)
-    # dplyr::select(-c(BOD_NumMM_U,BOD_NumMM_M,TAR_EQU_U,TAR_EQU_M))
-
+  # dplyr::select(-c(BOD_NumMM_U,BOD_NumMM_M,TAR_EQU_U,TAR_EQU_M))
+  
   tib
 }
 
@@ -2326,7 +2328,7 @@ INIT_QMAP_M = function() {
   MAP[['w']] <- 't'  # t over a
   # MAP[['s']] <- 's'  # '-' Old Version
   # MAP[['w']] <- 'w'  # '-' Old Version
-
+  
   MAP[['k']] <- 'g'
   MAP[['m']] <- 'c'
   MAP[['b']] <- 's'
