@@ -284,6 +284,7 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'C26'
     opt$version  <- 'C27'
     opt$version  <- 'C28'
+    opt$version  <- 'C29'
     
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
@@ -637,7 +638,9 @@ add_ord_tib <-
              verbose=opt$verbose, tt=pTracker) %>%
   dplyr::left_join(man_info_tib, by="IDX") %>% 
   dplyr::mutate(prb_type=stringr::str_sub(ord_id, 1,2)) %>%
-  dplyr::select(IDX,BPN,AQP,PQC,prb_type,prb_des,prb_seq) %>% 
+  dplyr::select( dplyr::any_of( c( base::names(man_info_tib),
+                                  "prb_type","prb_des","prb_seq" )) ) %>%
+  # dplyr::select(IDX,BPN,AQP,PQC,prb_type,prb_des,prb_seq) %>% 
   dplyr::distinct()
 
 add_ord_sum <- add_ord_tib %>%
@@ -668,7 +671,9 @@ add_mat_tib <-
   format_MAT(idx_key="IDX",uniq=TRUE,trim=TRUE, 
              verbose=opt$verbose, tt=pTracker) %>%
   dplyr::left_join(man_info_tib, by="IDX") %>% 
-  dplyr::select(IDX,BPN,AQP,PQC,Address,prb_seq,tan_seq) %>% 
+  dplyr::select( dplyr::any_of( c( base::names(man_info_tib),
+                                   "Address","prb_seq","tan_seq" )) ) %>%
+  # dplyr::select(IDX,BPN,AQP,PQC,Address,prb_seq,tan_seq) %>% 
   dplyr::distinct()
 
 add_mat_sum <- add_mat_tib %>%
@@ -844,6 +849,7 @@ man_add_bsp_rds <- file.path(
                              opt$genBuild,".genome.bsmap.formatted.rds"))
 
 # Add Fasta File::
+add_pas_fas_tib <- NULL
 add_pas_fas_tib <- 
   add_pas_tib %>%
   dplyr::mutate(
@@ -868,6 +874,7 @@ add_pas_fas_tib <-
   )
 
 # Write Fasta File::
+man_fas_tib <- NULL
 man_fas_tib <- 
   tibToFas(tib=add_pas_fas_tib, 
            key="aln_key",seq="aln_seq", 
@@ -901,7 +908,7 @@ if (!file.exists(man_add_bsp_tsv) |
   if (opt$verbose>=1)
     cat(glue::glue("[{par$prgmTag}]: Building man_add_bsp (RDS)={man_add_bsp_rds}...{RET}"))
   
-  man_add_bsp_grs <-bspToGenomicRegion(
+  man_add_bsp_grs <- bspToGenomicRegion(
     bsp=man_add_bsp_tib, rds=man_add_bsp_rds,
     verbose=opt$verbose,tt=pTracker)
   
@@ -910,9 +917,6 @@ if (!file.exists(man_add_bsp_tsv) |
     cat(glue::glue("[{par$prgmTag}]: Loading man_add_bsp (RDS)={man_add_bsp_rds}...{RET}"))
   man_add_bsp_grs <- readr::read_rds(man_add_bsp_rds)
 }
-
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -985,8 +989,6 @@ if (run_cgn_mat) {
       add_prb50U_tib, add_prb50U_tsv, col_names=FALSE)
   }
   
-  
-  
   # TBD:: 
   #  Candidate::
   #  - Don't need to add ord_id,prb_des
@@ -997,7 +999,7 @@ if (run_cgn_mat) {
   #  - Split files by aln_prb50U,aln_prb49U
   #    i.e. split this file: "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/GRCh36-21022021_improbe-designOutput.cgn-seq50U.unq-cgn-srd.seq50U-sorted.short-fields.tsv.gz"
   #    [done]::
-  
+  #
   # opt$fresh <- TRUE
   
   int_seq_col <- cols(
@@ -1023,6 +1025,13 @@ if (run_cgn_mat) {
                     col_names=names(int_seq_col$cols),
                     col_types=int_seq_col)
   
+  # Split into compareable table::
+  int_mat49U_tib <- int_prb49U_tib %>% 
+    tidyr::separate(mat_can, into=c("can_add","can_des","can_rep"), sep="_") %>% 
+    utils::type.convert() %>% 
+    dplyr::mutate(across(where(is.factor),  as.character) )
+  
+  
   if (opt$fresh ||
       !file.exists(imp_prb50U_tsv) ||
       !file.exists(add_prb50U_tsv) ||
@@ -1039,8 +1048,21 @@ if (run_cgn_mat) {
                     col_names=names(int_seq_col$cols),
                     col_types=int_seq_col)
   
+  # Split into compareable table::
+  int_mat50U_tib <- int_prb50U_tib %>% 
+    tidyr::separate(mat_can, into=c("can_add","can_des","can_rep"), sep="_") %>% 
+    utils::type.convert() %>% 
+    dplyr::mutate(across(where(is.factor),  as.character) )
+
   
-  
+  # Summary::
+  int_mat50U_tib %>% 
+    # dplyr::add_count(can_add, name="Comb_Cnt") %>% 
+    dplyr::add_count(mat_cgn, name="Comb_Cnt") %>% 
+    # dplyr::add_count(mat_cgn,can_add, name="Comb_Cnt") %>% 
+    dplyr::group_by(Comb_Cnt) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+
 }
 
 
@@ -1070,22 +1092,11 @@ if (run_cgn_mat) {
 
 if (FALSE) {
   
-  #
-  # Done::This should be moved into format_ORD()
-  #
   if (FALSE) {
-    add_ord_unq_tib <- 
-      dplyr::select(add_ord_tib, ord_id,prb_des,ord_aqp,prb_seq) %>% 
-      dplyr::arrange(prb_seq, -ord_aqp, prb_des) %>% 
-      dplyr::add_count(prb_seq, name="Prb_Cnt") %>%
-      dplyr::distinct(prb_seq, .keep_all=TRUE)
-    
-    add_ord_unq_tib %>% dplyr::filter(Prb_Cnt!=1)
-    add_ord_unq_tib %>% dplyr::distinct(prb_seq)
-  }
-
-  if (FALSE) {
-    
+    #
+    #  NOTE: This is just a quick fix for the Horvath Sesame Array::
+    #    - This should be moved to a seperate script. 
+    #
     man_hov_csv <- "/Users/bretbarnes/Documents/data/manifests/HorvathMammal40-A2.sesame-base.cpg-sorted.csv.gz"
     man_hov_tib <- 
       readr::read_csv( file.path(par$datDir, "manifest/core/HorvathMammal40-A1.sesame-base.cpg-sorted.csv.gz") ) %>% 
@@ -1139,7 +1150,6 @@ if (FALSE) {
   int_seq49U_tib <- readr::read_tsv(int_seq49U_tsv,
                                     col_names=names(int_seq49U_col$cols),
                                     col_types=int_seq49U_col)
-  
   
   # Load Second Round:: I
   int_seq50U_tsv <- "/Users/bretbarnes/Documents/scratch/aqp_to_manifest/LEGX-C25-GRCm10/intersection/intersect-seq50U.tsv.gz"
@@ -1220,7 +1230,6 @@ if (FALSE) {
   #  
   #
   
-  
   man_add_bsp_tib %>% dplyr::filter(seqnames=="chr10") %>% head() %>% tail(n=3) %>% as.data.frame()
   # cg28108104_F_T_C_II
   # 3102674
@@ -1242,7 +1251,6 @@ if (FALSE) {
   
   cur_pos_db_grs <- write_impTopGenomeGRS(genBuild=opt$genBuild, verbose=10, tt=pTracker)
   cur_pos_db_grs %>% dplyr::filter(imp_chr==10 && imp_pos==bsp_pos)
-  
   
   #
   # New Method::
