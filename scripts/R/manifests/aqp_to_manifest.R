@@ -236,8 +236,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- NULL
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'GRCm10'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'GRCm10'
   
   if (par$local_runType=='Chicago') {
     opt$genBuild <- 'GRCh37'
@@ -924,61 +924,6 @@ man_fun_tib <- add_pas_tib %>% # dplyr::select(-prb_par) %>%
                     validate=TRUE, 
                     verbose=opt$verbose, tt=pTracker)
 
-
-
-
-
-
-
-
-#
-# OLD CODE FOR ERROR CHECKING::
-#
-if (FALSE) {
-  
-  # add_ord_tib %>% dplyr::group_by(IDX,prb_type,prb_des) %>% dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
-  
-  # add_pas_des_list <- add_pas_tib %>% split(.$prb_des)
-  
-  # dplyr::filter(add_pas_tib, prb_des=="U")
-  # dplyr::filter(add_pas_tib, prb_des=="M")
-  # dplyr::filter(add_pas_tib, prb_des=="2")
-  
-  man_pas1_tib <- dplyr::full_join(
-    add_pas_des_list[["U"]], add_pas_des_list[["M"]],
-    by=c("ord_id","prb_type", dplyr::all_of(base::names(man_info_tib)) ), 
-    suffix=c("_U","_M")
-  )
-  
-  #
-  # TBD:: 
-  #  - Clear up extra validation
-  #  - Write Functional Manifest with ord_id's
-  #
-  
-  man_pas2_tib <- dplyr::full_join(
-    add_pas_des_list[["U"]], add_pas_des_list[["M"]],
-    by=c("ord_id","IDX","BPN","AQP","PQC"), 
-    suffix=c("_U","_M")
-  )
-  
-  man_pas3_tib <- dplyr::full_join(
-    add_pas_des_list[["U"]], add_pas_des_list[["M"]],
-    by="ord_id", suffix=c("_U","_M")
-  )
-  
-  man_pas1_tib %>% dplyr::anti_join(man_pas2_tib, by=c("Address_U","Address_M"))
-  man_pas1_tib %>% dplyr::anti_join(man_pas3_tib, by=c("Address_U","Address_M"))
-  
-  # Validate anything unexpected matches::
-  man_pas3_tib %>% dplyr::filter(IDX_U != IDX_M)
-  man_pas3_tib %>% dplyr::filter(BPN_U != BPN_M)
-  man_pas3_tib %>% dplyr::filter(AQP_U != AQP_M)
-  man_pas3_tib %>% dplyr::filter(PQC_U != PQC_M)
-
-}
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #                    3.0 Align All Probe Sequence:: BSMAP
@@ -1112,30 +1057,25 @@ if (run_cgn_mat) {
   #
   # Big Change:: 
   #  - add_pas_tib should replace man_add_bsp_tib below::
+  #  - Rational need to use all passing sequences not just the ones that aligned to the genome of interest...
   #
+  #  Tasks::
+  #   - Add prb49U/prb50U need to be defined well above (probably at fasta file generation:: man_fas_tib)
+  #   - This will take a little resstructering...
   #
   
-  # Address BSP tibble instead of GRS::
-  man_add_bsp_tib <- 
-    man_add_bsp_grs %>% 
-    as.data.frame() %>% 
-    tibble::rownames_to_column(var="unq_add_id") %>% 
-    tibble::as_tibble() %>%
-    dplyr::arrange(prb_aln_50U) %>%
-    dplyr::distinct(prb_aln_50U, .keep_all=TRUE)
-  
-  # The aln_seq code should be pulled from above...
-  #
-  # add_prbAll_tib <- 
-  #   man_add_bsp_tib %>%
-  #   dplyr::mutate(
-  #     add_prb50U=prb_prb_seq %>%
-  #       stringr::str_replace_all("R","A") %>% 
-  #       stringr::str_replace_all("Y","T")
-  #   ) %>%
-  #   dplyr::arrange(add_prb50U) %>%
-  #   dplyr::distinct(add_prb50U, .keep_all=TRUE) %>%
-  #   dplyr::select(unq_add_id,add_prb50U, prb_des)
+  # Previous Conversion of Genomic Regions Alignment::
+  use_grs_mat <- FALSE
+  if (use_grs_mat) {
+    # Address BSP tibble instead of GRS::
+    man_add_bsp_tib <- 
+      man_add_bsp_grs %>% 
+      as.data.frame() %>% 
+      tibble::rownames_to_column(var="unq_add_id") %>% 
+      tibble::as_tibble() %>%
+      dplyr::arrange(prb_aln_50U) %>%
+      dplyr::distinct(prb_aln_50U, .keep_all=TRUE)
+  }
   
   # Build/Write prb49U
   add_prb49U_tib <- 
@@ -1227,7 +1167,7 @@ if (run_cgn_mat) {
                     col_names=names(int_seq_col$cols),
                     col_types=int_seq_col)
   
-  # Split into compareable table::
+  # Split into comparable table::
   int_mat50U_tib <- int_prb50U_tib %>% 
     tidyr::separate(mat_can, into=c("can_add","can_des","can_rep"), sep="_") %>% 
     utils::type.convert() %>% 
