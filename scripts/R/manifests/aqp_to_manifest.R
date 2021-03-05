@@ -236,8 +236,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- NULL
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'Chicago'
   par$local_runType <- 'GRCm10'
+  par$local_runType <- 'Chicago'
   
   if (par$local_runType=='Chicago') {
     opt$genBuild <- 'GRCh37'
@@ -683,7 +683,7 @@ add_ord_tib <-
          verbose=opt$verbose,tt=pTracker) %>% 
   dplyr::bind_rows(.id="IDX") %>%
   format_ORD(idx_key="IDX", uniq=TRUE,
-             verbose=opt$verbose, tt=pTracker) %>%
+             verbose=opt$verbose+10, tt=pTracker) %>%
   dplyr::left_join(man_info_tib, by="IDX") %>% 
   dplyr::mutate(prb_type=stringr::str_sub(ord_id, 1,2)) %>%
   dplyr::select( dplyr::any_of( 
@@ -1061,7 +1061,9 @@ if (run_cgn_mat) {
   #
   #  Tasks::
   #   - Add prb49U/prb50U need to be defined well above (probably at fasta file generation:: man_fas_tib)
-  #   - This will take a little resstructering...
+  #   - This will take a little restructuring...
+  #
+  #  Convert 
   #
   
   # Previous Conversion of Genomic Regions Alignment::

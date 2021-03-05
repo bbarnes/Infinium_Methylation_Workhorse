@@ -67,9 +67,6 @@ addressToManifest = function(tib, des="prb_des", join,
     des_list <- tib %>% split(.[[des]])
     des_cnt  <- des_list %>% names() %>% length()
 
-    # Ensure Unique contains all fields::
-    #  join <- dplyr::all_of(base::unique(c(des,join)))
-
     ret1_tib <- NULL
     if (!is.null(des_list[["U"]]) && !is.null(des_list[["M"]])) {
       ret1_tib <- dplyr::full_join(
@@ -79,30 +76,20 @@ addressToManifest = function(tib, des="prb_des", join,
         suffix=c("_U","_M")
       )
     }
-    
+    ret1_cnt <- print_tib(ret1_tib, funcTag,verbose,vt+4,tc, n="InfI")
+
     ret2_tib <- NULL
     ret2_tib <- dplyr::bind_cols(
       dplyr::select(des_list[["2"]],  dplyr::all_of(join)),
       dplyr::select(des_list[["2"]], -dplyr::all_of(join)) %>% 
         purrr::set_names(paste(names(.),"U", sep="_"))
     )
-    
-    # ret2_col <- ret2_tib %>% 
-    #   dplyr::select(-dplyr::all_of(join)) %>%
-    #   names()
-    # ret2_tib %>%
-    #   purrr::set_names(paste(names(.),"U", sep="_"))
-    # 
+    ret2_cnt <- print_tib(ret2_tib, funcTag,verbose,vt+4,tc, n="InfII")
     
     ret_tib <- dplyr::bind_rows(ret1_tib, ret2_tib) %>%
       dplyr::arrange(ord_id)
-    
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib=({ret_cnt})={RET}"))
-      print(ret_tib)
-    }
-    
+    ret_cnt <- print_tib(ret_tib, funcTag,verbose,vt+4,tc, n="InfI+II")
+
     if (!is.null(csv)) {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr} Writing Manifest CSV=({csv})={RET}"))
@@ -485,7 +472,7 @@ format_ORD = function(tib, idx_key="IDX", uniq=TRUE,
     sel_colB <- c(idx_key,"Assay_Design_Id","DesB","PrbB","PrbA","PrbCol")
     
     tmp_tib <- tib %>%
-      dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id) %>% # , -Normalization_Bin) %>% 
+      dplyr::select(-AlleleA_Probe_Id, -AlleleB_Probe_Id) %>%
       dplyr::rename(PrbA=AlleleA_Probe_Sequence,
                     PrbB=AlleleB_Probe_Sequence) %>%
       dplyr::mutate(
@@ -507,6 +494,7 @@ format_ORD = function(tib, idx_key="IDX", uniq=TRUE,
           TRUE ~ NA_character_
         )
       )
+    tmp_cnt <- print_tib(tmp_tib,funcTag,verbose,vt+6,tc, n="tmp")
     
     ret_tib <- dplyr::bind_rows(
       tmp_tib %>% dplyr::filter(DesB=="M") %>% 
@@ -521,17 +509,15 @@ format_ORD = function(tib, idx_key="IDX", uniq=TRUE,
     ) %>%
       dplyr::arrange(plyr::desc(!!idx_sym))
     
+    ret1_cnt <- print_tib(ret_tib,funcTag,verbose,vt+6,tc, n="ret1")
     if (uniq) ret_tib <- ret_tib %>% dplyr::distinct(prb_seq, .keep_all=TRUE)
+    unq1_cnt <- print_tib(ret_tib,funcTag,verbose,vt+6,tc, n="retUnq")
     
-    ret_tib <- ret_tib %>% 
+    ret_tib <- ret_tib %>%
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor),  as.character) )
     
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib=({ret_cnt})={RET}"))
-      print(ret_tib)
-    }
+    ret_cnt <- print_tib(ret_tib,funcTag,verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -703,7 +689,7 @@ format_AQP = function(tib, idx_key="IDX", uniq=TRUE,filt=TRUE,
 
 load_manifestBuildFile = function(file, field="Assay_Design_Id", cols=NULL,
                                   # aqp=NULL, bpn=NULL,
-                                  n_max=50, guess=1000,
+                                  n_max=50, guess=100000,
                                   verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'load_manifestBuildFile'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -734,6 +720,8 @@ load_manifestBuildFile = function(file, field="Assay_Design_Id", cols=NULL,
       stop(glue::glue("{RET}[{funcTag}]:ERROR: Unsupported fileType={file_type}!!!{RET}{RET}"))
       return(NULL)
     }
+    ret1_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n="ret1")
+    
     if (!is.null(cols)) {
       cur_len <- length(names(ret_tib))
       col_len <- length(cols)
@@ -749,11 +737,7 @@ load_manifestBuildFile = function(file, field="Assay_Design_Id", cols=NULL,
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor),  as.character) )
     
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib=({ret_cnt})={RET}"))
-      print(ret_tib)
-    }
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -783,13 +767,14 @@ get_headerSkipCount = function(file, field="Assay_Design_Id", n_max=50,
     
     ret_tib <- 
       readr::read_lines(file=file, n_max=n_max, skip_empty_rows=FALSE) %>% 
-      tibble::as_tibble() %>% dplyr::mutate(value=stringr::str_remove(value, "^\\s+") )
+      tibble::as_tibble() %>% 
+      dplyr::mutate(value=stringr::str_remove(value, "^\\s+") )
     
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
-      print(ret_tib, n=n_max)
-    }
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="raw")
+    # if (verbose>=vt+4) {
+    #   cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib({ret_cnt})={RET}"))
+    #   print(ret_tib, n=n_max)
+    # }
     
     ret_cnt <- ret_tib %>%
       dplyr::mutate(

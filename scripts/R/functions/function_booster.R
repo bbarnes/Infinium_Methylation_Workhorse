@@ -701,6 +701,50 @@ bool2int = function(x) {
 #                              String Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+
+print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  tib     <- t
+  funcTag <- f
+  name    <- n
+  mssg    <- m
+  verbose <- v
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    if (verbose>=vt) {
+      if (!is.null(tib) && !is.na(tib)) {
+        ret_cnt <- tib %>% base::nrow()
+        if (!is.null(mssg)) cat(glue::glue("[{funcTag}]:{tabsStr} {mssg}{RET}"))
+        if (!is.null(name)) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} tibble({name}) row count=[{ret_cnt}]:{RET}"))
+        } else {
+          cat(glue::glue("[{funcTag}]:{tabsStr} tibble row count=[{ret_cnt}]:{RET}"))
+        }
+        print(tib, n=l)
+      } else {
+        if (!is.null(name)) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} tibble({name}) row count=[NULL]:{RET}"))
+        } else {
+          cat(glue::glue("[{funcTag}]:{tabsStr} tibble row count=[NULL]:{RET}"))
+        }
+      }
+    }
+    
+  })
+  # etime <- stime[3] %>% as.double() %>% round(2)
+  # if (!is.null(tt)) tt$addTime(stime,funcTag)
+  # if (verbose>=vt) 
+  #   cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+  #                  "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  # invisible(ret_tib)
+  ret_cnt
+}
+
 splitStrToVec = function(x, del=',', unique=TRUE,
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'splitStrToVec'
