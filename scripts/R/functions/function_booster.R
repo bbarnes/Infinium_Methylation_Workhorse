@@ -37,7 +37,7 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 makeFieldUnique = function(tib, field, add=NULL,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'makeFieldUnique'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; field={field}...{RET}"))
@@ -45,7 +45,7 @@ makeFieldUnique = function(tib, field, add=NULL,
   field_sym <- rlang::sym(field)
   outkey_sym <- rlang::sym(field)
   if (!is.null(add)) outkey_sym <- rlang::sym(add)
-    
+  
   tot_cnt <- tib %>% base::nrow()
   unq_cnt <- tib %>% dplyr::distinct(!!field_sym) %>% base::nrow()
   # unq_cnt <- tib %>% dplyr::distinct(!!field_sym) %>% base::nrow()
@@ -94,7 +94,7 @@ makeFieldUnique = function(tib, field, add=NULL,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 get_fileSuffix = function(file,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'get_fileSuffix'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -142,7 +142,7 @@ clean_file = function(file,
     if (!file.exists(file)) {
       stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: File doesn't exist; file={file}!!!{RET}"))
     }
-
+    
     ret_cnt <- 1
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -342,7 +342,7 @@ load_libraries = function(opts, pars, rcpp=FALSE,
 }
 
 check_list = function(list, vals, name="options",
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                      verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'check_list'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -363,7 +363,7 @@ check_list = function(list, vals, name="options",
     stop(glue::glue("[{funcTag}]:{tabsStr} Invalid Options; use --help!!!{RET}{RET}"))
     return(NULL)
   }
-    
+  
   ret_cnt <- names(list) %>% length()
   
   # etime <- stime[3] %>% as.double() %>% round(2)
@@ -379,7 +379,7 @@ check_list = function(list, vals, name="options",
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 check_timeStamps = function(name,outDir,origin=NULL,files,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                            verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'check_timeStamps'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -449,7 +449,7 @@ check_timeStamps = function(name,outDir,origin=NULL,files,
     
     # Update return tibble::
     ret_tib$isValid <- isValid
-
+    
     ret_cnt <- ret_tib %>% base::nrow()
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -514,10 +514,10 @@ addColNames = function(tib, add, fix, prefix=TRUE, del='_',
     
     ret_tib <- tib %>% dplyr::select(dplyr::all_of(fix), dplyr::everything())
     new_col <- ret_tib %>% dplyr::select(-dplyr::all_of(fix)) %>% names()
-
+    
     if ( prefix) new_col <- paste(add,new_col, sep=del)
     if (!prefix) new_col <- paste(new_col,add, sep=del)
-
+    
     new_col <- c(fix, new_col)
     ret_tib <- ret_tib %>% purrr::set_names(new_col)
     ret_cnt <- ret_tib %>% base::nrow()
@@ -543,7 +543,7 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-
+  
   ret_val  <- NULL
   add_str  <- ''
   opt_str  <- ''
@@ -553,13 +553,13 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL,
   
   # Options:: Exclude
   if (!is.null(rm)) opts <- opts %>% dplyr::filter(! (!!key %in% rm) )
-
+  
   # Handel Boolean Variables::
   bool <- NULL
   bool <- opts %>% dplyr::filter(Value=="TRUE")
   opts <- opts %>% dplyr::filter(Value!="TRUE")
   opts <- opts %>% dplyr::filter(Value!="FALSE")
-
+  
   if (!is.null(bool)) {
     bool_str <- bool %>% 
       dplyr::mutate(!!key := stringr::str_c('--',!!key)) %>%
@@ -597,7 +597,7 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL,
   if (!is.null(pre) && length(pre)!=0) cmd <- pre
   cmd <- stringr::str_c(cmd,exe,opt_str,add_str,bool_str, sep=' ')
   if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} cmd='{cmd}'.{RET}{RET}"))
-
+  
   ret_val <- cmd
   if (!is.null(file)) {
     dir <- base::dirname(file)
@@ -701,6 +701,56 @@ bool2int = function(x) {
 #                              String Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+safe_write = function(x,  type,file=NULL, 
+                      cols=TRUE, append=FALSE, funcTag="safe_write",
+                      verbose=0,vt=4,tc=1,tt=NULL) {
+  # If file is provided, usually in the case where the user didn't want it written
+  #  simply return invisible and do nothing...
+  
+  if (is.null(file)) return(base::invisible(NULL))
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting type={type}.{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    build_file_dir(file)
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Writing Data {type}={file}...{RET}"))
+    
+    if (purrr::is_vector(x)) ret_cnt <- length(x)
+    if (purrr::is_list(x)) ret_cnt <- length(x)
+    if (base::is.data.frame(x) || tibble::is_tibble(x)) ret_cnt <- base::nrow(x)
+    
+    if (type=="line") {
+      readr::write_lines(x=x, file=file, append=append)
+    } else if (type=="csv") {
+      readr::write_csv(x=x, file=file, col_names=cols)
+    } else if (type=="tsv") {
+      readr::write_tsv(x=x, file=file, col_names=cols)
+    } else if (type=="rds") {
+      readr::write_rds(x, file, compress="gz")
+    } else {
+      stop(cat(glue::glue("{RET}[{funcTag}]: ERROR: Invalid type={type}{RET}")))
+      return(NULL)
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_cnt
+}
+
+build_file_dir = function(file) {
+  dir <- base::dirname(file)
+  if (!dir.exists(dir)) dir.create(dir, recursive=TRUE)
+  invisible(dir)
+}
 
 print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -713,33 +763,25 @@ print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
-    
-    if (verbose>=vt) {
-      if (!is.null(tib) && !is.na(tib)) {
-        ret_cnt <- tib %>% base::nrow()
-        if (!is.null(mssg)) cat(glue::glue("[{funcTag}]:{tabsStr} {mssg}{RET}"))
-        if (!is.null(name)) {
-          cat(glue::glue("[{funcTag}]:{tabsStr} tibble({name}) row count=[{ret_cnt}]:{RET}"))
-        } else {
-          cat(glue::glue("[{funcTag}]:{tabsStr} tibble row count=[{ret_cnt}]:{RET}"))
-        }
-        print(tib, n=l)
+  
+  if (verbose>=vt) {
+    if (!is.null(tib) && !is.na(tib)) {
+      ret_cnt <- tib %>% base::nrow()
+      if (!is.null(mssg)) cat(glue::glue("[{funcTag}]:{tabsStr} {mssg}{RET}"))
+      if (!is.null(name)) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} tibble({name}) row count=[{ret_cnt}]:{RET}"))
       } else {
-        if (!is.null(name)) {
-          cat(glue::glue("[{funcTag}]:{tabsStr} tibble({name}) row count=[NULL]:{RET}"))
-        } else {
-          cat(glue::glue("[{funcTag}]:{tabsStr} tibble row count=[NULL]:{RET}"))
-        }
+        cat(glue::glue("[{funcTag}]:{tabsStr} tibble row count=[{ret_cnt}]:{RET}"))
+      }
+      print(tib, n=l)
+    } else {
+      if (!is.null(name)) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} tibble({name}) row count=[NULL]:{RET}"))
+      } else {
+        cat(glue::glue("[{funcTag}]:{tabsStr} tibble row count=[NULL]:{RET}"))
       }
     }
-    
-  })
-  # etime <- stime[3] %>% as.double() %>% round(2)
-  # if (!is.null(tt)) tt$addTime(stime,funcTag)
-  # if (verbose>=vt) 
-  #   cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-  #                  "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  }
   
   # invisible(ret_tib)
   ret_cnt
@@ -755,7 +797,7 @@ splitStrToVec = function(x, del=',', unique=TRUE,
   if (!is.null(x)) 
     ret_vec <- str_split(x, pattern=del, simplify=TRUE) %>% 
     as.vector() %>% unique()
-
+  
   ret_vec
 }
 

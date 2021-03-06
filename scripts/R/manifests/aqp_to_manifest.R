@@ -274,7 +274,7 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C2'
     opt$version     <- 'C11'
     opt$version     <- 'C12'
-
+    
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     opt$pre_man_csv <- '/Users/bretbarnes/Documents/data/manifests/MethylationEPIC_v-1-0_B2.csv.gz'
@@ -303,7 +303,7 @@ if (args.dat[1]=='RStudio') {
     opt$bpns <- paste(1, sep=",")
     opt$aqpn <- paste(1, sep=",")
     opt$pqcn <- NULL
-
+    
   } else if (par$local_runType=='GRCm10') {
     opt$platform <- 'LEGX'
     opt$version  <- 'C0'
@@ -313,6 +313,7 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'C27'
     opt$version  <- 'C28'
     opt$version  <- 'C29'
+    opt$version  <- 'C30'
     
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
@@ -391,7 +392,7 @@ if (args.dat[1]=='RStudio') {
     opt$bpns <- paste(1,2, sep=",")
     opt$aqpn <- paste(1,2, sep=",")
     opt$pqcn <- NULL
-
+    
     opt$pqcs <- NULL
     opt$idat <- NULL
   } else {
@@ -455,7 +456,7 @@ if (args.dat[1]=='RStudio') {
                 help="Genomic data directory [default= %default]", metavar="character"),
     make_option(c("--manDir"), type="character", default=opt$manDir, 
                 help="Pre-built Manifest data directory [default= %default]", metavar="character"),
-
+    
     # Manufacturing Files:: Required
     make_option(c("--ords"), type="character", default=opt$ords, 
                 help="Order file(s) (comma seperated) [default= %default]", metavar="character"),
@@ -492,7 +493,7 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--version"), type="character", default=opt$version, 
                 help="Manifest Version (e.g. B0,B1,B2,B3,B4,C0) [default= %default]", metavar="character"),
     
-
+    
     # Process Parallel/Cluster Parameters::
     make_option(c("--single"), action="store_true", default=opt$single, 
                 help="Boolean variable to run a single sample on a single-core [default= %default]", metavar="boolean"),
@@ -611,27 +612,50 @@ if (!is.null(opt$idat)) idat_vec <- opt$idat %>% str_split(pattern=',', simplify
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                    Pre-processing:: Output Directories
+#                Pre-processing:: Run Time:: Output Directories
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-opt$preDir <- file.path(opt$outDir, 'manifest')
-if (!dir.exists(opt$preDir)) dir.create(opt$preDir, recursive=TRUE)
+run <- NULL
 
-opt$intDir <- file.path(opt$outDir, 'intersect')
-if (!dir.exists(opt$intDir)) dir.create(opt$intDir, recursive=TRUE)
+run$manDir <- file.path(opt$outDir, 'man')
+if (!dir.exists(run$manDir)) dir.create(run$manDir, recursive=TRUE)
 
-opt$bspDir <- file.path(opt$outDir, 'bspmap')
-if (!dir.exists(opt$bspDir)) dir.create(opt$bspDir, recursive=TRUE)
+run$addDir <- file.path(opt$outDir, 'add')
+if (!dir.exists(run$addDir)) dir.create(run$addDir, recursive=TRUE)
 
-# Define Alignment Genomes::
-#
-man_fas_pre <- file.path(opt$outDir, "fas", paste(opt$runName,"aln-prbs", sep="_"))
-man_prb_fas <- paste0(man_fas_pre,".fa.gz")
-man_gen_fas <- file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
-                         paste0(opt$genBuild,".genome.fa.gz"))
+run$intDir <- file.path(opt$outDir, 'int')
+if (!dir.exists(run$intDir)) dir.create(run$intDir, recursive=TRUE)
+
+run$fasDir <- file.path(opt$outDir, 'fas')
+if (!dir.exists(run$fasDir)) dir.create(run$fasDir, recursive=TRUE)
+
+run$alnDir <- file.path(opt$outDir, 'aln')
+if (!dir.exists(run$alnDir)) dir.create(run$alnDir, recursive=TRUE)
 
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Building Output Directories.{RET}{RET}"))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                Pre-processing:: Run Time:: Intermediate Files
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Define Run Time:: Alignment Genome
+run$man_gen_fas <- file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
+                             paste0(opt$genBuild,".genome.fa.gz"))
+
+# Defined Run Time:: Intermediate Files
+run$man_fun_csv <- file.path(run$manDir, paste(opt$runName,"functional-sesame.manifest.csv.gz", sep="_"))
+
+run$add_prb_fas <- file.path(run$fasDir, paste(opt$runName, "aln-seq.fa.gz",  sep='.') )
+run$add_dat_csv <- file.path(run$addDir, paste(opt$runName, "add_dat.csv.gz", sep='.') )
+
+run$add_u49_tsv <- file.path(run$intDir, paste(opt$runName, "map-u49.tsv.gz", sep='.') )
+run$add_u50_tsv <- file.path(run$intDir, paste(opt$runName, "map-u50.tsv.gz", sep='.') )
+
+run$add_prb_bsp <- file.path(run$alnDir, paste(opt$runName, "bsp",  sep='.') )
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Done. Defining Run Time Files.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -683,7 +707,7 @@ add_ord_tib <-
          verbose=opt$verbose,tt=pTracker) %>% 
   dplyr::bind_rows(.id="IDX") %>%
   format_ORD(idx_key="IDX", uniq=TRUE,
-             verbose=opt$verbose+10, tt=pTracker) %>%
+             verbose=opt$verbose, tt=pTracker) %>%
   dplyr::left_join(man_info_tib, by="IDX") %>% 
   dplyr::mutate(prb_type=stringr::str_sub(ord_id, 1,2)) %>%
   dplyr::select( dplyr::any_of( 
@@ -713,7 +737,7 @@ add_ord_sum %>% print(n=base::nrow(add_ord_sum))
 
 add_mat_tib <- NULL
 if (!is.null(mats_vec)) {
-
+  
   add_mat_tib <- 
     lapply(mats_vec, load_manifestBuildFile, 
            field=par$mat_col[1], cols=par$mat_col,
@@ -759,7 +783,7 @@ if (!is.null(mats_vec)) {
     dplyr::group_by( dplyr::across( base::names(man_info_tib) )) %>% 
     dplyr::summarise(Count=n(), .groups="drop")
   add_mat_sum %>% print(n=base::nrow(add_mat_sum))
-
+  
 } else {
   stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Neither mats or mat2 defined!!!{RET}{RET}"))
 }
@@ -776,7 +800,7 @@ if (!is.null(add_idat_tib)) {
   
   add_mat_tib <- 
     dplyr::filter(Address %in% add_idat_tib$Address)
-
+  
   if (opt$verbose>=1) {
     cat(glue::glue("[{par$prgmTag}]: Removing tangos missing in IDATs; End={RET}"))
     print(add_mat_tib)
@@ -872,7 +896,7 @@ if (!is.null(add_pqc_tib)) {
     dplyr::filter(Add_Cnt != 1 ) %>% 
     base::nrow()
   cat(glue::glue("[{par$prgmTag}]: add_pas_pqc_mat_cnt={add_pas_pqc_mat_cnt}{RET}{RET}"))
-
+  
   add_pas_tib <- add_pas_pqc_mat_tib
 } else if (!is.null(add_aqp_tib)) {
   add_pas_aqp_mat_tib <- 
@@ -904,23 +928,19 @@ if (!is.null(add_pqc_tib)) {
 #                  2.1 Functional Manifest Generation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Manifest Directory::
-#  opt$preDir
-
 #
 # TBD:: 
 #  - Clear up extra validation
 #  - Write Functional Manifest with ord_id's
 #  - Write Function 
-#     addressToManifest(add=add_pas_tib, outDir=opt$preDir, name=paste(opt$runName,"functional", sep="_"), validate=TRUE, verbose=opt$verbose, tt=pTracker)
+#     addressToManifest(add=add_pas_tib, outDir=run$manDir, name=paste(opt$runName,"functional", sep="_"), validate=TRUE, verbose=opt$verbose, tt=pTracker)
 #
-man_fun_csv <- file.path(opt$preDir, paste(opt$runName,"functional-sesame.manifest.csv.gz", sep="_"))
 man_fun_vec <- c("ord_id","prb_type","prb_col", "prb_par",
                  dplyr::all_of(base::names(man_info_tib) ) )
 
-man_fun_tib <- add_pas_tib %>% # dplyr::select(-prb_par) %>%
+man_fun_tib <- add_pas_tib %>%
   addressToManifest(des="prb_des", join=man_fun_vec,
-                    csv=man_fun_csv, 
+                    csv=run$man_fun_csv, 
                     validate=TRUE, 
                     verbose=opt$verbose, tt=pTracker)
 
@@ -930,109 +950,139 @@ man_fun_tib <- add_pas_tib %>% # dplyr::select(-prb_par) %>%
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+add_pas_fas_tib <-
+  tib_to_fasta(
+    tib=add_pas_tib, 
+    prb_key="prb_seq",
+    add_key="Address", des_key="prb_des", type_key="prb_type",
+    prb_fas=run$add_prb_fas, dat_csv=run$add_dat_csv,
+    u49_tsv=run$add_u49_tsv, u50_tsv=run$add_u50_tsv,
+    verbose=opt$verbose+10, tt=pTracker)
 
-# aln_key=ord_id %>%
-#   stringr::str_replace("BSC_","bsc-") %>%
-#   stringr::str_replace("NON_","non-") %>%
-#   stringr::str_replace("neg_","neg-") %>%
-#   stringr::str_replace_all("\\.","-") %>%
-#   stringr::str_replace("_","-") %>%
-#   stringr::str_replace_all("_","")
-#
-# add_pqc_all_tib2 %>% 
-#   dplyr::filter(!stringr::str_starts(ord_id, "cg")) %>%
-#   dplyr::filter(!stringr::str_starts(ord_id, "ch")) %>%
-#   dplyr::filter(!stringr::str_starts(ord_id, "rs")) %>%
-#   dplyr::filter(!stringr::str_starts(ord_id, "mu")) %>%
-#   dplyr::filter(!stringr::str_starts(ord_id, "rp")) %>%
-#   dplyr::filter(!stringr::str_starts(ord_id, "BSC")) %>%
-#   dplyr::filter(!stringr::str_starts(ord_id, "neg")) %>%
-#   dplyr::filter(!stringr::str_starts(ord_id, "NON"))
-#   dplyr::mutate(ord_cgn=stringr::str_remove(ord_id, "_.*$"))
+# total alignments = 109367
+run$add_prb_bspz <- 
+  run_bsmap(
+    exe=opt$bsmap_exe, 
+    fas=run$add_prb_fas, 
+    gen=run$man_gen_fas,
+    bsp=run$add_prb_bsp,
+    # dir=run$alnDir, 
+    opt=NULL, lan=NULL, run=TRUE,
+    verbose=opt$verbose,tt=pTracker)
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#                       STEP 2:: Alignment:: BSMAAP
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-man_add_bsp_tsv <- file.path(
-  opt$bspDir,"align", paste0(paste(opt$runName,"aln-prbs", sep="_"),"-",
-                             opt$genBuild,".genome.bsmap.formatted.tsv.gz"))
-man_add_bsp_rds <- file.path(
-  opt$bspDir,"align", paste0(paste(opt$runName,"aln-prbs", sep="_"),"-",
-                             opt$genBuild,".genome.bsmap.formatted.rds"))
 
-# Add Fasta File::
-add_pas_fas_tib <- NULL
-add_pas_fas_tib <- 
-  add_pas_tib %>%
-  dplyr::mutate(
-    aln_seq=prb_seq %>%
-      stringr::str_replace_all("R","A") %>% # A/G
-      stringr::str_replace_all("Y","T") %>% # C/T
-      
-      stringr::str_replace_all("S","C") %>% # G/C
-      stringr::str_replace_all("W","A") %>% # A/T
-      stringr::str_replace_all("K","T") %>% # G/T
-      stringr::str_replace_all("M","A") %>% # A/C
-      
-      stringr::str_replace_all("B","T") %>% # C/G/T
-      stringr::str_replace_all("D","A") %>% # A/G/T
-      stringr::str_replace_all("H","A") %>% # A/C/T
-      stringr::str_replace_all("V","A") %>% # A/C/G
-      
-      stringr::str_replace_all("N","A"), # A/C/T/G
-    
-    aln_rev=revCmp(aln_seq),
-    aln_key=paste(Address,prb_type,prb_des, sep="_")
-  )
 
-# Write Fasta File::
-man_fas_tib <- NULL
-man_fas_tib <- 
-  tibToFas(tib=add_pas_fas_tib, 
-           key="aln_key",seq="aln_seq", 
-           prefix=man_fas_pre, 
-           verbose=opt$verbose, tt=pTracker) %>%
-  dplyr::rename(prb_cgn=Address) %>%
-  dplyr::mutate(prb_des=as.character(prb_des)) # %>% 
-  # dplyr::mutate(prb_cgn=as.character(Address))
 
-if (!file.exists(man_add_bsp_tsv)) {
-  man_add_bsp_tsv <- 
-    bsmapProbeAlign(
-      exe=opt$bsmap_exe, fas=man_prb_fas, gen=man_gen_fas, 
-      dir=opt$bspDir, opt=NULL, run=TRUE,
-      verbose=opt$verbose,tt=pTracker)
+
+
+
+
+
+add_pas_bsp_tib <- NULL
+add_pas_bsp_grs <- NULL
+# if (!file.exists(man_add_bsp_tsv) ||
+#     !file.exists(man_add_bsp_rds) ||
+#     file.mtime(man_add_bsp_rds) < file.mtime(man_add_bsp_tsv) ) {
+if (TRUE) {
+  
+  add_pas_bsp_tibI <-
+    join_bsmap(
+      add=add_pas_fas_tib,
+      file=run$add_prb_bspz,
+      join_key="aln_key",
+      sort=TRUE,
+      verbose=opt$verbose+10,tt=pTracker)
+  
+  add_pas_bsp_tibL <-
+    join_bsmap(
+      add=add_pas_fas_tib,
+      file=run$add_prb_bspz,
+      join_key="aln_key", join_type="left",
+      sort=TRUE,
+      verbose=opt$verbose+10,tt=pTracker)
+
+  add_pas_bsp_tibR <-
+    join_bsmap(
+      add=add_pas_fas_tib,
+      file=run$add_prb_bspz,
+      join_key="aln_key", join_type="right",
+      sort=TRUE,
+      verbose=opt$verbose+10,tt=pTracker)
+
+  add_pas_bsp_tibF <-
+    join_bsmap(
+      add=add_pas_fas_tib,
+      file=run$add_prb_bspz,
+      join_key="aln_key", join_type="full",
+      sort=TRUE,
+      verbose=opt$verbose+10,tt=pTracker)
+  
+  # Structure for grs::
+  # add_pas_bsp_grs
+  
+  
+  # Example of two stage: Load -> join::
+  #
+  # bsp_tib <- 
+  #   load_bsmap(
+  #     bsp=run$add_prb_bspz,
+  #     sort=TRUE,
+  #     verbose=opt$verbose+10,tt=pTracker)
+  # 
+  # add_pas_bsp_tib <- 
+  #   join_bsmap(
+  #     add=add_pas_fas_tib, 
+  #     bsp=bsp_tib,
+  #     join_key="aln_key",
+  #     sort=TRUE,
+  #     verbose=opt$verbose+10,tt=pTracker)
 }
 
-man_add_bsp_tib <- NULL
-man_add_bsp_grs <- NULL
-if (!file.exists(man_add_bsp_tsv) |
-    !file.exists(man_add_bsp_rds) |
-    file.mtime(man_add_bsp_rds) < file.mtime(man_add_bsp_tsv) ) {
+
+
+
+
+
+
+
+
+
+
+#
+# Old Code Below::
+#
+if (FALSE) {
+
+  if (!file.exists(man_add_bsp_tsv) ||
+      !file.exists(man_add_bsp_rds) ||
+      file.mtime(man_add_bsp_rds) < file.mtime(man_add_bsp_tsv) ) {
+    
+    if (FALSE) {
+      man_add_bsp_tib <- NULL
+      man_add_bsp_grs <- NULL
+      
+      man_add_bsp_tib <- loadBspFormatted(
+        bsp=man_add_bsp_tsv, src=man_fas_tib, sort=TRUE,
+        # bsp=man_add_bsp_tsv, src=dplyr::mutate(man_fas_tib, prb_cgn=as.character(prb_add)), sort=TRUE,
+        # bsp=man_add_bsp_tsv, src=man_fas_tib, sort=TRUE,
+        verbose=opt$verbose,tt=pTracker)
+      
+      if (opt$verbose>=1)
+        cat(glue::glue("[{par$prgmTag}]: Building man_add_bsp (RDS)={man_add_bsp_rds}...{RET}"))
+      
+      man_add_bsp_grs <- bspToGenomicRegion(
+        bsp=man_add_bsp_tib, rds=man_add_bsp_rds,
+        verbose=opt$verbose,tt=pTracker)
+      
+    }
+    
+  } else {
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Loading man_add_bsp (RDS)={man_add_bsp_rds}...{RET}"))
+    man_add_bsp_grs <- readr::read_rds(man_add_bsp_rds)
+  }
   
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Loading man_add_bsp (TSV)={man_add_bsp_tsv}...{RET}"))
-  
-  man_add_bsp_tib <- loadBspFormatted(
-    bsp=man_add_bsp_tsv, src=man_fas_tib, sort=TRUE,
-    # bsp=man_add_bsp_tsv, src=dplyr::mutate(man_fas_tib, prb_cgn=as.character(prb_add)), sort=TRUE,
-    # bsp=man_add_bsp_tsv, src=man_fas_tib, sort=TRUE,
-    verbose=opt$verbose,tt=pTracker)
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Building man_add_bsp (RDS)={man_add_bsp_rds}...{RET}"))
-  
-  man_add_bsp_grs <- bspToGenomicRegion(
-    bsp=man_add_bsp_tib, rds=man_add_bsp_rds,
-    verbose=opt$verbose,tt=pTracker)
-  
-} else {
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Loading man_add_bsp (RDS)={man_add_bsp_rds}...{RET}"))
-  man_add_bsp_grs <- readr::read_rds(man_add_bsp_rds)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1043,7 +1093,7 @@ if (!file.exists(man_add_bsp_tsv) |
 
 run_cgn_mat <- TRUE
 if (run_cgn_mat) {
-
+  
   imp_prb49U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq49U.prb-sorted.tsv.gz"
   imp_prb50U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq50U.prb-sorted.tsv.gz"
   
@@ -1078,6 +1128,10 @@ if (run_cgn_mat) {
       dplyr::arrange(prb_aln_50U) %>%
       dplyr::distinct(prb_aln_50U, .keep_all=TRUE)
   }
+  
+  #
+  # TBD:: These two steps below need to be performed during the fasta file generation
+  #
   
   # Build/Write prb49U
   add_prb49U_tib <- 
@@ -1174,7 +1228,7 @@ if (run_cgn_mat) {
     tidyr::separate(mat_can, into=c("can_add","can_des","can_rep"), sep="_") %>% 
     utils::type.convert() %>% 
     dplyr::mutate(across(where(is.factor),  as.character) )
-
+  
   
   # Summary::
   int_mat50U_tib %>% 
@@ -1183,7 +1237,7 @@ if (run_cgn_mat) {
     # dplyr::add_count(mat_cgn,can_add, name="Comb_Cnt") %>% 
     dplyr::group_by(Comb_Cnt) %>% 
     dplyr::summarise(Count=n(), .groups="drop")
-
+  
 }
 
 
@@ -1339,7 +1393,7 @@ if (FALSE) {
   
   # Load genome for sub-string of design sequence::
   #
-  tmp_fas_dat <- Biostrings::readDNAStringSet(filepath = man_gen_fas, format = "fasta", nrec = 2)
+  tmp_fas_dat <- Biostrings::readDNAStringSet(filepath = run$man_gen_fas, format = "fasta", nrec = 2)
   
   #
   # Tasks::
@@ -1400,10 +1454,12 @@ if (FALSE) {
     imp_top = col_character()
   )
   
-  imp_pos_rds <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.cgn-pos-srd.rds"
-  imp_top_tsv <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz"
-  
+  # imp_pos_rds <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/GRCm10-21092020_improbe-designOutput.cgn-pos-srd.rds"
+  imp_pos_dir <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020"
+  imp_pos_rds <- file.path(imp_pos_dir, paste(opt$genBuild, "21092020_improbe-designOutput.cgn-pos-srd.rds", sep='-'))
   imp_pos_grs <- readr::read_rds(imp_pos_rds)
+  
+  imp_top_tsv <- "/Users/bretbarnes/Documents/data/improbe/designOutput_21092020/cgnTop/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz"
   imp_top_tib <- readr::read_tsv(imp_top_tsv, 
                                  col_names=names(imp_top_col$cols), 
                                  col_types=imp_top_col)

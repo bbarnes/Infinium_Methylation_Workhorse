@@ -1739,6 +1739,32 @@ mapDIs = function(x) {
   x <- lapply(x, MAPDi) %>% BiocGenerics::unlist()
 }
 
+# De-Methylate Probe Sequence for 4-base aligners
+#
+deM = function(x, uc=FALSE) {
+  x <- stringr::str_to_upper(x)
+  
+  # aln_seq=prb_seq %>%
+  #   stringr::str_replace_all("R","A") %>% # A/G
+  #   stringr::str_replace_all("Y","T") %>% # C/T
+  #   
+  #   stringr::str_replace_all("S","C") %>% # G/C
+  #   stringr::str_replace_all("W","A") %>% # A/T
+  #   stringr::str_replace_all("K","T") %>% # G/T
+  #   stringr::str_replace_all("M","A") %>% # A/C
+  #   
+  #   stringr::str_replace_all("B","T") %>% # C/G/T
+  #   stringr::str_replace_all("D","A") %>% # A/G/T
+  #   stringr::str_replace_all("H","A") %>% # A/C/T
+  #   stringr::str_replace_all("V","A") %>% # A/C/G
+  #   
+  #   stringr::str_replace_all("N","A"), # A/C/T/G
+
+  if (uc) x <- tr(x, 'RYSWKMBDHV', 'ATCATATAAA')
+  else    x <- tr(x, 'RYSWKMBDHV', 'atcatataaa')
+  x
+}
+deMs = function(x, uc=FALSE) { deM(x, uc) }
 
 bscU = function(x, uc=FALSE) {
   x <- stringr::str_to_upper(x)
@@ -1746,7 +1772,7 @@ bscU = function(x, uc=FALSE) {
   else    x <- tr(x, 'CYSMBHV', 'ttkwkwd')
   x
 }
-bscUs = function(x, uc=FALSE) { bscU(x) }
+bscUs = function(x, uc=FALSE) { bscU(x, uc) }
 
 MAPM = function(x) {
   if (length(MAP_M[[x]])==0) return(x)
