@@ -697,6 +697,63 @@ bool2int = function(x) {
   y
 }
 
+# Guess file delimiter
+guess_file_del = function(file, n_max=100,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'guess_file_del'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_val <- NULL
+  stime <- system.time({
+    
+    dat_tib <- readr::read_lines(file, n_max=n_max) %>%
+      tibble::as_tibble() %>% 
+      dplyr::mutate(Row_Num=dplyr::row_number())
+    
+    del_tib <- dat_tib %>% 
+      dplyr::mutate(
+        com_cnt=stringr::str_count(value, COM), 
+        tab_cnt=stringr::str_count(value, TAB),
+        spc_cnt=stringr::str_count(value, " "))
+    
+    med_tib <- del_tib %>%
+      dplyr::summarise(com=median(com_cnt,na.rm=TRUE),
+                       tab=median(tab_cnt,na.rm=TRUE),
+                       spc=median(spc_cnt,na.rm=TRUE),
+      ) 
+    med_key <- med_tib %>% which.max() %>% names()
+    
+    sum_tib <- del_tib %>%
+      dplyr::summarise(com=sum(com_cnt,na.rm=TRUE),
+                       tab=sum(tab_cnt,na.rm=TRUE),
+                       spc=sum(spc_cnt,na.rm=TRUE),
+      )
+    sum_key <- sum_tib %>% which.max() %>% names()
+    
+    if (med_key==sum_key) {
+      if (med_key=="com") ret_val=COM
+      if (med_key=="tab") ret_val=TAB
+      if (med_key=="spc") ret_val=" "
+    }
+    
+    ret_tib <- dplyr::bind_rows(med_tib, sum_tib) %>%
+      dplyr::mutate(ret_val=ret_val)
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt,tc)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_val
+}
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              String Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

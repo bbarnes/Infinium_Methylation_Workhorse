@@ -80,7 +80,7 @@ opt$manDir  <- NULL
 
 # Manufacturing Files:: Required
 opt$ords <- NULL
-opt$mats <- NULL
+opt$mat1 <- NULL
 opt$mat2 <- NULL
 opt$aqps <- NULL
 opt$pqcs <- NULL
@@ -236,8 +236,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- NULL
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'GRCm10'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'GRCm10'
   
   if (par$local_runType=='Chicago') {
     opt$genBuild <- 'GRCh37'
@@ -251,7 +251,7 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, 'UofChicago-A_A_Array-CpG-order-FINAL.csv'),
       sep=',')
     
-    opt$mats <- NULL
+    opt$mat1 <- NULL
     
     opt$mat2 <- paste(
       file.path(par$aqpDir, '20504790_probes.match.tsv'),
@@ -285,7 +285,7 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, 'COVID_EPIC_Round1.03172020.unique.order_AP.csv.gz'),
       sep=',')
     
-    opt$mats <- paste(
+    opt$mat1 <- paste(
       file.path(par$aqpDir, '20447043_probes.match.gz'),
       sep=',')
     
@@ -337,7 +337,7 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, 'orders/LEGX_SpikeIn_Reorder-All-06052020.order.withHeader.csv.gz'),
       sep=',')
     
-    opt$mats <- paste(
+    opt$mat1 <- paste(
       file.path(par$aqpDir, 'BP1/20420178_AQP1_LifeEpigen_BP1.txt.gz'),
       file.path(par$aqpDir, 'BP2/20420260_AQP1_LifeEpigen_BP2.txt.gz'),
       file.path(par$aqpDir, 'BP3/20420260_AQP2_LifeEpigen_BP2.txt.gz'),
@@ -377,7 +377,7 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, 'selected.order2.csv.gz'),
       sep=',')
     
-    opt$mats <- paste(
+    opt$mat1 <- paste(
       file.path(par$aqpDir, '20297484_probes.match1.tsv.gz'),
       file.path(par$aqpDir, '20297484_probes.match2.tsv.gz'),
       sep=',')
@@ -461,7 +461,7 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--ords"), type="character", default=opt$ords, 
                 help="Order file(s) (comma seperated) [default= %default]", metavar="character"),
     
-    make_option(c("--mats"), type="character", default=opt$mats, 
+    make_option(c("--mat1"), type="character", default=opt$mat1, 
                 help="Match (format 1) file(s) (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--mat2"), type="character", default=opt$mat2, 
                 help="Match (format 2) file(s) (comma seperated) [default= %default]", metavar="character"),
@@ -570,22 +570,22 @@ if (is.null(opt$ctls)) {
 }
 
 ords_vec <- NULL
-mats_vec <- NULL
+mat1_vec <- NULL
 mat2_vec <- NULL
 aqps_vec <- NULL
 pqcs_vec <- NULL
 if (!is.null(opt$ords)) ords_vec <- opt$ords %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-if (!is.null(opt$mats)) mats_vec <- opt$mats %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+if (!is.null(opt$mat1)) mat1_vec <- opt$mat1 %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$mat2)) mat2_vec <- opt$mat2 %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$aqps)) aqps_vec <- opt$aqps %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$pqcs)) pqcs_vec <- opt$pqcs %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 ords_len <- length(ords_vec)
-mats_len <- length(mats_vec)
+mat1_len <- length(mat1_vec)
 mat2_len <- length(mat2_vec)
 stopifnot(ords_len>0)
-stopifnot(mats_len>0 || mat2_len>0)
-stopifnot(ords_len==mats_len || ords_len==mat2_len)
+stopifnot(mat1_len>0 || mat2_len>0)
+stopifnot(ords_len==mat1_len || ords_len==mat2_len)
 
 bpns_vec <- NULL
 aqpn_vec <- NULL
@@ -594,14 +594,16 @@ if (!is.null(opt$bpns)) bpns_vec <- opt$bpns %>% str_split(pattern=',', simplify
 if (!is.null(opt$aqpn)) aqpn_vec <- opt$aqpn %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 if (!is.null(opt$pqcn)) pqcn_vec <- opt$pqcn %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
+# TBD:: Should throw an error if pqcn_vec > 1...
+
 if (is.null(bpns_vec)) bpns_vec <- c(1:ords_len)
 if (is.null(aqpn_vec)) aqpn_vec <- c(1:ords_len)
-if (is.null(pqcn_vec)) pqcn_vec <- c(1:ords_len)
+# if (is.null(pqcn_vec)) pqcn_vec <- c(1:ords_len)
 
 man_info_tib <- 
-  tibble::tibble(BPN=bpns_vec, AQP=aqpn_vec, PQC=pqcn_vec) %>% 
-  dplyr::mutate(IDX=dplyr::row_number()) %>% 
-  dplyr::select(IDX, dplyr::everything()) %>% 
+  tibble::tibble(Dat_BPN=bpns_vec, Dat_AQP=aqpn_vec) %>%
+  dplyr::mutate(Dat_IDX=dplyr::row_number()) %>% 
+  dplyr::select(Dat_IDX, dplyr::everything()) %>% 
   utils::type.convert()
 
 ctls_vec <- NULL
@@ -689,6 +691,121 @@ if (!is.null(opt$idat)) {
 #                     1.1.0 Data Collection:: Order Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+if (FALSE) {
+  
+  is_test_cases <- FALSE
+  if (is_test_cases) {
+    ver <- 10
+    guess_file_del(ords_vec[1], verbose=ver)
+    guess_file_del(mat1_vec[1], verbose=ver)
+    # guess_file_del(mat2_vec[1], verbose=ver)
+    guess_file_del(aqps_vec[1], verbose=ver)
+    guess_file_del(pqcs_vec[1], verbose=ver)
+    
+    
+    ver=1
+    ord_guess_tib <- guess_man_file(ords_vec[1], verbose=ver)
+    mat_guess_tib <- guess_man_file(mat1_vec[1], verbose=ver)
+    aqp_guess_tib <- guess_man_file(aqps_vec[1], verbose=ver)
+    pqc_guess_tib <- guess_man_file(pqcs_vec[1], verbose=ver)
+    
+    
+    ver=10
+    ord_dat_tib <- load_man_file(ords_vec[1], verbose=ver)
+    mat_dat_tib <- load_man_file(mat1_vec[1], verbose=ver)
+    aqp_dat_tib <- load_man_file(aqps_vec[1], verbose=ver)
+    pqc_dat_tib <- load_man_file(pqcs_vec[1], verbose=ver)
+    
+    ver=3
+    idx=1
+    ord_dat_tib <- load_man_file(ords_vec[1], idx=idx, verbose=ver)
+    mat_dat_tib <- load_man_file(mat1_vec[1], idx=idx, verbose=ver)
+    aqp_dat_tib <- load_man_file(aqps_vec[1], idx=idx, verbose=ver)
+    pqc_dat_tib <- load_man_file(pqcs_vec[1], idx=idx, verbose=ver)
+  }
+  
+  #
+  # [Done]: TBD:: Add Formating for::
+  #   mat: uc(Sequence), Fix(Address)
+  #   aqs: Fix(Address)
+  #
+  # [Half]: TBD:: Add skipping null inputs (i.e. mat1/mat2)
+  #   Solution:: Try passing in both mat1/mat2 as mats now...
+  #
+  # [Done]: TBD:: Pipe in vectors to make it look more seemeless...
+  #
+  # TBD:: Pass in all pre-defined cols (val, sel, key)
+  #
+  
+  # This method requires removing idx option
+  #  - Probably better option for simplicity...
+  ords_dat_tib <- ords_vec %>%
+    lapply(load_man_file,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="Dat_IDX") %>%
+    utils::type.convert() %>%
+    dplyr::mutate(across(where(is.factor),  as.character) ) %>%
+    dplyr::left_join(man_info_tib, by="Dat_IDX")
+  
+  # Latest Order Summary::
+  ords_sum_tib <- ords_dat_tib %>% 
+    dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Dat_PQC, Ord_Din,Ord_Des,Ord_Col) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  ords_sum_tib %>% print(n=base::nrow(ords_sum_tib))
+  
+  #
+  # TBD::: Build general summaries with file and screen outputs...
+  #
+  mat1_dat_tib <- mat1_vec %>%
+    lapply(load_man_file,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="Dat_IDX") %>%
+    utils::type.convert() %>%
+    dplyr::mutate(across(where(is.factor),  as.character) ) %>%
+    dplyr::left_join(man_info_tib, by="Dat_IDX")
+
+  mat2_dat_tib <- mat2_vec %>%
+    lapply(load_man_file,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="Dat_IDX") %>%
+    utils::type.convert() %>%
+    dplyr::mutate(across(where(is.factor),  as.character) ) %>%
+    dplyr::left_join(man_info_tib, by="Dat_IDX")
+  
+  aqps_dat_tib <- aqps_vec %>%
+    lapply(load_man_file,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="Dat_IDX") %>%
+    utils::type.convert() %>%
+    dplyr::mutate(across(where(is.factor),  as.character) ) %>%
+    dplyr::left_join(man_info_tib, by="Dat_IDX")
+  
+  #
+  # NOTE:: There's only one PQC, so no need to join with man_info_tib
+  #
+  pqcs_dat_tib <- pqcs_vec %>%
+    lapply(load_man_file,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="Dat_PQC") %>%
+    utils::type.convert() %>%
+    dplyr::mutate(across(where(is.factor),  as.character) )
+
+  
+  
+  
+  
+  
+  
+    
+  # TBD:: Slower, but possibily better method
+  #   - Maybe, maybe look into this later...
+  # purrr::imap(ords_vec, function(x,y) { 
+  #   load_man_file(x,y, verbose=opt$verbose,tt=pTracker) } ) %>%
+  #   dplyr::bind_rows()
+  
+}
+
+
 # man_ord_tib <- NULL
 # man_ord_tib <-
 #   lapply(ords_vec, load_manifestBuildFile,
@@ -710,7 +827,7 @@ add_ord_tib <-
              verbose=opt$verbose, tt=pTracker) %>%
   dplyr::left_join(man_info_tib, by="IDX") %>% 
   dplyr::mutate(prb_type=stringr::str_sub(ord_id, 1,2)) %>%
-  dplyr::select( dplyr::any_of( 
+  dplyr::select( dplyr::any_of(
     c( base::names(man_info_tib),
        "ord_id","prb_type","prb_des","prb_col","prb_seq","prb_par" )) ) %>%
   dplyr::distinct()
@@ -736,10 +853,10 @@ add_ord_sum %>% print(n=base::nrow(add_ord_sum))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 add_mat_tib <- NULL
-if (!is.null(mats_vec)) {
+if (!is.null(mat1_vec)) {
   
   add_mat_tib <- 
-    lapply(mats_vec, load_manifestBuildFile, 
+    lapply(mat1_vec, load_manifestBuildFile, 
            field=par$mat_col[1], cols=par$mat_col,
            verbose=opt$verbose,tt=pTracker) %>% 
     dplyr::bind_rows(.id="IDX") %>%
@@ -757,7 +874,7 @@ if (!is.null(mats_vec)) {
   
   # all_mat_tib <- NULL
   # all_mat_tib <- 
-  #   lapply(mats_vec, load_manifestBuildFile, 
+  #   lapply(mat1_vec, load_manifestBuildFile, 
   #          field=par$mat_col[1], cols=par$mat_col,
   #          verbose=opt$verbose,tt=pTracker) %>% 
   #   dplyr::bind_rows(.id="IDX") %>%

@@ -94,7 +94,7 @@ addressToManifest = function(tib, des="prb_des", join,
     
     safe_write(ret_tib,"csv",csv,
                funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="InfI+II")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -146,7 +146,7 @@ tib_to_fasta = function(tib, prb_key="prb_seq",
       fas_vec <- ret_tib %>%
       dplyr::mutate(fas_line=paste0(">",aln_key,"\n",aln_seq) ) %>%
       dplyr::pull(fas_line)
-
+    
     if (!is.null(u49_tsv))
       u49_tib <- ret_tib %>% 
       dplyr::filter(!!des_sym == '2') %>%
@@ -158,7 +158,7 @@ tib_to_fasta = function(tib, prb_key="prb_seq",
       dplyr::filter(!!des_sym == 'U') %>%
       dplyr::select(aln_key,aln_seq) %>%
       dplyr::arrange(aln_seq)
-      
+    
     # Safe Write Outputs::
     safe_write(ret_tib,"csv",dat_csv,  
                funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
@@ -168,7 +168,7 @@ tib_to_fasta = function(tib, prb_key="prb_seq",
                funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     safe_write(u50_tib,"tsv",u50_tsv,cols=FALSE, 
                funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -191,7 +191,7 @@ run_bsmap = function(exe, fas, gen, bsp,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; bsp={bsp}.{RET}"))
-
+  
   aln_bsp <- bsp
   
   aln_ssh <- NULL
@@ -310,7 +310,7 @@ join_bsmap = function(add, bsp=NULL, file=NULL, join_key, join_type="inner",
                    "[{funcTag}]:{tabsStr}  join_key={join_key}{RET}",
                    "[{funcTag}]:{tabsStr} join_type={join_type}{RET}")
     )
-
+  
   if (is.null(bsp) && is.null(file)) {
     stop(glue::glue("[{funcTag}]:{tabsStr} ERROR: bsp AND file are null!!!{RET}{RET}"))
     return(NULL)
@@ -324,12 +324,12 @@ join_bsmap = function(add, bsp=NULL, file=NULL, join_key, join_type="inner",
     if (!is.null(file))
       bsp <- load_bsmap(bsp=file, sort=sort,
                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     if (is.null(bsp)) {
       stop(glue::glue("[{funcTag}]:{tabsStr} ERROR: bsp is null!!!{RET}{RET}"))
       return(ret_tib)
     }
-
+    
     join_key_sym <- rlang::sym(join_key)
     bsp_key_sym  <- rlang::sym( names(bsp)[1] )
     
@@ -507,7 +507,7 @@ join_bsmap = function(add, bsp=NULL, file=NULL, join_key, join_type="inner",
     
     # Sort by genomic position::
     if (sort) ret_tib <- ret_tib %>% dplyr::arrange(bsp_chr, bsp_beg)
-
+    
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -946,6 +946,325 @@ format_AQP = function(tib, idx_key="IDX", uniq=TRUE,filt=TRUE,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Manifest File Methods:: Loading
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+guess_man_file = function(file, 
+                          fields=c("Assay_Design_Id","Plate","address_names","Address"), 
+                          cols=NULL,
+                          n_max=100, # guess=100000,
+                          verbose=0,vt=6,tc=1,tt=NULL) {
+  funcTag <- 'guess_man_file'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_val <- NULL
+  stime <- system.time({
+    
+    file_del_str <- guess_file_del(file, n_max=n_max, verbose=verbose,vt=vt+4)
+    if (is.null(file_del_str)) {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: file_del_str=NULL!!!{RET}{RET}"))
+      return(NULL)
+    }
+
+    dat_tib <- readr::read_lines(file, n_max=n_max) %>%
+      tibble::as_tibble() %>% 
+      dplyr::mutate(row_num=dplyr::row_number())
+
+    ret_tib <- NULL
+    for (field in fields) {
+      if (verbose>=vt+6)
+        cat(glue::glue("[{funcTag}]:{tabsStr} field={field}{RET}"))
+      
+      min_tib <- dat_tib %>% dplyr::filter(stringr::str_starts(value, field)) %>% tail(n=1)
+      min_cnt <- base::nrow(min_tib)
+      
+      # Skip Empty Results::
+      if (min_cnt==0) next
+      
+      # Extract Column Count Step::
+      col_num <- min_tib$value[1] %>% 
+        stringr::str_split(file_del_str, simplify=TRUE) %>% 
+        as.vector() %>% length()
+      
+      # Combine Step::
+      ret_tib <- ret_tib %>% dplyr::bind_rows(
+         min_tib %>%
+          dplyr::mutate(col_num=col_num,del_key=file_del_str,beg_key=field)
+      )
+      if (verbose>=vt+6)
+        cat(glue::glue("[{funcTag}]:{tabsStr} NEXT...{RET}{RET}"))
+    }
+
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+load_man_file = function(file, idx=NULL,
+                         n_max=100, guess=1000,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'load_man_file'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  # Saftey Check for Empty Files::
+  if (is.null(file) || length(file)==0)
+    return(base::invisible(NULL))
+  
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  val_cols <- list()
+  val_cols$ord <- 
+    cols(
+      Assay_Design_Id        = col_character(),
+      AlleleA_Probe_Id       = col_character(),
+      AlleleA_Probe_Sequence = col_character(),
+      AlleleB_Probe_Id       = col_character(),
+      AlleleB_Probe_Sequence = col_character(),
+      Normalization_Bin      = col_character()
+    )
+  
+  val_cols$mat1 <- 
+    cols(
+      Plate    = col_character(),
+      Row      = col_character(),
+      Col      = col_integer(),
+      Address  = col_integer(),
+      Mod5     = col_character(),
+      Sequence = col_character(),
+      Mod3     = col_character(),
+      Comments = col_character()
+    )
+  
+  val_cols$mat2 <- 
+    cols(
+      address_names = col_integer(),
+      probe_id      = col_character(),
+      sequence      = col_character(),
+      type_b        = col_character(),
+      address_name  = col_integer(),
+      bo_seq        = col_character()
+    )
+  
+  val_cols$aqp <- 
+    cols(
+      Address           = col_integer(),
+      Decode_Status     = col_integer(),
+      Decode_Error_Code = col_integer(),
+      Decode_Score      = col_integer(),
+      Func_Status       = col_integer(),
+      Func_Error_Code   = col_integer(),
+      QC_Action         = col_integer()
+    )
+  
+  val_cols$pqc <- 
+    cols(
+      Address      = col_integer(),
+      Status       = col_integer(),
+      Eval_Code    = col_integer(),
+      Average_Rep  = col_integer(),
+      Expected_Rep = col_integer()
+    )
+  
+  sel_cols <- list()
+  sel_cols$ord  <- c("Assay_Design_Id","AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Normalization_Bin")
+  sel_cols$mat1 <- c("Address","Sequence")
+  sel_cols$mat2 <- c("address_names","bo_seq")
+  # sel_cols$mat2 <- c("address_names","sequence","probe_id")
+  sel_cols$aqp  <- c("Address","Decode_Status")
+  sel_cols$pqc  <- c("Address","Status")
+  
+  key_cols <- list()
+  key_cols$ord  <- c("Ord_Key","Ord_PrbA","Ord_PrbB","Ord_Norm")
+  key_cols$mat1 <- c("Address","Sequence")
+  key_cols$mat2 <- c("Address","Sequence")
+  key_cols$aqp  <- c("Address","Decode_Status")
+  key_cols$pqc  <- c("Address","Decode_Status")
+
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    guess_tib <- guess_man_file(file, n_max=n_max,
+                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    row_num=guess_tib$row_num[1]
+    col_num=guess_tib$col_num[1]
+    del_key=guess_tib$del_key[1]
+    beg_key=guess_tib$beg_key[1]
+    
+    dat_key <- NULL
+    val_col <- NULL
+    sel_col <- NULL
+    key_col <- NULL
+    if (is.null(beg_key) || is.null(col_num)) {
+      stop(glue::glue("{RET}[{funcTag}]:ERROR: Both beg_key AND col_num are NULL!!!{RET}{RET}"))
+      return(ret_tib)
+    } else if (beg_key==names(val_cols$ord$cols)[1] && col_num==length(val_cols$ord$cols)) {
+      dat_key <- "ord"
+      
+      # val_col <- val_cols$ord
+      # sel_col <- sel_cols$ord
+      # key_col <- key_cols$ord
+    } else if (beg_key==names(val_cols$mat1$cols)[1] && col_num==length(val_cols$mat1$cols)) {
+      dat_key <- "mat1"
+      
+      # val_col <- val_cols$mat1
+      # sel_col <- sel_cols$mat1
+      # key_col <- key_cols$mat1
+    } else if (beg_key==names(val_cols$mat2$cols)[1] && col_num==length(val_cols$mat2$cols)) {
+      dat_key <- "mat2"
+      
+      # val_col <- val_cols$mat2
+      # sel_col <- sel_cols$mat2
+      # key_col <- key_cols$mat2
+    } else if (beg_key==names(val_cols$aqp$cols)[1] && col_num==length(val_cols$aqp$cols)) {
+      dat_key <- "aqp"
+      
+      # val_col <- val_cols$aqp
+      # sel_col <- sel_cols$aqp
+      # key_col <- key_cols$aqp
+    } else if (beg_key==names(val_cols$pqc$cols)[1] && col_num==length(val_cols$pqc$cols)) {
+      dat_key <- "pqc"
+      
+      # val_col <- val_cols$pqc
+      # sel_col <- sel_cols$pqc
+      # key_col <- key_cols$pqc
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]:ERROR: Failed to match beg_key({beg_key}) AND ",
+                      "col_num({col_num}) to known formats!!!{RET}{RET}"))
+      return(ret_tib)
+    }
+    
+    # This sets all the proper valid col types, col selection and col renaming::
+    #   TBD:: Remove all the commented stuff above...
+    #
+    val_col <- val_cols[[dat_key]]  # File Format Column Names/Data-Types
+    sel_col <- sel_cols[[dat_key]]  # Selected Column Names
+    key_col <- key_cols[[dat_key]]  # Selected Column New Names
+    
+    # Apply Delimiter Type and Column Names/Data-Types::
+    if (del_key==COM) {
+      ret_tib <- suppressMessages(suppressWarnings(
+        readr::read_csv(file, skip=row_num, guess_max=guess, skip_empty_rows=FALSE,
+                        col_names=names(val_col$cols), col_types=val_col)))
+      
+    } else if (del_key==TAB || del_key==" ") {
+      ret_tib <- suppressMessages(suppressWarnings(
+        readr::read_tsv(file, skip=row_num, guess_max=guess, skip_empty_rows=FALSE,
+                        col_names=names(val_col$cols), col_types=val_col)))
+      
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]:ERROR: Unsupported del_key={del_key}!!!{RET}{RET}"))
+      return(NULL)
+    }
+    ret1_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n="ret1")
+    
+    # Apply Selected Columns::
+    ret_tib  <- ret_tib %>% dplyr::select(dplyr::all_of(sel_col))
+    ret2_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n="ret2")
+    
+    # Apply Canonical-Renamed Columns::
+    ret_tib  <- ret_tib %>% purrr::set_names(key_col)
+    ret3_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n="ret3")
+    
+    # Apply Formatting Rules:: Order Data Type
+    if (dat_key=="ord") {
+      ord_tib <- ret_tib %>% 
+        dplyr::mutate(
+          Ord_PrbA=stringr::str_to_upper(Ord_PrbA),
+          Ord_PrbB=stringr::str_to_upper(Ord_PrbB),
+          
+          Ord_DesA=dplyr::case_when(
+            !is.na(Ord_PrbA) & !is.na(Ord_PrbB) ~ "U",
+            !is.na(Ord_PrbA) &  is.na(Ord_PrbB) ~ "2",
+            TRUE ~ NA_character_
+          ),
+          Ord_DesB=dplyr::case_when(
+            !is.na(Ord_PrbA) & !is.na(Ord_PrbB) ~ "M",
+            TRUE ~ NA_character_
+          ),
+          Ord_Col=dplyr::case_when(
+            Ord_DesA=="2" ~ NA_character_,
+            Ord_DesA=="U" & Ord_DesB=="M" & Ord_Norm=="A" ~ "R",
+            Ord_DesA=="U" & Ord_DesB=="M" & Ord_Norm=="B" ~ "G",
+            TRUE ~ NA_character_
+          )
+        )
+
+      ord_cols <- c("Ord_Key","Ord_Des", "Ord_Prb", "Ord_Par", "Ord_Col")
+      ord_colA <- c("Ord_Key","Ord_DesA","Ord_PrbA","Ord_PrbB","Ord_Col")
+      ord_colB <- c("Ord_Key","Ord_DesB","Ord_PrbB","Ord_PrbA","Ord_Col")
+
+      ret_tib <- dplyr::bind_rows(
+        ord_tib %>% dplyr::filter(Ord_DesB=="M") %>%
+          dplyr::select(dplyr::all_of(ord_colB)) %>%
+          purrr::set_names(ord_cols),
+        ord_tib %>% dplyr::filter(Ord_DesA=="U") %>%
+          dplyr::select(dplyr::all_of(ord_colA)) %>%
+          purrr::set_names(ord_cols),
+        ord_tib %>% dplyr::filter(Ord_DesA=="2") %>%
+          dplyr::select(dplyr::all_of(ord_colA)) %>%
+          purrr::set_names(ord_cols)
+      ) %>% 
+        dplyr::mutate(Ord_Din=stringr::str_sub(Ord_Key, 1,2))
+    }
+    
+    # Apply Formatting Rules:: Match/AQP/PQC Data Types:: Address
+    if (dat_key=="mat1" || dat_key=="mat2" ||
+        dat_key=="aqp"  || dat_key=="pqc") {
+      trim_cnt <- ret_tib %>% 
+        dplyr::filter(!stringr::str_starts(Address, '1')) %>% base::nrow()
+      if (trim_cnt==0) {
+        ret_tib <- ret_tib %>% 
+          dplyr::mutate(Address=as.numeric(
+            stringr::str_remove(stringr::str_remove(Address, '^1'), '^0+')) )
+      } else {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: Attempting to trim new tango fomrat, ",
+                        "but format doesn't match; trim_cnt={trim_cnt}!!!{RET}{RET}"))
+        return(NULL)
+      }
+    }
+    
+    # Apply Formatting Rules:: Match Files:: Sequence
+    if (dat_key=="mat1" || dat_key=="mat2") {
+      ret_tib <- ret_tib %>% 
+        dplyr::mutate(Sequence=stringr::str_to_upper(Sequence),
+                      Mat_Tan=stringr::str_sub(Sequence,1,45),
+                      Mat_Prb=stringr::str_sub(Sequence,46)
+        ) %>%
+        dplyr::select(-Sequence) %>%
+        dplyr::filter(!is.na(Address)) # Not sure if we need this...
+    }
+    
+    # Add Dat_IDX if provided
+    if (!is.null(idx))
+      ret_tib <- ret_tib %>%
+      dplyr::mutate(Dat_IDX=as.integer(idx))
+    
+    # Standard Column Data Type Clean-Up::
+    ret_tib <- ret_tib %>%
+      utils::type.convert() %>%
+      dplyr::mutate(across(where(is.factor),  as.character) )
+
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
 
 load_manifestBuildFile = function(file, field="Assay_Design_Id", cols=NULL,
                                   # aqp=NULL, bpn=NULL,
