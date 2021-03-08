@@ -235,8 +235,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- NULL
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'Chicago'
   par$local_runType <- 'GRCm10'
+  par$local_runType <- 'Chicago'
   
   if (par$local_runType=='Chicago') {
     opt$genBuild <- 'GRCh37'
@@ -669,9 +669,6 @@ if (!is.null(opt$idat)) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 #
-#
-# [Done]: TBD:: Pipe in vectors to make it look more seemeless...
-#
 # TBD:: Pass in all pre-defined cols (val, sel, key)
 #
 
@@ -776,7 +773,7 @@ if (!is.null(pqcs_dat_tib)) {
   add_pqc_dat_tib <- 
     ords_dat_tib %>% 
     dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
-    dplyr::full_join(pqcs_dat_tib, by="Address")
+    dplyr::left_join(pqcs_dat_tib, by="Address")
   
   add_pqc_sum_tib <- 
     add_pqc_dat_tib %>% 
@@ -789,15 +786,13 @@ if (!is.null(pqcs_dat_tib)) {
     dplyr::filter(Decode_Status==0) %>% 
     dplyr::arrange(-Dat_IDX) %>% 
     dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
-  
-  add_pas_tib <- add_pas_aqp_mat_tib
-  
+
 } else if (!is.null(aqps_dat_tib)) {
   
   add_aqp_dat_tib <- 
     ords_dat_tib %>% 
     dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
-    dplyr::full_join(aqps_dat_tib, by=c("Address","Dat_IDX","Dat_BPN","Dat_AQP") )
+    dplyr::left_join(aqps_dat_tib, by=c("Address","Dat_IDX","Dat_BPN","Dat_AQP") )
   
   add_aqp_sum_tib <- 
     add_aqp_dat_tib %>% 
@@ -806,16 +801,28 @@ if (!is.null(pqcs_dat_tib)) {
     dplyr::summarise(Count=n(), .groups="drop")
   add_aqp_sum_tib %>% print(n=base::nrow(add_aqp_sum_tib))
 
-  add_pas_tib <- add_pas_aqp_mat_tib
+  add_pas_tib <- add_aqp_dat_tib %>% 
+    dplyr::filter(Decode_Status==0) %>% 
+    dplyr::arrange(-Dat_IDX) %>% 
+    dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+  
 } else {
   stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Both AQP and PQC are length zero!!!{RET}{RET}"))
 }
+
+add_pas_sum_tib <- 
+  add_pas_tib %>% 
+  dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Dat_PQC,
+                  Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+add_pas_sum_tib %>% print(n=base::nrow(add_pas_sum_tib))
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                  2.1 Functional Manifest Generation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-man_fun_vec <- c("Ord_Key","Ord_Din","Ord_Col", "Ord_Par",
+man_fun_vec <- c("Ord_Key","Ord_Din","Ord_Col", # "Ord_Par",
                  dplyr::all_of(base::names(man_info_tib) ) )
 
 man_fun_tib <- add_pas_tib %>%
@@ -823,7 +830,7 @@ man_fun_tib <- add_pas_tib %>%
                     join=man_fun_vec,
                     csv=run$man_fun_csv, 
                     validate=TRUE, 
-                    verbose=opt$verbose, tt=pTracker)
+                    verbose=opt$verbose+10, tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -853,6 +860,11 @@ run$add_prb_bspz <-
 
 add_pas_bsp_tib <- NULL
 add_pas_bsp_grs <- NULL
+
+#
+# TBD:: Use or implement file time stamp checking...
+#
+
 # if (!file.exists(man_add_bsp_tsv) ||
 #     !file.exists(man_add_bsp_rds) ||
 #     file.mtime(man_add_bsp_rds) < file.mtime(man_add_bsp_tsv) ) {
@@ -861,7 +873,7 @@ if (TRUE) {
   # Either need to run Right Join or Inner join followed by Anti Join
   #  to find probes with no alignment...
   
-  add_pas_bsp_tibI <-
+  add_pas_bsp_tib <-
     join_bsmap(
       add=add_pas_fas_tib,
       file=run$add_prb_bspz,
@@ -994,6 +1006,26 @@ if (FALSE) {
 
 run_cgn_mat <- TRUE
 if (run_cgn_mat) {
+  
+  imp_dir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/"
+  
+  imp_bed_dir <- file.path(imp_dir, "bed")
+  imp_prb_dir <- file.path(imp_dir, "prbDB")
+  
+  imp_bed_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.bed.gz", sep="-"))
+  imp_u49_tsv <- file.path(imp_prb_dir, paste(opt$genBuild, "21022021_improbe-designOutput.u49-cgn.seq-sorted.tsv.gz", sep="-"))
+  imp_u50_tsv <- file.path(imp_prb_dir, paste(opt$genBuild, "21022021_improbe-designOutput.u50-cgn.seq-sorted.tsv.gz", sep="-"))
+  
+  
+  imp_bed_tib <- readr::read_tsv(imp_bed_tsv)
+  
+  
+  
+  
+  
+  
+  
+  
   
   imp_prb49U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq49U.prb-sorted.tsv.gz"
   imp_prb50U_tsv <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDbs/GRCh36-38.mm10.cgn-srd-seq50U.prb-sorted.tsv.gz"
