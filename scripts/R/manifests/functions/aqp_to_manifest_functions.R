@@ -47,7 +47,8 @@ template_func = function(tib,
 #                       Address To Manifest Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-addressToManifest = function(tib, des="prb_des", join,
+addressToManifest = function(tib, des="Ord_Des", ord_id="Ord_Key",
+                             join,
                              csv=NULL, validate=TRUE,
                              verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'addressToManifest'
@@ -300,7 +301,8 @@ load_bsmap = function(bsp, sort=FALSE,
   ret_tib
 }
 
-join_bsmap = function(add, bsp=NULL, file=NULL, join_key, join_type="inner",
+join_bsmap = function(add, bsp=NULL, file=NULL, 
+                      join_key, join_type="inner", prb_des="Ord_Des",
                       fields=NULL, sort=FALSE,
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'join_bsmap'
@@ -329,34 +331,42 @@ join_bsmap = function(add, bsp=NULL, file=NULL, join_key, join_type="inner",
       stop(glue::glue("[{funcTag}]:{tabsStr} ERROR: bsp is null!!!{RET}{RET}"))
       return(ret_tib)
     }
-    
+    print_tib(add,funcTag, verbose,vt+4,tc, n="address_tib")
+
+    prb_des_sym  <- rlang::sym(prb_des)
+    bsp_join_key <- names(bsp)[1]
     join_key_sym <- rlang::sym(join_key)
-    bsp_key_sym  <- rlang::sym( names(bsp)[1] )
+    bsp_join_sym <- rlang::sym( bsp_join_key )
     
     # Rename bsp_key to join key and join::
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]:{tabsStr} Joining source data...{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} Joining source data...{RET}",
+                     "[{funcTag}]:{tabsStr} Join Keys::{RET}",
+                     "[{funcTag}]:{tabsStr} add_join_key={join_key}{RET}",
+                     "[{funcTag}]:{tabsStr} bsp_join_key={bsp_join_key}{RET}{RET}" )
+      )
     
     if (join_type=="inner") {
       ret_tib <- bsp %>%
-        dplyr::rename(!!join_key_sym := !!bsp_key_sym) %>%
+        dplyr::rename(!!join_key_sym := !!bsp_join_sym) %>%
         dplyr::inner_join(add, by=join_key) # %>% head(n=100)
     } else if (join_type=="left") {
       ret_tib <- bsp %>%
-        dplyr::rename(!!join_key_sym := !!bsp_key_sym) %>%
+        dplyr::rename(!!join_key_sym := !!bsp_join_sym) %>%
         dplyr::left_join(add, by=join_key) # %>% head(n=100)
     } else if (join_type=="right") {
       ret_tib <- bsp %>%
-        dplyr::rename(!!join_key_sym := !!bsp_key_sym) %>%
+        dplyr::rename(!!join_key_sym := !!bsp_join_sym) %>%
         dplyr::right_join(add, by=join_key) # %>% head(n=100)
     } else if (join_type=="full") {
       ret_tib <- bsp %>%
-        dplyr::rename(!!join_key_sym := !!bsp_key_sym) %>%
+        dplyr::rename(!!join_key_sym := !!bsp_join_sym) %>%
         dplyr::full_join(add, by=join_key) # %>% head(n=100)
     } else {
       stop(glue::glue("[{funcTag}]:{tabsStr} ERROR: Unsupported join_type={join_type}!!!{RET}{RET}"))
       return(ret_tib)
     }
+    print(ret_tib)
     
     #
     # Calculate new fields from join::
@@ -396,27 +406,27 @@ join_bsmap = function(add, bsp=NULL, file=NULL, join_key, join_type="inner",
         
         # Set Expected target Next Base from Alignment Orientation::
         bsp_nxb_ref=dplyr::case_when(
-          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F1,
-          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R1,
+          !!prb_des_sym=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F1,
+          !!prb_des_sym=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R1,
           
-          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F1,
-          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R1,
+          !!prb_des_sym=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F1,
+          !!prb_des_sym=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R1,
           
-          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F2,
-          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R2,
+          !!prb_des_sym=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F2,
+          !!prb_des_sym=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R2,
           TRUE ~ NA_character_
         ), # %>% stringr::str_to_upper(),
         
         # Set Expected target CG di-nucleotide from Alignment Orientation::
         bsp_din_ref=dplyr::case_when(
-          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F1,
-          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R1,
+          !!prb_des_sym=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F1,
+          !!prb_des_sym=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R1,
           
-          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F1,
-          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R1,
+          !!prb_des_sym=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F1,
+          !!prb_des_sym=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R1,
           
-          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F2,
-          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R2,
+          !!prb_des_sym=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F2,
+          !!prb_des_sym=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R2,
           TRUE ~ NA_character_
         ) %>% stringr::str_to_upper(),
         
@@ -446,27 +456,27 @@ join_bsmap = function(add, bsp=NULL, file=NULL, join_key, join_type="inner",
         
         # Set Expected target Next Base from Alignment Orientation::
         bsp_nxb_bsc=dplyr::case_when(
-          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F1M,
-          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R1M,
+          !!prb_des_sym=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F1M,
+          !!prb_des_sym=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R1M,
           
-          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F1U,
-          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R1U,
+          !!prb_des_sym=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F1U,
+          !!prb_des_sym=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R1U,
           
-          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F2D,
-          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R2D,
+          !!prb_des_sym=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ NB_F2D,
+          !!prb_des_sym=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ NB_R2D,
           TRUE ~ NA_character_
         ), # %>% stringr::str_to_upper(),
         
         # Set Expected target CG di-nucleotide from Alignment Orientation::
         bsp_din_bsc=dplyr::case_when(
-          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F1M,
-          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R1M,
+          !!prb_des_sym=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F1M,
+          !!prb_des_sym=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R1M,
           
-          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F1U,
-          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R1U,
+          !!prb_des_sym=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F1U,
+          !!prb_des_sym=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R1U,
           
-          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F2D,
-          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R2D,
+          !!prb_des_sym=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ CG_F2D,
+          !!prb_des_sym=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ CG_R2D,
           TRUE ~ NA_character_
         ) %>% stringr::str_to_upper(),
         
@@ -480,14 +490,14 @@ join_bsmap = function(add, bsp=NULL, file=NULL, join_key, join_type="inner",
         # Update Correct Genomic CG# Location based on alignment orientation::
         #
         bsp_pos=dplyr::case_when(
-          prb_des=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ bsp_beg +48,
-          prb_des=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ bsp_beg + 0,
+          !!prb_des_sym=="M" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ bsp_beg +48,
+          !!prb_des_sym=="M" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ bsp_beg + 0,
           
-          prb_des=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ bsp_beg +48,
-          prb_des=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ bsp_beg + 0,
+          !!prb_des_sym=="U" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ bsp_beg +48,
+          !!prb_des_sym=="U" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ bsp_beg + 0,
           
-          prb_des=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ bsp_beg +49,
-          prb_des=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ bsp_beg - 1,
+          !!prb_des_sym=="2" & (bsp_srd=="--" | bsp_srd=="++") & bsp_prb_dir=="f" ~ bsp_beg +49,
+          !!prb_des_sym=="2" & (bsp_srd=="+-" | bsp_srd=="-+") & bsp_prb_dir=="r" ~ bsp_beg - 1,
           TRUE ~ NA_real_
         ) %>% as.integer(),
         bsp_din_scr=dplyr::case_when(
