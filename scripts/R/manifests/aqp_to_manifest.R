@@ -239,9 +239,14 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'Chicago'
   
   if (par$local_runType=='Chicago') {
+    opt$genBuild <- 'GRCh38'
     opt$genBuild <- 'GRCh37'
+    
     opt$platform <- 'EPIC'
     opt$version  <- 'A1'
+    opt$version  <- 'A2'
+    opt$version  <- 'A3'
+    opt$version  <- 'A4'
     
     opt$idat   <- NULL
     par$aqpDir <- file.path(par$topDir, 'data/CustomContent/UnivChicago/latest')
@@ -531,6 +536,9 @@ par_tib <- par %>%
   tidyr::gather("Params", "Value")
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
 
+stamp_vec <- NULL
+stamp_vec <- c(stamp_vec,opt$time_org_txt)
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Pre-processing:: Parse List Options
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -621,17 +629,26 @@ run$man_gen_fas <- file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFast
                              paste0(opt$genBuild,".genome.fa.gz"))
 
 # Defined Run Time:: Intermediate Files
+run$add_pas_csv <- file.path(run$addDir, paste(opt$runName,"address-pass.csv.gz", sep="_"))
 run$man_fun_csv <- file.path(run$manDir, paste(opt$runName,"functional-sesame.manifest.csv.gz", sep="_"))
 
 run$add_prb_fas <- file.path(run$fasDir, paste(opt$runName, "aln-seq.fa.gz",  sep='.') )
 run$add_dat_csv <- file.path(run$addDir, paste(opt$runName, "add_dat.csv.gz", sep='.') )
 
-run$add_u49_tsv <- file.path(run$intDir, paste(opt$runName, "map-u49.tsv.gz", sep='.') )
-run$add_u50_tsv <- file.path(run$intDir, paste(opt$runName, "map-u50.tsv.gz", sep='.') )
+run$add_u49_tsv <- file.path(run$intDir, paste(opt$runName, "map-u49.tsv", sep='.') )
+run$add_u50_tsv <- file.path(run$intDir, paste(opt$runName, "map-u50.tsv", sep='.') )
 
-run$add_prb_bsp <- file.path(run$alnDir, paste(opt$runName, "bsp",  sep='.') )
+run$int_u49_tsv <- file.path(run$intDir, paste(opt$runName, "int-u49.tsv.gz", sep='.') )
+run$int_u50_tsv <- file.path(run$intDir, paste(opt$runName, "int-u50.tsv.gz", sep='.') )
+run$int_seq_tsv <- file.path(run$intDir, paste(opt$runName, "int-seq-imp.tsv.gz", sep='.') )
 
-run$add_join_bsp_csv <- file.path(run$alnDir, paste(opt$runName, "add-join-bsp.csv.gz",  sep='.') )
+run$add_prb_bsp  <- file.path(run$alnDir, paste(opt$runName, "bsp",  sep='.') )
+run$add_prb_bspz <- paste(run$add_prb_bsp, 'tsv.gz', sep='.')
+
+run$add_pas_bsp_csv <- file.path(run$alnDir, paste(opt$runName, "add_pas_bsp.csv.gz",  sep='.') )
+run$add_pas_grs_rds <- file.path(run$alnDir, paste(opt$runName, "add_pas_grs.rds",  sep='.') )
+
+# run$add_join_bsp_csv <- file.path(run$alnDir, paste(opt$runName, "add-join-bsp.csv.gz",  sep='.') )
 
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Defining Run Time Files.{RET}{RET}"))
@@ -642,181 +659,199 @@ if (opt$verbose>=1)
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     1.0.0 Data Collection:: IDAT Files
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-add_idat_tib <- NULL
-if (!is.null(opt$idat)) {
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Loading idats from dir={opt$idat}.{RET}"))
+stamp_vec <- c(stamp_vec,run$add_pas_csv)
+if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   
-  grn_idat_dat <- 
-    loadIdat(prefix=file.path(opt$idat, paste(base::basename(opt$idat),"R01C01", sep="_")), 
-             col="Grn", gzip=TRUE, verbose=opt$verbose, tt=pTracker )
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     1.0.0 Data Collection:: IDAT Files
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  add_idat_tib <- 
-    grn_idat_dat$Quants %>% 
-    as.data.frame() %>% 
-    tibble::rownames_to_column(var="Address") %>% 
-    tibble::as_tibble() %>% 
-    dplyr::mutate(Address=as.integer(Address)) %>%
-    dplyr::distinct(Address)
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     1.1.0 Data Collection:: Order Files
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-#
-# TBD:: Pass in all pre-defined cols (val, sel, key)
-#
-
-# This method could be replaced with 
-#  purrr::imap(vec, function(x,i) { load_man_file(x,i, ...) })
-#  - Current method is simple and works, but need to check for
-#    AQP/PQC null vecs up front...
-#
-ords_dat_tib <- ords_vec %>%
-  lapply(load_man_file,
-         verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="Dat_IDX") %>%
-  utils::type.convert() %>%
-  dplyr::mutate(across(where(is.factor),  as.character) ) %>%
-  dplyr::left_join(man_info_tib, by="Dat_IDX") %>%
-  dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
-  dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep")
-
-# Latest Order Summary::
-ords_sum_tib <- ords_dat_tib %>% 
-  dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP, 
-                  Ord_Din,Ord_Des,Ord_Col,
-                  Ord_Prb_Rep,Ord_Par_Rep) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-ords_sum_tib %>% print(n=base::nrow(ords_sum_tib))
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                    1.2.0 Data Collection:: Match Files
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-mats_dat_tib <- mats_vec %>%
-  lapply(load_man_file,
-         verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="Dat_IDX") %>%
-  utils::type.convert() %>%
-  dplyr::mutate(across(where(is.factor),  as.character) ) %>%
-  dplyr::left_join(man_info_tib, by="Dat_IDX") %>% 
-  dplyr::add_count(Address, name="Mat_Add_Rep")
-
-mats_sum_tib <- mats_dat_tib %>%
-  dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Mat_Add_Rep) %>%
-  dplyr::summarise(Count=n(), .groups="drop")
-mats_sum_tib %>% print(n=base::nrow(mats_sum_tib))
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     1.3.1 Data Collection:: AQP Files
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-aqps_dat_tib <- NULL
-if (!is.null(aqpn_vec) && length(aqps_vec)!=0) {
-
-  aqps_dat_tib <- aqps_vec %>%
+  add_idat_tib <- NULL
+  if (!is.null(opt$idat)) {
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Loading idats from dir={opt$idat}.{RET}"))
+    
+    grn_idat_dat <- 
+      loadIdat(prefix=file.path(opt$idat, paste(base::basename(opt$idat),"R01C01", sep="_")), 
+               col="Grn", gzip=TRUE, verbose=opt$verbose, tt=pTracker )
+    
+    add_idat_tib <- 
+      grn_idat_dat$Quants %>% 
+      as.data.frame() %>% 
+      tibble::rownames_to_column(var="Address") %>% 
+      tibble::as_tibble() %>% 
+      dplyr::mutate(Address=as.integer(Address)) %>%
+      dplyr::distinct(Address)
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     1.1.0 Data Collection:: Order Files
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  #
+  # TBD:: Pass in all pre-defined cols (val, sel, key)
+  #
+  
+  # This method could be replaced with 
+  #  purrr::imap(vec, function(x,i) { load_man_file(x,i, ...) })
+  #  - Current method is simple and works, but need to check for
+  #    AQP/PQC null vecs up front...
+  #
+  ords_dat_tib <- ords_vec %>%
     lapply(load_man_file,
            verbose=opt$verbose,tt=pTracker) %>% 
     dplyr::bind_rows(.id="Dat_IDX") %>%
     utils::type.convert() %>%
     dplyr::mutate(across(where(is.factor),  as.character) ) %>%
-    dplyr::left_join(man_info_tib, by="Dat_IDX")
+    dplyr::left_join(man_info_tib, by="Dat_IDX") %>%
+    dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
+    dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep")
   
-  aqps_sum_tib <- aqps_dat_tib %>%
-    dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Decode_Status) %>%
+  ords_sum_tib <- ords_dat_tib %>% 
+    dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP, 
+                    Ord_Din,Ord_Des,Ord_Col,
+                    Ord_Prb_Rep,Ord_Par_Rep) %>% 
     dplyr::summarise(Count=n(), .groups="drop")
-  aqps_sum_tib %>% print(n=base::nrow(aqps_sum_tib))
+  ords_sum_tib %>% print(n=base::nrow(ords_sum_tib))
   
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     1.3.2 Data Collection:: PQC Files
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-#
-# NOTE:: There's only one PQC, so no need to join with man_info_tib
-#
-pqcs_dat_tib <- NULL
-pqcs_dat_tib <- pqcs_vec %>%
-  lapply(load_man_file,
-         verbose=opt$verbose,tt=pTracker) %>% 
-  dplyr::bind_rows(.id="Dat_PQC") %>%
-  utils::type.convert() %>%
-  dplyr::mutate(across(where(is.factor),  as.character) )
-
-pqcs_sum_tib <- pqcs_dat_tib %>% 
-  dplyr::group_by(Dat_PQC,Decode_Status) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-pqcs_sum_tib %>% print(n=base::nrow(pqcs_sum_tib))
-
-#
-# We Need::  NO We just need full_join...
-#   pqcs_all_dat_tib + pqcs_all_sum_tib
-#   pqcs_pas_dat_tib + pqcs_pas_sum_tib
-#
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#                    2.0 Data Merging:: Ord/Mat/AQP/PQC
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-add_pas_tib <- NULL
-if (!is.null(pqcs_dat_tib)) {
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                    1.2.0 Data Collection:: Match Files
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  add_pqc_dat_tib <- 
-    ords_dat_tib %>% 
-    dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
-    dplyr::left_join(pqcs_dat_tib, by="Address")
+  mats_dat_tib <- mats_vec %>%
+    lapply(load_man_file,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="Dat_IDX") %>%
+    utils::type.convert() %>%
+    dplyr::mutate(across(where(is.factor),  as.character) ) %>%
+    dplyr::left_join(man_info_tib, by="Dat_IDX") %>% 
+    dplyr::add_count(Address, name="Mat_Add_Rep")
   
-  add_pqc_sum_tib <- 
-    add_pqc_dat_tib %>% 
+  mats_sum_tib <- mats_dat_tib %>%
+    dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Mat_Add_Rep) %>%
+    dplyr::summarise(Count=n(), .groups="drop")
+  mats_sum_tib %>% print(n=base::nrow(mats_sum_tib))
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     1.3.1 Data Collection:: AQP Files
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  aqps_dat_tib <- NULL
+  if (!is.null(aqpn_vec) && length(aqps_vec)!=0) {
+    
+    aqps_dat_tib <- aqps_vec %>%
+      lapply(load_man_file,
+             verbose=opt$verbose,tt=pTracker) %>% 
+      dplyr::bind_rows(.id="Dat_IDX") %>%
+      utils::type.convert() %>%
+      dplyr::mutate(across(where(is.factor),  as.character) ) %>%
+      dplyr::left_join(man_info_tib, by="Dat_IDX")
+    
+    aqps_sum_tib <- aqps_dat_tib %>%
+      dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Decode_Status) %>%
+      dplyr::summarise(Count=n(), .groups="drop")
+    aqps_sum_tib %>% print(n=base::nrow(aqps_sum_tib))
+    
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     1.3.2 Data Collection:: PQC Files
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  #
+  # NOTE:: There's only one PQC, so no need to join with man_info_tib
+  #
+  pqcs_dat_tib <- NULL
+  pqcs_dat_tib <- pqcs_vec %>%
+    lapply(load_man_file,
+           verbose=opt$verbose,tt=pTracker) %>% 
+    dplyr::bind_rows(.id="Dat_PQC") %>%
+    utils::type.convert() %>%
+    dplyr::mutate(across(where(is.factor),  as.character) )
+  
+  pqcs_sum_tib <- pqcs_dat_tib %>% 
+    dplyr::group_by(Dat_PQC,Decode_Status) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  pqcs_sum_tib %>% print(n=base::nrow(pqcs_sum_tib))
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #
+  #                    2.0 Data Merging:: Ord/Mat/AQP/PQC
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  add_pas_tib <- NULL
+  if (!is.null(pqcs_dat_tib)) {
+    
+    add_pqc_dat_tib <- 
+      ords_dat_tib %>% 
+      dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
+      dplyr::left_join(pqcs_dat_tib, by="Address")
+    
+    add_pqc_sum_tib <- 
+      add_pqc_dat_tib %>% 
+      dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Dat_PQC,
+                      Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
+      dplyr::summarise(Count=n(), .groups="drop")
+    add_pqc_sum_tib %>% print(n=base::nrow(add_pqc_sum_tib))
+    
+    add_pas_tib <- add_pqc_dat_tib
+    # add_pas_tib <- add_pqc_dat_tib %>% 
+    #   dplyr::filter(Decode_Status==0) %>% 
+    #   dplyr::arrange(-Dat_IDX,Ord_Key) %>%
+    #   dplyr::distinct(Address, .keep_all=TRUE) %>%
+    #   dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+    
+  } else if (!is.null(aqps_dat_tib)) {
+    
+    add_aqp_dat_tib <- 
+      ords_dat_tib %>% 
+      dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
+      dplyr::left_join(aqps_dat_tib, by=c("Address","Dat_IDX","Dat_BPN","Dat_AQP") )
+    
+    add_aqp_sum_tib <- 
+      add_aqp_dat_tib %>% 
+      dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,
+                      Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
+      dplyr::summarise(Count=n(), .groups="drop")
+    add_aqp_sum_tib %>% print(n=base::nrow(add_aqp_sum_tib))
+    
+    add_pas_tib <- add_aqp_dat_tib
+    # add_pas_tib <- add_aqp_dat_tib %>% 
+    #   dplyr::filter(Decode_Status==0) %>% 
+    #   dplyr::arrange(-Dat_IDX,Ord_Key) %>% 
+    #   dplyr::distinct(Address, .keep_all=TRUE) %>%
+    #   dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+    
+  } else {
+    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Both AQP and PQC are length zero!!!{RET}{RET}"))
+  }
+  
+  add_pas_tib <- add_pas_tib %>% 
+    dplyr::filter(Decode_Status==0) %>% 
+    dplyr::arrange(-Dat_IDX,Ord_Key) %>%
+    dplyr::distinct(Address, .keep_all=TRUE) %>%
+    dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+
+  add_pas_sum_tib <- 
+    add_pas_tib %>% 
     dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Dat_PQC,
                     Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
     dplyr::summarise(Count=n(), .groups="drop")
-  add_pqc_sum_tib %>% print(n=base::nrow(add_pqc_sum_tib))
+  add_pas_sum_tib %>% print(n=base::nrow(add_pas_sum_tib))
   
-  add_pas_tib <- add_pqc_dat_tib %>% 
-    dplyr::filter(Decode_Status==0) %>% 
-    dplyr::arrange(-Dat_IDX) %>% 
-    dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
-
-} else if (!is.null(aqps_dat_tib)) {
-  
-  add_aqp_dat_tib <- 
-    ords_dat_tib %>% 
-    dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
-    dplyr::left_join(aqps_dat_tib, by=c("Address","Dat_IDX","Dat_BPN","Dat_AQP") )
-  
-  add_aqp_sum_tib <- 
-    add_aqp_dat_tib %>% 
-    dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,
-                    Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
-    dplyr::summarise(Count=n(), .groups="drop")
-  add_aqp_sum_tib %>% print(n=base::nrow(add_aqp_sum_tib))
-
-  add_pas_tib <- add_aqp_dat_tib %>% 
-    dplyr::filter(Decode_Status==0) %>% 
-    dplyr::arrange(-Dat_IDX) %>% 
-    dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+  safe_write(add_pas_tib,"csv",run$add_pas_csv, funcTag=par$prgmTag, 
+             verbose=opt$verbose)
   
 } else {
-  stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Both AQP and PQC are length zero!!!{RET}{RET}"))
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading add_pas_csv={opt$add_pas_csv}...{RET}"))
+  add_pas_tib <- readr::read_csv(run$add_pas_csv, guess_max=100000) %>%
+    utils::type.convert() %>% 
+    dplyr::mutate(across(where(is.factor),  as.character) )
+
 }
-
-add_pas_sum_tib <- 
-  add_pas_tib %>% 
-  dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Dat_PQC,
-                  Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-add_pas_sum_tib %>% print(n=base::nrow(add_pas_sum_tib))
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                  2.1 Functional Manifest Generation::
@@ -824,52 +859,116 @@ add_pas_sum_tib %>% print(n=base::nrow(add_pas_sum_tib))
 
 man_fun_vec <- c("Ord_Key","Ord_Din","Ord_Col", # "Ord_Par",
                  dplyr::all_of(base::names(man_info_tib) ) )
+stamp_vec <- c(stamp_vec,run$man_fun_csv)
 
-man_fun_tib <- add_pas_tib %>%
+if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+  man_fun_tib <- add_pas_tib %>%
   addressToManifest(des="Ord_Des", ord_id="Ord_Key", 
                     join=man_fun_vec,
                     csv=run$man_fun_csv, 
                     validate=TRUE, 
-                    verbose=opt$verbose+10, tt=pTracker)
+                    verbose=opt$verbose, tt=pTracker)
+} else {
+
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading man_fun_csv={opt$man_fun_csv}...{RET}"))
+  man_fun_tib <- readr::read_csv(run$man_fun_csv, guess_max=100000) %>%
+    utils::type.convert() %>% 
+    dplyr::mutate(across(where(is.factor),  as.character) )
+  
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
-#                    3.0 Align All Probe Sequence:: BSMAP
+#                    3.0 Alignment/Sequence Based CGN Mapping::
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-add_pas_fas_tib <-
-  tib_to_fasta(
-    tib=add_pas_tib, 
-    prb_key="Ord_Prb",
-    add_key="Address", des_key="Ord_Des", type_key="Ord_Din",
-    prb_fas=run$add_prb_fas, dat_csv=run$add_dat_csv,
-    u49_tsv=run$add_u49_tsv, u50_tsv=run$add_u50_tsv,
-    verbose=opt$verbose+10, tt=pTracker)
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                  3.1 Format Fasta AND U49/U50 Probe Seqs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# total alignments = 109367
-run$add_prb_bspz <- 
-  run_bsmap(
-    exe=opt$bsmap_exe, 
-    fas=run$add_prb_fas, 
-    gen=run$man_gen_fas,
-    bsp=run$add_prb_bsp,
-    # dir=run$alnDir, 
-    opt=NULL, lan=NULL, run=TRUE,
-    verbose=opt$verbose,tt=pTracker)
+stamp_vec <- c(stamp_vec,
+               run$add_dat_csv,run$add_prb_fas,
+               run$add_u49_tsv,run$add_u50_tsv)
+
+add_pas_fas_tib <- NULL
+if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+
+  add_pas_fas_tib <-
+    tib_to_fasta(
+      tib=add_pas_tib, 
+      prb_key="Ord_Prb",
+      add_key="Address", des_key="Ord_Des", type_key="Ord_Din",
+      prb_fas=run$add_prb_fas, dat_csv=run$add_dat_csv,
+      u49_tsv=run$add_u49_tsv, u50_tsv=run$add_u50_tsv,
+      verbose=opt$verbose, tt=pTracker)
+
+} else {
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading add_dat_csv={run$add_dat_csv}...{RET}"))
+  add_pas_fas_tib <- readr::read_csv(run$add_dat_csv, guess_max=100000) %>%
+    utils::type.convert() %>% 
+    dplyr::mutate(across(where(is.factor),  as.character) )
+  
+}  
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    3.2 Align All Probe Sequence:: BSMAP
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+stamp_vec <- c(stamp_vec, run$add_prb_bspz)
+if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+  
+  # Qucik Rat Fix::
+  #  - [done] Analyze results
+  #  - [done] Copy results to new location
+  #
+  # run$man_gen_fas <- "/Users/bretbarnes/Documents/data/iGenomes/Rattus_norvegicus/UCSC/rn6/Sequence/WholeGenomeFasta/rn6.genome.fa.gz"
+  # run$add_prb_bsp <- "/Users/bretbarnes/Documents/scratch/aqp_to_manifest/GRCm10-LEGX-C30-GRCm10/aln/GRCm10-LEGX-C30-GRCr6.bsp"
+  #
+  # Chicago::
+  #  - BSP CGN matching
+  #  - Lift over chrom hmmm (37/38)
+  #  - Annotate
+  #  - Implement multiple Genome Alignment
+  #  - Implement 122mer Reference Extraction
+  #  - Implement 122mer SNP-Reference Extraction
+  #  - Implement probe SNP-Reference Extraction
+  #
+  # EWAS::
+  #  - Implement 122mer SNP-Reference Extraction
+  #  - Identify all tri-fecta cgns I[CG]I
+  #
+  # improbe-design-formatter
+  #  - u50 stats: [ #CGN, #u50, nxb:cnt, min_score, cgn:map_cnt ...]
+  #
+  
+  run$add_prb_bspz <- 
+    run_bsmap(
+      exe=opt$bsmap_exe, 
+      fas=run$add_prb_fas, 
+      gen=run$man_gen_fas,
+      bsp=run$add_prb_bsp,
+      opt=NULL, lan=NULL, run=TRUE,
+      verbose=opt$verbose,tt=pTracker)
+
+} else {
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Using existing file add_prb_bspz={run$add_prb_bspz}...{RET}"))
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                  3.3 Join Address and Alignment Data:: BSMAP
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 add_pas_bsp_tib <- NULL
 add_pas_bsp_grs <- NULL
-
-#
-# TBD:: Use or implement file time stamp checking...
-#
-
-# if (!file.exists(man_add_bsp_tsv) ||
-#     !file.exists(man_add_bsp_rds) ||
-#     file.mtime(man_add_bsp_rds) < file.mtime(man_add_bsp_tsv) ) {
-if (TRUE) {
-  
+stamp_vec <- c(stamp_vec, run$add_pas_bsp_csv,run$add_pas_grs_rds)
+if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   # Either need to run Right Join or Inner join followed by Anti Join
   #  to find probes with no alignment...
   
@@ -880,55 +979,478 @@ if (TRUE) {
       join_key="aln_key", prb_des="Ord_Des",
       join_type="inner",
       sort=TRUE,
-      verbose=opt$verbose+10,tt=pTracker)
+      verbose=opt$verbose,tt=pTracker)
   
-  # add_pas_bsp_tibL <-
-  #   join_bsmap(
-  #     add=add_pas_fas_tib,
-  #     file=run$add_prb_bspz,
-  #     join_key="aln_key", prb_des="Ord_Des",
-  #     join_type="left",
-  #     sort=TRUE,
-  #     verbose=opt$verbose+10,tt=pTracker)
-  # 
-  # add_pas_bsp_tibR <-
-  #   join_bsmap(
-  #     add=add_pas_fas_tib,
-  #     file=run$add_prb_bspz,
-  #     join_key="aln_key", prb_des="Ord_Des",
-  #     join_type="right",
-  #     sort=TRUE,
-  #     verbose=opt$verbose+10,tt=pTracker)
-  # 
-  # add_pas_bsp_tibF <-
-  #   join_bsmap(
-  #     add=add_pas_fas_tib,
-  #     file=run$add_prb_bspz,
-  #     join_key="aln_key", prb_des="Ord_Des",
-  #     join_type="full",
-  #     sort=TRUE,
-  #     verbose=opt$verbose+10,tt=pTracker)
+  safe_write(add_pas_bsp_tib,"csv",run$add_pas_bsp_csv, funcTag=par$prgmTag, 
+             verbose=opt$verbose)
+
+  # Create basic Genomic Regions RDS as well::
+  add_pas_bsp_grs <- 
+    GRanges(
+      seqnames = Rle(add_pas_bsp_tib$bsp_chr),
+      strand   = Rle(stringr::str_sub(add_pas_bsp_tib$bsp_srd, 1,1)),
+
+      IRanges(start = add_pas_bsp_tib$bsp_pos,
+              width = 1,
+              # end   = add_pas_bsp_tib$bsp_pos+1,
+              names=add_pas_bsp_tib$unq_aln_key)
+    )
   
-  # Structure for grs::
-  # add_pas_bsp_grs
+  safe_write(add_pas_bsp_grs,"rds",run$add_pas_grs_rds, funcTag=par$prgmTag, 
+             verbose=opt$verbose)
+
+} else {
   
-  
-  # Example of two stage: Load -> join::
-  #
-  # bsp_tib <- 
-  #   load_bsmap(
-  #     bsp=run$add_prb_bspz,
-  #     sort=TRUE,
-  #     verbose=opt$verbose+10,tt=pTracker)
-  # 
-  # add_pas_bsp_tib <- 
-  #   join_bsmap(
-  #     add=add_pas_fas_tib, 
-  #     bsp=bsp_tib,
-  #     join_key="aln_key",
-  #     sort=TRUE,
-  #     verbose=opt$verbose+10,tt=pTracker)
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading add_pas_bsp_csv={run$add_pas_bsp_csv}...{RET}"))
+  add_pas_bsp_tib <- readr::read_csv(run$add_pas_bsp_csv, guess_max=100000) %>%
+    utils::type.convert() %>% 
+    dplyr::mutate(across(where(is.factor),  as.character) )
+
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading add_pas_grs_rds={run$add_pas_grs_rds}...{RET}"))
+  add_pas_bsp_grs <- readr::read_rds(run$add_pas_grs_rds)
+
 }
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#           3.4 Intersect Alignment and improbe coordinates:: GRS
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+opt$impDir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
+
+imp_bed_dir <- file.path(opt$impDir, "bed")
+imp_bed_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.bed.gz", sep="-"))
+imp_grs_rds <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.grs.rds", sep="-"))
+imp_pos_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.pos.sorted.tsv.gz", sep="-"))
+
+imp_pos_cols <-
+  cols(
+    Imp_Chr      = col_character(),
+    Imp_Pos      = col_integer(),
+    Imp_Top_Srd  = col_character(),
+    Imp_Cgn      = col_integer(),
+    Imp_Rep      = col_integer()
+  )
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Loading imp_pos_tsv={imp_pos_tsv}...{RET}"))
+imp_pos_tib <- readr::read_tsv(imp_pos_tsv, col_types=imp_pos_cols)
+
+#
+# Join by exact chr/pos match::
+#
+int_pos_tib <- imp_pos_tib %>% 
+  dplyr::inner_join(add_pas_bsp_tib, by=c("Imp_Chr"="bsp_chr","Imp_Pos"="bsp_pos")) %>% 
+  dplyr::mutate(Imp_Cgn=as.integer(Imp_Cgn),
+                Imp_Pos=as.integer(Imp_Pos),
+                Ord_Cgn=stringr::str_remove(Ord_Key, "_.*$"),
+    Ord_Cgn_Int=dplyr::case_when(
+      stringr::str_starts(Ord_Cgn, "cg") ~ stringr::str_remove(Ord_Cgn,"^cg") %>% 
+        stringr::str_remove("^0+"),
+      TRUE ~ Ord_Cgn)
+  )
+
+int_pos_tib %>% dplyr::filter(Imp_Cgn==Ord_Cgn_Int) %>%
+  dplyr::group_by(Ord_Din,Ord_Des,bsp_tag) %>%
+  dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+
+int_pos_tib %>% dplyr::filter(Imp_Cgn!=Ord_Cgn_Int) %>%
+  dplyr::group_by(Ord_Din,Ord_Des,bsp_tag) %>%
+  dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+
+int_pos_tib %>% dplyr::filter(Imp_Cgn==Ord_Cgn_Int) %>%
+  dplyr::distinct(Address, .keep_all=TRUE) %>% 
+  dplyr::group_by(Ord_Din,Ord_Des,bsp_tag) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+
+int_pos_tib %>% dplyr::filter(Imp_Cgn!=Ord_Cgn_Int) %>% 
+  dplyr::distinct(Address, .keep_all=TRUE) %>% 
+  dplyr::group_by(Ord_Din,Ord_Des,bsp_tag) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+
+# TBD:: Investigate mis-matches, but run U49/U50 checks first
+#
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#         3.5 Intersect Sequences Address and improbe:: U49/U50
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+imp_prb_dir <- file.path(opt$impDir, "prbDB")
+imp_u49_tsv <- file.path(imp_prb_dir, paste("ALL-21022021_improbe-designOutput.u49-cgn.seq-sorted.tsv.gz", sep="-") )
+imp_u50_tsv <- file.path(imp_prb_dir, paste("ALL-21022021_improbe-designOutput.u50-cgn.seq-sorted.tsv.gz", sep="-") )
+
+int_seq_tib <- NULL
+imp_seq_tib <- NULL
+if (!file.exists(run$int_seq_tsv)) {
+  int_u49_cmd = glue::glue("gzip -dc {imp_u49_tsv} | join -t $'\t' -11 -21 - {run$add_u49_tsv} | gzip -c - > {run$int_u49_tsv}")
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Running cmd={int_u49_cmd}...{RET}"))
+  int_u49_ret <- system(int_u49_cmd)
+  
+  int_u50_cmd = glue::glue("gzip -dc {imp_u50_tsv} | join -t $'\t' -11 -21 - {run$add_u50_tsv} | gzip -c - > {run$int_u50_tsv}")
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Running cmd={int_u50_cmd}...{RET}"))
+  int_u50_ret <- system(int_u50_cmd)
+  
+  int_seq_cols <-
+    cols(
+      Imp_Seq = col_character(),
+      Imp_Cgn = col_character(),
+      Imp_TB  = col_character(),
+      Imp_CO  = col_character(),
+      aln_key = col_character()
+    )
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading int_u49_tsv={run$int_u49_tsv}...{RET}"))
+  int_u49_tib <- readr::read_tsv(run$int_u49_tsv, col_names=names(int_seq_cols$cols), col_types=int_seq_cols)
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading int_u50_tsv={run$int_u50_tsv}...{RET}"))
+  int_u50_tib <- readr::read_tsv(run$int_u50_tsv, col_names=names(int_seq_cols$cols), col_types=int_seq_cols)
+
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Writing imp_seq_tsv={run$int_seq_tsv}...{RET}"))
+  imp_seq_tib <- dplyr::bind_rows(int_u49_tib,int_u50_tib) %>%
+    dplyr::mutate(Imp_Cgn=stringr::str_remove(Imp_Cgn,"^cg") %>% 
+                    stringr::str_remove("^0+") %>% as.integer())
+  
+  readr::write_csv(imp_seq_tib, run$int_seq_tsv)
+  
+} else {
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading imp_seq_tsv={run$int_seq_tsv}...{RET}"))
+  imp_seq_tib <- readr::read_csv(run$int_seq_tsv) %>%
+    utils::type.convert() %>% 
+    dplyr::mutate(across(where(is.factor),  as.character) )
+  
+}
+
+# Extra Summary Stats::
+#
+add_pas_fas_tib %>% dplyr::filter(aln_key %in% imp_seq_tib$aln_key)
+imp_seq_tib %>% dplyr::filter( aln_key %in% add_pas_fas_tib$aln_key)
+
+add_pas_fas_tib %>% dplyr::filter(! aln_key %in% imp_seq_tib$aln_key)
+imp_seq_tib %>% dplyr::filter(!aln_key %in% add_pas_fas_tib$aln_key)
+
+#
+# Odd that one seems to be missing...
+#
+add_pas_fas_tib %>% 
+  dplyr::filter(! aln_key %in% imp_seq_tib$aln_key) %>% 
+  dplyr::filter(! aln_key %in% int_pos_tib$aln_key) %>% 
+  print()
+
+int_seq_tib <- imp_seq_tib %>%
+  dplyr::inner_join(add_pas_fas_tib, by="aln_key")
+
+#
+# Conclusion:: Need to calculate best cgn for both methods::
+#   - int_pos_tib
+#   - imp_seq_tib
+#   - NOTE: Give priority to canonical names (rename pre-assigned)
+#
+
+if (FALSE) {
+  
+  # This (int_pos_tib) provides the Order CGN Integer::
+  top_pos_tib <- int_pos_tib %>% 
+    dplyr::group_by(Address,Imp_Cgn,Ord_Din,Ord_Des) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count) %>% 
+    dplyr::distinct(Address, .keep_all=TRUE)
+  
+  top_pos_tib %>% dplyr::distinct(Address) %>% base::nrow()
+  top_pos_tib %>% dplyr::distinct(Imp_Cgn) %>% base::nrow()
+  
+  
+  # I think we should add: Imp_Cgn,Imp_TB,Imp_CO
+  # OLD METHOD BELOW::
+  top_seq_tib <- int_seq_tib %>%
+    # dplyr::group_by(Address,aln_key,Ord_Din,Ord_Des) %>%
+    dplyr::group_by(Address,Ord_Din,Ord_Des) %>%
+    dplyr::summarise(Count=n(), .groups="drop") %>%
+    dplyr::arrange(-Count) %>%
+    dplyr::distinct(Address, .keep_all=TRUE)
+  
+  top_seq_tib %>% dplyr::distinct(Address) %>% base::nrow()
+  
+  top_pos_tib %>% 
+    dplyr::full_join(top_seq_tib, 
+                     by=c("Address","Ord_Din","Ord_Des"), 
+                     suffix=c("_PosBase","_SeqBase"))
+  
+}
+
+
+
+
+
+
+
+
+#
+#
+#
+# STOPPED HERE::
+#   - Need Ranks for each Address 
+#
+#
+#
+
+if (FALSE) {
+
+  # Basic Mappings::
+  par_pos_tib <- int_pos_tib %>% dplyr::distinct(Address, Imp_Cgn)
+  par_seq_tib <- int_seq_tib %>% dplyr::distinct(Address, Imp_Cgn)
+  
+  # LOAD Pre-defined (Canonical) CGN's::
+  con_cols <-
+    cols(
+      CGN = col_character(),
+      TOP = col_character(),
+      SRC = col_character()
+    )
+  
+  con_cgn_csv <- "/Users/bretbarnes/Documents/data/improbe/dbCGN/pre-assigned/pre-assigned.cgnTop.hash.csv.gz"
+  con_cgn_tib <- readr::read_csv(con_cgn_csv, col_types=con_cols) %>%
+    dplyr::filter(!stringr::str_starts(CGN, "ch")) %>%
+    dplyr::rename(Imp_Cgn=CGN, Imp_Top=TOP, Imp_Src=SRC) %>%
+    dplyr::mutate(Imp_Cgn=as.integer(Imp_Cgn))
+  
+  con_cgn_tib %>% dplyr::group_by(Imp_Src) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count)
+  
+  con_pos_tib <- con_cgn_tib %>% 
+    dplyr::filter(!is.na(Imp_Cgn)) %>%
+    # dplyr::select(Imp_Cgn) %>%
+    dplyr::inner_join(par_pos_tib, by="Imp_Cgn")
+  
+  con_seq_tib <- con_cgn_tib %>% 
+    dplyr::filter(!is.na(Imp_Cgn)) %>%
+    # dplyr::select(Imp_Cgn) %>%
+    dplyr::inner_join(par_seq_tib, by="Imp_Cgn")
+  
+  cnt_pos_tib <- int_pos_tib %>% 
+    dplyr::select(Address,Imp_Cgn,Ord_Din,Ord_Des) %>% 
+    dplyr::mutate(Imp_Cgn=as.integer(Imp_Cgn)) %>%
+    dplyr::add_count(Address, name="Add_Cnt") %>%
+    dplyr::add_count(Address,Imp_Cgn,Ord_Din,Ord_Des, name="Add_Cgn_Cnt") %>%
+    dplyr::arrange(-Add_Cnt) %>% 
+    dplyr::distinct(Address, .keep_all=TRUE) %>%
+    dplyr::left_join(con_pos_tib, by="Address", suffix=c("_Pos","_Con_Pos")) %>%
+    dplyr::arrange(Address)
+  
+  cnt_seq_tib <- int_seq_tib %>%
+    dplyr::select(Address,Imp_Cgn,Imp_TB,Imp_CO,Ord_Din,Ord_Des) %>% 
+    dplyr::add_count(Address, name="Add_Cnt") %>%
+    dplyr::add_count(Address,Imp_Cgn,Imp_TB,Imp_CO,Ord_Din,Ord_Des, name="Add_Cgn_Cnt") %>%
+    dplyr::arrange(-Add_Cnt) %>%
+    dplyr::distinct(Address, .keep_all=TRUE) %>%
+    dplyr::left_join(con_seq_tib, by="Address", suffix=c("_Seq","_Con_Seq")) %>%
+    dplyr::arrange(Address)
+  
+  cnt_all_tib <- 
+    dplyr::full_join(cnt_pos_tib,cnt_seq_tib, 
+                     by=c("Address","Ord_Des","Ord_Din"),
+                     suffix=c("_Pos","_Seq"))
+  
+  # Why do Ord_Des=='M' have Imp_CO==NA???
+  #
+  sum_all_tib <- cnt_all_tib %>%
+    dplyr::mutate(
+      mat_class=dplyr::case_when(
+        Imp_Cgn_Con_Pos==Imp_Cgn_Seq & Imp_Cgn_Seq==Imp_Cgn_Con_Seq ~ 3,
+        Imp_Cgn_Con_Pos==Imp_Cgn_Seq ~ 2,
+        Imp_Cgn_Con_Pos==Imp_Cgn_Con_Seq | Imp_Cgn_Seq==Imp_Cgn_Con_Seq ~ 1,
+        TRUE ~ NA_real_
+      )
+    ) %>%
+    dplyr::group_by(Ord_Din,Ord_Des,Imp_CO,mat_class) %>%
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  # Which probes failed to map???
+  #  - M probes should have poor mappings
+  #
+  add_pas_fas_tib %>% dplyr::anti_join(cnt_pos_tib, by="Address") %>% dplyr::group_by(Ord_Din,Ord_Des,Dat_IDX) %>% dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+  add_pas_fas_tib %>% dplyr::anti_join(cnt_pos_tib, by="Address") %>% dplyr::group_by(Ord_Din,Ord_Des) %>% dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+  add_pas_fas_tib %>% dplyr::anti_join(cnt_seq_tib, by="Address") %>% dplyr::group_by(Ord_Din,Ord_Des) %>% dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+  
+  #
+  # Extra Stats::
+  #
+  cnt_all_tib %>% dplyr::group_by(Imp_Src_Pos,Imp_Src_Seq) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count) %>% as.data.frame()
+  
+  cnt_all_tib %>% dplyr::filter(Imp_Cgn_Con_Pos != Imp_Cgn_Con_Seq) %>% 
+    dplyr::group_by(Ord_Des,Imp_Src_Pos,Imp_Src_Seq) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count) %>% as.data.frame()
+  
+  cnt_all_tib %>% 
+    dplyr::add_count(Address, name="Fin_Add_Cnt") %>% 
+    dplyr::filter(Fin_Add_Cnt!=1) %>% print()
+
+  dplyr::full_join(cnt_pos_tib,cnt_seq_tib,
+                   by=c("Address","Ord_Des","Ord_Din","Imp_Top","Imp_Src"),
+                   suffix=c("_Pos","_Seq"))
+
+}
+
+
+#
+# TBD:: Join all::
+#   - add_pas_fas_tib
+#   - add_pas_bsp_tib
+#   - tmp_tib [ rename and save this ]
+#   - int_u49_tib
+#   - int_u49_tib
+#
+# TBD:: Build cgn summary stats from above (Ord_Key, Bsp_Key, Unn_Key)
+#
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#
+#                 X.X Build improbe Genomic Ranges:: by 50U/49U
+#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+run_cgn_mat <- FALSE
+if (run_cgn_mat) {
+  
+  opt$impDir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
+
+  imp_prb_dir <- file.path(opt$impDir, "prbDB/merged")
+  imp_u49_tsv <- file.path(imp_prb_dir, paste("GRCh36-GRCh37-GRCh38-GRCm10.u49-cgn.seq-sorted.tsv.gz", sep="-") )
+  imp_u50_tsv <- file.path(imp_prb_dir, paste("GRCh36-GRCh37-GRCh38-GRCm10.u50-cgn.seq-sorted.tsv.gz", sep="-") )
+  
+  # imp_u49_tib <- readr::read_tsv(imp_u49_tsv)
+  # imp_u50_tib <- readr::read_tsv(imp_u50_tsv)
+  
+  if (FALSE) {
+    # Build/Load imp_bed_grs::
+    #  NOTE: imp_bed_tib uses base-0 coordinates
+    #
+    
+    opt$impDir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
+    imp_bed_dir <- file.path(opt$impDir, "bed")
+    
+    gen_vec <- c("GRCh38","GRCh37","GRCh36","GRCm10")
+    for (gen in gen_vec) {
+      cat(glue::glue("[{par$prgmTag}]: Genome Build={gen}.{RET}"))
+      
+      imp_bed_tsv <- file.path(imp_bed_dir, paste(gen, "21022021.cgn.sorted.bed.gz", sep="-"))
+      imp_grs_rds <- file.path(imp_bed_dir, paste(gen, "21022021.cgn.sorted.grs.rds", sep="-"))
+      imp_pos_tsv <- file.path(imp_bed_dir, paste(gen, "21022021.pos.sorted.tsv.gz", sep="-"))
+      # imp_pos_rds <- file.path(imp_bed_dir, paste(gen, "21022021.pos.sorted.rds", sep="-"))
+      
+      cat(glue::glue("[{par$prgmTag}]:{TAB} imp_bed_tsv={imp_bed_tsv}.{RET}"))
+      cat(glue::glue("[{par$prgmTag}]:{TAB} imp_pos_tsv={imp_pos_tsv}.{RET}"))
+      cat(glue::glue("[{par$prgmTag}]:{TAB} imp_grs_rds={imp_grs_rds}.{RET}"))
+      
+      if (!file.exists(imp_grs_rds)) {
+        
+        imp_bed_cols <-
+          cols(
+            imp_chr = col_character(),
+            imp_beg = col_integer(),
+            imp_end = col_integer(),
+            imp_cgn = col_character(),
+            imp_scr = col_character(),
+            imp_srd = col_character()
+          )
+        imp_bed_tib <- 
+          readr::read_tsv(imp_bed_tsv, col_names=names(imp_bed_cols$cols), col_types=imp_bed_cols) %>% 
+          dplyr::group_by(imp_cgn) %>% 
+          dplyr::mutate(imp_rep=dplyr::row_number()) %>% 
+          dplyr::ungroup()
+        
+        imp_bed_grs <-
+          GRanges(
+            seqnames = Rle(imp_bed_tib$imp_chr),
+            strand   = Rle(imp_bed_tib$imp_srd),
+            
+            cgn=imp_bed_tib$imp_cgn,
+            rep=imp_bed_tib$imp_rep,
+            
+            IRanges(start = imp_bed_tib$imp_beg+1,
+                    end   = imp_bed_tib$imp_end+1,
+                    names=paste(imp_bed_tib$imp_cgn,imp_bed_tib$imp_rep, sep="_")
+            )
+          )
+        safe_write(imp_bed_grs,"rds",imp_grs_rds, funcTag=par$prgmDir, verbose=opt$verbose)
+        
+      } else {
+        
+        if (opt$verbose>=1)
+          cat(glue::glue("[{par$prgmTag}]: Loading imp_grs_rds={imp_grs_rds}...{RET}"))
+        imp_bed_grs <- readr::read_rds(imp_grs_rds)
+        
+      }
+      
+      if (!file.exists(imp_pos_tsv)) {
+        
+        imp_pos_tib <- imp_bed_grs %>% # head() %>% 
+          as.data.frame() %>% 
+          tibble::as_tibble() %>%
+          dplyr::rename(Imp_Chr=seqnames, Imp_Pos=start, Imp_Top_Srd=strand, Imp_Cgn=cgn, Imp_Rep=rep) %>%
+          dplyr::select(Imp_Chr,Imp_Pos,Imp_Top_Srd,Imp_Cgn,Imp_Rep) %>%
+          dplyr::mutate(Imp_Cgn=stringr::str_remove(Imp_Cgn,"^cg") %>% stringr::str_remove("^0+"),
+                        Imp_Top_Srd=dplyr::case_when(
+                          Imp_Top_Srd=="+" ~ "F",
+                          Imp_Top_Srd=="-" ~ "R",
+                          TRUE ~ NA_character_)
+          ) %>%
+          utils::type.convert() %>% 
+          dplyr::mutate(across(where(is.factor), as.character) )
+        
+        print_tib(imp_pos_tib,par$prgmTag,v=opt$verbose, n=gen)
+        safe_write(imp_pos_tib,"tsv",imp_pos_tsv, funcTag=par$prgmDir, verbose=opt$verbose)
+        
+      }
+    }
+
+  }
+  
+}
+
+
+
+
+
+
 
 
 
@@ -961,64 +1483,25 @@ if (TRUE) {
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
-#                    OLD CODE WITHOUT AUTO FILE DETECT
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-if (FALSE) {
-  
-  if (!file.exists(man_add_bsp_tsv) ||
-      !file.exists(man_add_bsp_rds) ||
-      file.mtime(man_add_bsp_rds) < file.mtime(man_add_bsp_tsv) ) {
-    
-    if (FALSE) {
-      man_add_bsp_tib <- NULL
-      man_add_bsp_grs <- NULL
-      
-      man_add_bsp_tib <- loadBspFormatted(
-        bsp=man_add_bsp_tsv, src=man_fas_tib, sort=TRUE,
-        # bsp=man_add_bsp_tsv, src=dplyr::mutate(man_fas_tib, prb_cgn=as.character(prb_add)), sort=TRUE,
-        # bsp=man_add_bsp_tsv, src=man_fas_tib, sort=TRUE,
-        verbose=opt$verbose,tt=pTracker)
-      
-      if (opt$verbose>=1)
-        cat(glue::glue("[{par$prgmTag}]: Building man_add_bsp (RDS)={man_add_bsp_rds}...{RET}"))
-      
-      man_add_bsp_grs <- bspToGenomicRegion(
-        bsp=man_add_bsp_tib, rds=man_add_bsp_rds,
-        verbose=opt$verbose,tt=pTracker)
-      
-    }
-    
-  } else {
-    if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Loading man_add_bsp (RDS)={man_add_bsp_rds}...{RET}"))
-    man_add_bsp_grs <- readr::read_rds(man_add_bsp_rds)
-  }
-  
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
 #                       STEP 3:: Annotate:: by 50U/49U
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-run_cgn_mat <- TRUE
+run_cgn_mat <- FALSE
 if (run_cgn_mat) {
   
-  imp_dir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/"
-  
+  imp_dir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
+
   imp_bed_dir <- file.path(imp_dir, "bed")
-  imp_prb_dir <- file.path(imp_dir, "prbDB")
+  imp_prb_dir <- file.path(imp_dir, "prbDB/merged")
   
   imp_bed_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.bed.gz", sep="-"))
-  imp_u49_tsv <- file.path(imp_prb_dir, paste(opt$genBuild, "21022021_improbe-designOutput.u49-cgn.seq-sorted.tsv.gz", sep="-"))
-  imp_u50_tsv <- file.path(imp_prb_dir, paste(opt$genBuild, "21022021_improbe-designOutput.u50-cgn.seq-sorted.tsv.gz", sep="-"))
-  
+  imp_u49_tsv <- file.path(imp_prb_dir, paste("GRCh36-GRCh37-GRCh38-GRCm10.u49-cgn.seq-sorted.tsv.gz", sep="-") )
+  imp_u50_tsv <- file.path(imp_prb_dir, paste("GRCh36-GRCh37-GRCh38-GRCm10.u50-cgn.seq-sorted.tsv.gz", sep="-") )
   
   imp_bed_tib <- readr::read_tsv(imp_bed_tsv)
-  
+  imp_u49_tib <- readr::read_tsv(imp_u49_tsv)
+  imp_u50_tib <- readr::read_tsv(imp_u50_tsv)
   
   
   
@@ -1544,6 +2027,133 @@ if (FALSE) {
     # purrr::imap(ords_vec, function(x,y) { 
     #   load_man_file(x,y, verbose=opt$verbose,tt=pTracker) } ) %>%
     #   dplyr::bind_rows()
+  }
+  
+  
+  
+  # Example of two stage: Load -> join::
+  #
+  # bsp_tib <- 
+  #   load_bsmap(
+  #     bsp=run$add_prb_bspz,
+  #     sort=TRUE,
+  #     verbose=opt$verbose+10,tt=pTracker)
+  # 
+  # add_pas_bsp_tib <- 
+  #   join_bsmap(
+  #     add=add_pas_fas_tib, 
+  #     bsp=bsp_tib,
+  #     join_key="aln_key",
+  #     sort=TRUE,
+  #     verbose=opt$verbose+10,tt=pTracker)
+  
+  # Other intersection combinations::
+  #
+  # add_pas_bsp_tibL <-
+  #   join_bsmap(
+  #     add=add_pas_fas_tib,
+  #     file=run$add_prb_bspz,
+  #     join_key="aln_key", prb_des="Ord_Des",
+  #     join_type="left",
+  #     sort=TRUE,
+  #     verbose=opt$verbose+10,tt=pTracker)
+  # 
+  # add_pas_bsp_tibR <-
+  #   join_bsmap(
+  #     add=add_pas_fas_tib,
+  #     file=run$add_prb_bspz,
+  #     join_key="aln_key", prb_des="Ord_Des",
+  #     join_type="right",
+  #     sort=TRUE,
+  #     verbose=opt$verbose+10,tt=pTracker)
+  # 
+  # add_pas_bsp_tibF <-
+  #   join_bsmap(
+  #     add=add_pas_fas_tib,
+  #     file=run$add_prb_bspz,
+  #     join_key="aln_key", prb_des="Ord_Des",
+  #     join_type="full",
+  #     sort=TRUE,
+  #     verbose=opt$verbose+10,tt=pTracker)
+  
+  
+  if (FALSE) {
+    
+    #
+    # Pick Best Summary::
+    #
+    best_cgn_tib <- dplyr::bind_rows(
+      # This group could have incorrect names as they were made before the most recent update to CGN database::
+      #   TBD:: Check the actual sequences...
+      int_pos_tib %>% dplyr::filter(bsp_tag=="UM") %>% dplyr::filter(Imp_Cgn!=Ord_Cgn_Int) %>% dplyr::distinct(Address, .keep_all=TRUE),
+      int_pos_tib %>% dplyr::filter(Imp_Cgn==Ord_Cgn_Int) %>% dplyr::distinct(Address, .keep_all=TRUE)
+    )
+    
+    best_cgn_tib %>% dplyr::distinct(Ord_Key)
+    
+    #
+    # EXAMPLE OF INCORRECT NAME:: THIS IS WHY WE NEED THE DOUBLE CGN NAME VERIFICATION!!!
+    #
+    # add_pas_fas_tib::
+    # Ord_Key           Ord_Prb                                             aln_u49
+    # cg00065748_R_C2T1 TACCTAAAAAATAACACCCTAAACTACTAAAATCTACATTCCAAAAAAAC  ACCTAAAAAATAACACCCTAAACTACTAAAATCTACATTCCAAAAAAAC
+    #
+    # GRCh38-21022021_improbe-designOutput.u50-cgn.seq-sorted.tsv.gz         GRCh38-21022021_improbe-designOutput.u49-cgn.seq-sorted.tsv.gz
+    #  cg00065837 FBC    ACCTAAAAAATAACACCCTAAACTACTAAAATCTACATTCCAAAAAAACA  CCTAAAAAATAACACCCTAAACTACTAAAATCTACATTCCAAAAAAACA ***
+    #  cg00065837 RTC    CACCCACCTTAACCCTCCACCCCTTTTCTCCCTTTTCTATAATCTACCCA  ACCCACCTTAACCCTCCACCCCTTTTCTCCCTTTTCTATAATCTACCCA
+    #  cg00065837 RTO    TGTTTGGGAGGTAATATTTTGGATTGTTGGAGTTTGTATTTTAGGAGAGT  GTTTGGGAGGTAATATTTTGGATTGTTGGAGTTTGTATTTTAGGAGAGT
+    #  cg00065837 FBO    TTGTTTGTTTTGATTTTTTATTTTTTTTTTTTTTTTTTTGTGGTTTGTTT  TGTTTGTTTTGATTTTTTATTTTTTTTTTTTTTTTTTTGTGGTTTGTTT
+    # CMD:: gzip -dc data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDB/GRCh38-21022021_improbe-designOutput.u50-cgn.seq-sorted.tsv.gz | grep "cg00065837"
+    # CMD:: gzip -dc data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput/prbDB/GRCh38-21022021_improbe-designOutput.u49-cgn.seq-sorted.tsv.gz | grep "cg00065837"
+    #
+    # Forward Sequence:: gzip -dc data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designInput/GRCh38.improbeDesignInput.tsv.gz| grep cg00065837
+    # cg00065837	GTTCCCTGTGTCCGCCCGCCTTGACCCTCCACCCCTTTTCTCCCTTTTCTGTGGTCTGCC[CG]CTCTCCTGGAATGCAGACTCCAGCAGTCCAGGGTGTTACCTCCCAGGCAGCAGGAGGAAA	GRCh38	1	2566269	FALSE
+    #
+    # Forward Sequence:: gzip -dc data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designInput/GRCh37.improbeDesignInput.tsv.gz| grep cg00065837
+    # cg00065837	GTTCCCTGTGTCCGCCCGCCTTGACCCTCCACCCCTTTTCTCCCTTTTCTGTGGTCTGCC[CG]CTCTCCTGGAATGCAGACTCCAGCAGTCCAGGGTGTTACCTCCCAGGCAGCAGGAGGAAA	GRCh37	1	2497708	FALSE
+    #
+    #
+    #       bscD  GTTCCCTGTGTCyGCCyGCCTTGACCCTCCACCCCTTTTCTCCCTTTTCTGTGGTCTGCC[yG]CTCTCCTGGAATGCAGACTCCAGCAGTCCAGGGTGTTACCTCCCAGGCAGCAGGAGGAAA
+    #
+    #             TTTCCTCCTGCTGCCTGGGAGGTAACACCCTGGACTGCTGGAGTCTGCATTCCAGGAGAG[Cr]GGCAGACCACAGAAAAGGGAGAAAAGGGGTGGAGGGTCAAGGCrGGCrGACACAGGGAAC
+    #                        TACCTAAAAAATAACACCCTAAACTACTAAAATCTACATTCCAAAAAAAC
+    #
+    fwd_tib <- tibble::tibble(cgn="cg00065837", seq="GTTCCCTGTGTCCGCCCGCCTTGACCCTCCACCCCTTTTCTCCCTTTTCTGTGGTCTGCC[CG]CTCTCCTGGAATGCAGACTCCAGCAGTCCAGGGTGTTACCTCCCAGGCAGCAGGAGGAAA", prb="cg")
+    fwd_prb_des_tib <- desSeq_to_prbs(tib=fwd_tib, idsKey = "cgn", seqKey = "seq", prbKey = "prb", verbose=10)
+    #
+    # PRB2_D_MAT =TACCTAAAAAATAACACCCTAAACTACTAAAATCTACATTCCAAAAAAAC
+    #
+    # GOT IT CORRECT!!!
+    #
+    # TBD:: Validate that the original CGN was not in the input hash for latest probe assignments...
+    # TBD:: Validate the matching CGN's were...
+    #
+    
+    # LOAD Pre-defined CGN's::
+    pre_cgn_csv <- "/Users/bretbarnes/Documents/data/improbe/dbCGN/pre-assigned/pre-assigned.cgnTop.hash.csv.gz"
+    pre_cgn_tib <- readr::read_csv(pre_cgn_csv)
+    
+    int_mis_cmp_tib <- int_pos_tib %>% dplyr::filter(bsp_tag=="UM") %>% dplyr::filter(Imp_Cgn!=Ord_Cgn_Int) %>% dplyr::distinct(Address, .keep_all=TRUE)
+    int_mat_cmp_tib <- int_pos_tib %>% dplyr::filter(Imp_Cgn==Ord_Cgn_Int) %>% dplyr::distinct(Address, .keep_all=TRUE)
+    
+    # 156+75 / 14,071 found in previous data (probably random)
+    #  TBD:: verify the sequences are not the same between order and improbe CGN db...
+    int_mis_cmp_tib %>% dplyr::filter(Imp_Cgn %in% pre_cgn_tib$CGN)
+    int_mis_cmp_tib %>% dplyr::filter(Ord_Cgn_Int %in% pre_cgn_tib$CGN)
+    
+    pre_cgn_tib %>% dplyr::filter(CGN %in% int_mis_cmp_tib$Imp_Cgn) %>% 
+      dplyr::group_by(SRC) %>% dplyr::summarise(Count=n(), .groups="drop")
+    pre_cgn_tib %>% dplyr::filter(CGN %in% int_mis_cmp_tib$Ord_Cgn_Int) %>%
+      dplyr::group_by(SRC) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
+    
+    # 28,894 / 28,894 found in previous data
+    int_mat_cmp_tib %>% dplyr::filter(Imp_Cgn %in% pre_cgn_tib$CGN)
+    int_mat_cmp_tib %>% dplyr::filter(Ord_Cgn_Int %in% pre_cgn_tib$CGN)
+    
+    int_mat_cmp_tib %>% dplyr::inner_join(pre_cgn_tib, by=c("Imp_Cgn"="CGN")) %>%
+      dplyr::group_by(SRC) %>% dplyr::summarise(Count=n(), .groups="drop")
+    
   }
   
 }

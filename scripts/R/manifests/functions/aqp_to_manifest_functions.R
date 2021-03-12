@@ -44,6 +44,59 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Genomic Range Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+intersect_GRS = function(can,ref, can_key="unq_can_key", ref_prefix="imp",
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'intersect_GRS'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    map_tib <- 
+      GenomicRanges::findOverlaps(can,ref, ignore.strand=TRUE) %>%
+      as.data.frame() %>% tibble::as_tibble()
+    map_cnt <- print_tib(map_tib,funcTag, verbose,vt+4,tc, n="map")
+    
+    can_tib <- can %>% as.data.frame() %>%
+      rownames_to_column(var=can_key) %>% 
+      tibble::as_tibble() %>%
+      dplyr::select(dplyr::all_of(can_key))
+    can_cnt <- print_tib(can_tib,funcTag, verbose,vt+4,tc, n="can")
+    
+    ref_tib <- ref %>% as.data.frame() %>%
+      # rownames_to_column(var='unq_ref_key') %>% 
+      tibble::as_tibble() %>%
+      dplyr::mutate(seqnames=as.character(seqnames),
+                    strand=as.character(strand)) %>%
+      dplyr::rename(chr=seqnames,
+                    pos=start,
+                    top_srd=strand) %>%
+      purrr::set_names(paste(ref_prefix,names(.), sep="_"))
+    ref_cnt <- print_tib(ref_tib,funcTag, verbose,vt+4,tc, n="ref")
+    
+    # Column Bind Data Sets::
+    ret_tib <- dplyr::bind_cols(
+      can_tib[map_tib$queryHits, ],
+      ref_tib[map_tib$subjectHits,]
+    )
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Address To Manifest Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -151,13 +204,13 @@ tib_to_fasta = function(tib, prb_key="prb_seq",
     if (!is.null(u49_tsv))
       u49_tib <- ret_tib %>% 
       dplyr::filter(!!des_sym == '2') %>%
-      dplyr::select(aln_key,aln_u49) %>%
+      dplyr::select(aln_u49,aln_key) %>%
       dplyr::arrange(aln_u49)
     
     if (!is.null(u50_tsv))
       u50_tib <- ret_tib %>% 
       dplyr::filter(!!des_sym == 'U') %>%
-      dplyr::select(aln_key,aln_seq) %>%
+      dplyr::select(aln_seq,aln_key) %>%
       dplyr::arrange(aln_seq)
     
     # Safe Write Outputs::
@@ -332,7 +385,7 @@ join_bsmap = function(add, bsp=NULL, file=NULL,
       return(ret_tib)
     }
     print_tib(add,funcTag, verbose,vt+4,tc, n="address_tib")
-
+    
     prb_des_sym  <- rlang::sym(prb_des)
     bsp_join_key <- names(bsp)[1]
     join_key_sym <- rlang::sym(join_key)
@@ -977,11 +1030,11 @@ guess_man_file = function(file,
       stop(glue::glue("{RET}[{funcTag}]: ERROR: file_del_str=NULL!!!{RET}{RET}"))
       return(NULL)
     }
-
+    
     dat_tib <- readr::read_lines(file, n_max=n_max) %>%
       tibble::as_tibble() %>% 
       dplyr::mutate(row_num=dplyr::row_number())
-
+    
     ret_tib <- NULL
     for (field in fields) {
       if (verbose>=vt+6)
@@ -1000,13 +1053,13 @@ guess_man_file = function(file,
       
       # Combine Step::
       ret_tib <- ret_tib %>% dplyr::bind_rows(
-         min_tib %>%
+        min_tib %>%
           dplyr::mutate(col_num=col_num,del_key=file_del_str,beg_key=field)
       )
       if (verbose>=vt+6)
         cat(glue::glue("[{funcTag}]:{tabsStr} NEXT...{RET}{RET}"))
     }
-
+    
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -1098,7 +1151,7 @@ load_man_file = function(file, idx=NULL,
   key_cols$mat2 <- c("Address","Sequence")
   key_cols$aqp  <- c("Address","Decode_Status")
   key_cols$pqc  <- c("Address","Decode_Status")
-
+  
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
@@ -1209,11 +1262,11 @@ load_man_file = function(file, idx=NULL,
             TRUE ~ NA_character_
           )
         )
-
+      
       ord_cols <- c("Ord_Key","Ord_Des", "Ord_Prb", "Ord_Par", "Ord_Col")
       ord_colA <- c("Ord_Key","Ord_DesA","Ord_PrbA","Ord_PrbB","Ord_Col")
       ord_colB <- c("Ord_Key","Ord_DesB","Ord_PrbB","Ord_PrbA","Ord_Col")
-
+      
       ret_tib <- dplyr::bind_rows(
         ord_tib %>% dplyr::filter(Ord_DesB=="M") %>%
           dplyr::select(dplyr::all_of(ord_colB)) %>%
@@ -1264,7 +1317,7 @@ load_man_file = function(file, idx=NULL,
     ret_tib <- ret_tib %>%
       utils::type.convert() %>%
       dplyr::mutate(across(where(is.factor),  as.character) )
-
+    
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -1568,6 +1621,342 @@ write_impGenomeGRS = function(genBuild,
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_grs
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Standard UCSC Loading Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+load_ncbi_gene = function(file,grs=FALSE,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'load_ncbi_gene'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_grs <- NULL
+  stime <- system.time({
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
+    
+    dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
+    colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
+    dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE) # %>% dplyr::mutate(transcript=name, name=name2)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
+    if (verbose>=vt+4) print(dat_tib)
+    
+    dat_tib <- dat_tib %>% 
+      dplyr::mutate(
+        gene_tss=dplyr::case_when(
+          strand=='+' ~ txStart,
+          strand=='-' ~ txEnd,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_200_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss,
+          TRUE ~ NA_real_
+        ),
+        tss_200_end=dplyr::case_when(
+          strand=='+' ~ gene_tss,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_1500_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-1500,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_
+        ),
+        tss_1500_end=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss+1500,
+          TRUE ~ NA_real_
+        ),
+      )
+    
+    ret_tib <- 
+      dplyr::bind_rows(
+        tibble::tibble(chr=dat_tib$chrom,
+                       beg=dat_tib$txStart,
+                       end=dat_tib$txEnd,
+                       srd=dat_tib$strand,
+                       name2=dat_tib$name2,
+                       name=dat_tib$name,
+                       class="GeneBody",
+                       source="NCBI",
+                       source2=NA_character_),
+        
+        tibble::tibble(chr=dat_tib$chrom,
+                       beg=dat_tib$tss_200_beg,
+                       end=dat_tib$tss_200_end,
+                       srd=dat_tib$strand,
+                       name2=dat_tib$name2,
+                       name=dat_tib$name,
+                       class="TSS200",
+                       source="NCBI",
+                       source2=NA_character_),
+        
+        tibble::tibble(chr=dat_tib$chrom,
+                       beg=dat_tib$tss_1500_beg,
+                       end=dat_tib$tss_1500_end,
+                       srd=dat_tib$strand,
+                       name2=dat_tib$name2,
+                       name=dat_tib$name,
+                       class="TSS1500",
+                       source="NCBI",
+                       source2=NA_character_)
+      ) %>% 
+      dplyr::group_by(class) %>%
+      dplyr::mutate(rank=dplyr::row_number(),
+                    unq_key=paste(class,rank, sep="_")) %>%
+      dplyr::ungroup() %>%
+      dplyr::arrange(chr,beg,end)
+    
+    if (grs) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
+      ret_tib = 
+        GRanges(
+          seqnames=Rle(ret_tib$chr), 
+          strand=Rle(ret_tib$srd),
+          
+          name=ret_tib$tran,
+          name2=ret_tib$gene,
+          class=ret_tib$class,
+          source=ret_tib$source,
+          
+          IRanges(start=ret_tib$beg, 
+                  end=ret_tib$end, 
+                  names=ret_tib$unq_key)
+        )
+      ret_cnt <- ret_grs %>% names %>% length()
+    } else {
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+load_ucsc_gene = function(file,grs=FALSE,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'load_ucsc_gene'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_grs <- NULL
+  stime <- system.time({
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
+    
+    dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
+    colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
+    dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE)
+    
+    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
+    if (verbose>=vt+4) print(dat_tib)
+    
+    dat_tib <- dat_tib %>% 
+      dplyr::mutate(
+        gene_tss=dplyr::case_when(
+          strand=='+' ~ txStart,
+          strand=='-' ~ txEnd,
+          TRUE ~ NA_real_
+        ),
+        
+        tss_200_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss,
+          TRUE ~ NA_real_),
+        tss_200_end=dplyr::case_when(
+          strand=='+' ~ gene_tss,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_),
+        
+        tss_1500_beg=dplyr::case_when(
+          strand=='+' ~ gene_tss-1500,
+          strand=='-' ~ gene_tss+200,
+          TRUE ~ NA_real_),
+        tss_1500_end=dplyr::case_when(
+          strand=='+' ~ gene_tss-200,
+          strand=='-' ~ gene_tss+1500,
+          TRUE ~ NA_real_)
+      )
+    
+    ret_tib <- 
+      dplyr::bind_rows(
+        tibble::tibble(chr=dat_tib$chrom,
+                       beg=dat_tib$txStart,
+                       end=dat_tib$txEnd,
+                       srd=dat_tib$strand,
+                       name2=dat_tib$proteinID,
+                       name=dat_tib$name,
+                       class="GeneBody",
+                       source="UCSC",
+                       source2=NA_character_),
+        
+        tibble::tibble(chr=dat_tib$chrom,
+                       beg=dat_tib$tss_200_beg,
+                       end=dat_tib$tss_200_end,
+                       srd=dat_tib$strand,
+                       name2=dat_tib$proteinID,
+                       name=dat_tib$name,
+                       class="TSS200",
+                       source="UCSC",
+                       source2=NA_character_),
+        
+        tibble::tibble(chr=dat_tib$chrom,
+                       beg=dat_tib$tss_1500_beg,
+                       end=dat_tib$tss_1500_end,
+                       srd=dat_tib$strand,
+                       name2=dat_tib$proteinID,
+                       name=dat_tib$name,
+                       class="TSS1500",
+                       source="UCSC",
+                       source2=NA_character_)
+      ) %>% 
+      dplyr::group_by(class) %>%
+      dplyr::mutate(rank=dplyr::row_number(),
+                    unq_key=paste(class,rank, sep="_")) %>%
+      dplyr::ungroup() %>%
+      dplyr::arrange(chr,beg,end)
+    
+    if (grs) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
+      ret_tib = 
+        GRanges(
+          seqnames=Rle(ret_tib$chr), 
+          strand=Rle(ret_tib$srd),
+          
+          name=ret_tib$name,
+          name2=ret_tib$name2,
+          Class=ret_tib$class,
+          source=ret_tib$source,
+
+          IRanges(start=ret_tib$beg, 
+                  end=ret_tib$end, 
+                  names=ret_tib$unq_key)
+        )
+      ret_cnt <- ret_grs %>% names %>% length()
+    } else {
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    }
+    
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
+}
+
+load_ucsc_cpgs = function(file, grs=FALSE,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'load_ucsc_cpgs'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_grs <- NULL
+  stime <- system.time({
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
+    dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) )) %>% 
+      dplyr::mutate(name=paste0(chrom,'-',chromStart,'-',chromEnd))
+    
+    ret_tib <- dplyr::bind_rows(
+      
+      tibble::tibble(chr=dat_tib$chrom,
+                     beg=dat_tib$chromStart-4000,
+                     end=dat_tib$chromStart-2000,
+                     srd="+",
+                     name2=NA_character_,
+                     name=dat_tib$name,
+                     class="NShelf",
+                     source="UCSC",
+                     source2=NA_character_),
+      
+      tibble::tibble(chr=dat_tib$chrom,
+                     beg=dat_tib$chromStart-2000,
+                     end=dat_tib$chromStart,
+                     srd="+",
+                     name2=NA_character_,
+                     name=dat_tib$name,
+                     class="NShore",
+                     source="UCSC",
+                     source2=NA_character_),
+      
+      tibble::tibble(chr=dat_tib$chrom,
+                     beg=dat_tib$chromStart,
+                     end=dat_tib$chromEnd,
+                     srd="+",
+                     name2=NA_character_,
+                     name=dat_tib$name,
+                     class="Island",
+                     source="UCSC",
+                     source2=NA_character_),
+      
+      tibble::tibble(chr=dat_tib$chrom,
+                     beg=dat_tib$chromEnd,
+                     end=dat_tib$chromEnd+2000,
+                     srd="+",
+                     name2=NA_character_,
+                     name=dat_tib$name,
+                     class="SShore",
+                     source="UCSC",
+                     source2=NA_character_),
+      
+      tibble::tibble(chr=dat_tib$chrom,
+                     beg=dat_tib$chromEnd+2000,
+                     end=dat_tib$chromEnd+4000,
+                     srd="+",
+                     name2=NA_character_,
+                     name=dat_tib$name,
+                     class="SShelf",
+                     source="UCSC",
+                     source2=NA_character_)
+    ) %>% 
+      dplyr::group_by(class) %>%
+      dplyr::mutate(rank=dplyr::row_number(),
+                    unq_key=paste(class,rank, sep="_")) %>%
+      dplyr::ungroup() %>%
+      dplyr::arrange(chr,beg,end)
+    
+    if (grs) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
+      ret_tib <-
+        GRanges(
+          seqnames=Rle(ret_tib$chr), 
+          strand=Rle(ret_tib$srd),
+          
+          name=ret_tib$name,
+          class=ret_tib$class,
+          source=ret_tib$source,
+          
+          IRanges(start=ret_tib$beg, 
+                  end=ret_tib$end, 
+                  names=ret_tib$unq_key)
+        )
+      ret_cnt <- ret_grs %>% names %>% length()
+    } else {
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    }
+
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_tib
 }
 
 # End of file

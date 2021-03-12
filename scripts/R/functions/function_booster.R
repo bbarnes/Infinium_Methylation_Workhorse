@@ -153,8 +153,6 @@ clean_file = function(file,
   file
 }
 
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                General Program Initialization Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -378,6 +376,57 @@ check_list = function(list, vals, name="options",
 #                           Basic Tibble Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# Check if all files exist and have correct time stamp order
+valid_time_stamp = function(files,
+                            funcTag='valid_time_stamp',
+                            verbose=0,vt=3,tc=1,tt=NULL) {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_val <- TRUE
+  stime <- system.time({
+    
+    file_cnt <- length(files)
+    for (ii in c(1:file_cnt)) {
+      if (!file.exists(files[ii])) ret_val <- FALSE
+    }
+    if (verbose>=vt+4)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Files exist={ret_val}.{RET}{RET}"))
+
+    if (ret_val) {
+      file_cnt <- file_cnt - 1
+      for (ii in c(1:file_cnt)) {
+        f1 <- files[ii]
+        f2 <- files[ii+1]
+        
+        t1 <- file.mtime(f1)
+        t2 <- file.mtime(f2)
+        
+        if (verbose>=vt+4)
+          cat(glue::glue("ii={ii}, t1={t1}; f1={f1}{RET}",
+                         "ii={ii}, t2={t2}; f2={f2}{RET}"))
+        
+        if (t1 > t2) ret_val <- FALSE
+        
+        if (verbose>=vt+4)
+          cat(glue::glue("ii={ii}, Valid Order={ret_val}.{RET}{RET}"))
+      }
+    }
+    ret_cnt <- files %>% length()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_val
+}
+
+# This function is out of date replacing with simpler function above::
+#  valid_time_stamp()
 check_timeStamps = function(name,outDir,origin=NULL,files,
                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'check_timeStamps'
@@ -758,7 +807,7 @@ guess_file_del = function(file, n_max=100,
 #                              String Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-safe_write = function(x,  type,file=NULL, 
+safe_write = function(x, type, file=NULL, 
                       cols=TRUE, append=FALSE, funcTag="safe_write",
                       verbose=0,vt=4,tc=1,tt=NULL) {
   # If file is provided, usually in the case where the user didn't want it written

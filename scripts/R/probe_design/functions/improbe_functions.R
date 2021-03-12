@@ -17,6 +17,37 @@ RET <- "\n"
 BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Genomic Substring Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+parse_design_seq = function(pos, chr, off=60, len=122,
+                            verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'parse_design_seq'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting, pos={pos}, len={len}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    chr_len <- chr %>% length()
+    cat(glue::glue("[{funcTag}]:{tabsStr} chr_len={chr_len}.{RET}"))
+    
+    ret_tib <- Biostrings::subseq(chr, start=pos, width=len) %>% 
+      as.character() # %>% addBrac()
+    
+    ret_cnt <- ret_tib %>% length()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Docker improbe Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -1759,7 +1790,7 @@ deM = function(x, uc=FALSE) {
   #   stringr::str_replace_all("V","A") %>% # A/C/G
   #   
   #   stringr::str_replace_all("N","A"), # A/C/T/G
-
+  
   if (uc) x <- tr(x, 'RYSWKMBDHV', 'ATCATATAAA')
   else    x <- tr(x, 'RYSWKMBDHV', 'atcatataaa')
   x

@@ -414,6 +414,10 @@ if (file.exists(pre_order_csv)) {
   
   readr::write_csv(pre_order_tib, pre_order_csv)
 }
+pre_order_tib %>% 
+  dplyr::group_by(Order_Pool) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% 
+  print(n=1000)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             3. CGN to Top::
@@ -556,8 +560,22 @@ if (FALSE) {
 #    - S2 (Additional file 2),"Annotated list of all genomic bins within the 39,424 CoRSIVs (Unfiltered)",,,,
 # new_wat_csv <- file.path(new_cpg_dir, 'Waterland_CORSIVS/Waterland_CORSIV_Genomic_Coordinates_S2-Table_1-13059_2019_1708_MOESM2_ESM.csv.gz')
 #
-#    - S3,"Annotated list of all genomic bins within the 9,926 CoRSIVs (Filtered for number of CpGs and Interindividual Range)",,,,
+#    - S3,"Annotated list of all genomic bins within the 9,926 CoRSIVs (Filtered for number of CpGs and Inter Individual Range)",,,,
 #
+
+opt$genBuild <- "GRCh37"
+opt$impDir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
+
+imp_bed_dir <- file.path(opt$impDir, "bed")
+imp_bed_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.bed.gz", sep="-"))
+imp_grs_rds <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.grs.rds", sep="-"))
+imp_pos_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.pos.sorted.tsv.gz", sep="-"))
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Loading imp_grs_rds={imp_grs_rds}...{RET}"))
+imp_bed_grs <- readr::read_rds(imp_grs_rds)
+
+
 new_cpg_dir <- '/Users/bretbarnes/Documents/data/CustomContent/EWAS/CORSIVs_and_others/Not_Already_Designed_Content'
 new_wat_csv <- file.path(new_cpg_dir, 'Waterland_CORSIVS/Waterland_CORSIV_Genomic_Coordinates_S3-Table_1.csv.gz')
 if (opt$version=='E0') {
@@ -595,6 +613,103 @@ if (opt$version=='E0') {
 } else {
   stop(glue::glue("[{par$prgmTag}]: Unsupported option version={opt$version}!{RET}{RET}"))
 }
+
+int_wat_imp_chrs <- 
+  intersect_GRS(new_wat_grs, imp_bed_grs, can_key="fet_key", verbose=10) %>% 
+  dplyr::inner_join(new_wat_tib, by=c("fet_key"="Uniq_ID")) %>% 
+  dplyr::select(-strand) %>% 
+  tidyr::unite(Fet_ID, chrom,beg,end, sep="_") %>% 
+  dplyr::mutate(imp_chr_char=stringr::str_remove(imp_chr,"^chr")) %>%
+  dplyr::filter(imp_rep==1) %>%
+  split(.$imp_chr_char)
+
+# int_wat_imp_chrs %>% names() %>% stringr::str_remove(" .*$") %>% tibble::tibble() %>% purrr::set_names("Chrom_Char") %>% dplyr::mutate(Idx=dplyr::row_number())
+
+#
+#
+# NOW we attempt to substring the forward sequence from the genome 
+#  - Substring sequence
+#    - From Reference -> improbe
+#    - From design_all_prbs()
+#
+#  - Verify its correct
+#  - Design all probes
+#  - Run improbe directly
+#  - Filter probes
+#
+#
+
+# Load genome for sub-string of design sequence::
+#
+opt$genDir  <- file.path(par$topDir, 'data/iGenomes/Mus_musculus/NCBI')
+opt$genDir  <- file.path(par$topDir, 'data/iGenomes/Homo_sapiens/NCBI')
+
+opt$genBuild <- "GRCh37"
+run <- list()
+
+# Define Run Time:: Alignment Genome
+run$gen_ref_fas <- file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
+                             paste0(opt$genBuild,".genome.fa.gz"))
+
+run$gen_iup_fas <- file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
+                             paste0(opt$genBuild,".dbSNP151-genome.fa.gz"))
+
+gen_ref_dat <- 
+  Biostrings::readDNAStringSet(filepath = run$gen_ref_fas, format = "fasta") # , nrec = 2)
+gen_iup_dat <- 
+  Biostrings::readDNAStringSet(filepath = run$gen_iup_fas, format = "fasta") # , nrec = 2)
+
+gen_iup_tab <- gen_iup_dat %>% names() %>% 
+  stringr::str_remove(" .*$") %>% 
+  tibble::tibble() %>% 
+  purrr::set_names("Chrom_Char") %>% 
+  dplyr::mutate(Idx=dplyr::row_number())
+
+
+wat_des_tib <- NULL
+fet_chroms <- names(int_wat_imp_chrs)
+for (chr_str in fet_chroms) {
+  cat(glue::glue("[{par$prgmTag}]: chr={chr_str}.{RET}"))
+  
+  if (is.null(int_wat_imp_chrs[[chr_str]])) next
+  
+  chr_idx <- gen_iup_tab %>% 
+    dplyr::filter(Chrom_Char==chr_str) %>% 
+    head(n=1) %>% pull(Idx) %>% as.integer()
+  
+  print(chr_idx)
+
+  # bsp_begs <- head(int_wat_imp_chrs[[chr_str]]$imp_pos) - 60
+  bsp_begs <- int_wat_imp_chrs[[chr_str]]$imp_pos - 60
+  bsp_ends <- bsp_begs + 122
+  
+  # print(bsp_begs)
+
+  ref_seqs <- stringr::str_sub( as.character(gen_ref_dat[[chr_idx]]), bsp_begs, bsp_ends) %>% addBrac()
+  iup_seqs <- stringr::str_sub( as.character(gen_iup_dat[[chr_idx]]), bsp_begs, bsp_ends) %>% addBrac()
+  
+  # print(iup_seqs)
+  
+  cur_des_tib <- 
+    tibble::tibble(
+      ref_seq=ref_seqs,
+      iup_seq=iup_seqs,
+      cgn_chr=chr_str,
+      cgn_pos=head(int_wat_imp_chrs[[chr_str]]$imp_pos)
+    ) %>% 
+    dplyr::mutate(
+      cgn_chr=as.character(cgn_chr),
+      cgn_pos=as.integer(cgn_pos)
+    )
+  
+  wat_des_tib <- bind_rows(wat_des_tib, cur_des_tib)
+  # print(wat_des_tib)
+  
+  cat(glue::glue("[{par$prgmTag}]: Done.{RET}{RET}"))
+}
+
+
+
 
 #
 # 3. Intersect all_fwd_grs with new_wat_grs::
