@@ -4,7 +4,7 @@
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 #
-# TBD:: First task is validate all mm10 24A against prefix database...
+# This builds the offical Canonical CGN->TOP->GRP prereq for cgnDB creation!!!
 #
 
 rm(list=ls(all=TRUE))
@@ -659,11 +659,137 @@ if (opt$verbose>=1)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
-#                       1.0 Data Collection:: Ord/Mat/AQP/PQC
+#                       1.0 Validate Pre-built:: CGN -> TOP
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+pre_cgn_top_csv  <- "/Users/bretbarnes/Documents/data/improbe/dbCGN/pre-assigned/pre-assigned.cgnTop.hash.csv.gz"
+mm10_ses_man_csv <- file.path(opt$manDir, "LEGX-C24A.manifest.sesame-base.cpg-sorted.csv.gz")
 
+pre_cgn_top_col <-
+  cols(
+    CGN  = col_character(),
+    TOP  = col_character(),
+    SRC  = col_character()
+  )
+
+pre_cgn_top_tib  <- 
+  readr::read_csv(pre_cgn_top_csv,
+                  # col_names=names(pre_cgn_top_col$cols), 
+                  col_types=pre_cgn_top_col)  %>% 
+  dplyr::filter(stringr::str_starts(CGN, "[0-9]")) %>%
+  utils::type.convert() %>% 
+  dplyr::mutate(across(where(is.factor),  as.character) )
+
+pre_cgn_top_sum <- pre_cgn_top_tib %>%
+  dplyr::group_by(SRC) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+pre_cgn_top_sum %>% 
+  dplyr::arrange(-Count) %>%
+  print(n=base::nrow(pre_cgn_top_sum))
+
+mm10_ses_man_tib <- readr::read_csv(mm10_ses_man_csv)
+
+mm10_unq_man_tib <- mm10_ses_man_tib %>% 
+  dplyr::select(Probe_ID,Probe_Type,Probe_Class,Top_Sequence) %>% 
+  dplyr::filter(!is.na(Top_Sequence)) %>% 
+  dplyr::filter(Probe_Type=='cg') %>%
+  tidyr::separate(Probe_ID, into=c("CGN","SRD_Str"), sep="_", remove=TRUE) %>%
+  dplyr::mutate(
+    Top_Sequence=shearBrac(Top_Sequence),
+    CGN=stringr::str_remove(CGN,"^cg") %>% stringr::str_remove("^0+") %>% as.integer()
+  ) %>%
+  dplyr::distinct(CGN,Probe_Type,Probe_Class,Top_Sequence) %>%
+  dplyr::add_count(CGN, name="CGN_Count") %>%
+  dplyr::add_count(CGN,Top_Sequence, name="CGN_TOP_Count")
+
+mm10_all_man_tib <- mm10_ses_man_tib %>% 
+  dplyr::select(Probe_ID,Probe_Type,Probe_Class,Top_Sequence) %>% 
+  dplyr::filter(!is.na(Top_Sequence)) %>% 
+  dplyr::filter(Probe_Type=='cg') %>%
+  tidyr::separate(Probe_ID, into=c("CGN","SRD_Str"), sep="_", remove=TRUE) %>%
+  dplyr::mutate(
+    Top_Sequence=shearBrac(Top_Sequence),
+    CGN=stringr::str_remove(CGN,"^cg") %>% stringr::str_remove("^0+") %>% as.integer()
+  ) %>%
+  # dplyr::distinct(CGN,Probe_Type,Probe_Class,Top_Sequence) %>%
+  dplyr::add_count(CGN, name="CGN_Count") %>%
+  dplyr::add_count(CGN,Top_Sequence, name="CGN_TOP_Count")
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Compare:: Pre vs. mm10
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+mm10_join_tib <- dplyr::inner_join(pre_cgn_top_tib, mm10_unq_man_tib, by="CGN")
+mm10_anti_tib <- dplyr::anti_join(pre_cgn_top_tib, mm10_unq_man_tib, by="CGN")
+
+# This is good::
+mm10_join_tib %>% dplyr::filter(TOP != Top_Sequence)
+
+# This is good::
+dplyr::anti_join(mm10_unq_man_tib, pre_cgn_top_tib, by="CGN")
+
+mm10_join_sum <- mm10_join_tib %>%
+  dplyr::group_by(SRC,Probe_Type,Probe_Class) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+mm10_join_sum %>% print(n=base::nrow(mm10_join_sum))
+
+mm10_anti_sum <- mm10_anti_tib %>%
+  dplyr::group_by(SRC) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+mm10_anti_sum %>% print(n=base::names(mm10_anti_sum))
+
+#
+# Question:: What are these missing values???
+#
+mm10_anti_tib %>% dplyr::filter(SRC=="mm10-LEGX-S2") %>%
+  dplyr::inner_join(mm10_unq_man_tib, 
+                    by=c("TOP"="Top_Sequence"), 
+                         suffix=c("_PRE", "_MAN"))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                           Compare:: Pre vs. mm10
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Modifications::
+#  - Remove "univ-chicago"
+#  - Rename mm10_unq_man_tib/-mm10_unq_man_tib SRC
+
+fin_cgn_top_tib <- pre_cgn_top_tib %>% 
+  dplyr::filter(SRC!="univ-chicago") %>%
+  dplyr::mutate(
+    SRC=dplyr::case_when(
+      SRC=="mm10-LEGX-S2" & CGN %in% mm10_unq_man_tib$CGN ~ "mm10-LEGX-C24A",
+      TRUE ~ SRC
+    )
+  ) %>% 
+  dplyr::filter(!stringr::str_detect(TOP,"N")) %>%
+  dplyr::arrange(CGN)
+
+#
+# Investigate TOP Seqs with N's
+#
+# CGN TOP                                                                                                                        SRC                               
+# <int> <chr>                                                                                                                      <chr>                             
+# 1   718858 NATTTTAAAATACCCAGCTCCACCCCTTCCTGTTAGGCTTTCGCGTGTCGCAGCTGTGCACGCTGATTGGTCCTCTGCTGGCCAATCACCACTGCACTTCATGACGGCTGTAGTTTTCAAAA HumanMethylation450_15017482_v.1.2
+# 2 10890917 ACAAAAAATATGCTACCAGGGAATTTTTTGTTTTCTAACTAAAGATTCAATCTGGCCAAGCGCAGTGGCCCACACCTGTAATCCCAGCATTTTGGGAGGTGGAGGTGGGAGGATCNNNNNNN HumanMethylation450_15017482_v.1.2
+# 3 12857372 TAAACCGAGAGCTTCTCCAGGTCCCGAAGTTAAGAGTAAATCTGTAGACATTTATCTTATCGCTGCGAAGGGAAACACATCCCAGATGAATTCNNNNNNNNNNNNNNNNNNNNNNNNNNNNN MethylationEPIC_v-1-0_B2          
+# 4 13279585 TTATTTATTAGCCACAAGGGAACTCTTTTTTTTCAAGTTCTTAATCAGAGCACTGGTCATCGTTCCCTGGAGGTGAATCCTGATTATTCATAAGACAAACCTGAATTCNNNNNNNNNNNNNN HumanMethylation27_270596_v.1.2   
+# 5 15312899 NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGAATTCATCTGGGATGTGTTTCCCTTCGCAGCGATAAGATAAATGTCTACAGATTTACTCTTAACTTCGGGACCTGGAGAAGCTCTCG MethylationEPIC_v-1-0_B2          
+#
+# Investigate BAD CGN's::
+bad_cgn_vec <- c(3458191, 11037148, 11718090, 15092802, 15408454, 16390856, 23509027)
+fin_cgn_top_tib %>% dplyr::filter(CGN %in% bad_cgn_vec)
+
+fin_cgn_top_sum <- fin_cgn_top_tib %>%
+  dplyr::group_by(SRC) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+fin_cgn_top_sum %>% 
+  dplyr::arrange(-Count) %>%
+  print(n=base::nrow(fin_cgn_top_sum))
+
+fin_cgn_top_csv <- file.path("/Users/bretbarnes/Documents/data/improbe/dbCGN/pre-assigned/canonical-assignment.cgn-top-grp.csv.gz")
+readr::write_csv(fin_cgn_top_tib, fin_cgn_top_csv)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
