@@ -355,7 +355,9 @@ sub parseCpg($$$) {
 
     my $chrLen = length($chrSeq);
     my $chrTen = int($chrLen/1000);
-    mssg("[$func]: chr=$chr, seqLen=$chrLen\n",3);
+    $chrTen++ if ($chrTen==0);
+    
+    mssg("[$func]: chr=$chr, seqLen=$chrLen; chrTen=$chrTen\n",3);
     # $chrSeq .= 'N' x 60;
     $chrSeq .= 'N' x 124;
 

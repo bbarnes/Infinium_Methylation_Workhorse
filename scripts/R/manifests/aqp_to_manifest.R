@@ -1069,11 +1069,27 @@ int_pos_tib %>% dplyr::filter(Imp_Cgn!=Ord_Cgn_Int) %>%
   dplyr::group_by(Ord_Din,Ord_Des,bsp_tag) %>% 
   dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
 
-# TBD:: Investigate mis-matches, but run U49/U50 checks first
 #
+#
+# TBD:: Determine best cgn match based on Position:: int_pos_tib
+#
+#
+# This (int_pos_tib) provides the Order CGN Integer::
+top_pos_tib <- int_pos_tib %>% 
+  dplyr::group_by(Address,Imp_Cgn,Ord_Din,Ord_Des) %>% 
+  dplyr::summarise(Count=n(), .groups="drop") %>% 
+  dplyr::arrange(-Count) %>% 
+  dplyr::distinct(Address, .keep_all=TRUE)
 
+top_pos_tib %>% dplyr::distinct(Address) %>% base::nrow()
+top_pos_tib %>% dplyr::distinct(Imp_Cgn) %>% base::nrow()
 
-
+#
+#
+# Which Probes are we missing from the original??? 
+#   i.e. add_pas_fas_tib
+#
+#
 
 
 
