@@ -381,15 +381,15 @@ sub parseCpg($$$) {
 	my $seqSrd = "+";
 
 	if ($seqLen != 122) {
-	    mssg("[$func]: ERROR: posIdx=$posIdx; seqLen=$seqLen != 122; idx=$posIdx; ".
-		 "fwdSeq=$fwdSeq, chrLen=$chrLen\n") if ($seqLen != 122);
-	    print "\n\n";
-	    print "CHR_SEQ='$chrSeq'\n\n";
+	    mssg("[$func]: Warning: chr=$chr; posIdx=$posIdx; seqLen=$seqLen != 122; idx=$posIdx; ".
+		 "fwdSeq=$fwdSeq, chrLen=$chrLen; Skipping...\n\n");
+	    # print "\n\n";
+	    # print "CHR_SEQ='$chrSeq'\n\n";
+	    next;
 	}
-	
-        die("[$func]: ERROR: posIdx=$posIdx; seqLen=$seqLen != 122; idx=$posIdx; ".
-	    "fwdSeq=$fwdSeq, chrLen=$chrLen\n") if ($seqLen != 122);
-	
+        # die("[$func]: ERROR: posIdx=$posIdx; seqLen=$seqLen != 122; idx=$posIdx; ".
+	#     "fwdSeq=$fwdSeq, chrLen=$chrLen\n") if ($seqLen != 122);
+		
 	if ($fwdSeq =~ m/N/) {
 	    $cgnDB{$DB_NNN}++;
 	    #mssg("[NNN]: $fwdSeq\n\n");
