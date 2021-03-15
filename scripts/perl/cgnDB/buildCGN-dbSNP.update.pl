@@ -785,6 +785,10 @@ GetOptions("o|out=s"      => \$opts{'outDir'},
 	   "srcMax=i"     => \$opts{'srcMax'},
 	   "chrMax=i"     => \$opts{'chrMax'},
 	   "lenMax=i"     => \$opts{'lenMax'},
+
+	   "impExe=s"     => \$opts{'impExe'},
+	   "impMer=s"     => \$opts{'impMer'},
+	   "impTan=s"     => \$opts{'impTan'},
 	   
 	   "mod=s"        => \$mode,
            "vcfMax=i"     => \$vcfMax,

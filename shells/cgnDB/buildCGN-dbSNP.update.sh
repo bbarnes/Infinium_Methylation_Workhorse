@@ -36,7 +36,7 @@ fi
 # EXE=${TOP}/tools/scripts/cgnDB/latest/buildCGN-BSCdb.cluster.pl
 # EXE=${TOP}/tools/scripts/cgnDB/latest/buildCGN-dbSNP.update.pl
 
-EXE="${TOP}/tools/Infinium_Methylation_Workhorse/scripts/perl/cgnDB/buildCGN-BSCdb.latest.pl"
+EXE="${TOP}/tools/Infinium_Methylation_Workhorse/scripts/perl/cgnDB/buildCGN-dbSNP.update.pl"
 OUT="${TOP}/scratch/cgnDB/${RUN}/design-input"
 
 #
