@@ -247,6 +247,7 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'A2'
     opt$version  <- 'A3'
     opt$version  <- 'A4'
+    opt$version  <- 'A5'
     
     opt$idat   <- NULL
     par$aqpDir <- file.path(par$topDir, 'data/CustomContent/UnivChicago/latest')
@@ -305,6 +306,7 @@ if (args.dat[1]=='RStudio') {
     opt$platform <- 'LEGX'
     opt$version  <- 'C0'
     opt$version  <- 'C30'
+    opt$version  <- 'C31'
     
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
@@ -520,9 +522,6 @@ par$gen_src_dir <- file.path(par$scrDir, 'functions')
 if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
 cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
-
-# print(opt)
-# print(opt$genBuild)
 
 opt <- program_init(name=par$prgmTag,
                     opts=opt, opt_reqs=opt_reqs, 
@@ -875,8 +874,6 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   man_fun_tib <- readr::read_csv(run$man_fun_csv, guess_max=100000) %>%
     utils::type.convert() %>% 
     dplyr::mutate(across(where(is.factor),  as.character) )
-  
-  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -913,7 +910,12 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     utils::type.convert() %>% 
     dplyr::mutate(across(where(is.factor),  as.character) )
   
-}  
+}
+
+add_pas_fas_sum <- add_pas_fas_tib %>% 
+  dplyr::group_by(Dat_IDX, Ord_Din, Ord_Des) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+add_pas_fas_sum %>% print(n=base::nrow(add_pas_fas_sum))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    3.2 Align All Probe Sequence:: BSMAP
@@ -1013,43 +1015,88 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
 
 }
 
+
+
+
+
+
+
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #           3.4 Intersect Alignment and improbe coordinates:: GRS
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-opt$impDir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
+if (FALSE) {
+  opt$impDir <- "/Users/bretbarnes/Documents/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
+  
+  imp_pos_cols <-
+    cols(
+      Imp_Chr      = col_character(),
+      Imp_Pos      = col_integer(),
+      Imp_Top_Srd  = col_character(),
+      Imp_Cgn      = col_integer(),
+      Imp_Rep      = col_integer()
+    )
+  
+  imp_bed_dir <- file.path(opt$impDir, "bed")
+  imp_bed_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.bed.gz", sep="-"))
+  imp_grs_rds <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.grs.rds", sep="-"))
+  imp_pos_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.pos.sorted.tsv.gz", sep="-"))
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading imp_pos_tsv={imp_pos_tsv}...{RET}"))
+  imp_pos_tib <- readr::read_tsv(imp_pos_tsv, col_types=imp_pos_cols)
+  
+  #
+  # Join by exact chr/pos match::
+  #
+  int_pos_tib <- imp_pos_tib %>% 
+    dplyr::inner_join(add_pas_bsp_tib, by=c("Imp_Chr"="bsp_chr","Imp_Pos"="bsp_pos")) %>% 
+    dplyr::mutate(Imp_Cgn=as.integer(Imp_Cgn),
+                  Imp_Pos=as.integer(Imp_Pos),
+                  Ord_Cgn=stringr::str_remove(Ord_Key, "_.*$"),
+                  Ord_Cgn_Int=dplyr::case_when(
+                    stringr::str_starts(Ord_Cgn, "cg") ~ stringr::str_remove(Ord_Cgn,"^cg") %>% 
+                      stringr::str_remove("^0+"),
+                    TRUE ~ Ord_Cgn)
+    )
+  
+}
 
-imp_bed_dir <- file.path(opt$impDir, "bed")
-imp_bed_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.bed.gz", sep="-"))
-imp_grs_rds <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.cgn.sorted.grs.rds", sep="-"))
-imp_pos_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "21022021.pos.sorted.tsv.gz", sep="-"))
-
-imp_pos_cols <-
+imp_bed_cols <-
   cols(
     Imp_Chr      = col_character(),
     Imp_Pos      = col_integer(),
-    Imp_Top_Srd  = col_character(),
+    Imp_End      = col_integer(),
     Imp_Cgn      = col_integer(),
-    Imp_Rep      = col_integer()
+    Imp_Src      = col_character(),
+    Imp_Top_Srd  = col_character()
   )
 
+imp_bed_dir <- "/Users/bretbarnes/Documents/data/improbe/scratch/cgnDB/dbSNP_Core4/design-input"
+imp_bed_tsv <- file.path(imp_bed_dir, paste(opt$genBuild, "cgn.bed.gz", sep="."))
+
 if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Loading imp_pos_tsv={imp_pos_tsv}...{RET}"))
-imp_pos_tib <- readr::read_tsv(imp_pos_tsv, col_types=imp_pos_cols)
+  cat(glue::glue("[{par$prgmTag}]: Loading imp_bed_tsv={imp_bed_tsv}...{RET}"))
+imp_pos_tib <- readr::read_tsv(imp_bed_tsv, 
+                               col_names=names(imp_bed_cols$cols),
+                               col_types=imp_bed_cols)
 
 #
 # Join by exact chr/pos match::
 #
-int_pos_tib <- imp_pos_tib %>% 
-  dplyr::inner_join(add_pas_bsp_tib, by=c("Imp_Chr"="bsp_chr","Imp_Pos"="bsp_pos")) %>% 
+int_end_tib <- imp_pos_tib %>% 
+  dplyr::inner_join(add_pas_bsp_tib, by=c("Imp_Chr"="bsp_chr","Imp_End"="bsp_pos")) %>% 
   dplyr::mutate(Imp_Cgn=as.integer(Imp_Cgn),
-                Imp_Pos=as.integer(Imp_Pos),
+                Imp_End=as.integer(Imp_End),
                 Ord_Cgn=stringr::str_remove(Ord_Key, "_.*$"),
-    Ord_Cgn_Int=dplyr::case_when(
-      stringr::str_starts(Ord_Cgn, "cg") ~ stringr::str_remove(Ord_Cgn,"^cg") %>% 
-        stringr::str_remove("^0+"),
-      TRUE ~ Ord_Cgn)
+                Ord_Cgn_Int=dplyr::case_when(
+                  stringr::str_starts(Ord_Cgn, "cg") ~ stringr::str_remove(Ord_Cgn,"^cg") %>% 
+                    stringr::str_remove("^0+"),
+                  TRUE ~ Ord_Cgn)
   )
+
+int_pos_tib <- int_end_tib
 
 int_pos_tib %>% dplyr::filter(Imp_Cgn==Ord_Cgn_Int) %>%
   dplyr::group_by(Ord_Din,Ord_Des,bsp_tag) %>%
@@ -1091,8 +1138,245 @@ top_pos_tib %>% dplyr::distinct(Imp_Cgn) %>% base::nrow()
 #
 #
 
+#
+#
+#
+#  TBD:: Need to pull canonical sources to see what's old and new!!!
+#
+#
+#
+can_cgn_top_csv <- file.path(par$datDir, "manifest/cgnDB/canonical-assignment.cgn-top-grp.csv.gz")
+can_cgn_top_tib <- readr::read_csv(can_cgn_top_csv) %>% 
+  dplyr::mutate(CGN=as.integer(CGN))
+
+# top_pos_imp_can_tib
+#
+#
+#
+
+# Need CGN_INT::
+add_pas_fas_mat_tib <- add_pas_fas_tib %>% 
+  tidyr::separate(Ord_Key, into=c("Ord_Cgn_Str","Ord_FR","Ord_Srd_Str"), sep="_", remove=FALSE) %>%
+  dplyr::mutate(Ord_Cgn=stringr::str_remove(Ord_Cgn_Str,"^cg") %>% stringr::str_remove("^0+") %>% as.integer())
+
+int_pos_imp_can_ful_tib <- int_pos_tib %>% 
+  dplyr::select(-Ord_Cgn) %>%
+  dplyr::mutate(Ord_Cgn=as.integer(Ord_Cgn_Int)) %>%
+  # dplyr::select(Address,Imp_Cgn,Ord_Din,Ord_Des) %>%
+  dplyr::inner_join(add_pas_fas_mat_tib, by=c("Address","Ord_Din","Ord_Des","Ord_Cgn",
+                                              "aln_key","Ord_Key","Ord_Prb","Dat_IDX","Ord_Par","Ord_Col",
+                                              "Dat_BPN","Dat_AQP","Ord_Prb_Rep","Ord_Par_Rep","Mat_Tan","Mat_Add_Rep",
+                                              "Dat_PQC","Decode_Status","aln_seq","aln_rev","aln_u49")) %>%
+  dplyr::left_join(can_cgn_top_tib, by=c("Imp_Cgn"="CGN")) %>%
+  dplyr::mutate(
+    Can_Mat_Rank=dplyr::case_when(
+      !is.na(SRC) ~ 1,
+      TRUE ~ 0) %>% as.integer(),
+    Cgn_Mat_Rank=dplyr::case_when(
+      Imp_Cgn == Ord_Cgn ~ 1,
+      TRUE ~ 0) %>% as.integer()
+  ) %>% 
+  dplyr::arrange(-Can_Mat_Rank,-Cgn_Mat_Rank)
 
 
+
+#
+# Working Below::
+#
+
+int_pos_imp_can_all_tib <- int_pos_tib %>% 
+  dplyr::select(Address,Imp_Cgn,Ord_Din,Ord_Des) %>%
+  dplyr::inner_join(add_pas_fas_mat_tib, by=c("Address","Ord_Din","Ord_Des")) %>%
+  dplyr::left_join(can_cgn_top_tib, by=c("Imp_Cgn"="CGN")) %>%
+  dplyr::mutate(
+    Can_Mat_Rank=dplyr::case_when(
+      !is.na(SRC) ~ 1,
+      TRUE ~ 0) %>% as.integer(),
+    Cgn_Mat_Rank=dplyr::case_when(
+      Imp_Cgn == Ord_Cgn ~ 1,
+      TRUE ~ 0) %>% as.integer()
+  ) %>% 
+  dplyr::arrange(-Can_Mat_Rank,-Cgn_Mat_Rank)
+
+int_pos_imp_can_unq_tib <- 
+  int_pos_imp_can_all_tib %>%
+  dplyr::distinct(Address, .keep_all=TRUE)
+
+
+#
+# New Version::
+#
+int_pos_imp_can_unq_tib <- 
+  int_pos_imp_can_ful_tib %>%
+  dplyr::distinct(Address, .keep_all=TRUE)
+
+#
+# Summary to show evidence::
+#
+int_pos_imp_can_all_sum <- int_pos_imp_can_all_tib %>%
+  dplyr::group_by(Ord_Din,Ord_Des,Can_Mat_Rank,Cgn_Mat_Rank,SRC) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+
+int_pos_imp_can_unq_sum <- int_pos_imp_can_unq_tib %>%
+  dplyr::group_by(Ord_Din,Ord_Des,Can_Mat_Rank,Cgn_Mat_Rank,SRC) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+
+
+#
+# Rebuild manifest with int_pos_imp_can_unq_tib
+#
+
+#
+# make int_pos_imp_can_unq_tib <=> add_pas_tib
+#
+
+# Key Formation::
+int_pos_imp_can_unq_tib %>% 
+  dplyr::select(Imp_Cgn,Ord_Cgn,Ord_Key,bsp_srd,Imp_Top_Srd)
+
+
+man_pos_imp_can_unq_tib <-
+  int_pos_imp_can_unq_tib %>%
+  # dplyr::rename(Ord_Key_Old=Ord_Key) %>%
+  dplyr::mutate(
+    Strand_FR=dplyr::case_when(
+      bsp_srd=="+-" ~ "R",
+      bsp_srd=="--" ~ "F",
+      bsp_srd=="++" ~ "R",
+      bsp_srd=="-+" ~ "F",
+      TRUE ~ NA_character_
+    ),
+    Strand_CO=dplyr::case_when(
+      bsp_srd=="+-" ~ "C",
+      bsp_srd=="--" ~ "C",
+      bsp_srd=="++" ~ "O",
+      bsp_srd=="-+" ~ "O",
+      TRUE ~ NA_character_
+    ),
+    Strand_TB=dplyr::case_when(
+      Imp_Top_Srd=="+" & Strand_FR=="F" ~ "T",
+      TRUE ~ "B"
+    ),
+    Inf_Type=dplyr::case_when(
+      Ord_Des=='2' ~ '2',
+      TRUE ~ '1'
+    ),
+    Imp_Cgn_Str=paste0('cg',stringr::str_pad(Imp_Cgn,8,"left","0"))
+  ) %>%
+  dplyr::mutate(Prb_Key=paste0(Imp_Cgn_Str,'_',Strand_CO,Strand_TB,Inf_Type)) %>%
+
+  dplyr::select(Prb_Key, dplyr::any_of(c(names(add_pas_tib) )), dplyr::everything()) %>%
+  addressToManifest(des="Ord_Des", ord_id="Ord_Key", 
+                    join=man_fun_vec,
+                    csv=run$man_fun_csv, 
+                    validate=TRUE, 
+                    verbose=opt$verbose, tt=pTracker)
+
+man_pos_imp_can_unq_tib %>% 
+  dplyr::select(Ord_Key, Prb_Key_U, Prb_Key_M, Address_U, Ord_Prb_U, Address_M, Ord_Prb_M,
+                Imp_Chr_U,Imp_Chr_M,Imp_Pos_U,Imp_Pos_M) %>% 
+  dplyr::filter(is.na(Prb_Key_M))
+
+# Questions::
+#   1. Which probes don't match ord cgn?
+#   2. Which probes are missing from ord_tib?
+#   3. [mm10] Which probes have different coordinates?
+#   4. [hm850] Rebuild hm850
+#      - Need to add u49/u50 matching
+#   5. Need to add controls
+#
+man_pos_imp_can_unq_tib %>% dplyr::filter(Imp_Cgn_U!=Ord_Cgn_Int_U) %>% dplyr::group_by(Dat_IDX,Ord_Din) %>% dplyr::summarise(Count=n(), .groups="drop")
+
+
+#  dplyr::select(dplyr::any_of(c("Prb_Key",names(add_pas_tib) )) )
+# dplyr::rename(Ord_Key_Old=Ord_Key) %>%
+# dplyr::select(Prb_Key, dplyr::everything())
+
+# LEFT OFF HERE::
+
+  
+  
+  
+  
+  
+  
+  
+  
+
+# Rebrand
+int_pos_imp_can_unq_tib %>% dplyr::mutate(
+  Ord_Key_Old=Ord_Key, )
+
+# input: 
+add_pas_tib %>%
+  addressToManifest(des="Ord_Des", ord_id="Ord_Key", 
+                    join=man_fun_vec,
+                    csv=run$man_fun_csv, 
+                    validate=TRUE, 
+                    verbose=opt$verbose, tt=pTracker)
+# gaol: man_fun_tib
+
+
+
+
+
+# Must be Zero::
+int_pos_tib %>% dplyr::anti_join(add_pas_fas_tib, by="Address")
+
+# Should be very small:: This case it's six for Chicago;
+#  
+add_pas_fas_tib %>% dplyr::anti_join(int_pos_tib, by="Address")
+add_pas_fas_tib %>% dplyr::anti_join(top_pos_tib, by="Address")
+
+add_pas_fas_tib %>% 
+  dplyr::anti_join(int_pos_tib, by="Address") %>% 
+  dplyr::group_by(Ord_Din,Ord_Des) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+add_pas_fas_tib %>% 
+  dplyr::anti_join(top_pos_tib, by="Address") %>% 
+  dplyr::group_by(Ord_Din,Ord_Des) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+
+top_pos_tib %>% 
+  # dplyr::inner_join(add_pas_fas_mat_tib, by=c("Address")) %>%
+  dplyr::inner_join(add_pas_fas_mat_tib, by=c("Address","Ord_Din","Ord_Des")) %>%
+  dplyr::mutate(Cgn_Mat_Rank=dplyr::case_when(
+    Imp_Cgn == Ord_Cgn ~ 1,
+    TRUE ~ 0)
+  ) %>% 
+  dplyr::arrange(-Cgn_Mat_Rank) %>%
+  dplyr::distinct(Address, .keep_all=TRUE) %>%
+  dplyr::group_by(Ord_Din,Ord_Des,Cgn_Mat_Rank) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+
+int_pos_tib %>% dplyr::select(Address,Imp_Cgn,Ord_Din,Ord_Des) %>%
+  # dplyr::inner_join(add_pas_fas_mat_tib, by=c("Address")) %>%
+  dplyr::inner_join(add_pas_fas_mat_tib, by=c("Address","Ord_Din","Ord_Des")) %>%
+  dplyr::mutate(Cgn_Mat_Rank=dplyr::case_when(
+    Imp_Cgn == Ord_Cgn ~ 1,
+    TRUE ~ 0)
+  ) %>% 
+  dplyr::arrange(-Cgn_Mat_Rank) %>%
+  dplyr::distinct(Address, .keep_all=TRUE) %>%
+  dplyr::group_by(Ord_Din,Ord_Des,Cgn_Mat_Rank) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+
+#
+#
+# The results above (Order CGN == Improbe CGN) are confounded by poor
+#   Order CGN naming to begin with...
+#
+# Should improve after new cgnDB is built...
+#
+#
+
+
+# use Digest::SHA qw(sha1_hex);
+# my $var = 123;
+# my $sha1_hash = sha1_hex($var);
+# print $sha1_hash;
 
 
 
