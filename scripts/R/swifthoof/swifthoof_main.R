@@ -271,15 +271,29 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'DKFZ'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
+
+  par$local_runType <- 'qcMVP2'
   
   opt$fresh <- TRUE
   
-  if (par$local_runType=='COVID') {
+  if (FALSE) {
+  } else if (par$local_runType=='qcMVP2') {
+    opt$runName  <- 'IBX-Zymogen'
+    opt$runName  <- 'IBX-EPIDX'
+    
+    opt$runName  <- 'AKE-Zymogen'
+    opt$runName  <- 'AKE-EPIDX'
+    
+    opt$auto_detect <- TRUE
+    opt$workflow <- "nd,ind"
+    
+    
+    
+  } else if (par$local_runType=='COVID') {
     opt$runName  <- 'COVID-Direct-Set1'
     par$expChipNum <- '204756130014'
     
     opt$auto_detect <- FALSE
-    # opt$single   <- FALSE
     par$retData  <- TRUE
     
     opt$workflow <- "nd,ind"
@@ -362,9 +376,6 @@ if (args.dat[1]=='RStudio') {
   
   opt$save_sset <- TRUE
   opt$load_sset <- TRUE
-  
-  opt$auto_detect <- FALSE
-  opt$auto_detect <- TRUE
   
   opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
   if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)

@@ -308,8 +308,7 @@ sub loadDesign($) {
     
     mssg("[$func]: Built idxMap!\n",3);
 
-    my %prbU_dat=();
-    my %prbM_dat=();
+    my %prb_dat=();
     
     my $desTotCnt = 0;
     my %printed = ();
@@ -351,34 +350,21 @@ sub loadDesign($) {
 
 	# print STDERR "line=$line\n";
 	
-	# Initialize T/B,C/O,ACGT indexes
-	# if (!defined($prbU_dat{$prbU}{$cgnInt}[$srdIdx])) {
-	#     $prbU_dat{$prbU}{$cgnInt}[$srdIdx] = [ $scrU, 0];
-	# }
-	# if (!defined($prbM_dat{$prbM}{$cgnInt}[$srdIdx])) {
-	#     $prbM_dat{$prbM}{$cgnInt}[$srdIdx] = [ $scrM, 0];
-	# }
-
-	# Validate data:
-	# die("\n[$func]: ERROR: Score mismatch: $prbU_dat{$prbU}{$cgnInt}[$srdIdx][0] != $scrU; "
-	#     . "prbU=$prbU; $cgnInt=$cgnInt; srdIdx=$srdIdx; srdKey=$srdKey!!!\n\n")
-	#     if ($prbU_dat{$prbU}{$cgnInt}[$srdIdx][0] != $scrU);
-	# die("\n[$func]: ERROR: Score mismatch: $prbM_dat{$prbM}{$cgnInt}[$srdIdx][0] != $scrM; "
-	#     . "prbM=$prbM; $cgnInt=$cgnInt; srdIdx=$srdIdx; srdKey=$srdKey!!!\n\n")
-	#     if ($prbM_dat{$prbM}{$cgnInt}[$srdIdx][0] != $scrM);
-
-	$prbU_dat{$prbU}[$srdIdx][0].= "$cgnInt,";
-	$prbU_dat{$prbU}[$srdIdx][1].= "$scrU,";
-	$prbU_dat{$prbU}[$srdIdx][2]++;
-
-	$prbM_dat{$prbM}[$srdIdx][0].= "$cgnInt,";
-	$prbM_dat{$prbM}[$srdIdx][1].= "$scrM,";
-	$prbM_dat{$prbM}[$srdIdx][2]++;
-
+	if ($opts{'prb'} eq "U") {
+	    $prb_dat{$prbU}[$srdIdx][0].= "$cgnInt,";
+	    $prb_dat{$prbU}[$srdIdx][1].= "$scrU,";
+	    $prb_dat{$prbU}[$srdIdx][2]++;
+	} elsif ($opts{'prb'} eq "M") {
+	    $prb_dat{$prbM}[$srdIdx][0].= "$cgnInt,";
+	    $prb_dat{$prbM}[$srdIdx][1].= "$scrM,";
+	    $prb_dat{$prbM}[$srdIdx][2]++;
+	} else {
+	    die("\n[$func]: ERROR: Unsupported probe type=$opts{'prb'}\n\n");
+	}
+	
 	## Status:
         mssg("[$func]: statusCnt=$desTotCnt, "
-	     ."curPrbCntU=".scalar(keys %prbU_dat).", "
-	     ."curPrbCntM=".scalar(keys %prbM_dat).", "
+	     ."curPrbCnt=".scalar(keys %prb_dat).", "
 	     ."cpg=$cgnKey $prbFR/$prbTB/$prbCO"
 	     ."...\n", 3)
             if (defined($statusCnt) && $desTotCnt % $statusCnt == 0);
@@ -394,54 +380,30 @@ sub loadDesign($) {
     mssg("[$func]: runTime=$runTimes[0]\n",2);
     mssg("[$func]: Total Designs Processed=$desTotCnt\n\n",2);
 
-    my $u49_csv="$opts{'outDir'}/probe_u49_cgn-table.csv.gz";
-    mssg("[$func]: Writing U49=$u49_csv\n",2);
-    open(U49, ">:gzip", $u49_csv) or die("Failed to write gzip stream $u49_csv.gz");
-    foreach my $prbSeq (sort keys %prbU_dat) {
+    my $p49_csv="$opts{'outDir'}/probe_".$opts{'prb'}."49_cgn-table.csv.gz";
+    mssg("[$func]: Writing; P49=".$opts{'prb'}."; P49=$p49_csv\n",2);
+    open(P49, ">:gzip", $p49_csv) or die("Failed to write gzip stream $p49_csv.gz");
+    foreach my $prbSeq (sort keys %prb_dat) {
 	for (my $ii=0; $ii<16; $ii++) {
-	    if (defined($prbU_dat{$prbSeq}[$ii])) {
+	    if (defined($prb_dat{$prbSeq}[$ii])) {
 		my $len=length($prbSeq)-1;
 		my $seq=substr($prbSeq,0,$len);
 		my $nuc=substr($prbSeq,$len);
 
-		my $cgn=$prbU_dat{$prbSeq}[$ii][0];
-		my $scr=$prbU_dat{$prbSeq}[$ii][1];
-		my $cnt=$prbU_dat{$prbSeq}[$ii][2];
+		my $cgn=$prb_dat{$prbSeq}[$ii][0];
+		my $scr=$prb_dat{$prbSeq}[$ii][1];
+		my $cnt=$prb_dat{$prbSeq}[$ii][2];
 
 		$cgn =~ s/,+$//;
 		$scr =~ s/,+$//;
 		
-		print U49 join("\t",$seq,$nuc,$ii,$srdMap{$ii},$cgn,$scr,$cnt)."\n";
+		print P49 join("\t",$seq,$nuc,$ii,$srdMap{$ii},$cgn,$scr,$cnt)."\n";
 	    }
 	}
     }
-    close(U49);
+    close(P49);
     mssg("\n",2);
 
-    my $m49_csv="$opts{'outDir'}/probe_m49_cgn-table.csv.gz";
-    mssg("[$func]: Writing M49=$m49_csv\n",2);
-    open(M49, ">:gzip", $m49_csv) or die("Failed to write gzip stream $m49_csv.gz");
-    foreach my $prbSeq (sort keys %prbM_dat) {
-	for (my $ii=0; $ii<16; $ii++) {
-	    if (defined($prbM_dat{$prbSeq}[$ii])) {
-		my $len=length($prbSeq)-1;
-		my $seq=substr($prbSeq,0,$len);
-		my $nuc=substr($prbSeq,$len);
-
-		my $cgn=$prbM_dat{$prbSeq}[$ii][0];
-		my $scr=$prbM_dat{$prbSeq}[$ii][1];
-		my $cnt=$prbM_dat{$prbSeq}[$ii][2];
-
-		$cgn =~ s/,+$//;
-		$scr =~ s/,+$//;
-		
-		print M49 join("\t",$seq,$nuc,$ii,$srdMap{$ii},$cgn,$scr,$cnt)."\n";
-	    }
-	}
-    }
-    close(M49);
-    mssg("\n",2);
-    
     mssg("[$func]: Done.\n",2);
     mssg("\n",2);
 }
@@ -519,6 +481,7 @@ sub loadFastas($$) {
 
 GetOptions("o|out=s"      => \$opts{'outDir'},
 	   "d|des=s"      => \@{$opts{'desFile'}},
+	   "p|prb=s"      => \$opts{'prb'},
 
 	   "desMax=i"     => \$opts{'desMax'},
 	   
@@ -534,6 +497,7 @@ mssg("\n[Starting]: $date[0], $date[2], runTime=$runTimes[0]\n\n");
 
 $usage="[Usage]: $0 -o|out outputDir\n"
     . " -d|des designInputFile(s) ]\n"
+    . " -p|prb Probe Type [U/M]\n"
     . "\n"
     . " [ -mod mode ]\n"
     . " [ -srcMax max chromosome soruces to process ]\n"
@@ -546,7 +510,8 @@ $usage="[Usage]: $0 -o|out outputDir\n"
     . "[Usage]: Missing arguments! Exiting...\n\n";
 
 if (! defined($opts{'outDir'})  ||
-    ! defined($opts{'desFile'})
+    ! defined($opts{'desFile'}) ||
+    ! defined($opts{'prb'})
     ) {
     print STDERR $usage;
     print STDERR opt2str(\%opts);
