@@ -6,11 +6,16 @@ if [ "$#" -lt 1 ]; then
 fi
 BUILD=$1
 
-# TOP_DIR="/Users/bretbarnes/Documents"
+TOP_DIR="/Users/bretbarnes/Documents"
+DAT_DIR="${TOP_DIR}/data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.tsv.gz"
 # DAT_DIR="${TOP_DIR}/data/improbe/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
 
+<<<<<<< HEAD
 TOP_DIR="/illumina/scratch/darkmatter/scratch/improbe/cgnDB/dbSNP_Core4"
 DAT_DIR="${TOP_DIR}"
+=======
+# TOP_DIR="/illumina/scratch/darkmatter/Projects/dbCGN"
+>>>>>>> 6b98556d5791aef6ad60a3c4cbe034c5d4558c88
 # DAT_DIR="${TOP_DIR}/data/cgnDB/GRCh36-38.mm10.FWD_SEQ.21022021/designOutput"
 
 OUT_DIR="${DAT_DIR}/prb49"
