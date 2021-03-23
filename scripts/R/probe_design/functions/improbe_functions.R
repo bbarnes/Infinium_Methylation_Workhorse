@@ -1075,6 +1075,8 @@ desAllPrbs = function(tib, verbose=0,vt=5,tc=1,tt=NULL) {
     pr <- tib %>% dplyr::distinct(PRB_DES) %>% base::as.character()
     
     ret_tib <- dplyr::bind_rows(tib %>% 
+                                  des2prbs(fwd=fr, con=co, pr=pr, mu='N', desSeq='DesSeqN', verbose=verbose, vt=vt, tc=tc+1) %>%
+                                  
                                   des2prbs(fwd=fr, con=co, pr=pr, mu='U', desSeq='DesBscU', verbose=verbose, vt=vt, tc=tc+1) %>%
                                   des2prbs(fwd=fr, con=co, pr=pr, mu='M', desSeq='DesBscM', verbose=verbose, vt=vt, tc=tc+1) %>%
                                   des2prbs(fwd=fr, con=co, pr=pr, mu='D', desSeq='DesBscD', verbose=verbose, vt=vt, tc=tc+1) )

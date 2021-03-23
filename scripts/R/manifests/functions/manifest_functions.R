@@ -2654,6 +2654,9 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
         stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR; Unknown Genome Studio Manifest Type!!!{RET}{RET}"))
         return(NULL)
       }
+      
+      man_tib <- man_tib %>%
+        dplyr::mutate(Chromosome=as.character(Chromosome))
     }
     
     if (addSource) {

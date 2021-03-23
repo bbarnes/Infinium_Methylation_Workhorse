@@ -73,12 +73,14 @@ opt$bsmap_exe <- "/Users/bretbarnes/Documents/programs/BSMAPz/bsmapz"
 
 # Run Parameters::
 opt$runName    <- NULL
+opt$Species    <- NULL
 
 # Null Place Holders::
 opt$cpg_top_tsv <- NULL
 opt$cpg_pos_tsv <- NULL
 opt$cph_pos_tsv <- NULL
 opt$snp_pos_tsv <- NULL
+opt$org_des_tsv <- NULL
 
 # Directories::
 opt$outDir  <- NULL
@@ -123,11 +125,6 @@ opt$fresh   <- FALSE
 
 # verbose Options::
 opt$verbose <- 3
-
-#
-# TBD:: Make this an offical option
-#
-org_des_tsv <- NULL
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Order/Match/AQP/PQC Expected Columns::
@@ -259,6 +256,10 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'A1'
     opt$version  <- 'A2'
     opt$version  <- 'A3'
+    opt$version  <- 'A4'
+    opt$version  <- 'A5'
+    
+    opt$Species <- "Human"
     
     opt$idat   <- NULL
     par$aqpDir <- file.path(par$topDir, 'data/CustomContent/UnivChicago/latest')
@@ -277,8 +278,8 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, '329922X374054_A_ProductQC.txt'),
       sep=',')
     
-    org_des_tsv <- "/Users/bretbarnes/Documents/data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz"
-    
+    opt$org_des_tsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz")
+
   } else if (par$local_runType=='COVIC') {
     opt$genBuild <- 'GRCh36'
     opt$genBuild <- 'GRCh38'
@@ -290,6 +291,8 @@ if (args.dat[1]=='RStudio') {
     opt$version     <- 'C2'
     opt$version     <- 'C11'
     opt$version     <- 'C12'
+    
+    opt$Species <- "Human"
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -320,9 +323,12 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'C0'
     opt$version  <- 'C30'
     opt$version  <- 'C31'
+    opt$version  <- 'C32'
     
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
+    
+    opt$Species <- "Mouse"
     
     opt$genDir  <- file.path(par$topDir, 'data/iGenomes/Mus_musculus/NCBI')
     
@@ -331,6 +337,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$cph_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.chn-sorted.tsv.gz') )
     opt$snp_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.snp-sorted.tsv.gz') )
+    opt$org_des_tsv <- file.path(par$topDir, "data/CustomContent/LifeEpigentics/data/dropbox/merged_with_raw_ordered.cgn-pos-srd-prbs.tsv.gz")
     
     # opt$snp_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-SNP-Only.designs.csv.gz')
     # opt$cph_des_csv <- file.path(opt$impDir, 'cph-snp-designs/LEGX_SpikeIn_Reorder-CpH-Only.designs.csv.gz')
@@ -365,14 +372,14 @@ if (args.dat[1]=='RStudio') {
     opt$aqpn <- paste(1,1,2,1, sep=",")
     opt$pqcn <- paste(1, sep=",")
     
-    org_des_tsv <- "/Users/bretbarnes/Documents/data/CustomContent/LifeEpigentics/data/dropbox/merged_with_raw_ordered.cgn-pos-srd-prbs.tsv.gz"
-
   } else if (par$local_runType=='NZT') {
     opt$genBuild <- 'GRCh36'
     opt$genBuild <- 'GRCh38'
     opt$genBuild <- 'GRCh37'
     opt$platform    <- 'NZT'
     opt$version     <- 'N0'
+    
+    opt$Species <- "Human"
     
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
@@ -436,6 +443,8 @@ if (args.dat[1]=='RStudio') {
     # Run Parameters::
     make_option(c("--runName"), type="character", default=opt$runName, 
                 help="Run Name [default= %default]", metavar="character"),
+    make_option(c("--Species"), type="character", default=opt$Species, 
+                help="Target Species Name [default= %default]", metavar="character"),
     make_option(c("--pre_man_csv"), type="character", default=opt$pre_man_csv, 
                 help="Previously defined manifest [default= %default]", metavar="character"),
     
@@ -447,7 +456,9 @@ if (args.dat[1]=='RStudio') {
                 help="Null value for passing arguments [default= %default]", metavar="character"),
     make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv, 
                 help="Null value for passing arguments [default= %default]", metavar="character"),
-    
+    make_option(c("--org_des_tsv"), type="character", default=opt$org_des_tsv, 
+                help="Original design file used for canonical position selection. [default= %default]", metavar="character"),
+
     # Directories::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
@@ -529,7 +540,7 @@ if (args.dat[1]=='RStudio') {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
-opt_reqs <- c('outDir','impDir','ords',
+opt_reqs <- c('outDir','impDir','ords','Species',
               'genBuild','platform','version','bsmap_exe', # 'bsmap_opt',
               'Rscript','verbose')
 
@@ -652,8 +663,11 @@ run$gen_snp_fas <-
 # Defined Run Time:: Intermediate Files
 run$add_pas_csv <- file.path(run$addDir, paste(opt$runName,"address-pass.csv.gz", sep="."))
 run$man_fun_csv <- file.path(run$manDir, paste(opt$runName,"functional-sesame.manifest.csv.gz", sep="."))
-run$man_ses_csv <- file.path(run$manDir, paste(opt$runName,"final-sesame.manifest.csv.gz", sep="."))
 run$add_fin_csv <- file.path(run$manDir, paste(opt$runName,"final-address-aligned.csv.gz", sep="."))
+
+run$man_mas_csv <- file.path(run$manDir, paste(opt$runName,"final-master.manifest.csv.gz", sep="."))
+run$man_ses_csv <- file.path(run$manDir, paste(opt$runName,"final-sesame.manifest.csv.gz", sep="."))
+run$man_gsm_csv <- file.path(run$manDir, paste(opt$runName,"final-GenomeStudio.manifest.csv.gz", sep="."))
 
 run$add_prb_fas <- file.path(run$fasDir, paste(opt$runName, "aln-seq.fa.gz",  sep='.') )
 run$add_dat_csv <- file.path(run$addDir, paste(opt$runName, "add_dat.csv.gz", sep='.') )
@@ -691,7 +705,7 @@ if (opt$verbose>=1)
 
 org_des_tib <- NULL
 add_org_tib <- NULL
-if (!is.null(org_des_tsv) && file.exists(org_des_tsv)) {
+if (!is.null(opt$org_des_tsv) && file.exists(opt$org_des_tsv)) {
   
   org_des_col <-
     cols(
@@ -711,29 +725,28 @@ if (!is.null(org_des_tsv) && file.exists(org_des_tsv)) {
     )
   
   if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Loading org_des_tsv={org_des_tsv}...{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: Loading org_des_tsv={opt$org_des_tsv}...{RET}"))
   
   org_des_tib <- suppressMessages(suppressWarnings(
-    readr::read_tsv(org_des_tsv, 
+    readr::read_tsv(opt$org_des_tsv, 
                     col_names=names(org_des_col$cols),
                     col_types=org_des_col) )) %>%
-    dplyr::mutate(Org_Chr=paste0("chr",stringr::str_remove(Org_Chr, "^chr")),
-                  Org_Srd3=paste0(Org_TB,Org_CO,Org_NXB)
-    )
-  
+    dplyr::mutate(Org_Chr=paste0("chr",stringr::str_remove(Org_Chr, "^chr")) ) #,Org_Srd3=paste0(Org_TB,Org_CO,Org_NXB)
+
   add_org_tib <- dplyr::bind_rows(
-    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_Srd3,Org_U49P,Org_U49N) %>%
+    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_U49P,Org_U49N) %>%
       dplyr::rename(Org_49P=Org_U49P, Org_49N=Org_U49N) %>%
       dplyr::mutate(Org_49P=Org_49P %>% stringr::str_sub(1,49),
                     Org_49N=NA_character_,
                     Org_Des="2"),
-    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_Srd3,Org_U49P,Org_U49N) %>%
+    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_U49P,Org_U49N) %>%
       dplyr::rename(Org_49P=Org_U49P, Org_49N=Org_U49N) %>%
       dplyr::mutate(Org_Des="U"),
-    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_Srd3,Org_M49P,Org_M49N) %>%
+    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_M49P,Org_M49N) %>%
       dplyr::rename(Org_49P=Org_M49P, Org_49N=Org_M49N) %>%
       dplyr::mutate(Org_Des="M")
   ) %>% 
+    dplyr::mutate(Org_Mis_Scr=0, Org_Mis_Scr=as.integer(Org_Mis_Scr)) %>%
     dplyr::arrange(Org_Cgn,Org_Des) %>% 
     dplyr::select(Org_Cgn,Org_Des, dplyr::everything())
   
@@ -780,7 +793,9 @@ cgn_bed_tib <- suppressMessages(suppressWarnings(
   dplyr::rename(Imp_Pos=Imp_End) %>%
   dplyr::left_join(can_cgn_top_tib, by=c("Imp_Cgn"="Can_Cgn")) %>%
   dplyr::mutate(
-    Can_Mis_Scr=dplyr::case_when(!is.na(Can_Src) ~ 0, TRUE ~ 1)
+    Can_Mis_Scr=dplyr::case_when(
+      !is.na(Can_Src) ~ 0,
+      TRUE ~ 1) %>% as.integer()
   )
 
 #
@@ -992,17 +1007,24 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
 #                  2.1 Functional Manifest Generation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-man_fun_vec <- c("Ord_Key","Ord_Din","Ord_Col", # "Ord_Par",
+# add_comb(add_pas_list[['U']], add_pas_list[['M']],
+#          field="Address",
+#          join=c("Ord_Key","Ord_Din","Ord_Col","Decode_Status"),
+#          verbose=opt$verbose, tt=pTracker)
+
+man_fun_vec <- c("Ord_Key","Ord_Din","Ord_Col",
                  dplyr::all_of(base::names(man_info_tib) ) )
 stamp_vec <- c(stamp_vec,run$man_fun_csv)
 
 if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   man_fun_tib <- add_pas_tib %>%
-    add_to_man(des="Ord_Des", pid="Ord_Key", 
-                      join=man_fun_vec,
-                      csv=run$man_fun_csv, 
-                      validate=TRUE, 
-                      verbose=opt$verbose, tt=pTracker)
+    add_to_man(join=man_fun_vec,
+               runName=opt$runName,
+               des_key="Ord_Des", pid="Ord_Key",
+               col_key="Ord_Col",
+               csv=run$man_fun_csv, 
+               validate=TRUE, 
+               verbose=opt$verbose, tt=pTracker)
 } else {
   
   if (opt$verbose>=1)
@@ -1011,6 +1033,7 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     readr::read_csv(run$man_fun_csv, guess_max=100000) )) %>%
     utils::type.convert() %>% 
     dplyr::mutate(across(where(is.factor),  as.character) )
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1084,10 +1107,11 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
 bsp_imp_tib <- NULL
 stamp_vec <- c(stamp_vec, run$add_pas_bsp_csv)
 if (opt$fresh || !valid_time_stamp(stamp_vec)) {
-
+  
   bsp_imp_tib <-
     join_bsmap(
-      add=add_pas_fas_tib,bed=cgn_bed_tib,
+      add=add_pas_fas_tib,
+      bed=cgn_bed_tib, org=add_org_tib,
       file=run$add_prb_bspz,
       join_key="Aln_Key", prb_des="Ord_Des",
       join_type="inner",
@@ -1096,7 +1120,7 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   
   safe_write(bsp_imp_tib,"csv",run$add_pas_bsp_csv, funcTag=par$prgmTag, 
              verbose=opt$verbose)
-
+  
 } else {
   
   if (opt$verbose>=1)
@@ -1106,7 +1130,7 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     readr::read_csv(run$add_pas_bsp_csv, guess_max=100000) )) %>%
     utils::type.convert() %>% 
     dplyr::mutate(across(where(is.factor),  as.character) )
-
+  
 }
 
 if (FALSE) {
@@ -1149,21 +1173,28 @@ imp_u49_tsv <- file.path(imp_prb_dir, paste("probe_U49_cgn-table.csv.gz", sep="-
 imp_m49_tsv <- file.path(imp_prb_dir, paste("probe_M49_cgn-table.csv.gz", sep="-") )
 
 seq_imp_tib <- NULL
-stamp_vec <- c(stamp_vec, run$int_seq_tsv)
+stamp_vec <- c(stamp_vec, 
+               run$int_u49_tsv,
+               run$int_m49_tsv,
+               run$int_seq_tsv)
 if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   
-  int_u49_tib2 <- intersect_seq(ref=imp_u49_tsv,can=run$add_u49_tsv, out=run$int_u49_tsv,
-                               idxA=1, idxB=1, verbose=opt$verbose,tt=pTracker)
-
-  int_m49_tib2 <- intersect_seq(ref=imp_m49_tsv,can=run$add_m49_tsv, out=run$int_m49_tsv,
-                               idxA=1, idxB=1, verbose=opt$verbose,tt=pTracker)
+  int_u49_tib2 <- 
+    intersect_seq(ref=imp_u49_tsv,can=run$add_u49_tsv, out=run$int_u49_tsv,
+                  idxA=1, idxB=1, verbose=opt$verbose,tt=pTracker)
   
-  seq_imp_tib <- join_seq_intersect(u49=int_u49_tib2, m49=int_m49_tib2, bed=cgn_bed_tib,
-                                    verbose=opt$verbose, tt=pTracker)
+  int_m49_tib2 <- 
+    intersect_seq(ref=imp_m49_tsv,can=run$add_m49_tsv, out=run$int_m49_tsv,
+                  idxA=1, idxB=1, verbose=opt$verbose,tt=pTracker)
+  
+  seq_imp_tib <- 
+    join_seq_intersect(u49=int_u49_tib2, m49=int_m49_tib2, 
+                       bed=cgn_bed_tib, org=add_org_tib,
+                       verbose=opt$verbose, tt=pTracker)
   
   safe_write(seq_imp_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
              verbose=opt$verbose)
-
+  
 } else {
   
   if (opt$verbose>=1)
@@ -1211,56 +1242,71 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
 #                 3.4.1 Bind BSMAP & Seq-Match into Table::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Join as Table::
-# TBD:: Need to add back Mat_Src below::
-imp_col_vec <- c("Address","Ord_Des","Ord_Din",
-                 "Imp_Chr","Imp_Pos","Imp_Cgn",
-                 "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
-                 "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Row Binding all_imp_tab=(seq_imp_tib/bsp_imp_tib)...{RET}"))
 
+com_des_cols <- c("Address","Ord_Des","Ord_Din")
+com_gen_cols <- c("Imp_Chr","Imp_Pos","Imp_FR","Imp_TB","Imp_CO")
+com_scr_cols <- c("Can_Mis_Scr","Mat_Src_Scr","Org_Mis_Scr","Bsp_Din_Scr")
+com_cgn_cols <- c("Imp_Cgn","Imp_Nxb","Imp_Din") # ,"Bsp_Din_Ref")
+
+imp_col_vec <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols)
+
+seq_cgn_tib <- seq_imp_tib %>%
+  dplyr::filter(is.na(Imp_Chr))
+
+seq_dat_tib <- seq_imp_tib %>%
+  dplyr::filter(!is.na(Imp_Chr)) %>%
+  dplyr::mutate(Imp_Din="CG", Bsp_Din_Scr=as.integer(9)) %>%
+  dplyr::mutate(Mat_Src_Scr=as.integer(0), Mat_Src_Key="Seq") %>%
+  dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
+
+bsp_dat_tib <- bsp_imp_tib %>%
+  dplyr::rename(Imp_Din=Bsp_Din_Ref) %>%
+  dplyr::mutate(Mat_Src_Scr=as.integer(1), Mat_Src_Key="Bsp") %>%
+  dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
+
+imp_col_vec2 <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols,"Mat_Src_Key")
+
+all_imp_tab <- NULL
 all_imp_tab <- dplyr::bind_rows(
-  dplyr::select(seq_imp_tib, dplyr::any_of(imp_col_vec)) %>%
-    dplyr::mutate(Mat_Src="seq"),
-  dplyr::select(bsp_imp_tib, dplyr::any_of(imp_col_vec)) %>%
-    dplyr::mutate(Mat_Src="bsp"),
-) %>% dplyr::arrange(Address,Ord_Des,Ord_Din,Imp_Cgn,Mat_Src)
+  dplyr::select( seq_dat_tib, dplyr::any_of(imp_col_vec2) ),
+  dplyr::select( bsp_dat_tib, dplyr::any_of(imp_col_vec2) ),
+)  %>% 
+  dplyr::mutate(
+    Can_Mis_Scr=dplyr::case_when(
+      is.na(Can_Mis_Scr) ~ 9,
+      TRUE ~ as.double(Can_Mis_Scr)
+    ) %>% as.integer(),
+    Org_Mis_Scr=dplyr::case_when(
+      is.na(Org_Mis_Scr) ~ 9,
+      TRUE ~ as.double(Org_Mis_Scr)
+    ) %>% as.integer(),
+    Bsp_Din_Scr=dplyr::case_when(
+      is.na(Bsp_Din_Scr) ~ 9,
+      TRUE ~ as.double(Bsp_Din_Scr)
+    ) %>% as.integer()
+  ) %>% 
+  dplyr::arrange( dplyr::across( dplyr::all_of(c(com_scr_cols)) ) ) %>%
+  dplyr::distinct()
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_imp_tib/bsp_imp_tib).{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.4.1 Join BSMAP & Seq-Match into Tibble::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Join by fields::
-all_imp_tib <- 
-  dplyr::full_join(
-    seq_imp_tib,bsp_imp_tib,
-    by=c("Address","Ord_Des","Ord_Din",
-         "Imp_Chr","Imp_Pos"),
-    suffix=c("_Seq","_Bsp")
-  ) %>% 
-  dplyr::left_join(
-    add_org_tib, 
-    by=c("Aln_Prb_Seq"="Org_49P",
-         "Ord_Des"="Org_Des",
-         "Imp_Chr"="Org_Chr",
-         "Imp_Pos"="Org_Pos",
-         "Imp_FR_Seq"="Org_FR",
-         "Imp_TB_Seq"="Org_TB",
-         "Imp_CO_Seq"="Org_CO")
-  ) %>%
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Row Joining all_imp_tib=(seq_imp_tib/bsp_imp_tib)...{RET}"))
+
+all_imp_tib <- NULL
+all_imp_tib <- all_imp_tab %>%
+  tidyr::pivot_wider(id_cols = dplyr::all_of(c(com_des_cols,com_gen_cols)), 
+                     names_from = "Mat_Src_Key", 
+                     values_from = dplyr::all_of(c(com_scr_cols,com_cgn_cols)) ) %>%
+  # Now Add Scores for pair matching::
   dplyr::mutate(
-    Srd_Mis_Scr=dplyr::case_when(
-      is.na(Imp_FR_Seq) | is.na(Imp_TB_Seq) | is.na(Imp_CO_Seq) ~ 5,
-      is.na(Imp_FR_Bsp) | is.na(Imp_TB_Bsp) | is.na(Imp_CO_Bsp) ~ 4,
-      Imp_CO_Bsp != Imp_CO_Seq ~ 3,
-      Imp_TB_Bsp != Imp_TB_Seq ~ 2,
-      Imp_FR_Bsp != Imp_FR_Seq ~ 1,
-      
-      Imp_FR_Bsp == Imp_FR_Seq &
-        Imp_TB_Bsp == Imp_TB_Seq &
-        Imp_CO_Bsp == Imp_CO_Seq ~ 0,
-      TRUE ~ 9
-    ) %>% as.integer(),
-    
     Cgn_Mis_Scr=dplyr::case_when(
       is.na(Imp_Cgn_Seq) ~ 3,
       is.na(Imp_Cgn_Bsp) ~ 2,
@@ -1277,23 +1323,50 @@ all_imp_tib <-
       Imp_Nxb_Bsp == Imp_Nxb_Seq ~ 0,
       TRUE ~ 9
     ) %>% as.integer(),
+    
     Org_Mis_Scr=dplyr::case_when(
-      !is.na(Org_Cgn) ~ 0,
-      TRUE ~ 9) %>% as.integer()
+      is.na(Org_Mis_Scr_Seq) ~ 3,
+      is.na(Org_Mis_Scr_Bsp) ~ 2,
+      !is.na(Org_Mis_Scr_Seq) & !is.na(Org_Mis_Scr_Bsp) ~ 0,
+      TRUE ~ 9) %>% as.integer(),
+    
+    Imp_Cgn_Max=dplyr::case_when(
+      !is.na(Imp_Cgn_Seq) & Can_Mis_Scr_Seq==0 ~ Imp_Cgn_Seq,
+      !is.na(Imp_Cgn_Bsp) & Can_Mis_Scr_Bsp==0 ~ Imp_Cgn_Bsp,
+      !is.na(Imp_Cgn_Seq) ~ Imp_Cgn_Seq,
+      !is.na(Imp_Cgn_Bsp) ~ Imp_Cgn_Bsp,
+      TRUE ~ NA_integer_
+    ) %>% as.integer(),
+    
+    Infinium_Design=dplyr::case_when(
+      Ord_Des=="U" ~ 1,
+      Ord_Des=="M" ~ 1,
+      Ord_Des=="2" ~ 2,
+      TRUE ~ NA_real_
+    ) %>% as.integer()
+    
   ) %>%
   mutate_probe_id(
-    pid="Reference_Cgn_ID",cgn="Imp_Cgn_Seq",
-    tb="Imp_TB_Seq",co="Imp_CO_Seq",
+    pid="Reference_Cgn_ID",cgn="Imp_Cgn_Max",
     des="Ord_Des",din="Ord_Din",
+    tb="Imp_TB",co="Imp_CO",
+    inf="Infinium_Design",
     verbose=opt$verbose, tt=pTracker) %>%
-  dplyr::select(Address,Ord_Des,Ord_Din,Reference_Cgn_ID,
-                dplyr::everything())
+  dplyr::select(Address,Ord_Des,Ord_Din,
+                Reference_Cgn_ID,dplyr::everything())
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Done. Row Joining all_imp_tib=(seq_imp_tib/bsp_imp_tib).{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                 3.4.1 Build Summary Statistic Tables::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Building Stats Tables...{RET}"))
+
 # Genomic Hits Table::
+bsp_aln_cnt_tib <- NULL
 bsp_aln_cnt_tib <- bsp_imp_tib %>% 
   dplyr::distinct(Address,Ord_Des,Ord_Din, 
                   Imp_Chr,Imp_Pos, Imp_FR,Imp_TB,Imp_CO) %>%
@@ -1302,6 +1375,7 @@ bsp_aln_cnt_tib <- bsp_imp_tib %>%
   dplyr::summarise(Aln_Hits=n(), .groups="drop")
 
 # CGN Hits Table::
+bsp_cgn_cnt_tib <- NULL
 bsp_cgn_cnt_tib <- all_imp_tab %>% 
   dplyr::distinct(Address,Ord_Des,Ord_Din,Imp_Cgn) %>%
   dplyr::select(Address,Ord_Des,Ord_Din) %>%
@@ -1309,6 +1383,7 @@ bsp_cgn_cnt_tib <- all_imp_tab %>%
   dplyr::summarise(Cgn_Hits=n(), .groups="drop")
 
 # Add all Din Counts::
+bsp_din_cnt_tib <- NULL
 bsp_din_cnt_tib <- bsp_imp_tib %>% 
   dplyr::distinct(Address,Ord_Des,Ord_Din, 
                   Imp_Chr,Imp_Pos, Imp_FR,Imp_TB,Imp_CO, 
@@ -1324,6 +1399,7 @@ bsp_din_cnt_tib <- bsp_imp_tib %>%
     values_fill=0) # %>% dplyr::arrange(-TG)
 
 # Add all Din Counts::
+bsp_nxb_cnt_tib <- NULL
 bsp_nxb_cnt_tib <- bsp_imp_tib %>% 
   dplyr::distinct(Address,Ord_Des,Ord_Din, 
                   Imp_Chr,Imp_Pos, Imp_FR,Imp_TB,Imp_CO, 
@@ -1338,44 +1414,64 @@ bsp_nxb_cnt_tib <- bsp_imp_tib %>%
     values_from="Count", 
     values_fill=0)
 
+bsp_sum_tab <- NULL
 bsp_sum_tab <- bsp_cgn_cnt_tib %>% 
   dplyr::inner_join(bsp_aln_cnt_tib, by=c("Address","Ord_Des","Ord_Din")) %>% 
   dplyr::inner_join(bsp_din_cnt_tib, by=c("Address","Ord_Des","Ord_Din")) %>% 
   dplyr::inner_join(bsp_nxb_cnt_tib, by=c("Address","Ord_Des","Ord_Din"))
 
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Done. Building Stats Tables.{RET}{RET}"))
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #              3.4.1 Select "Top" Canonical (Unique) Probes::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Selecting Top Canonical Hits...{RET}"))
+
+
+#
+# TBD:: Pick best cgn, tally stats...
+#   - move top after pivot???
+#   - add matching type to top-score???
+#
+
 # Top Hits for Manifest Skeleton::
+top_scr_col <- names(all_imp_tib %>% dplyr::select(Cgn_Mis_Scr, dplyr::contains("_Scr")))
+top_imp_tib <- NULL
 top_imp_tib <- all_imp_tib %>% 
-  dplyr::arrange(Cgn_Mis_Scr,
-                 Can_Mis_Scr_Seq, Can_Mis_Scr_Bsp,
-                 Bsp_Din_Scr,
-                 Srd_Mis_Scr,
-                 Org_Mis_Scr
-  ) %>%
-  dplyr::distinct(Address,Ord_Des,Ord_Din, .keep_all=TRUE) %>%
+  dplyr::arrange( dplyr::across( dplyr::all_of(top_scr_col) )) %>%
+  dplyr::distinct( 
+    dplyr::across( dplyr::all_of(com_des_cols) ), .keep_all=TRUE ) %>%
   mutate_probe_id(
-    pid="Canonical_Cgn_ID",cgn="Imp_Cgn_Seq",
-    tb="Imp_TB_Seq",co="Imp_CO_Seq",
+    pid="Canonical_Cgn_ID",cgn="Imp_Cgn_Max",
     des="Ord_Des",din="Ord_Din",
+    tb="Imp_TB",co="Imp_CO",
+    inf="Infinium_Design",
     verbose=opt$verbose, tt=pTracker) %>%
   dplyr::select(Address,Ord_Des,Ord_Din,
                 Canonical_Cgn_ID,Reference_Cgn_ID,
-                dplyr::everything())
+                dplyr::everything()) %>%
+  dplyr::right_join(add_pas_fas_tib, 
+                    by=com_des_cols) %>%
+  dplyr::mutate(Species=opt$Species,
+                Genome_Build=opt$genBuild)
+
+#
+# TBD:: Validate that all original passing probes were matched...
+#
 
 # Top Hits Summary::
+top_imp_sum <- NULL
 top_imp_sum <- top_imp_tib %>% 
-  dplyr::group_by(Ord_Des,Ord_Din, 
-                  Cgn_Mis_Scr,
-                  Can_Mis_Scr_Seq, Can_Mis_Scr_Bsp,
-                  Bsp_Din_Scr,
-                  Srd_Mis_Scr,
-                  Org_Mis_Scr) %>% 
+  dplyr::group_by( dplyr::across( dplyr::all_of( c("Ord_Des","Ord_Din", top_scr_col) )) ) %>%
   dplyr::summarise(Count=n(), .groups="drop") %>% 
   dplyr::arrange(-Count)
 top_imp_sum %>% print(n=base::nrow(top_imp_sum))
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Done. Selecting Top Canonical Hits.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                3.4.1 Merge Back Canonical (Unique) Cgn ID::
@@ -1383,14 +1479,14 @@ top_imp_sum %>% print(n=base::nrow(top_imp_sum))
 #                           Write full alignments
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+fin_imp_tib <- NULL
 fin_imp_tib <- top_imp_tib %>% 
   dplyr::select(Address,Ord_Des,Ord_Din,Canonical_Cgn_ID,Reference_Cgn_ID) %>% 
   dplyr::right_join(all_imp_tib, by=c("Address","Ord_Des","Ord_Din","Reference_Cgn_ID")) %>%
   dplyr::left_join(bsp_sum_tab, by=c("Address","Ord_Des","Ord_Din") )
 
-safe_write(fin_imp_tib,"tsv",run$add_fin_csv, funcTag=par$prgmTag,
+fin_imp_cnt <- safe_write(fin_imp_tib,"tsv",run$add_fin_csv, funcTag=par$prgmTag,
            verbose=opt$verbose)
-
 
 #
 # - top_imp_
@@ -1433,35 +1529,12 @@ safe_write(fin_imp_tib,"tsv",run$add_fin_csv, funcTag=par$prgmTag,
 # - Add Comments
 #
 
-
-# [QC Check]::
-if (opt$verbose>=9) {
-  all_imp_tib %>% 
-    dplyr::filter(!is.na(Imp_Cgn_Bsp) & !is.na(Imp_Cgn_Seq) & Imp_Cgn_Bsp == Imp_Cgn_Seq) %>%
-    dplyr::filter(!is.na(Can_Top_Seq)) %>%
-    dplyr::filter(Nxb_Mis_Scr == 0) %>%
-    dplyr::select(dplyr::contains("Nxb"),
-                  dplyr::contains("Scr"),
-                  dplyr::everything()) %>%
-    head %>% 
-    as.data.frame() %>% print()
-  
-  all_imp_tib %>% 
-    dplyr::filter(is.na(Imp_Cgn_Bsp) | Imp_Cgn_Bsp != Imp_Cgn_Seq) %>% 
-    head() %>% as.data.frame() %>% print()
-  
-  all_imp_tib %>% 
-    dplyr::filter(is.na(Imp_Cgn_Seq) | Imp_Cgn_Bsp != Imp_Cgn_Seq) %>% 
-    head() %>% as.data.frame() %>% print()
-}
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                3.6 Rebuild Manifest From Address Alignments::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 man_join_pid_vec <- c("Canonical_Cgn_ID","Ord_Din")
-                      # dplyr::all_of(base::names(man_info_tib) ) )
+# dplyr::all_of(base::names(man_info_tib) ) )
 
 org_cols <- c("Canonical_Cgn_ID","Reference_Cgn_ID_U","Reference_Cgn_ID_M",
               "Address_U","Address_M","Ord_Prb_U","Ord_Prb_M", 
@@ -1483,74 +1556,128 @@ gsm_cols <- c("IlmnID","Reference_Cgn_ID_U","Reference_Cgn_ID_M",
               "Strand", "Strand_TB", "Strand_CO", "Next_Base",
               "CHR","MAPINFO", "Order_ID_U", "Order_ID_M")
 
-# man_top_genstu_tib
+#
+# Need to ensure that there is a mate for Infinum I pairs::
+#
 
-ses_controls_tib <- readr::read_csv(file.path(par$datDir, "manifest/core/COVIC-C12.manifest.sesame-base.cpg-sorted.csv.gz"))
-man_top_master_tib <- top_imp_tib %>%
-  add_to_man(des="Ord_Des", pid_key="Canonical_Cgn_ID",
-             rep_key="Canonical_Cgn_ID",rep_val="Replicate_Count",
+man_top_master_tib <- NULL
+man_top_master_tib <-
+  add_to_man(top_imp_tib, 
              join=man_join_pid_vec,
-             # csv=run$man_fin_csv, 
-             validate=TRUE, 
-             verbose=opt$verbose, tt=pTracker) %>%
-  dplyr::select(dplyr::all_of(org_cols))
+             runName=opt$runName,
+             des_key="Ord_Des", 
+             pid_key="Probe_ID",
+             # pid_key="Canonical_Cgn_ID", 
+             # pid_key="Imp_Cgn",
+             rep_key="Canonical_Cgn_ID",
+             rep_val="Replicate_Count",
+             nxb_key="Imp_Nxb_Bsp_U",
+             csv=run$man_mas_csv,
+             validate=TRUE,
+             verbose=opt$verbose, tt=pTracker)
 
-man_top_sesame_tib <- top_imp_tib %>%
-  add_to_man(des="Ord_Des", pid_key="Canonical_Cgn_ID",
-             rep_key="Canonical_Cgn_ID",rep_val="Replicate_Count",
-             join=man_join_pid_vec,
-             # csv=run$man_fin_csv, 
-             validate=TRUE, 
-             verbose=opt$verbose, tt=pTracker) %>%
-  dplyr::select(Canonical_Cgn_ID,Address_M,Address_U,
-                DESIGN,COLOR_CHANNEL,col,Next_Base,Probe_Source,
-                Ord_Prb_U,Ord_Prb_M) %>%
-  dplyr::rename(Probe_ID=Canonical_Cgn_ID,
-                U=Address_U, M=Address_M,
-                AlleleA_ProbeSeq=Ord_Prb_U,
-                AlleleB_ProbeSeq=Ord_Prb_M) %>%
-  dplyr::filter(!is.na(AlleleA_ProbeSeq))
+man_top_master_tib %>% print()
 
-ses_full_tib <- dplyr::bind_rows(
-  man_top_sesame_tib,
-  ses_controls_tib %>% dplyr::select(dplyr::any_of(names(man_top_sesame_tib))) %>% dplyr::filter(stringr::str_starts(Probe_ID, "ct"))
-)
-readr::write_csv(ses_full_tib, man_top_sesame_tib,run$man_ses_csv)
+# %>%
+#   dplyr::select(dplyr::all_of(org_cols))
+
+#
+# Tidy up Columns
+#
+
+# man_top_master_tib %>% purrr::set_names(ses_cols)
+if (FALSE) {
+  man_top_sesame_tib <- man_top_master_tib %>% 
+    dplyr::rename(
+      # Add Name...
+      U=Address_U,
+      M=Address_M,
+      AlleleA_ProbeSeq=Ord_Prb_U,
+      AlleleB_ProbeSeq=Ord_Prb_M,
+      Probe_Type=Ord_Din,
+      Strand_FR=Imp_FR_U,
+      Strand_TB=Imp_TB_U,
+      Strand_CO=Imp_CO_U,
+      CHR=Imp_Chr_U,
+      MAPINFO=Imp_Pos_U,
+      Species=Species_U,
+      Genome_Build=Genome_Build_U,
+      Rep_Num=Replicate_Count
+    ) %>%
+    dplyr::arrange(Probe_ID) %>%
+    dplyr::select(
+      Probe_ID,
+      U,AlleleA_ProbeSeq,
+      M,AlleleB_ProbeSeq,
+      Next_Base,
+      Color_Channel,
+      col,
+      Probe_Type,
+      Strand_FR,Strand_TB,Strand_CO,
+      Infinium_Design,
+      Infinium_Design_Type,
+      CHR,MAPINFO,Species,Genome_Build,
+      
+      Rep_Num
+    )
+}
+
+# Issue Below:: Why isn't there a 2 in the Probe_ID???
+#  man_top_master_tib %>% dplyr::select(Probe_ID,Infinium_Design,Canonical_Cgn_ID,Address_U,Ord_Prb_U, Address_M,Ord_Prb_M) 
+#  7 cg20223237_TC11               2 cg20223237_TC1     5792312 CAAACCCATAACCCTACAACACCAAAATAAATAAAAACTTTAAACCAACA        NA NA                                                
+
+# Command::
+#  man_top_master_tib %>% dplyr::select(Probe_ID,Infinium_Design,Canonical_Cgn_ID,Address_U,Ord_Prb_U, Address_M,Ord_Prb_M) %>% dplyr::arrange(Probe_ID) %>% dplyr::filter(Infinium_Design==1 & is.na(Ord_Prb_M))
+
+# Here is the error::
+#  man_top_master_tib %>% dplyr::filter(Probe_ID=="cg20223237_TC11") %>% dplyr::select(Probe_ID,Infinium_Design,Canonical_Cgn_ID,Address_U,Ord_Prb_U, Address_M,Ord_Prb_M)
+# Probe_ID        Infinium_Design Canonical_Cgn_ID Address_U Ord_Prb_U                                          Address_M Ord_Prb_M
+# <chr>                     <int> <chr>                <int> <chr>                                                  <int> <chr>    
+#   1 cg20223237_TC11               2 cg20223237_TC1     5792312 CAAACCCATAACCCTACAACACCAAAATAAATAAAAACTTTAAACCAACA        NA NA  
 
 
 
-# man_full_ord_tib <- top_imp_tib %>%
-#   add_to_man(des="Ord_Des", pid="Ord_Key",
-#              join=man_join_ord_vec,
-#              # csv=run$man_fin_csv, 
-#              validate=TRUE, 
-#              verbose=opt$verbose, tt=pTracker) %>%
-#   dplyr::select(dplyr::any_of(org_cols)) %>%
-#   purrr::set_names("",ses_cols[1:(length(ses_cols)-2)])
 
+
+
+
+
+#
+# Hack for Rapid Sesame Turn Around::
+#
 if (FALSE) {
   
-  # - Address/CGN Manifest Pairing
-  #   - Check for any missing probes
-  #   - Add Infinium Type Integer, Proper Probe ID, 
-  #     Original Function Sesame Probe Name (cg########),
-  #     Original Design ID (Horvath, etc.)
-  #
-  add_org_tib
+  man_top_sesame_tib <- top_imp_tib %>%
+    add_to_man(join=man_join_pid_vec,
+               des="Ord_Des", pid_key="Canonical_Cgn_ID",
+               rep_key="Canonical_Cgn_ID",rep_val="Replicate_Count",
+               # csv=run$man_fin_csv, 
+               validate=TRUE, 
+               verbose=opt$verbose, tt=pTracker) %>%
+    dplyr::select(Canonical_Cgn_ID,Address_M,Address_U,
+                  DESIGN,COLOR_CHANNEL,col,Next_Base,Probe_Source,
+                  Ord_Prb_U,Ord_Prb_M,
+                  Imp_Chr,Imp_Pos,Imp_FR_Seq,Imp_TB_Seq,Imp_CO_Seq) %>%
+    dplyr::rename(Probe_ID=Canonical_Cgn_ID,
+                  U=Address_U, M=Address_M,
+                  AlleleA_ProbeSeq=Ord_Prb_U,
+                  AlleleB_ProbeSeq=Ord_Prb_M,
+                  Chromosome=Imp_Chr,Coordinate=Imp_Pos,
+                  Strand_FR=Imp_FR_Seq,
+                  Strand_TB=Imp_TB_Seq,
+                  Strand_CO=Imp_CO_Seq) %>%
+    dplyr::filter(!is.na(AlleleA_ProbeSeq))
+  
+  man_ses_ctl_tib <- 
+    readr::read_csv(file.path(par$datDir, "manifest/core/COVIC-C12.manifest.sesame-base.cpg-sorted.csv.gz")) %>%
+    dplyr::select(dplyr::any_of(names(man_top_sesame_tib))) %>% 
+    dplyr::filter(stringr::str_starts(Probe_ID, "ct"))
 
-  # [Add/Format]:: Need to add coordinates from target genomic BED
-  imp_seq_bed_tib <- seq_imp_tib %>% 
-    dplyr::left_join(cgn_bed_tib, by=c("Imp_Cgn"))
-  
-  # [Add/Format]:: Need to add CGN's from target genomic BED
-  #  - Rather use bsp_imp_tib for position matching...
-  #    Bsp_Pos_tib %>% dplyr::left_join(cgn_bed_tib, by=c("Bsp_Chr"="Imp_Chr", ))
-  bsp_pos_bed_tib <- bsp_imp_tib %>% 
-    dplyr::select(Address,Ord_Des,Ord_Din, dplyr::everything()) %>% 
-    dplyr::select(-aln_key) %>%
-    dplyr::left_join(cgn_bed_tib, 
-                     by=c("Bsp_Chr"="Imp_Chr", "Bsp_Pos"="Imp_End") )
-  
+  ses_full_tib <- dplyr::bind_rows(
+    man_top_sesame_tib,
+    ses_controls_tib %>% dplyr::select(dplyr::any_of(names(man_top_sesame_tib))) %>% dplyr::filter(stringr::str_starts(Probe_ID, "ct"))
+  )
+  readr::write_csv(ses_full_tib, man_top_sesame_tib,run$man_ses_csv)
 }
 
 
@@ -1606,9 +1733,22 @@ if (FALSE) {
   #   dplyr::filter(!is.na(Imp_Chr) & !is.na(Imp_Pos)) %>%
   #   split(.$Imp_Chr)
   
+  # TBD:: Full List for later...
+  #
+  # tar_add_list <- 
+  #   all_imp_tab %>% 
+  #   dplyr::distinct(Address,Ord_Des,Ord_Din, Imp_Chr,Imp_Pos) %>% 
+  #   dplyr::arrange(Imp_Chr,Imp_Pos) %>%
+  #   split(.$Imp_Chr)
+
   tar_add_list <- 
-    all_imp_tab %>% 
-    dplyr::distinct(Address, Ord_Des, Ord_Din, Imp_Chr,  Imp_Pos) %>% 
+    man_top_sesame_tib %>% 
+    dplyr::distinct(Probe_ID, U, M, 
+                    Probe_Type,Infinium_Design,
+                    AlleleA_ProbeSeq,AlleleB_ProbeSeq,
+                    Strand_FR,Strand_TB,Strand_CO,
+                    CHR,MAPINFO,Genome_Build) %>% 
+    dplyr::rename(Imp_Chr=CHR,Imp_Pos=MAPINFO) %>%
     dplyr::arrange(Imp_Chr,Imp_Pos) %>%
     split(.$Imp_Chr)
   
@@ -1626,7 +1766,7 @@ if (FALSE) {
     
     # bsp_begs <- head(tar_add_list[[chr_str]]$imp_pos) - 60
     bsp_begs <- tar_add_list[[chr_str]]$Imp_Pos - 60
-    bsp_ends <- bsp_begs + 122
+    bsp_ends <- bsp_begs + 122 - 1
     # print(bsp_begs)
     
     ref_seqs <- stringr::str_sub( as.character(gen_ref_dat[[chr_idx]]), bsp_begs, bsp_ends) %>% addBrac()
@@ -1635,15 +1775,25 @@ if (FALSE) {
     
     cur_des_tib <- 
       tibble::tibble(
-        Des_Key=paste(tar_add_list[[chr_str]]$Address,
-                      tar_add_list[[chr_str]]$Ord_Des,
-                      tar_add_list[[chr_str]]$Ord_Din, sep="_"),
-        Des_Bld=opt$genBuild,
+        Des_Key=tar_add_list[[chr_str]]$Probe_ID,
+        Des_AddU=tar_add_list[[chr_str]]$U,
+        Des_AddM=tar_add_list[[chr_str]]$M,
+        # Des_Key=paste(tar_add_list[[chr_str]]$Address,
+        #               tar_add_list[[chr_str]]$Ord_Des,
+        #               tar_add_list[[chr_str]]$Ord_Din, sep="_"),
+        # Des_Bld=opt$genBuild,
+        Des_Bld=tar_add_list[[chr_str]]$Genome_Build,
         Des_Chr=chr_str,
         Des_Pos=tar_add_list[[chr_str]]$Imp_Pos,
-        Des_Din=tar_add_list[[chr_str]]$Ord_Din,
-        Des_FR="F",
-        Des_CO="C",
+        # Des_Din=tar_add_list[[chr_str]]$Ord_Din,
+        Des_Inf=tar_add_list[[chr_str]]$Infinium_Design,
+        Des_Din=tar_add_list[[chr_str]]$Probe_Type,
+        Des_FR=tar_add_list[[chr_str]]$Strand_FR,
+        Des_TB=tar_add_list[[chr_str]]$Strand_TB,
+        Des_CO=tar_add_list[[chr_str]]$Strand_CO,
+
+        Des_PrbA=tar_add_list[[chr_str]]$AlleleA_ProbeSeq,
+        Des_PrbB=tar_add_list[[chr_str]]$AlleleB_ProbeSeq,
         
         Des_Ref_Seq=ref_seqs,
         Des_Snp_Seq=snp_seqs
@@ -1658,51 +1808,126 @@ if (FALSE) {
     des_ref_tib <- 
       desSeq_to_prbs(cur_des_tib, 
                      idsKey = "Des_Key", seqKey = "Des_Ref_Seq", prbKey = "Des_Din", # prbKey = "cg",
-                     strsSR = "Des_FR",strsCO = "Des_CO", 
-                     addMatSeq = TRUE, parallel = TRUE, max = 10,
+                     strsSR = "FR",strsCO = "CO", 
+                     addMatSeq = TRUE, parallel = TRUE, # max = 10,
                      verbose = opt$verbose, tt = pTracker)
     
-    des_snp_tib <- 
-      desSeq_to_prbs(cur_des_tib, 
-                     idsKey = "Des_Key", seqKey = "Des_Snp_Seq", prbKey = "Des_Din", # prbKey = "cg",
-                     strsSR = "Des_FR",strsCO = "Des_CO", 
-                     addMatSeq = TRUE, parallel = TRUE, max = 10,
-                     verbose = opt$verbose, tt = pTracker)
-
-    #
-    # Run improbe full design for thermodynamic scores::
-    #
-    opt$desDir <- file.path(opt$outDir, "des")
-    if (!dir.exists(opt$desDir)) dir.create(opt$desDir, recursive = TRUE)
-    ref_des_tsv <- file.path(opt$desDir, paste(opt$genBuild,chr_str,"improbe-ref-design-input.tsv", sep='-'))
+    # des_snp_tib <- 
+    #   desSeq_to_prbs(cur_des_tib, 
+    #                  idsKey = "Des_Key", seqKey = "Des_Snp_Seq", prbKey = "Des_Din", # prbKey = "cg",
+    #                  strsSR = "FR",strsCO = "CO", 
+    #                  addMatSeq = TRUE, parallel = TRUE, max = 10,
+    #                  verbose = opt$verbose, tt = pTracker)
     
-    ref_des_tib <- tibble::tibble(
-      Seq_ID=cur_des_tib$Des_Key,
-      Sequence=cur_des_tib$Des_Ref_Seq,
-      Genome_Build=cur_des_tib$Des_Bld,
-      Chromosome=cur_des_tib$Des_Chr,
-      Coordinate=cur_des_tib$Des_Pos,
-      CpG_Island="FALSE"
-    )
-    readr::write_tsv(ref_des_tib,ref_des_tsv)
-
-    # Not sure why this isn't running...
-    ref_imp_des_tib <- 
-      improbe_docker(dir = opt$desDir, file = ref_des_tsv, 
-                     name = paste(opt$genBuild,chr_str, sep="-"), 
-                     image = image_str, shell = image_ssh,
-                     verbose = opt$verbose, tt=pTracker)
+    cur_join_tib <- cur_des_tib %>% dplyr::inner_join(des_ref_tib, by=c("Des_Key") ) %>% 
+      dplyr::mutate(Match=dplyr::case_when(
+        Des_Inf==1 & Des_PrbA==PRB1_U_MAT & Des_PrbB==PRB1_M_MAT ~ 0,
+        Des_Inf==2 & Des_PrbA==PRB2_D_MAT ~ 0,
+        TRUE ~ 1)
+      ) %>% dplyr::filter(Match==0) # %>% as.data.frame()
+    
+    if (FALSE) {
+      #
+      # Run improbe full design for thermodynamic scores::
+      #
+      opt$desDir <- file.path(opt$outDir, "des")
+      if (!dir.exists(opt$desDir)) dir.create(opt$desDir, recursive = TRUE)
+      ref_des_tsv <- file.path(opt$desDir, paste(opt$genBuild,chr_str,"improbe-ref-design-input.tsv", sep='-'))
+      
+      ref_des_tib <- tibble::tibble(
+        Seq_ID=cur_des_tib$Des_Key,
+        Sequence=cur_des_tib$Des_Ref_Seq,
+        Genome_Build=cur_des_tib$Des_Bld,
+        Chromosome=cur_des_tib$Des_Chr,
+        Coordinate=cur_des_tib$Des_Pos,
+        CpG_Island="FALSE"
+      )
+      readr::write_tsv(ref_des_tib,ref_des_tsv)
+      
+      # Not sure why this isn't running...
+      ref_imp_des_tib <- 
+        improbe_docker(dir = opt$desDir, file = ref_des_tsv, 
+                       name = paste(opt$genBuild,chr_str, sep="-"), 
+                       image = image_str, shell = image_ssh,
+                       verbose = opt$verbose, tt=pTracker)
+    }
     
     
-    
-    fwd_des_tib <- bind_rows(fwd_des_tib, cur_des_tib)
+    fwd_des_tib <- bind_rows(fwd_des_tib, cur_join_tib)
     # print(fwd_des_tib)
     
     cat(glue::glue("[{par$prgmTag}]: Done.{RET}{RET}"))
     
-    break
+    # break
   }
+  # fwd_des_tib %>% dplyr::filter(Match==0)
   
+  fwd_des_csv <- file.path(run$alnDir, paste(opt$runName,"fwd-seqs.csv.gz", sep='-'))
+  readr::write_csv(fwd_des_tib, fwd_des_csv)
+  
+  
+  fwd_sel_tib <- fwd_des_tib %>% 
+    dplyr::rename(Forward_Sequence=Des_Ref_Seq.x) %>%
+    dplyr::mutate(Source_Seq=dplyr::case_when(
+      Des_Inf==1 ~ PRB1_N,
+      Des_Inf==2 ~ PRB2_N,
+      TRUE ~ NA_character_) 
+    ) %>%
+    dplyr::select(Des_Key,Des_AddU,Des_AddM, Forward_Sequence,Source_Seq, Strand_SR,Strand_CO)
+  
+  man_fwd_ses_col <- c("Probe_ID","Name","U","AlleleA_ProbeSeq","M","AlleleB_ProbeSeq",
+                       "Next_Base","Color_Channel","col","Probe_Type",
+                       "Strand_FR","Strand_TB","Strand_CO","Infinium_Design","Infinium_Design_Type",
+                       "CHR","MAPINFO","Species","Genome_Build","Source_Seq","Forward_Sequence","Rep_Num")
+  man_fwd_ses_tib <- man_top_sesame_tib %>%
+    dplyr::left_join(fwd_sel_tib, 
+                     by=c("Probe_ID"="Des_Key", 
+                          "U"="Des_AddU", 
+                          "M"="Des_AddM", "Strand_CO") ) %>%
+    dplyr::mutate(Name=stringr::str_remove(Probe_ID, "_.*$")) %>%
+    dplyr::select(dplyr::all_of(man_fwd_ses_col))
+  
+  #
+  # Sesame Controls::
+  #
+  man_ses_ctl_tib <- 
+    readr::read_csv(file.path(par$datDir, "manifest/core/COVIC-C12.manifest.sesame-base.cpg-sorted.csv.gz")) %>%
+    dplyr::select(dplyr::any_of(names(man_fwd_ses_tib))) %>% 
+    dplyr::filter(stringr::str_starts(Probe_ID, "ct")) %>%
+    dplyr::rename(Infinium_Design_Type=Infinium_Design) %>%
+    dplyr::mutate(Infinium_Design=as.integer(2))
+  
+  ses_full_tib <- dplyr::bind_rows(
+    man_fwd_ses_tib,man_ses_ctl_tib)
+  readr::write_csv(ses_full_tib, run$man_ses_csv)
+  
+
+  #
+  # Genome Studio::
+  #
+  gs_header_vec <- genome_studio_header(name="Chicago-A5-GRCh37",count=base::nrow(man_fwd_ses_tib))
+  gs_controls_tib <- readr::read_csv("/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/controls/MethylationEPIC_v-1-0_B4.only-controls-table.csv.gz")
+  gs_body_tib <- man_fwd_ses_tib %>% dplyr::rename(
+    IlmnID=Probe_ID,
+    AddressA_ID=U,
+    AddressB_ID=M
+  )
+  
+  readr::write_lines(gs_header_vec, run$man_gsm_csv, append = FALSE)
+  readr::write_csv(gs_body_tib, run$man_gsm_csv, append = TRUE, col_names = TRUE)
+  readr::write_lines("[Controls],,,,,,,", run$man_gsm_csv, append = TRUE)
+  readr::write_csv(gs_controls_tib, run$man_gsm_csv, append = TRUE, col_names = FALSE)
+  
+
+  if (FALSE) {
+    seq_imp_tib %>% dplyr::select(Address, Can_Top) %>% dplyr::filter(!is.na(Can_Top)) %>%
+      dplyr::inner_join(exp_tib, by=c("Address"="U"))
+    
+    # Some quick validation::
+    seq_imp_tib %>% dplyr::select(Address, Can_Top) %>% dplyr::filter(!is.na(Can_Top)) %>%
+      dplyr::inner_join(exp_tib, by=c("Address"="U")) %>% dplyr::select(Des_Key, Can_Top, Des_Ref_Seq.y) %>% dplyr::mutate(Des_Ref_Seq1=revCmp( shearBrac(Des_Ref_Seq.y))) %>% dplyr::select(Can_Top,Des_Ref_Seq1)
+    
+  }
 }
 
 

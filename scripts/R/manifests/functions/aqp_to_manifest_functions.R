@@ -70,9 +70,9 @@ genome_studio_header = function(name="MethylationEPIC_v-1-0_B4", format="Infiniu
       "Assay Format,{format},,,,,,,,,,,,,,,,,,,,,,,,,{RET}",
       "Date Manufactured,{date},,,,,,,,,,,,,,,,,,,,,,,,,{RET}",
       "Loci Count ,{count},,,,,,,,,,,,,,,,,,,,,,,,,{RET}",
-      "[Assay],,,,,,,,,,,,,,,,,,,,,,,,,,{RET}"
+      "[Assay],,,,,,,,,,,,,,,,,,,,,,,,,,"
     )
-
+    
     # ret_cnt <- ret_tib %>% base::nrow()
     # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
     
@@ -191,9 +191,11 @@ intersect_GRS = function(can,ref, can_key="unq_can_key", ref_prefix="imp",
 #                       Address To Manifest Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-mutate_probe_id = function(tib, pid="Probe_ID",
-                           cgn="Imp_Cgn_Seq",tb="Imp_TB_Seq",co="Imp_CO_Seq",
-                           des="Ord_Des",din="Ord_Din",pad=8,
+mutate_probe_id = function(tib, 
+                           pid="Probe_ID", cgn="Imp_Cgn_Seq",
+                           des="Ord_Des",  din="Ord_Din",
+                           tb="Imp_TB_Seq", co="Imp_CO_Seq",
+                           inf="Infinium_Design",pad=8,
                            verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'mutate_probe_id'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -209,15 +211,17 @@ mutate_probe_id = function(tib, pid="Probe_ID",
     din_sym <- rlang::sym(din)
     tb_sym  <- rlang::sym(tb)
     co_sym  <- rlang::sym(co)
+    inf_sym <- rlang::sym(inf)
     
-    ret_tib <- tib %>% dplyr::mutate(
-      Inf_Des_Int=dplyr::case_when(
-        !!des_sym=="U" | !!des_sym=="M" ~ 1, 
-        !!des_sym=="2" ~ 2, 
-        TRUE ~ NA_real_) %>% as.integer(), 
-      !!pid_sym:=paste(paste0(!!din_sym,stringr::str_pad(!!cgn_sym,width=pad, side="left", pad="0")), 
-                       paste0(!!tb_sym,!!co_sym,Inf_Des_Int), sep="_")
-    )
+    ret_tib <- tib %>% 
+      dplyr::mutate(
+        !!inf_sym:=dplyr::case_when(
+          !!des_sym=="U" | !!des_sym=="M" ~ 1, 
+          !!des_sym=="2" ~ 2, 
+          TRUE ~ NA_real_) %>% as.integer(), 
+        !!pid_sym:=paste(paste0(!!din_sym,stringr::str_pad(!!cgn_sym,width=pad, side="left", pad="0")), 
+                         paste0(!!tb_sym,!!co_sym,!!inf_sym), sep="_")
+      )
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
@@ -230,8 +234,44 @@ mutate_probe_id = function(tib, pid="Probe_ID",
   ret_tib
 }
 
-add_to_man = function(tib, des="Ord_Des", pid_key="Ord_Key",
-                      rep_key, rep_val="Replicate_Count",join, 
+add_comb = function(tibA, tibB, field,
+                    join,
+                    verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'add_comb'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_tib <- 
+      dplyr::inner_join(
+        tibA, tibB, 
+        by=dplyr::all_of(join),
+        suffix=c("_U","_M")
+      ) # %>%
+      # dplyr::select(dplyr::starts_with(field)) %>%
+      # dplyr::distinct() %>%
+      # purrr::set_names(c("U","M"))
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# col_key='Ord_Col'
+# nxb_key='Imp_Nxb_Bsp_U'
+add_to_man = function(tib, join, runName,
+                      des_key="Ord_Des", pid_key="Ord_Key",
+                      rep_key=NULL, rep_val=NULL,
+                      col_key=NULL, nxb_key=NULL,
                       csv=NULL, validate=TRUE,
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'add_to_man'
@@ -242,69 +282,115 @@ add_to_man = function(tib, des="Ord_Des", pid_key="Ord_Key",
   ret_tib <- NULL
   stime <- system.time({
     
-    pid_key_sym = rlang::sym(pid_key)
-    rep_key_sym = rlang::sym(rep_key)
-    rep_val_sym = rlang::sym(rep_val)
-
     des_list <- NULL
-    des_list <- tib %>% split(.[[des]])
+    des_list <- tib %>% split(.[[des_key]])
     des_cnt  <- des_list %>% names() %>% length()
     
     # Build Infinium I::
     ret1_tib <- NULL
     if (!is.null(des_list[["U"]]) && !is.null(des_list[["M"]])) {
       ret1_tib <- dplyr::full_join(
-        dplyr::select(des_list[["U"]], -dplyr::all_of(des)), 
-        dplyr::select(des_list[["M"]], -dplyr::all_of(des)), 
+        dplyr::select(des_list[["U"]], -dplyr::all_of(des_key)), 
+        dplyr::select(des_list[["M"]], -dplyr::all_of(des_key)), 
         by=dplyr::all_of(join),
         suffix=c("_U","_M")
-      )
+      ) %>% 
+        # TBD:: We should allow these "singletons" to pass, but under
+        #  a different classification...
+        #
+        dplyr::filter(!is.na(Address_U) & !is.na(Address_M))
+      
+      ret1_cnt <- print_tib(ret1_tib,funcTag, verbose,vt+4,tc, n="InfI")
     }
-    ret1_cnt <- print_tib(ret1_tib,funcTag, verbose,vt+4,tc, n="InfI")
     
     # Build Infinium II::
     ret2_tib <- NULL
-    ret2_tib <- dplyr::bind_cols(
-      dplyr::select(des_list[["2"]],  dplyr::all_of(join)),
-      dplyr::select(des_list[["2"]], -dplyr::all_of(join)) %>% 
+    if (!is.null(des_list[["2"]])) {
+      ret2_tib <- dplyr::bind_cols(
+        dplyr::select(des_list[["2"]],  dplyr::all_of(join)),
+        dplyr::select(des_list[["2"]], -dplyr::all_of(join)) %>% 
         purrr::set_names(paste(names(.),"U", sep="_"))
-    )
-    ret2_cnt <- print_tib(ret2_tib,funcTag, verbose,vt+4,tc, n="InfII")
+      )
+      ret2_cnt <- print_tib(ret2_tib,funcTag, verbose,vt+4,tc, n="InfII")
+    }
     
     # Bind Infinium I/II into single manifest::
     ret_tib <- dplyr::bind_rows(ret1_tib, ret2_tib) %>%
       dplyr::mutate(
         Infinium_Design=dplyr::case_when(
-          # Ord_Des=='U' | Ord_Des=='M' ~ 1,
-          # Ord_Des=='2' ~ 2,
            is.na(Address_M) ~ 2,
           !is.na(Address_M) ~ 1,
           TRUE ~ NA_real_
         ) %>% as.integer(),
-        DESIGN=dplyr::case_when(
+        Infinium_Design_Type=dplyr::case_when(
           Infinium_Design==1 ~ 'I',
           Infinium_Design==2 ~ 'II',
-          TRUE ~ NA_character_),
-        COLOR_CHANNEL=dplyr::case_when(
-          Infinium_Design==2 ~ 'Both',
-          Imp_Nxb_Bsp_U=='A' | Imp_Nxb_Bsp_U=='T' ~ 'Red',
-          Imp_Nxb_Bsp_U=='C' | Imp_Nxb_Bsp_U=='G' ~ 'Grn',
-          TRUE ~ NA_character_),
-        col=dplyr::case_when(
-          Infinium_Design==1 ~ stringr::str_sub(COLOR_CHANNEL, 1,1),
-          TRUE ~ NA_character_),
-        Next_Base=Imp_Nxb_Bsp_U,
-        Probe_Source=opt$runName
+          TRUE ~ NA_character_)
       )
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="InfI+II.0")
     
-    if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Adding Probe Replicate({rep_key}/{rep_val})...{RET}"))
-    ret_tib <- ret_tib %>% dplyr::group_by(!!rep_key_sym) %>%
-      dplyr::mutate(!!rep_val_sym := dplyr::row_number(),
-                    !!pid_key_sym := paste0(!!rep_key_sym,!!rep_val_sym)) %>%
-      dplyr::ungroup()
+    if (!is.null(col_key)) {
+      col_sym <- rlang::sym(col_key)
+      ret_tib <- ret_tib %>%
+        dplyr::mutate(
+          col=dplyr::case_when(
+            Infinium_Design==1 ~ !!col_sym,
+            TRUE ~ NA_character_),
+          Color_Channel=dplyr::case_when(
+            Infinium_Design==2 ~ 'Both',
+            col=="R" ~ 'Red',
+            col=='G' ~ 'Grn',
+            TRUE ~ NA_character_),
+          Next_Base=dplyr::case_when(
+            col=="R" ~ "A",
+            col=="G" ~ "C",
+            TRUE ~ NA_character_
+          ),
+          Probe_Source=runName
+        )
+    } else if (!is.null(nxb_key)) {
+      nxb_sym <- rlang::sym(nxb_key)
+      
+      ret_tib <- ret_tib %>%
+        dplyr::mutate(
+          Color_Channel=dplyr::case_when(
+            Infinium_Design==2 ~ 'Both',
+            Infinium_Design==1 & (!!nxb_sym=='A' | !!nxb_sym=='T') ~ 'Red',
+            Infinium_Design==1 & (!!nxb_sym=='C' | !!nxb_sym=='G') ~ 'Grn',
+            TRUE ~ NA_character_),
+          col=dplyr::case_when(
+            Infinium_Design==2 ~ NA_character_,
+            Infinium_Design==1 ~ stringr::str_sub(Color_Channel, 1,1),
+            TRUE ~ NA_character_),
+          Next_Base=dplyr::case_when(
+            col=="R" ~ !!nxb_sym,
+            col=="G" ~ !!nxb_sym,
+            TRUE ~ NA_character_
+          ),
+          # Next_Base=!!nxb_sym,
+          Probe_Source=runName
+        )
+    } else {
+      # Do nothing for now, but this should not be a standard use case
+      return(NULL)
+    }
     
-    ret_tib <- ret_tib %>% dplyr::arrange(pid_key)
+    if (!is.null(pid_key)) {
+      pid_key_sym = rlang::sym(pid_key)
+      ret_tib <- ret_tib %>% dplyr::arrange(pid_key)
+    }
+    
+    if (!is.null(pid_key) && !is.null(rep_key) && !is.null(rep_val)) {
+      rep_key_sym = rlang::sym(rep_key)
+      rep_val_sym = rlang::sym(rep_val)
+      
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding Probe Replicate({rep_key}/{rep_val})...{RET}"))
+      ret_tib <- ret_tib %>% dplyr::group_by(!!rep_key_sym) %>%
+        dplyr::mutate(!!rep_val_sym := dplyr::row_number(),
+                      !!pid_key_sym := paste0(!!rep_key_sym,!!rep_val_sym)) %>%
+        dplyr::ungroup()
+    }
     
     if (!is.null(csv)) {
       outDir <- base::dirname(csv)
@@ -527,8 +613,8 @@ load_bsmap = function(bsp, sort=FALSE,
   ret_tib
 }
 
-join_seq_intersect = function(u49,m49,bed=NULL,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
+                              verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'join_seq_intersect'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -536,6 +622,11 @@ join_seq_intersect = function(u49,m49,bed=NULL,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
+    
+    imp_col_vec <- c("Address","Ord_Des","Ord_Din",
+                     "Imp_Chr","Imp_Pos","Imp_Cgn",
+                     "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
+                     "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
     
     if (opt$verbose>=1)
       cat(glue::glue("[{par$prgmTag}]: Writing imp_seq_tsv={run$int_seq_tsv}...{RET}"))
@@ -552,7 +643,11 @@ join_seq_intersect = function(u49,m49,bed=NULL,
         aln_key, 
         into=c("Address", "Ord_Des", "Ord_Din"), 
         sep="_") %>%
-      dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn, Imp_Srd3, Imp_Seq, Imp_Nuc, 
+      dplyr::rename(Aln_Prb=Imp_Seq, Aln_Nuc=Imp_Nuc) %>%
+      tidyr::separate(Imp_Srd3, into=c("Imp_TB","Imp_CO", "Imp_Nxb"), 
+                      sep=c(1,2)) %>%
+      dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn, 
+                    Imp_TB, Imp_CO, Imp_Nxb, Aln_Prb, Aln_Nuc, 
                     dplyr::everything()) %>%
       utils::type.convert() %>% 
       dplyr::mutate(across(where(is.factor), as.character) )
@@ -560,16 +655,6 @@ join_seq_intersect = function(u49,m49,bed=NULL,
     if (!is.null(bed)) {
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Adding cgn bed...{RET}"))
-      
-      imp_col_vec <- c("Address","Ord_Des","Ord_Din",
-                       "Imp_Chr","Imp_Pos","Imp_Cgn",
-                       "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
-                       "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
-      
-      ret_tib <- ret_tib %>% 
-        dplyr::rename(Aln_Prb=Imp_Seq, Aln_Nuc=Imp_Nuc) %>%
-        tidyr::separate(Imp_Srd3, into=c("Imp_TB","Imp_CO", "Imp_Nxb"), 
-                        sep=c(1,2))
       
       ret_tib <- bed %>%
         dplyr::right_join(ret_tib,by=c("Imp_Cgn")) %>%
@@ -581,11 +666,31 @@ join_seq_intersect = function(u49,m49,bed=NULL,
             Imp_Top_Srd=="-" & Imp_TB=="B" ~ "F",
             TRUE ~ NA_character_
           )
-        ) %>%
-        dplyr::select(dplyr::any_of(imp_col_vec),dplyr::everything()) %>%
-        utils::type.convert() %>% 
-        dplyr::mutate(across(where(is.factor), as.character) )
+        )
     }
+    
+    if (!is.null(org)) {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding org bed...{RET}"))
+      
+      ret_tib <- ret_tib %>%
+        dplyr::left_join(
+          org, 
+          by=c("Aln_Prb"="Org_49P",
+               "Ord_Des"="Org_Des",
+               "Imp_Chr"="Org_Chr",
+               "Imp_Pos"="Org_Pos",
+               "Imp_FR"="Org_FR",
+               "Imp_TB"="Org_TB",
+               "Imp_CO"="Org_CO")
+        )
+    }
+
+    ret_tib <- ret_tib  %>%
+      dplyr::select(dplyr::any_of(imp_col_vec),dplyr::everything()) %>%
+      utils::type.convert() %>% 
+      dplyr::mutate(across(where(is.factor), as.character) )
+    
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
@@ -598,7 +703,7 @@ join_seq_intersect = function(u49,m49,bed=NULL,
   ret_tib
 }
 
-join_bsmap = function(add, bsp=NULL, bed=NULL, file=NULL, 
+join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL, 
                       join_key, join_type="inner", prb_des="Ord_Des",
                       fields=NULL, sort=FALSE,
                       verbose=0,vt=3,tc=1,tt=NULL) {
@@ -619,6 +724,11 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, file=NULL,
   ret_tib <- NULL
   stime <- system.time({
     
+    imp_col_vec <- c("Address","Ord_Des","Ord_Din",
+                     "Imp_Chr","Imp_Pos","Imp_Cgn",
+                     "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
+                     "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
+
     # Load from file if provided::
     if (!is.null(file))
       bsp <- load_bsmap(bsp=file, sort=sort,
@@ -663,7 +773,7 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, file=NULL,
       stop(glue::glue("[{funcTag}]:{tabsStr} ERROR: Unsupported join_type={join_type}!!!{RET}{RET}"))
       return(ret_tib)
     }
-
+    
     #
     # Calculate new fields from join::
     #
@@ -818,11 +928,6 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, file=NULL,
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Adding cgn bed...{RET}"))
       
-      imp_col_vec <- c("Address","Ord_Des","Ord_Din",
-                       "Imp_Chr","Imp_Pos","Imp_Cgn",
-                       "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
-                       "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
-      
       ret_tib <- bed %>% 
         dplyr::right_join(ret_tib, by=c("Imp_Chr"="Bsp_Chr", "Imp_Pos"="Bsp_Pos")) %>%
         dplyr::mutate(
@@ -845,12 +950,31 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, file=NULL,
             TRUE ~ "B"
           ),
           Imp_Nxb=stringr::str_to_upper(Bsp_Nxb_Ref)
-        ) %>%
-        dplyr::select(dplyr::any_of(imp_col_vec),
-                      dplyr::everything()) %>%
-        utils::type.convert() %>% 
-        dplyr::mutate(across(where(is.factor), as.character) )
+        )
     }
+    
+    if (!is.null(org)) {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding org bed...{RET}"))
+      
+      ret_tib <- ret_tib %>%
+        dplyr::left_join(
+          org, 
+          by=c("Aln_P49"="Org_49P",
+               "Ord_Des"="Org_Des",
+               "Imp_Chr"="Org_Chr",
+               "Imp_Pos"="Org_Pos",
+               "Imp_FR"="Org_FR",
+               "Imp_TB"="Org_TB",
+               "Imp_CO"="Org_CO")
+        )
+    }
+    
+    ret_tib <- ret_tib  %>%
+      dplyr::select(dplyr::any_of(imp_col_vec),
+                    dplyr::everything()) %>%
+      utils::type.convert() %>% 
+      dplyr::mutate(across(where(is.factor), as.character) )
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
