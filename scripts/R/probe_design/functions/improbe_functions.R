@@ -170,8 +170,7 @@ improbe_design_all = function(tib, ptype, outDir, gen,
     #
     iup_des_tib <- desSeq_to_prbs(
       tib=tib,
-      # idsKey="Seq_ID",seqKey="IUPAC_Sequence",prbKey="Probe_Type",
-      idsKey="Seq_ID",seqKey=seqKey,prbKey="Probe_Type",
+      ids_key="Seq_ID",seqKey=seqKey,prbKey="Probe_Type",
       strsSR=strsSR, parallel=parallel,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
       dplyr::mutate(
@@ -889,14 +888,16 @@ prbsToStrMUD = function(tib, mu='U', verbose=0,vt=5,tc=1,tt=NULL) {
 
 # Function to design all probes from a generic tibble
 #  old name: tib2prbs
-desSeq_to_prbs = function(tib, idsKey,seqKey,prbKey, strsSR='FR', strsCO='CO',
+desSeq_to_prbs = function(tib,
+                          ids_key,seq_key,prb_key,
+                          strsSR='FR',strsCO='CO',
                           addMatSeq=TRUE, parallel=FALSE,del='_',max=0,
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'desSeq_to_prbs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; SR={strsSR}, CO={strsCO}, ",
-                                  "idsKey={idsKey}, prbKey={prbKey}, seqKey={seqKey}.{RET}"))
+                                  "ids_key={ids_key}, prb_key={prb_key}, seq_key={seq_key}.{RET}"))
   
   # Unambigous Source Design Sequence Strand
   sr_vec <- stringr::str_split(strsSR, '', simplify=TRUE) %>% as.vector()
@@ -905,9 +906,9 @@ desSeq_to_prbs = function(tib, idsKey,seqKey,prbKey, strsSR='FR', strsCO='CO',
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
-    idsKey <- rlang::sym(idsKey)
-    prbKey <- rlang::sym(prbKey)
-    seqKey <- rlang::sym(seqKey)
+    ids_sym <- rlang::sym(ids_key)
+    seq_sym <- rlang::sym(seq_key)
+    prb_sym <- rlang::sym(prb_key)
     
     if (typeof(tib)=='character') {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading from file={tib}...{RET}"))
@@ -923,23 +924,23 @@ desSeq_to_prbs = function(tib, idsKey,seqKey,prbKey, strsSR='FR', strsCO='CO',
       tib <- tib %>% head(n=max)
     }
     
-    src_man_tib <- tib %>% dplyr::select(!!idsKey, !!prbKey, !!seqKey) %>% 
-      dplyr::mutate(Seq_ID:=!!idsKey, PRB_DES:=!!prbKey)
+    src_man_tib <- tib %>% dplyr::select(!!ids_sym, !!prb_sym, !!seq_sym) %>% 
+      dplyr::mutate(Seq_ID:=!!ids_sym, PRB_DES:=!!prb_sym)
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} src_man_tib(original)={RET}"))
     if (verbose>=vt+4) print(src_man_tib)
     
     # Ensure we have 122 mer format 60[NN]60
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Validating design sequneces...{RET}"))
     src_man_tib <- src_man_tib %>%
-      dplyr::mutate(!!seqKey := stringr::str_replace(!!seqKey, '\\[','_') %>% stringr::str_replace('\\]','_')
+      dplyr::mutate(!!seq_sym := stringr::str_replace(!!seq_sym, '\\[','_') %>% stringr::str_replace('\\]','_')
       ) %>%
-      tidyr::separate(!!seqKey, into=c("PreSeqN", "MidSeqN", "PosSeqN"), sep='_') %>%
+      tidyr::separate(!!seq_sym, into=c("PreSeqN", "MidSeqN", "PosSeqN"), sep='_') %>%
       dplyr::mutate(PreSeqN=stringr::str_sub(PreSeqN,   -60),
                     PosSeqN=stringr::str_sub(PosSeqN, 1, 60),
                     PreSeqN=stringr::str_pad(string=PreSeqN, width=60, side='left', pad='N'),
                     PosSeqN=stringr::str_pad(string=PosSeqN, width=60, side='right', pad='N'),
                     DesNucA=stringr::str_sub(MidSeqN, 1,1), DesNucB=stringr::str_sub(MidSeqN, 2,2),
-                    !!seqKey :=paste0(PreSeqN,'[',MidSeqN,']',PosSeqN) )
+                    !!seq_sym :=paste0(PreSeqN,'[',MidSeqN,']',PosSeqN) )
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} src_man_tib(122 check)={RET}"))
     if (verbose>=vt+4) print(src_man_tib)
     
@@ -950,7 +951,7 @@ desSeq_to_prbs = function(tib, idsKey,seqKey,prbKey, strsSR='FR', strsCO='CO',
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building forward & reverse design sequneces...{RET}"))
     
     des_seq_F_C <- src_man_tib %>% 
-      dplyr::mutate(SR=TRUE, CO=TRUE, DesSeqN=shearBrac(!!seqKey))
+      dplyr::mutate(SR=TRUE, CO=TRUE, DesSeqN=shearBrac(!!seq_sym))
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_F_C={RET}"))
     if (verbose>=vt+4) print(des_seq_F_C)
     

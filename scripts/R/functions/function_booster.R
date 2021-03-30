@@ -21,7 +21,9 @@ template_func = function(tib,
   ret_tib <- NULL
   stime <- system.time({
     
-    ret_cnt <- ret_tib %>% base::nrow()
+    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -32,9 +34,37 @@ template_func = function(tib,
   ret_tib
 }
 
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Common Booster Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+clean_tibble = function(tib,
+                        verbose=0,vt=6,tc=1,tt=NULL) {
+  funcTag <- 'clean_tibble'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    ret_tib <- tib %>%
+      select(where(~sum(!is.na(.x)) > 0)) %>%
+      utils::type.convert() %>%
+      dplyr::mutate(across(where(is.factor), as.character) )
+    
+    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
 
 makeFieldUnique = function(tib, field, add=NULL,
                            verbose=0,vt=3,tc=1,tt=NULL) {
@@ -394,7 +424,7 @@ valid_time_stamp = function(files,
     }
     if (verbose>=vt+4)
       cat(glue::glue("[{funcTag}]:{tabsStr} Files exist={ret_val}.{RET}{RET}"))
-
+    
     if (ret_val) {
       file_cnt <- file_cnt - 1
       for (ii in c(1:file_cnt)) {

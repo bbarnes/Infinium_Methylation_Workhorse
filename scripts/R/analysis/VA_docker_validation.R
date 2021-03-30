@@ -519,9 +519,119 @@ par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 #                              Preprocessing::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+run_class_tib <- tibble::tibble(
+  Run_Name=c("AKE-EPIDX","AKE-Zymogen","BETA-8x1-EPIC-Core","BETA-8x1-EPIC-Fail",
+             "COVIC-Set1-15052020","COVIC-Set2-31052020","COVIC-Set3-05062020","COVIC-Set4-09062020","COVIC-Set5-10062020","COVIC-Set7-06082020","COVIC-Set8-26182020",
+             "DELTA-8x1-EPIC-Core","DELTA-8x1-EPIC-Fail","Excalibur-New-1609202","Excalibur-Old-1609202",
+             "IBX-EPIDX","IBX-Zymogen"),
+  Class=c("S","S","P","F","P","F","F","F","P","P","P","P","F","P","F","S","S")
+)
+
+prev_ss_csv <- '/Users/bretbarnes/Documents/data/VA_MVP/docker-v.1.11.sampleSheets.runique.csv.gz'
+prev_ss_tib <- readr::read_csv(prev_ss_csv) %>% 
+  dplyr::inner_join(run_class_tib, by="Run_Name") %>%
+  dplyr::mutate(Run_Name=dplyr::case_when(
+    Run_Name=="Excalibur-New-1609202" ~ "EPSILON-Core",
+    Run_Name=="Excalibur-Old-1609202" ~ "EPSILON-Fail",
+    TRUE ~ Run_Name)
+  )
+
+
+ggplot2::ggplot(data=prev_ss_tib, aes(x=cg_pvals_pOOBAH_pass_perc_2, y=GCT_1, color=Run_Name)) +
+  ggplot2::geom_point() +
+  ggplot2::geom_density_2d() +
+  ggplot2::facet_grid(rows=vars(Class))
+
+ggplot2::ggplot(data=prev_ss_tib, aes(x=log(cg_pvals_pOOBAH_pass_perc_1+0.0001), y=log(GCT_1+0.0001), color=Run_Name)) +
+  ggplot2::geom_point() +
+  ggplot2::geom_density_2d() +
+  ggplot2::facet_grid(rows=vars(Class), cols=vars(AutoSample_R2_1_Key_2))
+
+ggplot2::ggplot(data=prev_ss_tib, aes(x=cg_pvals_pOOBAH_pass_perc_1, y=AutoSample_dB_Val_2, color=Run_Name)) +
+  ggplot2::geom_point() +
+  ggplot2::geom_density_2d() +
+  ggplot2::facet_grid(rows=vars(Class), cols=vars(AutoSample_R2_1_Key_2))
+
+AutoSample_dB_2_Val_2
+  
+  ggplot2::geom_density_2d() +
+  ggplot2::facet_grid(rows=vars(Class)) +
+  ggplot2::xlim(c(0:100))
+  
+  # , cols=vars(Run_Name))
+
+
+prev_ss_tib %>% dplyr::select_if(is.numeric) %>% dplyr::select(-Sentrix_Barcode,-Min_DeltaBeta) %>% prcomp()
+
+#
+# Set Up::
+#
+# wdbc <- read.csv("wdbc.csv", header = F)
+features <- c("radius", "texture", "perimeter", "area", "smoothness", "compactness", "concavity", "concave_points", "symmetry", "fractal_dimension")
+names(wdbc) <- c("id", "diagnosis", paste0(features,"_mean"), paste0(features,"_se"), paste0(features,"_worst"))
+
+library(nsprcomp)
+
+prev_ss_pca <- prev_ss_tib %>% 
+  # dplyr::mutate(
+  #   diagnosis=dplyr::case_when(
+  #     is.na(cg_pvals_pOOBAH_pass_perc_1) ~ "F",
+  #     cg_pvals_pOOBAH_pass_perc_1 >= 90 ~ "P",
+  #     TRUE ~ "F")
+  # ) %>% 
+  # dplyr::rename(id=Sentrix_Barcode) %>%
+  # dplyr::select(id,diagnosis) %>%
+  dplyr::select( # cg_pvals_pOOBAH_pass_perc_1, cg_pvals_PnegEcdf_pass_perc_1, 
+                dplyr::ends_with("mean_1") | dplyr::ends_with("count_1") ) %>%
+  prcomp()
+
+  # dplyr::select_if(is.numeric) %>% 
+  # dplyr::select(Sentrix_Barcode,-Min_DeltaBeta) %>% 
+  # dplyr::select(cg_pvals_pOOBAH_pass_perc_1,cg_pvals_PnegEcdf_pass_perc_1)
+  # dplyr::select(dplyr::ends_with("perc_1") | dplyr::ends_with("mean_1") | dplyr::ends_with("count_1") ) %>%
+  # prcomp()
+
+summary(prev_ss_pca)
+
+screeplot(prev_ss_pca, type = "l", npcs = 15, main = "Screeplot of the first 10 PCs")
+abline(h = 1, col="red", lty=5)
+legend("topright", legend=c("Eigenvalue = 1"),
+       col=c("red"), lty=5, cex=0.6)
+cumpro <- cumsum(prev_ss_pca$sdev^2 / sum(prev_ss_pca$sdev^2))
+plot(cumpro[0:15], xlab = "PC #", ylab = "Amount of explained variance", main = "Cumulative variance plot")
+abline(v = 6, col="blue", lty=5)
+abline(h = 0.88759, col="blue", lty=5)
+legend("topleft", legend=c("Cut-off @ PC6"),
+       col=c("blue"), lty=5, cex=0.6)
+
+plot(prev_ss_pca$x[,1],prev_ss_pca$x[,2], xlab="PC1 (44.3%)", ylab = "PC2 (19%)", main = "PC1 / PC2 - plot")
+
+library("factoextra")
+fviz_pca_ind(prev_ss_pca, geom.ind = "point", pointshape = 21, 
+             pointsize = 2, 
+             fill.ind = wdbc$diagnosis, 
+             col.ind = "black", 
+             palette = "jco", 
+             addEllipses = TRUE,
+             label = "var",
+             col.var = "black",
+             repel = TRUE,
+             legend.title = "Diagnosis") +
+  ggtitle("2D PCA-plot from 30 feature dataset") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+  # prcomp(center=TRUE, scale=TRUE)
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Preprocessing:: Previous Work....
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 # VA data from v.4.3
 prev_ss_csv <- '/Users/bretbarnes/Documents/data/transfer/VA-CNTL-AB-mergedAutoSampleSheet_v.4.3.csv.gz'
 prev_ss_tib <- readr::read_csv(prev_ss_csv)
+
 
 # VA data from cluster::
 va18_ss_csv <- '/Users/bretbarnes/Documents/data/transfer/docker.v.1.8.AutoSampleSheet.csv.gz'

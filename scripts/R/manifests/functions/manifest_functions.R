@@ -2593,37 +2593,67 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
     man_tib <- NULL
     ctl_tib <- NULL
     
-    src <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.csv$')
+    src <- base::basename(file) %>% 
+      stringr::str_remove('\\.gz$') %>% 
+      stringr::str_remove('\\.csv$')
+    
     cmd <- glue::glue("gzip -dc {file} | head -n 50 | grep -n '^IlmnID' ")
     cnt <- suppressMessages(suppressWarnings( system(as.character(cmd), intern=TRUE, ignore.stderr=TRUE) )) %>% 
-      stringr::str_remove('\\r$') %>% stringr::str_remove(':.*$') %>% as.integer()
+      stringr::str_remove('\\r$') %>% 
+      stringr::str_remove(':.*$') %>% as.integer()
     
     cnt <- cnt - 1
     if (max>0) {
-      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt, n_max=max)))
+      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt, n_max=max, col_types = cols(.default = "c"))))
     } else {
-      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt)))
+      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt, col_types = cols(.default = "c"))))
     }
     
     tib_len <- base::nrow(tib)
     ctl_idx <- which(tib$IlmnID=='[Controls]') %>% head(n=1) %>% as.integer()
-    man_tib <- tib %>% head(n=ctl_idx-1)
-    if (ctl_idx>0)
-      ctl_tib <- tib %>% tail(tib_len-ctl_idx) %>% dplyr::select(1:4) %>% purrr::set_names(ctl_cols)
     
-    man_tib <- man_tib %>% dplyr::mutate(
-      Probe_Type=stringr::str_sub(IlmnID, 1,2),
-      Strand_CO=case_when(
-        Probe_Type=='cg' ~ 'C',
-        Probe_Type=='rs' ~ 'C',
-        Probe_Type=='ch' ~ 'O',
-        TRUE ~ NA_character_
+    man_tib <- tib %>% head(n=ctl_idx-1) %>%
+      clean_tibble()
+    
+    if (ctl_idx>0)
+      ctl_tib <- tib %>% 
+      tail(tib_len-ctl_idx) %>% 
+      dplyr::select(1:4) %>% 
+      purrr::set_names(ctl_cols) %>%
+      clean_tibble()
+    
+    if ("Chr" %in% names(man_tib)) {
+      man_tib <- man_tib %>% dplyr::rename(Chromosome=Chr)
+    }
+    if ("CHR" %in% names(man_tib)) {
+      man_tib <- man_tib %>% dplyr::rename(Chromosome=CHR)
+    }
+    
+    if ("MapInfo" %in% names(man_tib)) {
+      man_tib <- man_tib %>% dplyr::rename(Coordinate=MapInfo)
+    }
+    if ("MAPINFO" %in% names(man_tib)) {
+      man_tib <- man_tib %>% dplyr::rename(Coordinate=MAPINFO)
+    }
+    
+    man_tib <- man_tib %>% 
+      dplyr::mutate(
+        Chromosome=paste0("chr",stringr::str_remove(Chromosome, "^chr")) %>%
+          as.character(),
+        Probe_Type=stringr::str_sub(IlmnID, 1,2),
+        Strand_CO=case_when(
+          Probe_Type=='cg' ~ 'C',
+          Probe_Type=='rs' ~ 'C',
+          Probe_Type=='ch' ~ 'O',
+          TRUE ~ NA_character_
+        )
       )
-    )
+    
     man_tib <- man_tib %>% 
       dplyr::mutate(AddressA_ID=stringr::str_remove(AddressA_ID, '^0+') %>% as.double(),
-                    AddressB_ID=stringr::str_remove(AddressB_ID, '^0+') %>% as.double() )
-    
+                    AddressB_ID=stringr::str_remove(AddressB_ID, '^0+') %>% as.double() ) %>%
+      select(where(~sum(!is.na(.x)) > 0))
+
     if (normalize) {
       # Check for field that are unique to known manifests::
       if (grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {

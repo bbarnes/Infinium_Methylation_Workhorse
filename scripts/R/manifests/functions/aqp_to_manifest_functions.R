@@ -46,6 +46,203 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Standard Function Template::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+dna_to_template = function(tib, dna, map,
+                           chr1="Chromosome", pos="Coordinate",
+                           chr2="Chrom_Char",
+                           fwd_seq="Fwd_Seq",
+                           des_seq="Des_Seq",
+                           ups_len=60, seq_len=122, iupac=NULL,
+                           del="_",
+                           verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'dna_to_template'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    pos_sym  <- rlang::sym(pos)
+    chr1_sym <- rlang::sym(chr1)
+    chr2_sym <- rlang::sym(chr2)
+    fwd_sym  <- rlang::sym(fwd_seq)
+    des_sym  <- rlang::sym(des_seq)
+    
+    chr_list <- tib %>% 
+      dplyr::arrange(!!chr1_sym,!!pos_sym) %>%
+      split(.[[chr1]])
+    
+    chr_maps <- map %>%
+      split(.[[chr2]])
+    
+    chr_names <- chr_list %>% names()
+    for (chr_str in chr_names) {
+      cur_tib <- chr_list[[chr_str]]
+
+      if (is.null(chr_maps[[chr_str]])) {
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Failed to find chr_str={chr_str} ",
+                         "in map; Skipping...{RET}"))
+        next
+      }
+      
+      chr_idx <- chr_maps[[chr_str]] %>% 
+        dplyr::filter(!!chr2_sym==chr_str) %>% 
+        head(n=1) %>% pull(Idx) %>% as.integer()
+      
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Substring chr(str/idx)=({chr_str}/{chr_idx})={RET}"))
+        print(cur_tib)
+      }
+
+      # Subtract two for cg upstream 122mer formation and add two+two as well
+      cur_begs <- cur_tib %>% dplyr::pull(!!pos_sym) - ups_len - 2
+      cur_ends <- cur_begs + seq_len - 1 + 4
+      
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_begs={RET}"))
+        print(cur_begs)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_ends={RET}"))
+        print(cur_ends)
+      }
+
+      ref_seqs <- stringr::str_sub( as.character(dna[[chr_idx]]), cur_begs, cur_ends)
+      # if (!is.null(iupac)) {
+      #   ref_seqs <- ref_seqs %>% stringr::str_sub(ups_len,ups_len+1) <- iupac
+      # }
+      
+      iupac_vec <- NULL
+      if (!is.null(iupac)) iupac_vec <- cur_tib %>% dplyr::pull(!!iupac)
+      # print(iupac_vec)
+      
+      ref_up01 <- stringr::str_sub(ref_seqs, 1,1)
+      ref_up02 <- stringr::str_sub(ref_seqs, 2,2)
+      ref_up58 <- stringr::str_sub(ref_seqs, 3,ups_len-2+2)
+      
+      ref_up59 <- stringr::str_sub(ref_seqs, ups_len-2+3,ups_len-2+3)
+      ref_up60 <- stringr::str_sub(ref_seqs, ups_len-2+4,ups_len-2+4)
+      ref_up61 <- stringr::str_sub(ref_seqs, ups_len-2+5,ups_len-2+5)
+      
+      # ref_iupc <- iupac_vec
+      
+      ref_dn61 <- stringr::str_sub(ref_seqs, ups_len-2+6,ups_len-2+6)
+      ref_dn60 <- stringr::str_sub(ref_seqs, ups_len-2+7,ups_len-2+7)
+      ref_dn59 <- stringr::str_sub(ref_seqs, ups_len-2+8,ups_len-2+8)
+      
+      ref_dn58 <- stringr::str_sub(ref_seqs, ups_len-2+9,ups_len-2+ups_len-2+8)
+      ref_dn02 <- stringr::str_sub(ref_seqs, ups_len-2+ups_len-2+8,ups_len-2+ups_len-2+8)
+      ref_dn01 <- stringr::str_sub(ref_seqs, ups_len-2+ups_len-2+9,ups_len-2+ups_len-2+9)
+      
+      # Don't add bracs just yet...
+      ref_seqs <- ref_seqs %>% addBrac()
+      
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref_seqs={RET}"))
+        print(ref_seqs)
+      }
+      
+      #
+      # TBD:: Parse ref_seqs into UP/[QA/QB/QI]/NB/DN
+      #
+      
+      # Previous simple sequence assignment::
+      #
+      # cur_tib <- cur_tib %>% 
+      #   dplyr::mutate(
+      #     !!fwd_sym := ref_seqs
+      #   )
+      
+      cur_tib <- cur_tib %>%
+        dplyr::mutate(
+          !!fwd_sym := ref_seqs,
+          
+          up01=ref_up01,
+          up02=ref_up02,
+          up58=ref_up58,
+          
+          up59=ref_up59,
+          up60=ref_up60,
+          up61=ref_up61,
+          
+          iupac=iupac_vec,
+          
+          dn61=ref_dn61,
+          dn60=ref_dn60,
+          dn59=ref_dn59,
+          
+          dn58=ref_dn58,
+          dn02=ref_dn02,
+          dn01=ref_dn01,
+          
+          # Now we can assemble to optimal template::
+          #
+          !!des_sym := paste0(up58,
+                              up59,up60,
+                              iupac,dn61,
+                              dn60,dn59,
+                              dn58) %>%
+            addBrac(),
+          Din_Str=stringr::str_to_lower(paste0(iupac,dn61)),
+          Des_Din="rs"
+        )
+      
+      #  
+      # TBD:: We can also break out trifecta sites if probe type == rs
+      #
+      ups_tib <- NULL
+      ups_tib <- cur_tib %>% 
+        dplyr::filter(up59=="C" & up60=="G") %>%
+        dplyr::mutate(
+          !!des_sym := paste0(up01,up02,up58,up59,up60,iupac,dn61,dn60,dn59,dn58) %>%
+            stringr::str_sub(1,seq_len) %>%
+            addBrac(),
+          Din_Str=stringr::str_to_lower(paste0(up59,up60)),
+          Des_Din="cg",
+          Name=paste(Name,"CG_UP", sep=del),
+          Coordinate=as.integer(Coordinate-2)
+        )
+      
+      dns_tib <- NULL
+      dns_tib <- cur_tib %>% 
+        dplyr::filter(dn61=="C" & dn60=="G") %>%
+        dplyr::mutate(
+          !!des_sym := paste0(up58,up59,up60,iupac,dn61,dn60,dn59,dn58,dn02) %>%
+            stringr::str_sub(2) %>%
+            addBrac(),
+          Din_Str=stringr::str_to_lower(paste0(dn61,dn60)),
+          Des_Din="cg",
+          Name=paste(Name,"CG_DN", sep=del),
+          Coordinate=as.integer(Coordinate+2)
+        )
+      
+      # Add New Trifecta Probes::
+      #  - NOTE:: These will have their names changed later after alignment...
+      #
+      cur_tib <- dplyr::bind_rows(cur_tib, ups_tib, dns_tib) %>%
+        dplyr::arrange(Name)
+      
+      ret_tib <- dplyr::bind_rows(ret_tib, cur_tib)
+      
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Substring chr_str={chr_str}.{RET}{RET}"))
+    }
+    
+    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Genome Studio IO Basics::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -251,11 +448,86 @@ add_comb = function(tibA, tibB, field,
         by=dplyr::all_of(join),
         suffix=c("_U","_M")
       ) # %>%
-      # dplyr::select(dplyr::starts_with(field)) %>%
-      # dplyr::distinct() %>%
-      # purrr::set_names(c("U","M"))
+    # dplyr::select(dplyr::starts_with(field)) %>%
+    # dplyr::distinct() %>%
+    # purrr::set_names(c("U","M"))
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+man_to_add = function(tib, 
+                      pid="IlmnID", des="Man_Des", din="Man_Din", inf="Man_Inf",
+                      addA="AddressA_ID", prbA="AlleleA_ProbeSeq", 
+                      addB="AddressB_ID", prbB="AlleleB_ProbeSeq",
+                      del="_",
+                      verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'man_to_add'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    pid_sym  = rlang::sym(pid)
+    des_sym  = rlang::sym(des)
+    din_sym  = rlang::sym(din)
+    inf_sym  = rlang::sym(inf)
+    
+    addA_sym = rlang::sym(addA)
+    prbA_sym = rlang::sym(prbA)
+    
+    addB_sym = rlang::sym(addB)
+    prbB_sym = rlang::sym(prbB)
+    
+    inf_list <- tib %>%
+      dplyr::mutate(
+        !!din_sym:=stringr::str_sub(!!pid_sym, 1,2),
+        !!inf_sym:=dplyr::case_when(
+          is.na(!!addA_sym) | is.na(!!prbA_sym) ~ NA_real_,
+          is.na(!!addB_sym) | is.na(!!prbB_sym) ~ 2,
+          !is.na(!!addA_sym) & ! is.na(!!prbA_sym) &
+            !is.na(!!addB_sym) & ! is.na(!!prbB_sym) ~ 1,
+          TRUE ~ NA_real_) %>% as.integer()
+      ) %>% split(.[[inf]])
+    
+    ret_tib <- dplyr::bind_rows(
+      inf_list[["1"]] %>% 
+        dplyr::mutate(!!des_sym:=as.character("U")) %>%
+        dplyr::rename(Man_Add=!!addA_sym,
+                      Man_Prb=!!prbA_sym,
+                      Man_PID=!!pid_sym) %>%
+        dplyr::select(Man_Add,!!des,Man_Din,!!inf,Man_Prb,Man_PID),
+      
+      inf_list[["1"]] %>% 
+        dplyr::mutate(!!des_sym:=as.character("M")) %>%
+        dplyr::rename(Man_Add=!!addB_sym,
+                      Man_Prb=!!prbB_sym,
+                      Man_PID=!!pid_sym) %>%
+        dplyr::select(Man_Add,!!des,Man_Din,!!inf,Man_Prb,Man_PID),
+      
+      inf_list[["2"]] %>% 
+        dplyr::mutate(!!des_sym:=as.character("2")) %>%
+        dplyr::rename(Man_Add=!!addA_sym,
+                      Man_Prb=!!prbA_sym,
+                      Man_PID=!!pid_sym) %>%
+        dplyr::select(Man_Add,!!des,Man_Din,!!inf,Man_Prb,Man_PID)
+    ) %>% dplyr::arrange(Man_Add)
+    
+    ret_tib <- ret_tib %>%
+      clean_tibble(verbose=verbose,tt=tt)
+    
+    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -309,7 +581,7 @@ add_to_man = function(tib, join, runName,
       ret2_tib <- dplyr::bind_cols(
         dplyr::select(des_list[["2"]],  dplyr::all_of(join)),
         dplyr::select(des_list[["2"]], -dplyr::all_of(join)) %>% 
-        purrr::set_names(paste(names(.),"U", sep="_"))
+          purrr::set_names(paste(names(.),"U", sep="_"))
       )
       ret2_cnt <- print_tib(ret2_tib,funcTag, verbose,vt+4,tc, n="InfII")
     }
@@ -318,7 +590,7 @@ add_to_man = function(tib, join, runName,
     ret_tib <- dplyr::bind_rows(ret1_tib, ret2_tib) %>%
       dplyr::mutate(
         Infinium_Design=dplyr::case_when(
-           is.na(Address_M) ~ 2,
+          is.na(Address_M) ~ 2,
           !is.na(Address_M) ~ 1,
           TRUE ~ NA_real_
         ) %>% as.integer(),
@@ -414,13 +686,13 @@ add_to_man = function(tib, join, runName,
 #                             FASTA File Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-tib_to_fasta = function(tib, prb_key="Prb_Seq", 
-                        add_key="Address", des_key="Prb_Des", type_key="prb_type",
-                        prb_fas=NULL,dat_csv=NULL,
-                        u49_tsv=NULL,m49_tsv=NULL,
-                        del="_",
-                        verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'tib_to_fasta'
+add_to_fas = function(tib, prb_key="Prb_Seq", 
+                      add_key="Address", des_key="Prb_Des", type_key="prb_type",
+                      prb_fas=NULL,dat_csv=NULL,
+                      u49_tsv=NULL,m49_tsv=NULL,
+                      del="_",
+                      verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'add_to_fas'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; key={prb_key}...{RET}"))
@@ -447,8 +719,9 @@ tib_to_fasta = function(tib, prb_key="Prb_Seq",
         )
       ) %>%
       dplyr::distinct(Aln_Key,Aln_Prb, .keep_all=TRUE) %>%
-      utils::type.convert() %>% 
-      dplyr::mutate(across(where(is.factor), as.character) )
+      clean_tibble()
+    # utils::type.convert() %>% 
+    # dplyr::mutate(across(where(is.factor), as.character) )
     
     # Generate Remaining Data::
     if (!is.null(prb_fas))
@@ -685,7 +958,7 @@ join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
                "Imp_CO"="Org_CO")
         )
     }
-
+    
     ret_tib <- ret_tib  %>%
       dplyr::select(dplyr::any_of(imp_col_vec),dplyr::everything()) %>%
       utils::type.convert() %>% 
@@ -704,7 +977,8 @@ join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
 }
 
 join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL, 
-                      join_key, join_type="inner", prb_des="Ord_Des",
+                      join_key, join_type="inner", 
+                      prb_des_key="Ord_Des", prb_din_key="Ord_Din",
                       fields=NULL, sort=FALSE,
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'join_bsmap'
@@ -728,7 +1002,7 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
                      "Imp_Chr","Imp_Pos","Imp_Cgn",
                      "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
                      "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
-
+    
     # Load from file if provided::
     if (!is.null(file))
       bsp <- load_bsmap(bsp=file, sort=sort,
@@ -740,7 +1014,8 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
     }
     print_tib(add,funcTag, verbose,vt+4,tc, n="address_tib")
     
-    prb_des_sym  <- rlang::sym(prb_des)
+    prb_des_sym  <- rlang::sym(prb_des_key)
+    prb_din_sym  <- rlang::sym(prb_din_key)
     bsp_join_key <- names(bsp)[1]
     join_key_sym <- rlang::sym(join_key)
     bsp_join_sym <- rlang::sym( bsp_join_key )
@@ -891,19 +1166,84 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
         #
-        # TBD:: Need to understand how Bsp_Pos can become NA_real !!!
-        #
         # Update Correct Genomic CG# Location based on alignment orientation::
         #
+        # TBD:: Need to correct for non-CpG sites::
+        #       - rs:: [+-] => +0
+        #              [--] => +1
+        #
         Bsp_Pos=dplyr::case_when(
-          !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
-          !!prb_des_sym=="M" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          # prb_din_sym=="cg":: Original Code for only CpG! TO BE DELETED...
+          #
+          # !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
+          # !!prb_des_sym=="M" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          # 
+          # !!prb_des_sym=="U" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
+          # !!prb_des_sym=="U" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          # 
+          # !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          # !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
           
-          !!prb_des_sym=="U" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
-          !!prb_des_sym=="U" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          #
+          # prb_din_sym=="cg"::
+          #
+          !!prb_din_sym=="cg" & !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
+          !!prb_din_sym=="cg" & !!prb_des_sym=="M" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
           
-          !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
-          !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          !!prb_din_sym=="cg" & !!prb_des_sym=="U" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
+          !!prb_din_sym=="cg" & !!prb_des_sym=="U" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="cg" & !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          !!prb_din_sym=="cg" & !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          
+          #
+          # prb_din_sym=="ch":: for now assume ch==rs
+          #
+          !!prb_din_sym=="ch" & !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          !!prb_din_sym=="ch" & !!prb_des_sym=="M" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="ch" & !!prb_des_sym=="U" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          !!prb_din_sym=="ch" & !!prb_des_sym=="U" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="ch" & !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +50,
+          !!prb_din_sym=="ch" & !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          
+          #
+          # prb_din_sym=="rs"::
+          #
+          # !!prb_din_sym=="rs" & !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +50,
+          # !!prb_din_sym=="rs" & !!prb_des_sym=="M" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          # 
+          # !!prb_din_sym=="rs" & !!prb_des_sym=="U" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +50,
+          # !!prb_din_sym=="rs" & !!prb_des_sym=="U" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          # 
+          # !!prb_din_sym=="rs" & !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +50,
+          # !!prb_din_sym=="rs" & !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          
+          #
+          # prb_din_sym=="rs":: --/+-
+          #
+          !!prb_din_sym=="rs" & !!prb_des_sym=="M" & (Bsp_Srd=="--") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +50,
+          !!prb_din_sym=="rs" & !!prb_des_sym=="M" & (Bsp_Srd=="+-") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="rs" & !!prb_des_sym=="U" & (Bsp_Srd=="--") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +50,
+          !!prb_din_sym=="rs" & !!prb_des_sym=="U" & (Bsp_Srd=="+-") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="rs" & !!prb_des_sym=="2" & (Bsp_Srd=="--") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +50,
+          !!prb_din_sym=="rs" & !!prb_des_sym=="2" & (Bsp_Srd=="+-") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          
+          # 
+          # prb_din_sym=="rs":: --/+-
+          #
+          !!prb_din_sym=="rs" & !!prb_des_sym=="M" & (Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          !!prb_din_sym=="rs" & !!prb_des_sym=="M" & (Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          
+          !!prb_din_sym=="rs" & !!prb_des_sym=="U" & (Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          !!prb_din_sym=="rs" & !!prb_des_sym=="U" & (Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          
+          !!prb_din_sym=="rs" & !!prb_des_sym=="2" & (Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          !!prb_din_sym=="rs" & !!prb_des_sym=="2" & (Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 0,
+          
           TRUE ~ NA_real_
         ) %>% as.integer(),
         Bsp_Din_Scr=dplyr::case_when(
