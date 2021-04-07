@@ -236,11 +236,18 @@ improbe_docker = function(dir, file, name, image, shell,
     system(glue::glue("touch {ret_log}"))
     system(glue::glue("touch {ret_tsv}"))
     
+    base_file <- base::basename( run$imp_inp_tsv )
+    
     # imp_doc_cmd <- glue::glue("docker run -il --rm ",
+    # 
+    # imp_doc_cmd <- glue::glue("docker run -i --rm ",
+    #                           "-v {dir}:/work -v {dir}:/output ",
+    #                           "{image} {shell} {file} {name}")
     
     imp_doc_cmd <- glue::glue("docker run -i --rm ",
-                              "-v {dir}:/work -v {dir}:/output ",
-                              "{image} {shell} {file} {name}")
+                              "-v {dir}:/input -v {dir}:/output -w /work ",
+                              "{image} {shell} {base_file} {name}")
+    
     
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]: Running improbe cmd='{imp_doc_cmd}'...{RET}"))
@@ -2125,6 +2132,14 @@ INIT_IMP_HEADER = function() {
 # Di-Nuc to IUPAC::
 INIT_MAP_DI = function() {
   MAP <- NULL
+  
+  # Mono-Nuc Map::
+  MAP[['A']] <- 'A'
+  MAP[['C']] <- 'C'
+  MAP[['G']] <- 'G'
+  MAP[['T']] <- 'T'
+  
+  # Di-Nuc Map::
   MAP[['AC']] <- 'M'
   MAP[['AG']] <- 'R'
   MAP[['AT']] <- 'W'
@@ -2144,6 +2159,98 @@ INIT_MAP_DI = function() {
   MAP[['TG']] <- 'K'
   MAP[['TA']] <- 'W'
   MAP[['TT']] <- 'T'
+  
+  #
+  # Tri-Nuc Map:: A
+  #
+  MAP[['AAC']] <- 'M'
+  MAP[['AAG']] <- 'R'
+  MAP[['AAT']] <- 'W'
+  MAP[['AAA']] <- 'A'
+  
+  MAP[['ACA']] <- 'M'
+  MAP[['ACT']] <- 'H' # NEW-3
+  MAP[['ACG']] <- 'V' # NEW-3
+  MAP[['ACC']] <- 'M' # NEW-2
+  
+  MAP[['AGA']] <- 'R'
+  MAP[['AGT']] <- 'D' # NEW-3
+  MAP[['AGC']] <- 'V' # NEW-3
+  MAP[['AGG']] <- 'R' # NEW-2
+  
+  MAP[['ATC']] <- 'H' # NEW-3
+  MAP[['ATG']] <- 'D' # NEW-3
+  MAP[['ATA']] <- 'W'
+  MAP[['ATT']] <- 'W' # NEW-2
+  
+  #
+  # Tri-Nuc Map:: C
+  #
+  MAP[['CAC']] <- 'M'
+  MAP[['CAG']] <- 'V' # NEW-3
+  MAP[['CAT']] <- 'H' # NEW-3
+  MAP[['CAA']] <- 'M' # NEW-2
+
+  MAP[['CCA']] <- 'M'
+  MAP[['CCT']] <- 'Y'
+  MAP[['CCG']] <- 'S'
+  MAP[['CCC']] <- 'C'
+  
+  MAP[['CGA']] <- 'V' # NEW-3
+  MAP[['CGT']] <- 'B' # NEW-3
+  MAP[['CGC']] <- 'S'
+  MAP[['CGG']] <- 'S' # NEW-2
+  
+  MAP[['CTC']] <- 'Y'
+  MAP[['CTG']] <- 'B' # NEW-3
+  MAP[['CTA']] <- 'H' # NEW-3
+  MAP[['CTT']] <- 'Y' # NEW-2
+  
+  #
+  # Tri-Nuc Map:: G
+  #
+  MAP[['GAC']] <- 'V' # NEW-3
+  MAP[['GAG']] <- 'R'
+  MAP[['GAT']] <- 'D' # NEW-3
+  MAP[['GAA']] <- 'R' # NEW-2
+  
+  MAP[['GCA']] <- 'V' # NEW-3
+  MAP[['GCT']] <- 'B' # NEW-3
+  MAP[['GCG']] <- 'S'
+  MAP[['GCC']] <- 'S' # NEW-2
+  
+  MAP[['GGA']] <- 'R'
+  MAP[['GGT']] <- 'K'
+  MAP[['GGC']] <- 'S'
+  MAP[['GGG']] <- 'G'
+  
+  MAP[['GTC']] <- 'B' # NEW-3
+  MAP[['GTG']] <- 'K'
+  MAP[['GTA']] <- 'D' # NEW-3
+  MAP[['GTT']] <- 'K' # NEW-2
+  
+  #
+  # Tri-Nuc Map:: T
+  #
+  MAP[['TAC']] <- 'H' # NEW-3
+  MAP[['TAG']] <- 'D' # NEW-3
+  MAP[['TAT']] <- 'W'
+  MAP[['TAA']] <- 'W' # NEW-2
+  
+  MAP[['TCA']] <- 'H' # NEW-3
+  MAP[['TCT']] <- 'Y'
+  MAP[['TCG']] <- 'B' # NEW-3
+  MAP[['TCC']] <- 'Y' # NEW-2
+  
+  MAP[['TGA']] <- 'D' # NEW-3
+  MAP[['TGT']] <- 'K'
+  MAP[['TGC']] <- 'B' # NEW-3
+  MAP[['TGG']] <- 'K' # NEW-2
+  
+  MAP[['TTC']] <- 'Y'
+  MAP[['TTG']] <- 'K'
+  MAP[['TTA']] <- 'W'
+  MAP[['TTT']] <- 'T'
   
   MAP
 }

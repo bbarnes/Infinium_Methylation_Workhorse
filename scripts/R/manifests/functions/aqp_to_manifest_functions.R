@@ -49,13 +49,16 @@ template_func = function(tib,
 #                          Standard Function Template::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-dna_to_template = function(tib, dna, map,
+dna_to_template = function(tib, dna, map, file=NULL,
+                           name="Name",gen="na",
                            chr1="Chromosome", pos="Coordinate",
                            chr2="Chrom_Char",
-                           fwd_seq="Fwd_Seq",
+                           ext_seq="Fwd_Seq",
                            des_seq="Des_Seq",
-                           ups_len=60, seq_len=122, iupac=NULL,
-                           del="_",
+                           imp_seq="Sequence",
+                           ups_len=60, seq_len=122, 
+                           iupac=NULL, add_flank=FALSE,
+                           del="_", 
                            verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'dna_to_template'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -66,10 +69,12 @@ dna_to_template = function(tib, dna, map,
   stime <- system.time({
     
     pos_sym  <- rlang::sym(pos)
+    name_sym <- rlang::sym(name)
     chr1_sym <- rlang::sym(chr1)
     chr2_sym <- rlang::sym(chr2)
-    fwd_sym  <- rlang::sym(fwd_seq)
+    ext_sym  <- rlang::sym(ext_seq)
     des_sym  <- rlang::sym(des_seq)
+    imp_sym  <- rlang::sym(imp_seq)
     
     chr_list <- tib %>% 
       dplyr::arrange(!!chr1_sym,!!pos_sym) %>%
@@ -99,25 +104,29 @@ dna_to_template = function(tib, dna, map,
       }
 
       # Subtract two for cg upstream 122mer formation and add two+two as well
+      #
+      cur_begs <- NULL
+      cur_ends <- NULL
       cur_begs <- cur_tib %>% dplyr::pull(!!pos_sym) - ups_len - 2
       cur_ends <- cur_begs + seq_len - 1 + 4
       
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_begs={RET}"))
-        print(cur_begs)
+        cur_begs %>% head() %>% print()
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_ends={RET}"))
-        print(cur_ends)
+        cur_ends %>% head() %>% print()
       }
 
-      ref_seqs <- stringr::str_sub( as.character(dna[[chr_idx]]), cur_begs, cur_ends)
-      # if (!is.null(iupac)) {
-      #   ref_seqs <- ref_seqs %>% stringr::str_sub(ups_len,ups_len+1) <- iupac
-      # }
-      
-      iupac_vec <- NULL
-      if (!is.null(iupac)) iupac_vec <- cur_tib %>% dplyr::pull(!!iupac)
-      # print(iupac_vec)
-      
+      # Substring ref sequences::
+      #
+      ref_seqs <- NULL
+      ref_seqs <- stringr::str_sub( as.character(dna[[chr_idx]]), cur_begs, cur_ends) %>%
+        stringr::str_to_upper()
+
+      # Build individual parts of the template sequence::
+      # up01.up02...up58...up59.up60.up61.dn61.dn60.dn59...dn58...dn02.dn01
+      #                             [  C   G  ]
+      #
       ref_up01 <- stringr::str_sub(ref_seqs, 1,1)
       ref_up02 <- stringr::str_sub(ref_seqs, 2,2)
       ref_up58 <- stringr::str_sub(ref_seqs, 3,ups_len-2+2)
@@ -126,7 +135,8 @@ dna_to_template = function(tib, dna, map,
       ref_up60 <- stringr::str_sub(ref_seqs, ups_len-2+4,ups_len-2+4)
       ref_up61 <- stringr::str_sub(ref_seqs, ups_len-2+5,ups_len-2+5)
       
-      # ref_iupc <- iupac_vec
+      iupac_vec <- ref_up61
+      if (!is.null(iupac)) iupac_vec <- cur_tib %>% dplyr::pull(!!iupac)
       
       ref_dn61 <- stringr::str_sub(ref_seqs, ups_len-2+6,ups_len-2+6)
       ref_dn60 <- stringr::str_sub(ref_seqs, ups_len-2+7,ups_len-2+7)
@@ -136,28 +146,16 @@ dna_to_template = function(tib, dna, map,
       ref_dn02 <- stringr::str_sub(ref_seqs, ups_len-2+ups_len-2+8,ups_len-2+ups_len-2+8)
       ref_dn01 <- stringr::str_sub(ref_seqs, ups_len-2+ups_len-2+9,ups_len-2+ups_len-2+9)
       
-      # Don't add bracs just yet...
-      ref_seqs <- ref_seqs %>% addBrac()
-      
       if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref_seqs={RET}"))
-        print(ref_seqs)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref_seqs({chr_str})={RET}"))
+        ref_seqs %>% head() %>% print()
       }
       
+      # Add all fields to current tibble::
       #
-      # TBD:: Parse ref_seqs into UP/[QA/QB/QI]/NB/DN
-      #
-      
-      # Previous simple sequence assignment::
-      #
-      # cur_tib <- cur_tib %>% 
-      #   dplyr::mutate(
-      #     !!fwd_sym := ref_seqs
-      #   )
-      
       cur_tib <- cur_tib %>%
         dplyr::mutate(
-          !!fwd_sym := ref_seqs,
+          !!ext_sym := ref_seqs %>% addBrac(),
           
           up01=ref_up01,
           up02=ref_up02,
@@ -168,7 +166,7 @@ dna_to_template = function(tib, dna, map,
           up61=ref_up61,
           
           iupac=iupac_vec,
-          
+
           dn61=ref_dn61,
           dn60=ref_dn60,
           dn59=ref_dn59,
@@ -176,7 +174,7 @@ dna_to_template = function(tib, dna, map,
           dn58=ref_dn58,
           dn02=ref_dn02,
           dn01=ref_dn01,
-          
+      
           # Now we can assemble to optimal template::
           #
           !!des_sym := paste0(up58,
@@ -185,44 +183,74 @@ dna_to_template = function(tib, dna, map,
                               dn60,dn59,
                               dn58) %>%
             addBrac(),
+          !!imp_sym := paste0(up58,
+                              up59,up60,
+                              "CG",
+                              dn60,dn59,
+                              dn58) %>%
+            addBrac(),
+          
+          # TBD:: Pretty sure this right, but really needs more testing...
+          #
           Din_Str=stringr::str_to_lower(paste0(iupac,dn61)),
-          Des_Din="rs"
+          Des_Din=dplyr::case_when(
+            up61=='C' & dn61=='G' ~ "cg",
+            up61=='C' & dn61!='G' ~ "ch",
+            up61!='C' ~ "rs",
+            TRUE ~ NA_character_
+          )
         )
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} cur_tib({chr_str})={RET}"))
+        cur_tib %>% print()
+      }
       
       #  
       # TBD:: We can also break out trifecta sites if probe type == rs
       #
       ups_tib <- NULL
-      ups_tib <- cur_tib %>% 
-        dplyr::filter(up59=="C" & up60=="G") %>%
-        dplyr::mutate(
-          !!des_sym := paste0(up01,up02,up58,up59,up60,iupac,dn61,dn60,dn59,dn58) %>%
-            stringr::str_sub(1,seq_len) %>%
-            addBrac(),
-          Din_Str=stringr::str_to_lower(paste0(up59,up60)),
-          Des_Din="cg",
-          Name=paste(Name,"CG_UP", sep=del),
-          Coordinate=as.integer(Coordinate-2)
-        )
-      
       dns_tib <- NULL
-      dns_tib <- cur_tib %>% 
-        dplyr::filter(dn61=="C" & dn60=="G") %>%
-        dplyr::mutate(
-          !!des_sym := paste0(up58,up59,up60,iupac,dn61,dn60,dn59,dn58,dn02) %>%
-            stringr::str_sub(2) %>%
-            addBrac(),
-          Din_Str=stringr::str_to_lower(paste0(dn61,dn60)),
-          Des_Din="cg",
-          Name=paste(Name,"CG_DN", sep=del),
-          Coordinate=as.integer(Coordinate+2)
-        )
       
-      # Add New Trifecta Probes::
+      if (add_flank) {
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Upstream CG Flank Seuqnces({chr_str})...{RET}"))
+          
+        ups_tib <- cur_tib %>% 
+          dplyr::filter(up59=="C" & up60=="G") %>%
+          dplyr::mutate(
+            !!des_sym := paste0(up01,up02,up58,up59,up60,iupac,dn61,dn60,dn59,dn58) %>%
+              stringr::str_sub(1,seq_len) %>%
+              addBrac(),
+            Din_Str=stringr::str_to_lower(paste0(up59,up60)),
+            Des_Din="cg",
+            Name=paste(!!name_sym,"CG_UP", sep=del),
+            Coordinate=as.integer(Coordinate-2)
+          )
+        
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Downstream CG Flank Seuqnces({chr_str})...{RET}"))
+        
+        dns_tib <- cur_tib %>% 
+          dplyr::filter(dn61=="C" & dn60=="G") %>%
+          dplyr::mutate(
+            !!des_sym := paste0(up58,up59,up60,iupac,dn61,dn60,dn59,dn58,dn02) %>%
+              stringr::str_sub(2) %>%
+              addBrac(),
+            Din_Str=stringr::str_to_lower(paste0(dn61,dn60)),
+            Des_Din="cg",
+            Name=paste(!!name_sym,"CG_DN", sep=del),
+            Coordinate=as.integer(Coordinate+2)
+        )
+      }
+      
+      # Add New Tri-fecta Probes::
       #  - NOTE:: These will have their names changed later after alignment...
       #
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Joining and sorting...{RET}"))
+      
       cur_tib <- dplyr::bind_rows(cur_tib, ups_tib, dns_tib) %>%
-        dplyr::arrange(Name)
+        dplyr::arrange(!!name_sym)
       
       ret_tib <- dplyr::bind_rows(ret_tib, cur_tib)
       
@@ -230,7 +258,28 @@ dna_to_template = function(tib, dna, map,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Substring chr_str={chr_str}.{RET}{RET}"))
     }
     
-    # ret_cnt <- ret_tib %>% base::nrow()
+    if (!is.null(file)) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing improbe input TSV={file}...{RET}"))
+      
+      imp_col <- c("Seq_ID","Sequence","Genome_Build","Chromosome","Coordinate","CpG_Island")
+      imp_tib <- ret_tib %>% 
+        dplyr::mutate(Genome_Build=!!gen, CpG_Island="FALSE") %>%
+        dplyr::select(dplyr::all_of(c(!!name, !!imp_seq, "Genome_Build", !!chr1, !!pos, "CpG_Island")) ) %>%
+        purrr::set_names(imp_col)
+      
+      safe_write(x=imp_tib,type="tsv",file=file,funcTag=funcTag, 
+                 verbose=verbose,vt=vt,tc=tc,append=FALSE)
+    }
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} DIN Summary={RET}"))
+      
+      sum_tib <- ret_tib %>% 
+        dplyr::group_by(up61,dn61,Des_Din) %>% 
+        dplyr::summarise(Count=n(), .groups="drop")
+      sum_tib %>% print(n=base::nrow(sum_tib))
+    }
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)

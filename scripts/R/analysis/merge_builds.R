@@ -292,70 +292,67 @@ if (args.dat[1]=='RStudio') {
       sep=',')
     
   } else if (par$local_runType=='qcMVP') {
+    # "/Users/bretbarnes/Documents/data/VA_MVP/docker-v.1.11/"
+    
     opt$classVar <- 'AutoSample_dB_Key'
     opt$classVar <- 'AutoSample_dB_Key_1'
     
     opt$platform <- 'EPIC'
     opt$version  <- 'B4'
 
-    par$runName1  <- 'CNTL-Samples_VendA_10092020'
-    par$runName2  <- 'CNTL-Samples_VendB_10092020'
+    # par$runName1  <- 'CNTL-Samples_VendA_10092020'
+    # par$runName2  <- 'CNTL-Samples_VendB_10092020'
+    # 
+    # par$runName3  <- 'BETA-8x1-EPIC-Core'
+    # par$runName4  <- 'DELTA-8x1-EPIC-Core'
+    # par$runName5  <- 'DELTA-24x1-EPIC'
+    # par$runName6  <- 'BETA-8x1-EPIC-Bad'
+    # 
+    # par$runName7  <- 'COVIC-Set1-15052020'
+    # par$runName8  <- 'COVIC-Set2-31052020'
+    # par$runName9  <- 'COVIC-Set3-05062020'
+    # par$runName10 <- 'COVIC-Set4-09062020'
+    # par$runName11 <- 'COVIC-Set5-10062020'
+    # par$runName12 <- 'COVIC-Set7-06082020'
+    # par$runName13 <- 'COVIC-Set8-26182020'
+    # 
+    # par$runName14 <- 'Excalibur-Old-1609202'
+    # par$runName15 <- 'Excalibur-New-1609202'
     
-    par$runName3  <- 'BETA-8x1-EPIC-Core'
-    par$runName4  <- 'DELTA-8x1-EPIC-Core'
-    par$runName5  <- 'DELTA-24x1-EPIC'
-    par$runName6  <- 'BETA-8x1-EPIC-Bad'
-    
-    par$runName7  <- 'COVIC-Set1-15052020'
-    par$runName8  <- 'COVIC-Set2-31052020'
-    par$runName9  <- 'COVIC-Set3-05062020'
-    par$runName10 <- 'COVIC-Set4-09062020'
-    par$runName11 <- 'COVIC-Set5-10062020'
-    par$runName12 <- 'COVIC-Set7-06082020'
-    par$runName13 <- 'COVIC-Set8-26182020'
-    
-    par$runName14 <- 'Excalibur-Old-1609202'
-    par$runName15 <- 'Excalibur-New-1609202'
-    
-    # opt$buildDir  <- paste(
-    #   file.path(par$topDir,'scratch/swifthoof_main',par$runNameA),
-    #   sep=',')
-    # opt$runName  <- par$runNameA
-    
-    # TBD:: Need to turn this into a string and then parse...
     #
-    # par$pass_vec <- c(par$runNameA,par$runNameB,par$runNameC,par$runNameD,
-    #  par$runNameG)
-    # par$fail_vec <- c(par$runNameE,par$runNameF,par$runNameH)
-    pass_vec <- c(par$runName1,par$runName2,
-                  par$runName3,par$runName4,par$runName5,
-                  par$runName7,par$runName11,par$runName12,
-                  par$runName15)
+    # pass_vec <- c(par$runName1,par$runName2,
+    #               par$runName3,par$runName4,par$runName5,
+    #               par$runName7,par$runName11,par$runName12,
+    #               par$runName15)
+    # 
+    # opt$buildDir  <- paste(
+    #   # Known passed chips::
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName1),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName2),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName3),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName4),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName5),
+    #   
+    #   # Known failed chips::
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName6),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName7),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName8),
+    #   
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName9),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName10),
+    # 
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName11),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName12),
+    #   # file.path(par$topDir,'scratch/swifthoof_main',par$runName13),
+    #   
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName14),
+    #   file.path(par$topDir,'scratch/swifthoof_main',par$runName15),
+    #   
+    #   sep=',')
     
-    opt$buildDir  <- paste(
-      # Known passed chips::
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName1),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName2),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName3),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName4),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName5),
-      
-      # Known failed chips::
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName6),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName7),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName8),
-      
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName9),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName10),
-
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName11),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName12),
-      # file.path(par$topDir,'scratch/swifthoof_main',par$runName13),
-      
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName14),
-      file.path(par$topDir,'scratch/swifthoof_main',par$runName15),
-      
-      sep=',')
+    par$datSrc <- file.path(par$topDir, "data/VA_MVP/docker-v.1.11")
+    opt$buildDir <- 
+      do.call(paste, c(as.list(list.files(par$datSrc, full.names = TRUE)), sep=","))
 
     opt$runName  <- paste(par$local_runType, sep='_')
     
@@ -546,14 +543,35 @@ for (curDir in blds_dir_vec) {
     hum_ss_tib <- dplyr::bind_rows(hum_ss_tib,cur_hm_tib)
   }
   
+  suffix='AutoSampleSheet.csv.gz'
+  
+  cur_ss_tib <- NULL
   cur_ss_tib <- 
     loadAutoSampleSheets(dir=curDir, 
                          platform=opt$platform, manifest=opt$version, workflow="ind",
-                         addSampleName=opt$addSampleName, addPathsCall=opt$addPathsCall, addPathsSset=opt$addPathsSset,
-                         flagDetectPval=opt$flagDetectPval, flagSampleDetect=opt$flagSampleDetect, flagRefMatch=opt$flagRefMatch,
-                         pvalDetectMinKey=opt$pvalDetectMinKey, pvalDetectMinVal=opt$pvalDetectMinVal,
+                         suffix=suffix,
+                         
+                         addSampleName=opt$addSampleName, 
+                         addPathsCall=opt$addPathsCall, 
+                         addPathsSset=opt$addPathsSset,
+                         
+                         flagDetectPval=opt$flagDetectPval, 
+                         flagSampleDetect=opt$flagSampleDetect, 
+                         flagRefMatch=opt$flagRefMatch,
+                         
+                         pvalDetectMinKey=opt$pvalDetectMinKey, 
+                         pvalDetectMinVal=opt$pvalDetectMinVal,
                          clean_gta=opt$clean_gta,
-                         verbose=opt$verbose,vt=3,tc=1,tt=pTracker) %>% 
+                         verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
+  
+  if (is.null(cur_ss_tib)) {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Failed to find any suffix={suffix} ",
+                     "in dir={curDir}. Skipping...{RET}") )
+    next
+  }
+  
+  cur_ss_tib <- cur_ss_tib %>%
     dplyr::distinct(Sentrix_Name, .keep_all=TRUE) %>% 
     dplyr::mutate(build_source=base::basename(curDir))
   
@@ -571,6 +589,16 @@ cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len
 # print(auto_ss_tib)
 auto_ss_tib %>% dplyr::distinct(build_source)
 
+auto_ss_sum <- auto_ss_tib %>% 
+  dplyr::group_by(Run_Name,AutoSample_dB_Key_2) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+auto_ss_sum %>% print(n=base::nrow(auto_ss_sum))
+
+
+
+
+
+opt$clean_source <- FALSE
 if (opt$clean_source) {
   
   # VA data from cluster::
@@ -693,10 +721,7 @@ if (opt$clean_source) {
                         cols=vars(Design_Type,Metric_Type) ) +
     geom_hline(yintercept=0.98 ) +
     geom_vline(xintercept=0.85 )
-  
 
-  
-  
   #
   # Log Versions::
   #

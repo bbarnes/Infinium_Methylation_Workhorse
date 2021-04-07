@@ -3,6 +3,16 @@
 #                              Source Packages::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# Big Science::
+#
+# Sequencing -> Discovery -> Array Dominace (Can't compete)
+# COVID: Sample Prep -> Gary; do you know about Direct Detection
+#   - Existing array
+#   - GC Content difference with infectious cells
+#   - Normalization (Noob) applied to both arrays and sequencing
+#   - SPIT F-ING FIRE!!!
+#
+# VACINE PASSPORT REPORT CARD!!!
 #
 # Should improve after new cgnDB is built...
 #
@@ -24,6 +34,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
+suppressWarnings(suppressPackageStartupMessages( base::require("data.table") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 
@@ -59,8 +70,8 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
-par$prgmDir <- 'manifests'
-par$prgmTag <- 'aqp_to_manifest'
+par$prgmDir <- 'workhorse'
+par$prgmTag <- 'workhorse_main'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 
@@ -95,6 +106,9 @@ opt$mats <- NULL
 opt$aqps <- NULL
 opt$pqcs <- NULL
 opt$mans <- NULL
+opt$vcfs <- NULL
+
+opt$beds <- NULL
 
 # Manufacturing Info:: Required
 opt$bpns <- NULL
@@ -268,17 +282,24 @@ if (args.dat[1]=='RStudio') {
     opt$mats   <- NULL
     opt$aqps   <- NULL
     opt$pqcs   <- NULL
-    opt$mans   <- paste(
-      file.path(opt$manDir, "genotyping/GSA-24v2-0_A1.csv.gz"),
-      file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation450_15017482_v.1.2.csv.gz"),
-      sep=',')
     
-    opt$bpns <- NULL
-    opt$aqpn <- NULL
-    opt$pqcn <- NULL
+    opt$bpns   <- NULL
+    opt$aqpn   <- NULL
+    opt$pqcn   <- NULL
+    
+    # opt$mans   <- paste(
+    #   file.path(opt$manDir, "genotyping/GSA-24v2-0_A1.csv.gz"),
+    #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation27_270596_v.1.2.csv.gz"),
+    #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation450_15017482_v.1.2.csv.gz"),
+    #   file.path(opt$manDir, "methylation/GenomeStudio/MethylationEPIC_v-1-0_B2.csv.gz"),
+    #   sep=',')
+    
+    opt$mans   <- NULL
+    opt$vcfs   <- NULL
+    opt$beds   <- NULL
     
     opt$org_des_tsv <- NULL
-        
+    
   } else if (par$local_runType=='Chicago') {
     opt$genBuild <- 'GRCh38'
     opt$genBuild <- 'GRCh37'
@@ -312,7 +333,7 @@ if (args.dat[1]=='RStudio') {
       sep=',')
     
     opt$org_des_tsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz")
-
+    
   } else if (par$local_runType=='COVIC') {
     opt$genBuild <- 'GRCh36'
     opt$genBuild <- 'GRCh38'
@@ -491,7 +512,7 @@ if (args.dat[1]=='RStudio') {
                 help="Null value for passing arguments [default= %default]", metavar="character"),
     make_option(c("--org_des_tsv"), type="character", default=opt$org_des_tsv, 
                 help="Original design file used for canonical position selection. [default= %default]", metavar="character"),
-
+    
     # Directories::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
@@ -514,8 +535,14 @@ if (args.dat[1]=='RStudio') {
                 help="AQP file(s) (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--pqcs"), type="character", default=opt$pqcs, 
                 help="PQC file(s) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--mans"), type="character", default=opt$mans, 
+    make_option(c("--mans"), type="character", default=opt$mans,
                 help="Manifest CSV file(s) (comma seperated) [default= %default]", metavar="character"),
+    
+    # Not fully supported yet::
+    make_option(c("--vcfs"), type="character", default=opt$vcfs, 
+                help="Target Design VCF file(s) (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--beds"), type="character", default=opt$beds, 
+                help="Target Design Coordinate BED file(s) (comma seperated) [default= %default]", metavar="character"),
     
     # Manufacturing Info:: Required
     make_option(c("--bpns"), type="character", default=opt$bpns, 
@@ -629,17 +656,19 @@ if (is.null(opt$ctls)) {
 
 # TBD:: Add method validation for this step
 #
+if (is.null(opt$ords) && is.null(opt$mans) && is.null(opt$beds)) {
+  stop(glue::glue("{RET}[{par$prgmTag}]: Must provide order, or manifest or coordinate files!!!.{RET}{RET}"))
+}
+
 if (!is.null(opt$ords)) {
   ords_vec <- NULL
   mats_vec <- NULL
   aqps_vec <- NULL
   pqcs_vec <- NULL
-  mans_vec <- NULL
   if (!is.null(opt$ords)) ords_vec <- opt$ords %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
   if (!is.null(opt$mats)) mats_vec <- opt$mats %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
   if (!is.null(opt$aqps)) aqps_vec <- opt$aqps %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
   if (!is.null(opt$pqcs)) pqcs_vec <- opt$pqcs %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-  if (!is.null(opt$pqcs)) mans_vec <- opt$mans %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
   
   ords_len <- length(ords_vec)
   mats_len <- length(mats_vec)
@@ -671,12 +700,18 @@ if (!is.null(opt$ords)) {
   idat_vec <- NULL
   if (!is.null(opt$ctls)) ctls_vec <- opt$ctls %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
   if (!is.null(opt$idat)) idat_vec <- opt$idat %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
-} else if (!is.null(opt$mans)) {
+}
+
+if (!is.null(opt$mans)) {
+  mans_vec <- NULL
+  if (!is.null(opt$mans)) mans_vec <- opt$mans %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+}
+
+if (!is.null(opt$vcfs)) {
   
-} else if (!is.null(opt$crds)) {
+}
+if (!is.null(opt$beds)) {
   
-} else {
-  stop(glue::glue("{RET}[{par$prgmTag}]: Must provide order, or manifest or coordinate files!!!.{RET}{RET}"))
 }
 
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
@@ -757,6 +792,7 @@ if (opt$verbose>=1)
 #
 #                    0.0 Pre-processing:: Three Groups
 #
+#  0. Validation idats
 #  1. Original Order File Genomic Positions
 #  2. Canonical CGN Preference
 #     - Need to pull canonical sources to see what's old and new!!!
@@ -768,110 +804,8 @@ if (opt$verbose>=1)
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#         0.1 Pre-processing:: Original Order File Genomic Positions
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-org_des_tib <- NULL
-add_org_tib <- NULL
-if (!is.null(opt$org_des_tsv) && file.exists(opt$org_des_tsv)) {
-  
-  org_des_col <-
-    cols(
-      Org_Cgn      = col_integer(),
-      Org_Chr      = col_character(),
-      Org_Pos      = col_integer(),
-      Org_M49P     = col_character(),
-      Org_M49N     = col_character(),
-      
-      Org_FR       = col_character(),
-      Org_TB       = col_character(),
-      Org_CO       = col_character(),
-      
-      Org_NXB      = col_character(),
-      Org_U49P     = col_character(),
-      Org_U49N     = col_character()
-    )
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Loading org_des_tsv={opt$org_des_tsv}...{RET}"))
-  
-  org_des_tib <- suppressMessages(suppressWarnings(
-    readr::read_tsv(opt$org_des_tsv, 
-                    col_names=names(org_des_col$cols),
-                    col_types=org_des_col) )) %>%
-    dplyr::mutate(Org_Chr=paste0("chr",stringr::str_remove(Org_Chr, "^chr")) ) #,Org_Srd3=paste0(Org_TB,Org_CO,Org_NXB)
 
-  add_org_tib <- dplyr::bind_rows(
-    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_U49P,Org_U49N) %>%
-      dplyr::rename(Org_49P=Org_U49P, Org_49N=Org_U49N) %>%
-      dplyr::mutate(Org_49P=Org_49P %>% stringr::str_sub(1,49),
-                    Org_49N=NA_character_,
-                    Org_Des="2"),
-    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_U49P,Org_U49N) %>%
-      dplyr::rename(Org_49P=Org_U49P, Org_49N=Org_U49N) %>%
-      dplyr::mutate(Org_Des="U"),
-    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_M49P,Org_M49N) %>%
-      dplyr::rename(Org_49P=Org_M49P, Org_49N=Org_M49N) %>%
-      dplyr::mutate(Org_Des="M")
-  ) %>% 
-    dplyr::mutate(Org_Mis_Scr=0, Org_Mis_Scr=as.integer(Org_Mis_Scr)) %>%
-    dplyr::arrange(Org_Cgn,Org_Des) %>% 
-    dplyr::select(Org_Cgn,Org_Des, dplyr::everything())
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Done.{RET}{RET}"))  
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                0.2 Pre-processing:: Canonical CGN Preference
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-can_cgn_top_csv <- file.path(par$datDir, "manifest/cgnDB/canonical-assignment.cgn-top-grp.csv.gz")
-can_cgn_top_tib <- 
-  suppressMessages(suppressWarnings( readr::read_csv(can_cgn_top_csv) )) %>% 
-  dplyr::mutate(CGN=as.integer(CGN)) %>%
-  dplyr::rename(Can_Cgn=CGN, Can_Top=TOP, Can_Src=SRC) %>%
-  utils::type.convert() %>% 
-  dplyr::mutate(across(where(is.factor), as.character) )
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                0.3 Pre-processing:: Target Genome BED File
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-cgn_bed_col <-
-  cols(
-    Imp_Chr      = col_character(),
-    Imp_Beg      = col_integer(),
-    Imp_End      = col_integer(),
-    Imp_Cgn      = col_integer(),
-    Imp_Src      = col_character(),
-    Imp_Top_Srd  = col_character()
-  )
-
-cgn_bed_dir <- "/Users/bretbarnes/Documents/data/improbe/scratch/cgnDB/dbSNP_Core4/design-input"
-cgn_bed_tsv <- file.path(cgn_bed_dir, paste(opt$genBuild, "cgn.bed.gz", sep="."))
-
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Loading cgn_bed_tsv={cgn_bed_tsv}...{RET}"))
-cgn_bed_tib <- NULL
-cgn_bed_tib <- suppressMessages(suppressWarnings( 
-  readr::read_tsv(cgn_bed_tsv, 
-                  col_names=names(cgn_bed_col$cols),
-                  col_types=cgn_bed_col) )) %>% 
-  dplyr::select(-Imp_Beg,-Imp_Src) %>% 
-  dplyr::rename(Imp_Pos=Imp_End) %>%
-  dplyr::left_join(can_cgn_top_tib, by=c("Imp_Cgn"="Can_Cgn")) %>%
-  dplyr::mutate(
-    Can_Mis_Scr=dplyr::case_when(
-      !is.na(Can_Src) ~ 0,
-      TRUE ~ 1) %>% as.integer()
-  )
-
-#
-# Remove can_cgn_top_tib from memory, or make a function...
-#
-rm(can_cgn_top_tib)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -944,143 +878,246 @@ if (!is.null(run$gen_snp_fas) && file.exists(run$gen_snp_fas)) {
 
 
 
+#
+# VCF Reading Scratch Space::
+#
+
+# LIFE GOT BETTER::
+vcf <- "/Users/bretbarnes/Documents/tools/tmp/tmp.vcf.gz"
+vcf <- "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/common_all_20180423.vcf.gz"
+
+vcf_sel <- c("#CHROM","POS","ID","REF","ALT","QUAL","FILTER")
+vcf_col <- c("Chromosome","Coordinate","Seq_ID","AlleleA_Str","AlleleB_Str","Qual","Filter")
+vcf_tib <- fread(vcf, select=vcf_sel) %>% 
+  tibble::as_tibble() %>%
+  purrr::set_names(vcf_col) %>% # clean_tibble() # No need for clean with fread() ...
+  dplyr::filter(stringr::str_detect(AlleleA_Str, "^[A-Z]$")) %>%
+  dplyr::filter(stringr::str_detect(AlleleB_Str, "^[A-Z]$") | stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z]$")) %>%
+  dplyr::mutate(AlleleB_Iup=stringr::str_remove_all(AlleleB_Str, ",") %>% mapDIs(),
+                AlleleC_Iup=paste0(AlleleA_Str, stringr::str_remove_all(AlleleB_Str, ",")) %>% mapDIs() )
+
+vcf_sum <- vcf_tib %>% 
+  dplyr::mutate(Probe_Type=stringr::str_sub(Seq_ID, 1,2)) %>% 
+  dplyr::group_by(Probe_Type,AlleleC_Iup) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+vcf_sum %>% print(n=base::nrow(vcf_sum))
+
+
+# Verify Calculations::
+#
+if (FALSE) {
+  tmp_tib <- 
+    vcf_tib %>% # head(n=1000) %>%
+    dplyr::mutate(
+      AlleleA_Len=stringr::str_length(AlleleA_Str),
+      AlleleB_Len=stringr::str_length(AlleleB_Str)
+    ) %>%
+    dplyr::filter(AlleleA_Len==1 & AlleleB_Len<4) %>%
+    dplyr::mutate(
+      AlleleA_Com=stringr::str_remove_all(AlleleA_Str, "[^,]"),
+      AlleleA_Cnt=stringr::str_length(AlleleA_Com) %>%
+        as.integer(),
+      
+      AlleleB_Com=stringr::str_remove_all(AlleleB_Str, "[^,]"),
+      AlleleB_Cnt=stringr::str_length(AlleleB_Com) %>%
+        as.integer()
+    ) %>%
+    dplyr::filter(AlleleA_Cnt==0 & AlleleB_Cnt<=1)
+}
+
+
+
+
 
 
 
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#               1.0 Data Collection:: Ord/Mat/AQP/PQC/Manifest
-#
+#                     0.0 Pre-processing:: IDAT Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-stamp_vec <- c(stamp_vec,run$add_pas_csv)
-if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+add_idat_tib <- NULL
+if (!is.null(opt$idat)) {
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading idats from dir={opt$idat}.{RET}"))
   
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     1.0.0 Data Collection:: IDAT Files
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  grn_idat_dat <- 
+    loadIdat(prefix=file.path(opt$idat, paste(base::basename(opt$idat),"R01C01", sep="_")), 
+             col="Grn", gzip=TRUE, verbose=opt$verbose, tt=pTracker )
   
-  add_idat_tib <- NULL
-  if (!is.null(opt$idat)) {
-    if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Loading idats from dir={opt$idat}.{RET}"))
-    
-    grn_idat_dat <- 
-      loadIdat(prefix=file.path(opt$idat, paste(base::basename(opt$idat),"R01C01", sep="_")), 
-               col="Grn", gzip=TRUE, verbose=opt$verbose, tt=pTracker )
-    
-    add_idat_tib <- 
-      grn_idat_dat$Quants %>% 
-      as.data.frame() %>% 
-      tibble::rownames_to_column(var="Address") %>% 
-      tibble::as_tibble() %>% 
-      dplyr::mutate(Address=as.integer(Address)) %>%
-      dplyr::distinct(Address)
-  }
+  add_idat_tib <- 
+    grn_idat_dat$Quants %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column(var="Address") %>% 
+    tibble::as_tibble() %>% 
+    dplyr::mutate(Address=as.integer(Address)) %>%
+    dplyr::distinct(Address)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#         0.1 Pre-processing:: Original Order File Genomic Positions
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+org_des_tib <- NULL
+add_org_tib <- NULL
+if (!is.null(opt$org_des_tsv) && file.exists(opt$org_des_tsv)) {
   
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     1.1.0 Data Collection:: Order Files
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  org_des_col <-
+    cols(
+      Org_Cgn      = col_integer(),
+      Org_Chr      = col_character(),
+      Org_Pos      = col_integer(),
+      Org_M49P     = col_character(),
+      Org_M49N     = col_character(),
+      
+      Org_FR       = col_character(),
+      Org_TB       = col_character(),
+      Org_CO       = col_character(),
+      
+      Org_NXB      = col_character(),
+      Org_U49P     = col_character(),
+      Org_U49N     = col_character()
+    )
   
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading org_des_tsv={opt$org_des_tsv}...{RET}"))
+  
+  org_des_tib <- suppressMessages(suppressWarnings(
+    readr::read_tsv(opt$org_des_tsv, 
+                    col_names=names(org_des_col$cols),
+                    col_types=org_des_col) )) %>%
+    dplyr::mutate(Org_Chr=paste0("chr",stringr::str_remove(Org_Chr, "^chr")) ) #,Org_Srd3=paste0(Org_TB,Org_CO,Org_NXB)
+  
+  add_org_tib <- dplyr::bind_rows(
+    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_U49P,Org_U49N) %>%
+      dplyr::rename(Org_49P=Org_U49P, Org_49N=Org_U49N) %>%
+      dplyr::mutate(Org_49P=Org_49P %>% stringr::str_sub(1,49),
+                    Org_49N=NA_character_,
+                    Org_Des="2"),
+    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_U49P,Org_U49N) %>%
+      dplyr::rename(Org_49P=Org_U49P, Org_49N=Org_U49N) %>%
+      dplyr::mutate(Org_Des="U"),
+    dplyr::select(org_des_tib, Org_Cgn,Org_Chr,Org_Pos,Org_FR,Org_TB,Org_CO,Org_NXB,Org_M49P,Org_M49N) %>%
+      dplyr::rename(Org_49P=Org_M49P, Org_49N=Org_M49N) %>%
+      dplyr::mutate(Org_Des="M")
+  ) %>% 
+    dplyr::mutate(Org_Mis_Scr=0, Org_Mis_Scr=as.integer(Org_Mis_Scr)) %>%
+    dplyr::arrange(Org_Cgn,Org_Des) %>% 
+    dplyr::select(Org_Cgn,Org_Des, dplyr::everything())
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Done.{RET}{RET}"))  
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                0.2 Pre-processing:: Canonical CGN Preference
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+can_cgn_top_csv <- file.path(par$datDir, "manifest/cgnDB/canonical-assignment.cgn-top-grp.csv.gz")
+can_cgn_top_tib <- 
+  suppressMessages(suppressWarnings( readr::read_csv(can_cgn_top_csv) )) %>% 
+  dplyr::mutate(CGN=as.integer(CGN)) %>%
+  dplyr::rename(Can_Cgn=CGN, Can_Top=TOP, Can_Src=SRC) %>%
+  utils::type.convert() %>% 
+  dplyr::mutate(across(where(is.factor), as.character) )
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                0.3 Pre-processing:: Target Genome BED File
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+cgn_bed_col <-
+  cols(
+    Imp_Chr      = col_character(),
+    Imp_Beg      = col_integer(),
+    Imp_End      = col_integer(),
+    Imp_Cgn      = col_integer(),
+    Imp_Src      = col_character(),
+    Imp_Top_Srd  = col_character()
+  )
+
+cgn_bed_dir <- "/Users/bretbarnes/Documents/data/improbe/scratch/cgnDB/dbSNP_Core4/design-input"
+cgn_bed_tsv <- file.path(cgn_bed_dir, paste(opt$genBuild, "cgn.bed.gz", sep="."))
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Loading cgn_bed_tsv={cgn_bed_tsv}...{RET}"))
+cgn_bed_tib <- NULL
+cgn_bed_tib <- suppressMessages(suppressWarnings( 
+  readr::read_tsv(cgn_bed_tsv, 
+                  col_names=names(cgn_bed_col$cols),
+                  col_types=cgn_bed_col) )) %>% 
+  dplyr::select(-Imp_Beg,-Imp_Src) %>% 
+  dplyr::rename(Imp_Pos=Imp_End) %>%
+  dplyr::left_join(can_cgn_top_tib, by=c("Imp_Cgn"="Can_Cgn")) %>%
+  dplyr::mutate(
+    Can_Mis_Scr=dplyr::case_when(
+      !is.na(Can_Src) ~ 0,
+      TRUE ~ 1) %>% as.integer()
+  )
+
+#
+# Remove can_cgn_top_tib from memory, or make a function...
+#
+rm(can_cgn_top_tib)
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (!is.null(opt$ords)) {
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #
-  # TBD:: Pass in all pre-defined cols (val, sel, key)
+  #               1.0 Data Collection:: Ord/Mat/AQP/PQC/Manifest
   #
-  
-  # This method could be replaced with 
-  #  purrr::imap(vec, function(x,i) { load_man_file(x,i, ...) })
-  #  - Current method is simple and works, but need to check for
-  #    AQP/PQC null vecs up front...
-  #
-  ords_dat_tib <- ords_vec %>%
-    lapply(load_man_file,
-           verbose=opt$verbose,tt=pTracker) %>% 
-    dplyr::bind_rows(.id="Dat_IDX") %>%
-    utils::type.convert() %>%
-    dplyr::mutate(across(where(is.factor),  as.character) ) %>%
-    dplyr::left_join(man_info_tib, by="Dat_IDX") %>%
-    dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
-    dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep")
-  
-  ords_sum_tib <- ords_dat_tib %>% 
-    dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP, 
-                    Ord_Din,Ord_Des,Ord_Col,
-                    Ord_Prb_Rep,Ord_Par_Rep) %>% 
-    dplyr::summarise(Count=n(), .groups="drop")
-  ords_sum_tib %>% print(n=base::nrow(ords_sum_tib))
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                    1.2.0 Data Collection:: Match Files
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  mats_dat_tib <- mats_vec %>%
-    lapply(load_man_file,
-           verbose=opt$verbose,tt=pTracker) %>% 
-    dplyr::bind_rows(.id="Dat_IDX") %>%
-    utils::type.convert() %>%
-    dplyr::mutate(across(where(is.factor),  as.character) ) %>%
-    dplyr::left_join(man_info_tib, by="Dat_IDX") %>% 
-    dplyr::add_count(Address, name="Mat_Add_Rep")
-  
-  mats_sum_tib <- mats_dat_tib %>%
-    dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Mat_Add_Rep) %>%
-    dplyr::summarise(Count=n(), .groups="drop")
-  mats_sum_tib %>% print(n=base::nrow(mats_sum_tib))
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     1.3.1 Data Collection:: AQP Files
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  aqps_dat_tib <- NULL
-  if (!is.null(aqpn_vec) && length(aqps_vec)!=0) {
+  stamp_vec <- c(stamp_vec,run$add_pas_csv)
+  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
-    aqps_dat_tib <- aqps_vec %>%
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     1.1.0 Data Collection:: Order Files
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    #
+    # TBD:: Pass in all pre-defined cols (val, sel, key)
+    #
+    
+    # This method could be replaced with 
+    #  purrr::imap(vec, function(x,i) { load_man_file(x,i, ...) })
+    #  - Current method is simple and works, but need to check for
+    #    AQP/PQC null vecs up front...
+    #
+    ords_dat_tib <- ords_vec %>%
       lapply(load_man_file,
              verbose=opt$verbose,tt=pTracker) %>% 
       dplyr::bind_rows(.id="Dat_IDX") %>%
       utils::type.convert() %>%
       dplyr::mutate(across(where(is.factor),  as.character) ) %>%
-      dplyr::left_join(man_info_tib, by="Dat_IDX")
+      dplyr::left_join(man_info_tib, by="Dat_IDX") %>%
+      dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
+      dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep")
     
-    aqps_sum_tib <- aqps_dat_tib %>%
-      dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Decode_Status) %>%
+    ords_sum_tib <- ords_dat_tib %>% 
+      dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP, 
+                      Ord_Din,Ord_Des,Ord_Col,
+                      Ord_Prb_Rep,Ord_Par_Rep) %>% 
       dplyr::summarise(Count=n(), .groups="drop")
-    aqps_sum_tib %>% print(n=base::nrow(aqps_sum_tib))
+    ords_sum_tib %>% print(n=base::nrow(ords_sum_tib))
     
-  }
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     1.3.2 Data Collection:: PQC Files
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  #
-  # NOTE:: There's only one PQC, so no need to join with man_info_tib
-  #
-  pqcs_dat_tib <- NULL
-  pqcs_dat_tib <- pqcs_vec %>%
-    lapply(load_man_file,
-           verbose=opt$verbose,tt=pTracker) %>% 
-    dplyr::bind_rows(.id="Dat_PQC") %>%
-    utils::type.convert() %>%
-    dplyr::mutate(across(where(is.factor),  as.character) )
-  
-  pqcs_sum_tib <- pqcs_dat_tib %>% 
-    dplyr::group_by(Dat_PQC,Decode_Status) %>% 
-    dplyr::summarise(Count=n(), .groups="drop")
-  pqcs_sum_tib %>% print(n=base::nrow(pqcs_sum_tib))
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     1.4.0 Data Collection:: Manifest Files
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  mans_dat_tib <- NULL
-  if (!is.null(aqpn_vec) && length(aqps_vec)!=0) {
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                    1.2.0 Data Collection:: Match Files
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    mans_dat_tib <- mats_vec %>%
-      lapply(loadManifestGenomeStudio,
-             retType = "man", verbose = opt$verbose, tt=pTracker) %>% 
-      
-      # Left off here fill in option; Add Souce...
+    mats_dat_tib <- mats_vec %>%
+      lapply(load_man_file,
+             verbose=opt$verbose,tt=pTracker) %>% 
       dplyr::bind_rows(.id="Dat_IDX") %>%
       utils::type.convert() %>%
       dplyr::mutate(across(where(is.factor),  as.character) ) %>%
@@ -1092,87 +1129,168 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
       dplyr::summarise(Count=n(), .groups="drop")
     mats_sum_tib %>% print(n=base::nrow(mats_sum_tib))
     
-  }
-
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #
-  #                    2.0 Data Merging:: Ord/Mat/AQP/PQC
-  #
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  add_pas_tib <- NULL
-  if (!is.null(pqcs_dat_tib)) {
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     1.3.1 Data Collection:: AQP Files
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    add_pqc_dat_tib <- 
-      ords_dat_tib %>% 
-      dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
-      dplyr::left_join(pqcs_dat_tib, by="Address")
+    aqps_dat_tib <- NULL
+    if (!is.null(aqpn_vec) && length(aqps_vec)!=0) {
+      
+      aqps_dat_tib <- aqps_vec %>%
+        lapply(load_man_file,
+               verbose=opt$verbose,tt=pTracker) %>% 
+        dplyr::bind_rows(.id="Dat_IDX") %>%
+        utils::type.convert() %>%
+        dplyr::mutate(across(where(is.factor),  as.character) ) %>%
+        dplyr::left_join(man_info_tib, by="Dat_IDX")
+      
+      aqps_sum_tib <- aqps_dat_tib %>%
+        dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Decode_Status) %>%
+        dplyr::summarise(Count=n(), .groups="drop")
+      aqps_sum_tib %>% print(n=base::nrow(aqps_sum_tib))
+      
+    }
     
-    add_pqc_sum_tib <- 
-      add_pqc_dat_tib %>% 
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     1.3.2 Data Collection:: PQC Files
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    #
+    # NOTE:: There's only one PQC, so no need to join with man_info_tib
+    #
+    pqcs_dat_tib <- NULL
+    pqcs_dat_tib <- pqcs_vec %>%
+      lapply(load_man_file,
+             verbose=opt$verbose,tt=pTracker) %>% 
+      dplyr::bind_rows(.id="Dat_PQC") %>%
+      utils::type.convert() %>%
+      dplyr::mutate(across(where(is.factor),  as.character) )
+    
+    pqcs_sum_tib <- pqcs_dat_tib %>% 
+      dplyr::group_by(Dat_PQC,Decode_Status) %>% 
+      dplyr::summarise(Count=n(), .groups="drop")
+    pqcs_sum_tib %>% print(n=base::nrow(pqcs_sum_tib))
+    
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #
+    #                    2.0 Data Merging:: Ord/Mat/AQP/PQC
+    #
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    add_pas_tib <- NULL
+    if (!is.null(pqcs_dat_tib)) {
+      
+      add_pqc_dat_tib <- 
+        ords_dat_tib %>% 
+        dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
+        dplyr::left_join(pqcs_dat_tib, by="Address")
+      
+      add_pqc_sum_tib <- 
+        add_pqc_dat_tib %>% 
+        dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Dat_PQC,
+                        Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
+        dplyr::summarise(Count=n(), .groups="drop")
+      add_pqc_sum_tib %>% print(n=base::nrow(add_pqc_sum_tib))
+      
+      add_pas_tib <- add_pqc_dat_tib
+      # add_pas_tib <- add_pqc_dat_tib %>% 
+      #   dplyr::filter(Decode_Status==0) %>% 
+      #   dplyr::arrange(-Dat_IDX,Ord_Key) %>%
+      #   dplyr::distinct(Address, .keep_all=TRUE) %>%
+      #   dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+      
+    } else if (!is.null(aqps_dat_tib)) {
+      
+      add_aqp_dat_tib <- 
+        ords_dat_tib %>% 
+        dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
+        dplyr::left_join(aqps_dat_tib, by=c("Address","Dat_IDX","Dat_BPN","Dat_AQP") )
+      
+      add_aqp_sum_tib <- 
+        add_aqp_dat_tib %>% 
+        dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,
+                        Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
+        dplyr::summarise(Count=n(), .groups="drop")
+      add_aqp_sum_tib %>% print(n=base::nrow(add_aqp_sum_tib))
+      
+      add_pas_tib <- add_aqp_dat_tib
+      # add_pas_tib <- add_aqp_dat_tib %>% 
+      #   dplyr::filter(Decode_Status==0) %>% 
+      #   dplyr::arrange(-Dat_IDX,Ord_Key) %>% 
+      #   dplyr::distinct(Address, .keep_all=TRUE) %>%
+      #   dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+      
+    } else {
+      stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Both AQP and PQC are length zero!!!{RET}{RET}"))
+    }
+    
+    add_pas_tib <- add_pas_tib %>% 
+      dplyr::filter(Decode_Status==0) %>% 
+      dplyr::arrange(-Dat_IDX,Ord_Key) %>%
+      dplyr::distinct(Address, .keep_all=TRUE) %>%
+      dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+    
+    add_pas_sum_tib <- 
+      add_pas_tib %>% 
       dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Dat_PQC,
                       Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
       dplyr::summarise(Count=n(), .groups="drop")
-    add_pqc_sum_tib %>% print(n=base::nrow(add_pqc_sum_tib))
+    add_pas_sum_tib %>% print(n=base::nrow(add_pas_sum_tib))
     
-    add_pas_tib <- add_pqc_dat_tib
-    # add_pas_tib <- add_pqc_dat_tib %>% 
-    #   dplyr::filter(Decode_Status==0) %>% 
-    #   dplyr::arrange(-Dat_IDX,Ord_Key) %>%
-    #   dplyr::distinct(Address, .keep_all=TRUE) %>%
-    #   dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
-    
-  } else if (!is.null(aqps_dat_tib)) {
-    
-    add_aqp_dat_tib <- 
-      ords_dat_tib %>% 
-      dplyr::full_join(mats_dat_tib, by=c("Ord_Prb"="Mat_Prb","Dat_IDX","Dat_BPN","Dat_AQP")) %>%
-      dplyr::left_join(aqps_dat_tib, by=c("Address","Dat_IDX","Dat_BPN","Dat_AQP") )
-    
-    add_aqp_sum_tib <- 
-      add_aqp_dat_tib %>% 
-      dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,
-                      Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
-      dplyr::summarise(Count=n(), .groups="drop")
-    add_aqp_sum_tib %>% print(n=base::nrow(add_aqp_sum_tib))
-    
-    add_pas_tib <- add_aqp_dat_tib
-    # add_pas_tib <- add_aqp_dat_tib %>% 
-    #   dplyr::filter(Decode_Status==0) %>% 
-    #   dplyr::arrange(-Dat_IDX,Ord_Key) %>% 
-    #   dplyr::distinct(Address, .keep_all=TRUE) %>%
-    #   dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
+    safe_write(add_pas_tib,"csv",run$add_pas_csv, funcTag=par$prgmTag, 
+               verbose=opt$verbose)
     
   } else {
-    stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Both AQP and PQC are length zero!!!{RET}{RET}"))
+    
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Loading add_pas_csv={opt$add_pas_csv}...{RET}"))
+    add_pas_tib <- suppressMessages(suppressWarnings( 
+      readr::read_csv(run$add_pas_csv, guess_max=100000) )) %>%
+      utils::type.convert() %>% 
+      dplyr::mutate(across(where(is.factor),  as.character) )
+    
+  }
+}
+
+if (!is.null(opt$mans)) {
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     1.4.0 Data Collection:: Manifest Files
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  mans_dat_tib <- NULL
+  if (!is.null(mans_vec) && length(mans_vec)!=0) {
+    
+    # mans_dat_tib <- mans_vec %>%
+    #   lapply(loadManifestGenomeStudio,
+    #          addSource=TRUE, retType="man", 
+    #          verbose=opt$verbose,tt=pTracker)
+    
+    mans_dat_tibN <- mans_vec %>%
+      lapply(loadManifestGenomeStudio,
+             addSource=TRUE, normalize=TRUE, retType="man", 
+             verbose=opt$verbose+10,tt=pTracker)
+    
+    # Left off here fill in option; Add Souce...
+    
+    # TBD:: Add summary to manifest loading...
+    # mans_sum_tib <- mans_dat_tib %>%
+    #   dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Mat_Add_Rep) %>%
+    #   dplyr::summarise(Count=n(), .groups="drop")
+    # mans_sum_tib %>% print(n=base::nrow(mans_sum_tib))
+    
   }
   
-  add_pas_tib <- add_pas_tib %>% 
-    dplyr::filter(Decode_Status==0) %>% 
-    dplyr::arrange(-Dat_IDX,Ord_Key) %>%
-    dplyr::distinct(Address, .keep_all=TRUE) %>%
-    dplyr::select(Ord_Key,Ord_Des,Ord_Prb, dplyr::everything())
-  
-  add_pas_sum_tib <- 
-    add_pas_tib %>% 
-    dplyr::group_by(Dat_IDX,Dat_BPN,Dat_AQP,Dat_PQC,
-                    Ord_Des,Ord_Col,Ord_Din,Decode_Status) %>% 
-    dplyr::summarise(Count=n(), .groups="drop")
-  add_pas_sum_tib %>% print(n=base::nrow(add_pas_sum_tib))
-  
-  safe_write(add_pas_tib,"csv",run$add_pas_csv, funcTag=par$prgmTag, 
-             verbose=opt$verbose)
-  
-} else {
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Loading add_pas_csv={opt$add_pas_csv}...{RET}"))
-  add_pas_tib <- suppressMessages(suppressWarnings( 
-    readr::read_csv(run$add_pas_csv, guess_max=100000) )) %>%
-    utils::type.convert() %>% 
-    dplyr::mutate(across(where(is.factor),  as.character) )
-  
 }
+
+
+
+
+
+
+# AQP/Manifest -> Address -> manifest
+# Coordinates  -> Designs -> manifest/order
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                  2.1 Functional Manifest Generation::
@@ -1685,7 +1803,7 @@ fin_imp_tib <- top_imp_tib %>%
   dplyr::mutate(Seq_ID=paste(Address,Ord_Des,Ord_Din, sep="_"))
 
 fin_imp_cnt <- safe_write(fin_imp_tib,"tsv",run$add_fin_csv, funcTag=par$prgmTag,
-           verbose=opt$verbose)
+                          verbose=opt$verbose)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -1774,7 +1892,7 @@ tmp_des_tib <- dplyr::inner_join(
 
 tmp_des_tib %>% 
   dplyr::inner_join(dplyr::mutate(top_imp_tib, (Seq_ID=paste(Address,Ord_Des,Ord_Din, sep="_")), by="Seq_ID"))
-  
+
 
 
 
@@ -1790,12 +1908,12 @@ top_imp_tib %>%
   dplyr::mutate(Seq_ID=paste(Address,Ord_Des,Ord_Din, sep="_")) %>%
   dplyr::inner_join(imp_des_tib, by="Seq_ID") %>%
   dplyr::filter(Imp_TB==Methyl_Allele_TB_Strand &
-                Imp_CO==Methyl_Allele_CO_Strand) %>%
+                  Imp_CO==Methyl_Allele_CO_Strand) %>%
   dplyr::filter(Ord_Prb==UnMethyl_Probe_Sequence)
-  head() %>% as.data.frame()
+head() %>% as.data.frame()
 
-  
-  #  dplyr::select(Seq_ID,)
+
+#  dplyr::select(Seq_ID,)
 
 
 
@@ -1989,7 +2107,7 @@ if (FALSE) {
   #   dplyr::distinct(Address,Ord_Des,Ord_Din, Imp_Chr,Imp_Pos) %>% 
   #   dplyr::arrange(Imp_Chr,Imp_Pos) %>%
   #   split(.$Imp_Chr)
-
+  
   tar_add_list <- 
     man_top_sesame_tib %>% 
     dplyr::distinct(Probe_ID, U, M, 
@@ -2040,7 +2158,7 @@ if (FALSE) {
         Des_FR=tar_add_list[[chr_str]]$Strand_FR,
         Des_TB=tar_add_list[[chr_str]]$Strand_TB,
         Des_CO=tar_add_list[[chr_str]]$Strand_CO,
-
+        
         Des_PrbA=tar_add_list[[chr_str]]$AlleleA_ProbeSeq,
         Des_PrbB=tar_add_list[[chr_str]]$AlleleB_ProbeSeq,
         
@@ -2161,7 +2279,7 @@ if (FALSE) {
     man_fwd_ses_tib,man_ses_ctl_tib)
   readr::write_csv(ses_full_tib, run$man_ses_csv)
   
-
+  
   #
   # Genome Studio::
   #
@@ -2178,7 +2296,7 @@ if (FALSE) {
   readr::write_lines("[Controls],,,,,,,", run$man_gsm_csv, append = TRUE)
   readr::write_csv(gs_controls_tib, run$man_gsm_csv, append = TRUE, col_names = FALSE)
   
-
+  
   if (FALSE) {
     seq_imp_tib %>% dplyr::select(Address, Can_Top) %>% dplyr::filter(!is.na(Can_Top)) %>%
       dplyr::inner_join(exp_tib, by=c("Address"="U"))

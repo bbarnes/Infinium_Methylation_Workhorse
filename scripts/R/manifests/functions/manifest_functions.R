@@ -2656,24 +2656,57 @@ loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retT
 
     if (normalize) {
       # Check for field that are unique to known manifests::
-      if (grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {
+      if (grep("SNP", names(man_tib)) %>% length() == 1 &&
+          grep("IlmnStrand", names(man_tib)) %>% length() == 1 &&
+          grep("SourceStrand", names(man_tib)) %>% length() == 1 &&
+          grep("RefStrand", names(man_tib)) %>% length() == 1 &&
+          grep("SourceSeq", names(man_tib)) %>% length() == 1 &&
+          grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {
+        
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing GSA SNP Manifest.{RET}"))
+        
+        man_tib <- man_tib %>% 
+          dplyr::rename(Forward_Sequence=SourceSeq,
+                        Top_Sequence=TopGenomicSeq,
+                        Genome_Build=GenomeBuild) %>%
+          dplyr::mutate(Ilmn_TB=stringr::str_sub(IlmnStrand, 1,1),
+                        Source_TB=stringr::str_sub(SourceStrand, 1,1),
+                        Strand_FR=dplyr::case_when(
+                          RefStrand=="+" ~ "F",
+                          RefStrand=="-" ~ "R",
+                          TRUE ~ NA_character_) ) %>%
+          dplyr::mutate(Infinium_Design='I') %>% 
+          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
+                        'Top_Sequence', 'Forward_Sequence', 
+                        'Probe_Type','Infinium_Design', # 'Next_Base', 'Color_Channel',
+                        'Genome_Build', 'Chromosome', 'Coordinate', 
+                        'Strand_FR','Ilmn_TB', 'Source_TB','Strand_CO')
+        
+      } else if (grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing 27k Methylation Manifest.{RET}"))
+        
         man_tib <- man_tib %>% 
           dplyr::rename(Top_Sequence=TopGenomicSeq,
-                        Genome_Build=GenomeBuild,Chromosome=Chr, Coordinate=MapInfo) %>%
-          dplyr::mutate(IlmnStrand=stringr::str_sub(IlmnStrand, 1,1),
-                        SourceStrand=stringr::str_sub(SourceStrand, 1,1)) %>%
+                        Genome_Build=GenomeBuild) %>%
+          dplyr::mutate(Ilmn_TB=stringr::str_sub(IlmnStrand, 1,1),
+                        Source_TB=stringr::str_sub(SourceStrand, 1,1)) %>%
           dplyr::mutate(Infinium_Design='I') %>% 
           dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
                         'Top_Sequence', 'SourceSeq', 
                         'Probe_Type','Infinium_Design','Next_Base', 'Color_Channel',
                         'Genome_Build', 'Chromosome', 'Coordinate', 
-                        'Strand_CO', 'IlmnStrand', 'SourceStrand')
+                        'Ilmn_TB', 'Source_TB','Strand_CO')
         
       } else if (grep("Forward_Sequence", names(man_tib)) %>% length() == 1) {
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing 450k/EPIC Methylation Manifest.{RET}"))
+        
         man_tib <- man_tib %>% 
-          dplyr::rename(Strand_FR=Strand,Infinium_Design=Infinium_Design_Type,
-                        Chromosome=CHR, Coordinate=MAPINFO, 
-                        Strand_FR=Strand) %>%
+          dplyr::rename(Strand_FR=Strand,Infinium_Design=Infinium_Design_Type) %>%
+                        # Chromosome=CHR, Coordinate=MAPINFO, 
+                        # Strand_FR=Strand) %>%
           dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
                         'Forward_Sequence', 'SourceSeq', 
                         'Probe_Type','Infinium_Design','Next_Base', 'Color_Channel',

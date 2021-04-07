@@ -694,6 +694,7 @@ cur_gsa_tib <- man_gsa_tib %>%
 
 dna_gsa_fwd_tib <- 
   dna_to_template(tib = cur_gsa_tib, dna = gen_ref_dat, map = gen_ref_tab, iupac = "QI_T",
+                  add_flank=TRUE,
                   verbose = opt$verbose, tt=pTracker)
 
 dna_gsa_fwd_tib %>% dplyr::select(Name,Des_Din,Chromosome,Coordinate,Fwd_Seq:Des_Seq) %>% as.data.frame()
@@ -704,6 +705,7 @@ dna_gsa_fwd_tib %>% dplyr::select(Name,Des_Din,Chromosome,Coordinate,Fwd_Seq:Des
 
 snp_gsa_fwd_tib <- 
   dna_to_template(tib = cur_gsa_tib, dna = gen_snp_dat, map = gen_snp_tab, iupac = "QI_T",
+                  add_flank=TRUE,
                   verbose = opt$verbose, tt=pTracker)
 
 snp_gsa_fwd_tib %>% dplyr::select(Name,Des_Din,Chromosome,Coordinate,Fwd_Seq:Des_Seq) %>% as.data.frame()
