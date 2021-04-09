@@ -22,6 +22,122 @@ TAB <- "\t"
 RET <- "\n"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                               dbSNP Method::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+mutate_chrom_seq = function(seq, pos, val,
+                            verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'mutate_chrom_seq'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_seq <- NULL
+  stime <- system.time({
+    
+    pos_len <- length(pos)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Position Count={pos_len}.{RET}"))
+    
+    ret_seq <- seq %>%
+      stringi::stri_sub_all_replace(from=pos, to=pos, value=val) %>%
+      Biostrings::DNAString()
+    ret_len <- ret_seq %>% length()
+    
+    # ret_cnt <- ret_tib %>% base::nrow()
+    # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    ret_cnt <- ret_seq %>% length()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_seq
+}
+
+load_dbSNP_vcf = function(vcf, file=NULL, fresh=FALSE,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'load_dbSNP_vcf'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_sum <- NULL
+  stime <- system.time({
+    
+    done_txt  <- paste0(file,'.done.txt')
+    stamp_vec <- c(vcf,file,done_txt)
+    
+    if (fresh || !valid_time_stamp(stamp_vec)) {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Building clean snp_csv from={vcf}...{RET}"))
+
+      vcf_sel <- c("#CHROM","POS","ID","REF","ALT","QUAL","FILTER")
+      vcf_col <- c("Chromosome","Coordinate","Seq_ID","AlleleA_Str","AlleleB_Str","Qual","Filter")
+      
+      ret_tib <- fread(vcf, select=vcf_sel) %>% # head(n=100000) %>%
+        tibble::as_tibble() %>%
+        purrr::set_names(vcf_col) %>% # clean_tibble() # No need for clean with fread() ...
+        dplyr::filter(stringr::str_detect(AlleleA_Str, "^[A-Z]$")) %>%
+        dplyr::filter(
+          stringr::str_detect(AlleleB_Str, "^[A-Z]$") | 
+            stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z]$") |
+            stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z],[A-Z]$")) %>%
+        dplyr::mutate(AlleleB_Str2=dplyr::case_when(
+          stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z],[A-Z]$") ~ stringr::str_remove(AlleleB_Str,",[A-Z]$"),
+          TRUE ~ AlleleB_Str),
+          
+          AlleleB_Iup=stringr::str_remove_all(AlleleB_Str, ",") %>% 
+            mapDIs(),
+          AlleleC_Iup=paste0(AlleleA_Str, stringr::str_remove_all(AlleleB_Str2, ",")) %>% 
+            mapDIs(),
+          Chromosome=paste0("chr",stringr::str_remove(Chromosome, "^chr")),
+          AlleleB_Len=stringr::str_length(AlleleB_Str)
+        ) %>% 
+        dplyr::arrange(Chromosome,Coordinate, -AlleleB_Len) %>%
+        dplyr::distinct(Chromosome,Coordinate, .keep_all=TRUE)
+      
+      if (!is.null(file)) {
+        safe_write(x=ret_tib,type="csv",file=file,done=TRUE,funcTag=funcTag, 
+                   verbose=verbose,vt=vt,tc=tc,append=FALSE)
+      }
+    } else {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading snp_csv={file}...{RET}"))
+
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(file) ))
+    }
+    
+    if (verbose>=vt+4) {
+      # Summary by chromosome coverage::
+      ret_sum <- ret_tib %>% 
+        dplyr::group_by(Chromosome) %>% 
+        dplyr::summarise(Count=n(), .groups="drop")
+      ret_sum %>% print(n=base::nrow(ret_sum))
+      
+      # Summary by SNP Allele coverage::
+      ret_sum <- ret_tib %>% 
+        dplyr::mutate(Probe_Type=stringr::str_sub(Seq_ID, 1,2)) %>% 
+        dplyr::group_by(AlleleA_Str,AlleleB_Str2,AlleleC_Iup) %>% 
+        dplyr::summarise(Count=n(), .groups="drop")
+      ret_sum %>% print(n=base::nrow(ret_sum))
+    }
+
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Manifest Intersection Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 

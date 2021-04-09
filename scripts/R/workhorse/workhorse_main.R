@@ -32,6 +32,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietl
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
 suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("stringi") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("data.table") ))
@@ -702,8 +703,8 @@ if (!is.null(opt$ords)) {
   if (!is.null(opt$idat)) idat_vec <- opt$idat %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 }
 
+mans_vec <- NULL
 if (!is.null(opt$mans)) {
-  mans_vec <- NULL
   if (!is.null(opt$mans)) mans_vec <- opt$mans %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 }
 
@@ -851,31 +852,32 @@ if (opt$verbose>=1)
 
 gen_snp_dat <- NULL
 gen_snp_tab <- NULL
-run$gen_snp_fas <- 
-  file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
-            paste0(opt$genBuild,".dbSNP151-genome.fa.gz"))
-
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Loading gen_snp_fas={run$gen_snp_fas}...{RET}"))
-
-if (!is.null(run$gen_snp_fas) && file.exists(run$gen_snp_fas)) {
-  gen_snp_dat <- 
-    Biostrings::readDNAStringSet(filepath = run$gen_snp_fas, format = "fasta") # , nrec = 2)
-  
-  gen_snp_tab <- gen_snp_dat %>% names() %>% 
-    stringr::str_remove(" .*$") %>% 
-    stringr::str_remove("^chr") %>%
-    tibble::tibble() %>% 
-    purrr::set_names("Chrom_Char") %>% 
-    dplyr::mutate(Idx=dplyr::row_number(),
-                  Chrom_Char=paste0("chr",Chrom_Char) )
-  if (opt$verbose>=4)
-    print(gen_snp_tab)
+if (FALSE) {
+  run$gen_snp_fas <- 
+    file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
+              paste0(opt$genBuild,".dbSNP151-genome.fa.gz"))
   
   if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Done. Loading gen_snp_fas={run$gen_snp_fas}{RET}{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: Loading gen_snp_fas={run$gen_snp_fas}...{RET}"))
+  
+  if (!is.null(run$gen_snp_fas) && file.exists(run$gen_snp_fas)) {
+    gen_snp_dat <- 
+      Biostrings::readDNAStringSet(filepath = run$gen_snp_fas, format = "fasta") # , nrec = 2)
+    
+    gen_snp_tab <- gen_snp_dat %>% names() %>% 
+      stringr::str_remove(" .*$") %>% 
+      stringr::str_remove("^chr") %>%
+      tibble::tibble() %>% 
+      purrr::set_names("Chrom_Char") %>% 
+      dplyr::mutate(Idx=dplyr::row_number(),
+                    Chrom_Char=paste0("chr",Chrom_Char) )
+    if (opt$verbose>=4)
+      print(gen_snp_tab)
+    
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Done. Loading gen_snp_fas={run$gen_snp_fas}{RET}{RET}"))
+  }
 }
-
 
 
 #
@@ -883,51 +885,362 @@ if (!is.null(run$gen_snp_fas) && file.exists(run$gen_snp_fas)) {
 #
 
 # LIFE GOT BETTER::
-vcf <- "/Users/bretbarnes/Documents/tools/tmp/tmp.vcf.gz"
-vcf <- "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/common_all_20180423.vcf.gz"
+opt$dbSNP <- "dbSNP-151"
 
-vcf_sel <- c("#CHROM","POS","ID","REF","ALT","QUAL","FILTER")
-vcf_col <- c("Chromosome","Coordinate","Seq_ID","AlleleA_Str","AlleleB_Str","Qual","Filter")
-vcf_tib <- fread(vcf, select=vcf_sel) %>% 
-  tibble::as_tibble() %>%
-  purrr::set_names(vcf_col) %>% # clean_tibble() # No need for clean with fread() ...
-  dplyr::filter(stringr::str_detect(AlleleA_Str, "^[A-Z]$")) %>%
-  dplyr::filter(stringr::str_detect(AlleleB_Str, "^[A-Z]$") | stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z]$")) %>%
-  dplyr::mutate(AlleleB_Iup=stringr::str_remove_all(AlleleB_Str, ",") %>% mapDIs(),
-                AlleleC_Iup=paste0(AlleleA_Str, stringr::str_remove_all(AlleleB_Str, ",")) %>% mapDIs() )
+run$snp_vcf <- file.path(opt$annDir, "dbSNP", opt$dbSNP, opt$genBuild) %>% list.files(pattern = ".vcf.gz$", full.names=TRUE) %>% head(n=1)
+run$snp_csv <- run$snp_vcf %>% stringr::str_remove(".gz$") %>% stringr::str_remove(".vcf$") %>% paste0(".snps.csv.gz")
+run$snp_fas <- run$gen_ref_fas %>% stringr::str_remove(".gz$") %>% stringr::str_remove(".fa$") %>% paste(opt$dbSNP,"iupac.fa.gz", sep=".")
 
-vcf_sum <- vcf_tib %>% 
-  dplyr::mutate(Probe_Type=stringr::str_sub(Seq_ID, 1,2)) %>% 
-  dplyr::group_by(Probe_Type,AlleleC_Iup) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-vcf_sum %>% print(n=base::nrow(vcf_sum))
+vcf_tib <- load_dbSNP_vcf(vcf=run$snp_vcf, file=run$snp_csv,
+                          fresh=opt$fresh,
+                          verbose=opt$verbose+10, tt=pTracker)
 
-
-# Verify Calculations::
-#
 if (FALSE) {
-  tmp_tib <- 
-    vcf_tib %>% # head(n=1000) %>%
-    dplyr::mutate(
-      AlleleA_Len=stringr::str_length(AlleleA_Str),
-      AlleleB_Len=stringr::str_length(AlleleB_Str)
-    ) %>%
-    dplyr::filter(AlleleA_Len==1 & AlleleB_Len<4) %>%
-    dplyr::mutate(
-      AlleleA_Com=stringr::str_remove_all(AlleleA_Str, "[^,]"),
-      AlleleA_Cnt=stringr::str_length(AlleleA_Com) %>%
-        as.integer(),
-      
-      AlleleB_Com=stringr::str_remove_all(AlleleB_Str, "[^,]"),
-      AlleleB_Cnt=stringr::str_length(AlleleB_Com) %>%
-        as.integer()
-    ) %>%
-    dplyr::filter(AlleleA_Cnt==0 & AlleleB_Cnt<=1)
+  
+  # Summary by chromosome coverage::
+  vcf_sum <- vcf_tib %>% 
+    dplyr::group_by(Chromosome) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  vcf_sum %>% print(n=base::nrow(vcf_sum))
+  
+  # Summary by SNP Allele coverage::
+  vcf_sum <- vcf_tib %>% 
+    dplyr::mutate(Probe_Type=stringr::str_sub(Seq_ID, 1,2)) %>% 
+    dplyr::group_by(AlleleA_Str,AlleleB_Str2,AlleleC_Iup) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  vcf_sum %>% print(n=base::nrow(vcf_sum))
+  
+}
+
+#
+# TBD:: Turn this into a function...
+# TBD:: Add perl MUD call..
+# Build dbSNP/IUPAC Genome
+#
+vcf_chrs <- vcf_tib %>% split(.$Chromosome)
+chr_maps <- gen_ref_tab %>% split(.[["Chrom_Char"]])
+
+snp_seqs <- NULL
+snp_seqs <- Biostrings::DNAStringSet()
+chr_seqs <- NULL
+
+for (chr_str in names(vcf_chrs)) {
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Mutating chromosome={chr_str}...{RET}"))
+  
+  chr_idx <- chr_maps[[chr_str]] %>% pull(Idx) %>% as.integer()
+  
+  if (is.null(gen_ref_dat[chr_idx])) {
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: No Genomic Sequence data for chromosome={chr_str}. Skipping...{RET}"))
+    next
+  }
+  
+  chr_seqs <- c(chr_seqs, chr_str)
+  
+  val_len <- length(vcf_chrs[[chr_str]]$AlleleC_Iup)
+  pos_len <- length(vcf_chrs[[chr_str]]$Coordinate)
+
+  snp_seq <- NULL
+  snp_seq <- mutate_chrom_seq(seq=gen_ref_dat[[chr_idx]], 
+                              pos=vcf_chrs[[chr_str]]$Coordinate, 
+                              val=vcf_chrs[[chr_str]]$AlleleC_Iup, 
+                              verbose=opt$verbose, tt=pTracker)
+  
+  snp_seqs <- snp_seqs %>%
+    BiocGenerics::append(Biostrings::DNAStringSet(snp_seq) )
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str} ",
+                   "total positions/values={pos_len}/{val_len}.{RET}{RET}"))
+  
+  # if (chr_idx>=3) break
+  # if (chr_str=="chr11") break
+}
+
+#
+# TBD:: Add names back, but need to track names above to make sure nothing was skipped!!!
+#
+# names(snp_seqs) <- names(vcf_chrs)
+names(snp_seqs) <- chr_seqs
+
+# Sort names before printing::
+#  snp_seqs[gen_ref_tab$Chrom_Char[gen_ref_tab$Chrom_Char %in% names(snp_seqs)]]
+
+Biostrings::writeXStringSet(
+  x=snp_seqs[gen_ref_tab$Chrom_Char[gen_ref_tab$Chrom_Char %in% names(snp_seqs)]], 
+  filepath=run$snp_fas, 
+  append=FALSE, compress=TRUE)
+
+# Biostrings::writeXStringSet(
+#   x=snp_seqs, filepath=run$snp_fas, 
+#   append=FALSE, compress=TRUE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (FALSE) {
+  next
+  
+  test_mode <- FALSE
+  if (test_mode) {
+    val_vec <- vcf_chrs[[chr_str]]$AlleleC_Iup %>% head(n=3)
+    pos_vec <- vcf_chrs[[chr_str]]$Coordinate %>% head(n=3)
+    pos_len <- length(pos_vec)
+    end_pos <- pos_vec %>% tail(n=1)
+    old_seq <- gen_ref_dat[[chr_idx]] %>% stringr::str_sub(1,end_pos+100)
+  }
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Mutating chromosome={chr_str} total positions={pos_len}...{RET}"))
+
+  new_fwd_seq <- old_seq %>%
+    stringi::stri_sub_all_replace(from=pos_vec, to=pos_vec, value=val_vec) %>%
+    Biostrings::DNAString()
+  new_fwd_len <- new_fwd_seq %>% length()
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Mutated FWD chromosome={chr_str} length={new_fwd_len}.{RET}"))
+  
+  # new_fwd_seqs <- new_fwd_seqs %>% BiocGenerics::append(new_fwd_seq)
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str} total positions={pos_len}.{RET}{RET}"))
+  
+  next
+  
+  # This is too slow in R use the perl script instead...
+  #
+  #  Build U/M/D converted chromosomes for fwd::
+  #   new_fwd_seq_U <- new_fwd_seq %>% bscUs(uc=TRUE)
+  #   new_fwd_seq_M <- new_fwd_seq %>% bscMs(uc=TRUE)
+  #   new_fwd_seq_D <- new_fwd_seq %>% bscDs(uc=TRUE)
+  
+  # Build Reverse chromosome::
+  new_rev_seq <- new_fwd_seq %>% revCmp() %>%
+    Biostrings::DNAString()
+  new_rev_len <- new_rev_seq %>% length()
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Mutated REV chromosome={chr_str} length={new_rev_len}.{RET}"))
+  
+  # This is too slow in R use the perl script instead...
+  #
+  #  Build U/M/D converted chromosomes for fwd::
+  #   new_rev_seq_U <- new_rev_seq %>% bscUs(uc=TRUE)
+  #   new_rev_seq_M <- new_rev_seq %>% bscMs(uc=TRUE)
+  #   new_rev_seq_D <- new_rev_seq %>% bscDs(uc=TRUE)
+
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str}.{RET}{RET}"))
+  
+  new_rev_seq %>% BiocGenerics::append(new_rev_seq)
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str} total positions={pos_len}.{RET}{RET}"))
+  
+  break
 }
 
 
 
 
+
+
+#
+# Validation for SNPs on the 450k::
+#
+if (FALSE) {
+  
+  epic_snp_ids <- readr::read_csv("/Users/bretbarnes/Documents/data/manifests/raw/manifests/methylation/rs-repair/450k.rs.txt", col_names = c("Seq_ID"))
+  epic_snp_tib <- vcf_tib %>% dplyr::filter(Seq_ID %in% epic_snp_ids$Seq_ID)
+  
+  off_set <- 60
+  tmp_seq <- stringr::str_sub(new_seq, vcf_chrs[[1]]$Coordinate - off_set, vcf_chrs[[1]]$Coordinate + off_set + 1) %>% addBrac()
+  tmp_seq %>% print()
+  tmp_seq %>% stringr::str_length() %>% print()
+  
+  # 110359535
+  snp_tib <- tibble::tibble(
+    Seq_ID  = vcf_chrs[[1]]$Seq_ID,
+    Forward_Sequence = stringr::str_sub(
+      new_seq, 
+      vcf_chrs[[1]]$Coordinate - off_set, 
+      vcf_chrs[[1]]$Coordinate + off_set + 1) %>% addBrac(),
+    Probe_Type = "rs"
+  )
+  
+  snp_des_tib <- desSeq_to_prbs(
+    tib = snp_tib, 
+    ids_key="Seq_ID", seq_key="Forward_Sequence", prb_key="Probe_Type", 
+    strsSR="FR", strsCO="CO", 
+    addMatSeq=TRUE, parallel=TRUE, verbose=opt$verbose, tt=pTracker)
+  
+  
+  opt$mans   <- paste(
+    # file.path(opt$manDir, "genotyping/GSA-24v2-0_A1.csv.gz"),
+    # file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation27_270596_v.1.2.csv.gz"),
+    file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation450_15017482_v.1.2.csv.gz"),
+    # file.path(opt$manDir, "methylation/GenomeStudio/MethylationEPIC_v-1-0_B2.csv.gz"),
+    sep=',')
+  
+  mans_vec <- NULL
+  if (!is.null(opt$mans)) mans_vec <- opt$mans %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+  
+  mans_dat_tib <- mans_vec %>%
+    lapply(loadManifestGenomeStudio,
+           addSource=TRUE, normalize=TRUE, retType="man", 
+           verbose=opt$verbose+10,tt=pTracker) %>%
+    dplyr::bind_rows()
+  
+  epic_rs_tib <- mans_dat_tib %>% 
+    dplyr::filter(Probe_Type=="rs") %>%
+    dplyr::rename(Seq_ID=IlmnID)
+  
+  mat_snp_tib <- dplyr::bind_rows(
+    epic_rs_tib %>% dplyr::inner_join(snp_des_tib, by=c("Seq_ID","Probe_Type")) %>%
+      dplyr::filter(AlleleA_ProbeSeq==PRB1_M_MAT),
+    epic_rs_tib %>% dplyr::inner_join(snp_des_tib, by=c("Seq_ID","Probe_Type")) %>%
+      dplyr::filter(AlleleA_ProbeSeq==PRB2_D_MAT)
+  )
+  
+}
+
+#
+# String Replace test::
+#
+
+if (FALSE) {
+  begs <- c(1,5)
+  ends <- c(1,5)
+  vals <- c("A","B")
+  
+  # tmp_str2 <- stri_sub_all_replace(tmp_str1, begs, ends, value=vals)
+  # tmp_str3 <- tmp_str1 %>% stri_sub_all_replace(begs, ends, value=vals)
+  
+  tmp_str1 <- "0123456789"
+  tmp_str2 <- stri_sub_all_replace(tmp_str1, from=begs, to=ends, value=vals)
+  tmp_str3 <- tmp_str1 %>% stri_sub_all_replace(from=begs, to=ends, value=vals)
+  # tmp_str4 <- stri_sub_all(tmp_str1, from=begs, to=ends, length = 1) <- vals
+  
+  print(tmp_str1)
+  print(tmp_str2)
+  print(tmp_str3)
+  # print(tmp_str4)
+  print(tmp_str1)
+  
+}
+
+#
+#
+#
+# STOPPPED HERE!!!!!!!!!!
+#
+#
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# vcf_rngs <- IRanges(names = vcf_chrs[[1]]$Seq_ID,
+#                     start = vcf_chrs[[1]]$Coordinate, width = 1)
+
+# iup_chrs[[chr_str]] <- gen_ref_dat[chr_idx]
+
+# v_pack <- NULL
+# v_pack <- lapply(vcf_chrs[[chr_str]]$AlleleC_Iup, DNAStringSet) %>% 
+#   DNAStringSetList()
+# 
+# c_pack <- NULL
+# c_pack <- vcf_chrs[[chr_str]]$Coordinate
+
+# tmp100k <- lapply(head(vcf_chrs[[chr_str]]$AlleleC_Iup), DNAStringSet)
+
+# vcf_chrs[[chr_str]]$AlleleC_Iup
+
+
+# Example::
+# v_pack <- lapply(head(vcf_chrs[[chr_str]]$AlleleC_Iup, n=1000), DNAStringSet) %>% 
+#   DNAStringSetList()
+
+# iup_chrs[chr_idx] <- 
+#   Biostrings::replaceAt(
+#     x=gen_ref_dat[chr_idx],
+#     at=IRanges(c_pack, width = 1),
+#     value=v_pack
+#   )
+
+# replaceLetterAt
+#
+# iup_chrs[chr_idx] <- gen_ref_dat[chr_idx] %>%
+#   Biostrings::replaceLetterAt(
+#     at=vcf_chrs[[chr_str]]$Coordinate, 
+#     letter=vcf_chrs[[chr_str]]$AlleleC_Iup
+#   )
+
+# iup_chrs[chr_idx] <- gen_ref_dat[chr_idx] %>%
+#   Biostrings::replaceAt(
+#     at=IRanges(vcf_chrs[[chr_str]]$Coordinate, width = 1), 
+#      at=c(vcf_chrs[[chr_str]]$Coordinate),
+#     value=c(vcf_chrs[[chr_str]]$AlleleC_Iup)
+#   )
+
+#   if (opt$verbose>=1)
+#     cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str}.{RET}{RET}"))
+#   
+#   break
+# }
+
+#
+# TBD:: Need to validate that the replacement happend correctly::
+#
+subseq(iup_chrs[["1"]], start=11012-2, width = 50)
+subseq(gen_ref_dat[["1"]], start=11012-2, width = 50)
+
+
+
+
+
+
+
+
+
+
+
+#
+# Update dna chromosomes by SNPs
+#
+
+vcf_chrs <- vcf_tib %>% split(.$Chromosome)
+vcf_chrs[["MT"]] <- tibble::tibble(Coordinate=as.integer(), Seq_ID=as.character())
+
+at3 <- lapply(vcf_chrs, function(x) { IRanges::IRanges(start=x$Coordinate, width=1, names = x$Seq_ID) } ) %>% as("IRangesList")
+
+Biostrings::extractAt(gen_ref_dat, at3)
+
+
+at0 <- lapply(head(vcf_tib), function(x) { IRanges::IRanges(start=x$Coordinate, width=1, names = x$Seq_ID) } )
+
+
+at4 <- lapply(vcf_tib$Coordinate, function(x) { IRanges::IRanges(start=x$Coordinate, width=1) } ) %>% as("IRangesList")
 
 
 
@@ -1244,7 +1557,7 @@ if (!is.null(opt$ords)) {
   } else {
     
     if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Loading add_pas_csv={opt$add_pas_csv}...{RET}"))
+      cat(glue::glue("[{par$prgmTag}]: Loading add_pas_csv={run$add_pas_csv}...{RET}"))
     add_pas_tib <- suppressMessages(suppressWarnings( 
       readr::read_csv(run$add_pas_csv, guess_max=100000) )) %>%
       utils::type.convert() %>% 
@@ -1261,13 +1574,8 @@ if (!is.null(opt$mans)) {
   
   mans_dat_tib <- NULL
   if (!is.null(mans_vec) && length(mans_vec)!=0) {
-    
-    # mans_dat_tib <- mans_vec %>%
-    #   lapply(loadManifestGenomeStudio,
-    #          addSource=TRUE, retType="man", 
-    #          verbose=opt$verbose,tt=pTracker)
-    
-    mans_dat_tibN <- mans_vec %>%
+
+    mans_dat_tib <- mans_vec %>%
       lapply(loadManifestGenomeStudio,
              addSource=TRUE, normalize=TRUE, retType="man", 
              verbose=opt$verbose+10,tt=pTracker)

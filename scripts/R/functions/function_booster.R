@@ -838,7 +838,8 @@ guess_file_del = function(file, n_max=100,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 safe_write = function(x, type, file=NULL, 
-                      cols=TRUE, append=FALSE, funcTag="safe_write",
+                      cols=TRUE, append=FALSE, done=FALSE,
+                      funcTag="safe_write",
                       verbose=0,vt=4,tc=1,tt=NULL) {
   # If file is provided, usually in the case where the user didn't want it written
   #  simply return invisible and do nothing...
@@ -872,6 +873,15 @@ safe_write = function(x, type, file=NULL,
       stop(cat(glue::glue("{RET}[{funcTag}]: ERROR: Invalid type={type}{RET}")))
       return(NULL)
     }
+    
+    if (done) {
+      done_file <- paste0(file,".done.txt")
+      cmd <- glue::glue("touch {done_file}")
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Running cmd='{cmd}'...{RET}"))
+      base::system(cmd)
+    }
+    
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
