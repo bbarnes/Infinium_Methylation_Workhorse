@@ -480,20 +480,23 @@ sub loadFasta($$) {
     my $fasCnt = 0;
     my $nucTotCnt = 0;
 
+    my $tag = "";
+    $tag=$opts{'runName'} if (defined($opts{'runName'}));
+
     #
     # Define all Forward (F) Converted (C) BSC (U,M,D) Files::
     #
-    my $fasFileFCU = "$opts{'outDir'}/$source.genome.FCU.fa.gz";
+    my $fasFileFCU = "$opts{'outDir'}/$source.genome$tag.FCU.fa.gz";
     if (! defined($fasFhsFCU{$source})) {
         $fasFnsFCU{$source} = $fasFileFCU;
         open($fasFhsFCU{$source}, ">:gzip", $fasFileFCU) or die("Failed to open $fasFileFCU file for writing: $!");
     }
-    my $fasFileFCM = "$opts{'outDir'}/$source.genome.FCM.fa.gz";
+    my $fasFileFCM = "$opts{'outDir'}/$source.genome$tag.FCM.fa.gz";
     if (! defined($fasFhsFCM{$source})) {
         $fasFnsFCM{$source} = $fasFileFCM;
         open($fasFhsFCM{$source}, ">:gzip", $fasFileFCM) or die("Failed to open $fasFileFCM file for writing: $!");
     }
-    my $fasFileFCD = "$opts{'outDir'}/$source.genome.FCD.fa.gz";
+    my $fasFileFCD = "$opts{'outDir'}/$source.genome$tag.FCD.fa.gz";
     if (! defined($fasFhsFCD{$source})) {
         $fasFnsFCD{$source} = $fasFileFCD;
         open($fasFhsFCD{$source}, ">:gzip", $fasFileFCD) or die("Failed to open $fasFileFCD file for writing: $!");
@@ -502,22 +505,21 @@ sub loadFasta($$) {
     #
     # Define all Reverse (R) Converted (C) BSC (U,M,D) Files::
     #
-    my $fasFileRCU = "$opts{'outDir'}/$source.genome.RCU.fa.gz";
+    my $fasFileRCU = "$opts{'outDir'}/$source.genome$tag.RCU.fa.gz";
     if (! defined($fasFhsRCU{$source})) {
         $fasFnsRCU{$source} = $fasFileRCU;
         open($fasFhsRCU{$source}, ">:gzip", $fasFileRCU) or die("Failed to open $fasFileRCU file for writing: $!");
     }
-    my $fasFileRCM = "$opts{'outDir'}/$source.genome.RCM.fa.gz";
+    my $fasFileRCM = "$opts{'outDir'}/$source.genome$tag.RCM.fa.gz";
     if (! defined($fasFhsRCM{$source})) {
         $fasFnsRCM{$source} = $fasFileRCM;
         open($fasFhsRCM{$source}, ">:gzip", $fasFileRCM) or die("Failed to open $fasFileRCM file for writing: $!");
     }
-    my $fasFileRCD = "$opts{'outDir'}/$source.genome.RCD.fa.gz";
+    my $fasFileRCD = "$opts{'outDir'}/$source.genome$tag.RCD.fa.gz";
     if (! defined($fasFhsRCD{$source})) {
         $fasFnsRCD{$source} = $fasFileRCD;
         open($fasFhsRCD{$source}, ">:gzip", $fasFileRCD) or die("Failed to open $fasFileRCD file for writing: $!");
     }
-    # FC
 
     #
     # These files below are not used::
