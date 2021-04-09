@@ -924,28 +924,34 @@ snp_seqs <- NULL
 snp_seqs <- Biostrings::DNAStringSet()
 chr_seqs <- NULL
 
-for (chr_str in names(vcf_chrs)) {
+# for (chr_str in names(vcf_chrs)) {
+for (chr_str in names(chr_maps)) {
+  
   if (opt$verbose>=1)
     cat(glue::glue("[{par$prgmTag}]: Mutating chromosome={chr_str}...{RET}"))
   
   chr_idx <- chr_maps[[chr_str]] %>% pull(Idx) %>% as.integer()
   
+  # This should never happen...
   if (is.null(gen_ref_dat[chr_idx])) {
     if (opt$verbose>=1)
       cat(glue::glue("[{par$prgmTag}]: No Genomic Sequence data for chromosome={chr_str}. Skipping...{RET}"))
     next
   }
-  
   chr_seqs <- c(chr_seqs, chr_str)
   
-  val_len <- length(vcf_chrs[[chr_str]]$AlleleC_Iup)
-  pos_len <- length(vcf_chrs[[chr_str]]$Coordinate)
-
   snp_seq <- NULL
-  snp_seq <- mutate_chrom_seq(seq=gen_ref_dat[[chr_idx]], 
-                              pos=vcf_chrs[[chr_str]]$Coordinate, 
-                              val=vcf_chrs[[chr_str]]$AlleleC_Iup, 
-                              verbose=opt$verbose, tt=pTracker)
+  if (is.null(vcf_chrs[[chr_str]])) {
+    snp_seq <- gen_ref_dat[[chr_idx]]
+  } else {
+    val_len <- length(vcf_chrs[[chr_str]]$AlleleC_Iup)
+    pos_len <- length(vcf_chrs[[chr_str]]$Coordinate)
+    
+    snp_seq <- mutate_chrom_seq(seq=gen_ref_dat[[chr_idx]], 
+                                pos=vcf_chrs[[chr_str]]$Coordinate, 
+                                val=vcf_chrs[[chr_str]]$AlleleC_Iup, 
+                                verbose=opt$verbose, tt=pTracker)
+  }
   
   snp_seqs <- snp_seqs %>%
     BiocGenerics::append(Biostrings::DNAStringSet(snp_seq) )
@@ -958,97 +964,23 @@ for (chr_str in names(vcf_chrs)) {
   # if (chr_str=="chr11") break
 }
 
+# Add names back, but need to track names above to make sure nothing was skipped!!!
 #
-# TBD:: Add names back, but need to track names above to make sure nothing was skipped!!!
-#
-# names(snp_seqs) <- names(vcf_chrs)
 names(snp_seqs) <- chr_seqs
 
 # Sort names before printing::
-#  snp_seqs[gen_ref_tab$Chrom_Char[gen_ref_tab$Chrom_Char %in% names(snp_seqs)]]
-
+#
 Biostrings::writeXStringSet(
   x=snp_seqs[gen_ref_tab$Chrom_Char[gen_ref_tab$Chrom_Char %in% names(snp_seqs)]], 
   filepath=run$snp_fas, 
   append=FALSE, compress=TRUE)
 
-# Biostrings::writeXStringSet(
-#   x=snp_seqs, filepath=run$snp_fas, 
-#   append=FALSE, compress=TRUE)
 
 
 
 
 
 
-
-
-
-
-
-
-
-if (FALSE) {
-  next
-  
-  test_mode <- FALSE
-  if (test_mode) {
-    val_vec <- vcf_chrs[[chr_str]]$AlleleC_Iup %>% head(n=3)
-    pos_vec <- vcf_chrs[[chr_str]]$Coordinate %>% head(n=3)
-    pos_len <- length(pos_vec)
-    end_pos <- pos_vec %>% tail(n=1)
-    old_seq <- gen_ref_dat[[chr_idx]] %>% stringr::str_sub(1,end_pos+100)
-  }
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Mutating chromosome={chr_str} total positions={pos_len}...{RET}"))
-
-  new_fwd_seq <- old_seq %>%
-    stringi::stri_sub_all_replace(from=pos_vec, to=pos_vec, value=val_vec) %>%
-    Biostrings::DNAString()
-  new_fwd_len <- new_fwd_seq %>% length()
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Mutated FWD chromosome={chr_str} length={new_fwd_len}.{RET}"))
-  
-  # new_fwd_seqs <- new_fwd_seqs %>% BiocGenerics::append(new_fwd_seq)
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str} total positions={pos_len}.{RET}{RET}"))
-  
-  next
-  
-  # This is too slow in R use the perl script instead...
-  #
-  #  Build U/M/D converted chromosomes for fwd::
-  #   new_fwd_seq_U <- new_fwd_seq %>% bscUs(uc=TRUE)
-  #   new_fwd_seq_M <- new_fwd_seq %>% bscMs(uc=TRUE)
-  #   new_fwd_seq_D <- new_fwd_seq %>% bscDs(uc=TRUE)
-  
-  # Build Reverse chromosome::
-  new_rev_seq <- new_fwd_seq %>% revCmp() %>%
-    Biostrings::DNAString()
-  new_rev_len <- new_rev_seq %>% length()
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Mutated REV chromosome={chr_str} length={new_rev_len}.{RET}"))
-  
-  # This is too slow in R use the perl script instead...
-  #
-  #  Build U/M/D converted chromosomes for fwd::
-  #   new_rev_seq_U <- new_rev_seq %>% bscUs(uc=TRUE)
-  #   new_rev_seq_M <- new_rev_seq %>% bscMs(uc=TRUE)
-  #   new_rev_seq_D <- new_rev_seq %>% bscDs(uc=TRUE)
-
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str}.{RET}{RET}"))
-  
-  new_rev_seq %>% BiocGenerics::append(new_rev_seq)
-  
-  if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str} total positions={pos_len}.{RET}{RET}"))
-  
-  break
-}
 
 
 
@@ -1114,30 +1046,6 @@ if (FALSE) {
   
 }
 
-#
-# String Replace test::
-#
-
-if (FALSE) {
-  begs <- c(1,5)
-  ends <- c(1,5)
-  vals <- c("A","B")
-  
-  # tmp_str2 <- stri_sub_all_replace(tmp_str1, begs, ends, value=vals)
-  # tmp_str3 <- tmp_str1 %>% stri_sub_all_replace(begs, ends, value=vals)
-  
-  tmp_str1 <- "0123456789"
-  tmp_str2 <- stri_sub_all_replace(tmp_str1, from=begs, to=ends, value=vals)
-  tmp_str3 <- tmp_str1 %>% stri_sub_all_replace(from=begs, to=ends, value=vals)
-  # tmp_str4 <- stri_sub_all(tmp_str1, from=begs, to=ends, length = 1) <- vals
-  
-  print(tmp_str1)
-  print(tmp_str2)
-  print(tmp_str3)
-  # print(tmp_str4)
-  print(tmp_str1)
-  
-}
 
 #
 #
@@ -1159,88 +1067,6 @@ if (FALSE) {
 
 
 
-
-# vcf_rngs <- IRanges(names = vcf_chrs[[1]]$Seq_ID,
-#                     start = vcf_chrs[[1]]$Coordinate, width = 1)
-
-# iup_chrs[[chr_str]] <- gen_ref_dat[chr_idx]
-
-# v_pack <- NULL
-# v_pack <- lapply(vcf_chrs[[chr_str]]$AlleleC_Iup, DNAStringSet) %>% 
-#   DNAStringSetList()
-# 
-# c_pack <- NULL
-# c_pack <- vcf_chrs[[chr_str]]$Coordinate
-
-# tmp100k <- lapply(head(vcf_chrs[[chr_str]]$AlleleC_Iup), DNAStringSet)
-
-# vcf_chrs[[chr_str]]$AlleleC_Iup
-
-
-# Example::
-# v_pack <- lapply(head(vcf_chrs[[chr_str]]$AlleleC_Iup, n=1000), DNAStringSet) %>% 
-#   DNAStringSetList()
-
-# iup_chrs[chr_idx] <- 
-#   Biostrings::replaceAt(
-#     x=gen_ref_dat[chr_idx],
-#     at=IRanges(c_pack, width = 1),
-#     value=v_pack
-#   )
-
-# replaceLetterAt
-#
-# iup_chrs[chr_idx] <- gen_ref_dat[chr_idx] %>%
-#   Biostrings::replaceLetterAt(
-#     at=vcf_chrs[[chr_str]]$Coordinate, 
-#     letter=vcf_chrs[[chr_str]]$AlleleC_Iup
-#   )
-
-# iup_chrs[chr_idx] <- gen_ref_dat[chr_idx] %>%
-#   Biostrings::replaceAt(
-#     at=IRanges(vcf_chrs[[chr_str]]$Coordinate, width = 1), 
-#      at=c(vcf_chrs[[chr_str]]$Coordinate),
-#     value=c(vcf_chrs[[chr_str]]$AlleleC_Iup)
-#   )
-
-#   if (opt$verbose>=1)
-#     cat(glue::glue("[{par$prgmTag}]: Done. Mutating chromosome={chr_str}.{RET}{RET}"))
-#   
-#   break
-# }
-
-#
-# TBD:: Need to validate that the replacement happend correctly::
-#
-subseq(iup_chrs[["1"]], start=11012-2, width = 50)
-subseq(gen_ref_dat[["1"]], start=11012-2, width = 50)
-
-
-
-
-
-
-
-
-
-
-
-#
-# Update dna chromosomes by SNPs
-#
-
-vcf_chrs <- vcf_tib %>% split(.$Chromosome)
-vcf_chrs[["MT"]] <- tibble::tibble(Coordinate=as.integer(), Seq_ID=as.character())
-
-at3 <- lapply(vcf_chrs, function(x) { IRanges::IRanges(start=x$Coordinate, width=1, names = x$Seq_ID) } ) %>% as("IRangesList")
-
-Biostrings::extractAt(gen_ref_dat, at3)
-
-
-at0 <- lapply(head(vcf_tib), function(x) { IRanges::IRanges(start=x$Coordinate, width=1, names = x$Seq_ID) } )
-
-
-at4 <- lapply(vcf_tib$Coordinate, function(x) { IRanges::IRanges(start=x$Coordinate, width=1) } ) %>% as("IRangesList")
 
 
 
