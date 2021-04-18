@@ -75,8 +75,8 @@ load_dbSNP_vcf = function(vcf, file=NULL, fresh=FALSE,
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Building clean snp_csv from={vcf}...{RET}"))
 
-      vcf_sel <- c("#CHROM","POS","ID","REF","ALT","QUAL","FILTER")
-      vcf_col <- c("Chromosome","Coordinate","Seq_ID","AlleleA_Str","AlleleB_Str","Qual","Filter")
+      vcf_sel <- c("#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO")
+      vcf_col <- c("Chromosome","Coordinate","Seq_ID","AlleleA_Str","AlleleB_Str","Qual","Filter","Info")
       
       ret_tib <- fread(vcf, select=vcf_sel) %>% # head(n=100000) %>%
         tibble::as_tibble() %>%

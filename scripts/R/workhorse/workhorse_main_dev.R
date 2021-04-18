@@ -902,45 +902,49 @@ if (FALSE) {
   #                           verbose=opt$verbose+10, tt=pTracker)
 }
 
-#
-# Tabix::
-#  tabix -b 2 -c C -s 3 data/annotation/
+if (FALSE) {
 
-dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz 
-#  tabix -b 2 -c C -s 3 tmp/dbSNP.tmp.tsv
-#
-
-# gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz | head -n 10000000 | perl -pe 's/,/\t/gi' > tmp/dbSNP.tmp.tsv
-# bgzip -f tmp/dbSNP.tmp.tsv
-# tabix -c C  -s 1 -b 2 -e 2 -f tmp/dbSNP.tmp.tsv.gz
-#
-
-# tabix -R tmp/dbSNP.test.bed.gz tmp/dbSNP.tmp.tsv.gz
-# tabix -R tmp/dbSNP.test.bed.tsv.gz tmp/dbSNP.tmp.tsv.gz
-
-bed_non_tib <- dbSNP_non_tib %>% 
-  dplyr::rename(beg=Coordinate) %>%
-  dplyr::mutate(end=beg+1) %>% 
-  dplyr::select(Chromosome,beg,end,Seq_ID,dplyr::everything()) %>%
-  dplyr::arrange(Chromosome,beg)
-
-bed_non_tsv <- "/Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv"
-readr::write_tsv(bed_non_tib,bed_non_tsv, col_names = FALSE)
-
-# bgzip -f /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv
-# tabix -s 1 -b 2 -e 3 -f /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv.gz
-
-# tabix tmp/dbSNP.tmp.tsv.gz /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv.gz
-
-# gzip -dc tmp/dbSNP.test.bed.tsv.gz | perl -pe 's/^chr//; ' > tmp/dbSNP.test.chr.bed
-# bgzip tmp/dbSNP.test.chr.bed 
-
-# tabix -R tmp/dbSNP.test.chr.bed.gz /Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz
-
-# gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz| grep -v "^Chromosome" | join -t "," -12 -22 - data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv
-
-# head data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv | grep -v "^Chromosome" | join -t "," -12 -22 - data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv
-# gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz| grep -v "^Chromosome" | head -n 100000000 > tmp/dbSNP.tmp.10M.csv
+  #
+  # Tabix::
+  #  tabix -b 2 -c C -s 3 data/annotation/
+  
+  # dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz 
+  #  tabix -b 2 -c C -s 3 tmp/dbSNP.tmp.tsv
+  #
+  
+  # gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz | head -n 10000000 | perl -pe 's/,/\t/gi' > tmp/dbSNP.tmp.tsv
+  # bgzip -f tmp/dbSNP.tmp.tsv
+  # tabix -c C  -s 1 -b 2 -e 2 -f tmp/dbSNP.tmp.tsv.gz
+  #
+  
+  # tabix -R tmp/dbSNP.test.bed.gz tmp/dbSNP.tmp.tsv.gz
+  # tabix -R tmp/dbSNP.test.bed.tsv.gz tmp/dbSNP.tmp.tsv.gz
+  
+  bed_non_tib <- dbSNP_non_tib %>% 
+    dplyr::rename(beg=Coordinate) %>%
+    dplyr::mutate(end=beg+1) %>% 
+    dplyr::select(Chromosome,beg,end,Seq_ID,dplyr::everything()) %>%
+    dplyr::arrange(Chromosome,beg)
+  
+  bed_non_tsv <- "/Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv"
+  readr::write_tsv(bed_non_tib,bed_non_tsv, col_names = FALSE)
+  
+  # bgzip -f /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv
+  # tabix -s 1 -b 2 -e 3 -f /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv.gz
+  
+  # tabix tmp/dbSNP.tmp.tsv.gz /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv.gz
+  
+  # gzip -dc tmp/dbSNP.test.bed.tsv.gz | perl -pe 's/^chr//; ' > tmp/dbSNP.test.chr.bed
+  # bgzip tmp/dbSNP.test.chr.bed 
+  
+  # tabix -R tmp/dbSNP.test.chr.bed.gz /Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz
+  
+  # gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz| grep -v "^Chromosome" | join -t "," -12 -22 - data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv
+  
+  # head data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv | grep -v "^Chromosome" | join -t "," -12 -22 - data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv
+  # gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz| grep -v "^Chromosome" | head -n 100000000 > tmp/dbSNP.tmp.10M.csv
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -970,33 +974,64 @@ readr::write_tsv(bed_non_tib,bed_non_tsv, col_names = FALSE)
 #  - Iup_Des -> Bsp_Pos
 #    - Filter Matching Probe Pairs
 #
-cpg_csv <- "/Users/bretbarnes/Documents/data/CustomContent/TruDx/TruDiagnostic_CpG_DesignFile.csv.gz"
+# cpg_csv <- "/Users/bretbarnes/Documents/data/CustomContent/TruDx/TruDiagnostic_CpG_DesignFile.csv.gz"
 
 #
 # To Do::
 # - Check all SNP names against all dbSNP
+#   - Write BED file and intersect with tabx
+#     - All dbSNP
+#     - Common dbSNP
 # - Check all CpG names against product names
 #
 
-snps_tib <- NULL
-snps_tib <- lapply(snps_vec, readr::read_csv) %>%
+name_bed <- snps_vec %>% head(n=1) %>% 
+  stringr::str_remove(".gz$") %>% 
+  stringr::str_remove(".csv$") %>% 
+  base::basename()
+
+snps_dir <- snps_vec %>% head(n=1) %>% 
+  base::dirname()
+
+snps_tar_tib <- NULL
+snps_tar_tib <- lapply(snps_vec, readr::read_csv) %>%
   dplyr::bind_rows() %>%
   dplyr::arrange(Chromosome, Coordinate) %>%
   dplyr::mutate(Chromosome=stringr::str_remove(Chromosome, "^chr"),
-                Chromosome=paste0("chr",Chromosome),
+  #              Chromosome=paste0("chr",Chromosome),
                 Allele_C=paste0(Allele_A,Allele_B) %>% mapDIs()
-  )
+  ) %>% 
+  dplyr::arrange(Chromosome,Coordinate) %>%
+  dplyr::mutate(Beg=Coordinate-1, End=Beg+1) %>% 
+  dplyr::select(Chromosome, Beg, End, Seq_ID, Coordinate, dplyr::everything())
 
-dbSNP_tib <- NULL
-dbSNP_tib <- lapply(vcfs_vec, readr::read_csv) %>% 
-  dplyr::bind_rows()
+all_ref_vcf <- "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz"
+pipe_str <- glue::glue("grep 'VC=SNV'")
+snps_ref_tib <- write_tabix_bed(tib = snps_tar_tib, dir = opt$outDir, name = name_bed, ref = all_ref_vcf, 
+                            verbose = opt$verbose, tt = pTracker)
 
-dbSNP_int_tib <- dbSNP_tib %>% dplyr::inner_join(snps_tib, by=c("Chromosome","Coordinate"), suffix=c("_db","_usr"))
-dbSNP_non_tib <- snps_tib %>% dplyr::anti_join(dbSNP_tib, by=c("Chromosome","Coordinate"))
 
-# RS# name mismatch::
-dbSNP_int_tib %>% dplyr::filter(Seq_ID_db != Seq_ID_usr)
 
+
+
+# load_dbSNP_vcf("/Users/bretbarnes/Documents/scratch/workhorse_main_dev/TruDx-GSA-A2-GRCh37/TruDx_target_SNPs.All_20180423.intersect.tsv.gz")
+
+# tabix intersect comand::
+# tabix -R data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.sorted.bed.gz /Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz
+
+# TBD:: Add auto intersect and provide returns instead of file
+
+if (FALSE) {
+  dbSNP_tib <- NULL
+  dbSNP_tib <- lapply(vcfs_vec, readr::read_csv) %>% 
+    dplyr::bind_rows()
+  
+  dbSNP_int_tib <- dbSNP_tib %>% dplyr::inner_join(snps_tar_tib, by=c("Chromosome","Coordinate"), suffix=c("_db","_usr"))
+  dbSNP_non_tib <- snps_tar_tib %>% dplyr::anti_join(dbSNP_tib, by=c("Chromosome","Coordinate"))
+  
+  # RS# name mismatch::
+  dbSNP_int_tib %>% dplyr::filter(Seq_ID_db != Seq_ID_usr)
+}
 
 
 
