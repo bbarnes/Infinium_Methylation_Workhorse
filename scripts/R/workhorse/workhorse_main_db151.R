@@ -72,7 +72,7 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'workhorse'
-par$prgmTag <- 'workhorse_main'
+par$prgmTag <- 'workhorse_main_db151'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 
@@ -271,8 +271,38 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm10'
   par$local_runType <- 'Chicago'
   par$local_runType <- 'GSA'
+  par$local_runType <- 'dbSNP'
   
-  if (par$local_runType=='GSA') {
+  if (par$local_runType=='dbSNP') {
+    opt$genBuild <- 'GRCh37'
+    opt$platform <- 'GSA'
+    opt$version  <- 'A1'
+    opt$Species  <- "Human"
+    
+    opt$idat   <- NULL
+    opt$ords   <- NULL
+    opt$mats   <- NULL
+    opt$aqps   <- NULL
+    opt$pqcs   <- NULL
+    
+    opt$bpns   <- NULL
+    opt$aqpn   <- NULL
+    opt$pqcn   <- NULL
+    
+    # opt$mans   <- paste(
+    #   file.path(opt$manDir, "genotyping/GSA-24v2-0_A1.csv.gz"),
+    #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation27_270596_v.1.2.csv.gz"),
+    #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation450_15017482_v.1.2.csv.gz"),
+    #   file.path(opt$manDir, "methylation/GenomeStudio/MethylationEPIC_v-1-0_B2.csv.gz"),
+    #   sep=',')
+    
+    opt$mans   <- NULL
+    opt$vcfs   <- NULL
+    opt$beds   <- NULL
+    
+    opt$org_des_tsv <- NULL
+    
+  } else if (par$local_runType=='GSA') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
     opt$version  <- 'A1'
@@ -824,92 +854,6 @@ run$gen_ref_fas <-
   file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
             paste0(opt$genBuild,".genome.fa.gz"))
 
-# run$max_chr <- NULL
-# run$max_chr <- 2
-# 
-# ref_fwd_seq <- NULL
-# ref_fwd_tab <- NULL
-# 
-# if (opt$verbose>=1)
-#   cat(glue::glue("[{par$prgmTag}]: Loading gen_ref_fas={run$gen_ref_fas}...{RET}"))
-# 
-# if (!is.null(run$max_chr) && is.numeric(run$max_chr)) {
-#   ref_fwd_seq <- 
-#     Biostrings::readDNAStringSet(filepath = run$gen_ref_fas, format = "fasta", nrec = 2)
-# } else {
-#   ref_fwd_seq <- 
-#     Biostrings::readDNAStringSet(filepath = run$gen_ref_fas, format = "fasta")
-# }
-#   
-# ref_fwd_tab <- ref_fwd_seq %>% names() %>% 
-#   stringr::str_remove(" .*$") %>% 
-#   stringr::str_remove("^chr") %>%
-#   tibble::tibble() %>% 
-#   purrr::set_names("Chrom_Char") %>% 
-#   dplyr::mutate(Idx=dplyr::row_number(),
-#                 Chrom_Char=paste0("chr",Chrom_Char) )
-# 
-# if (opt$verbose>=4)
-#   print(ref_fwd_tab)
-# 
-# if (opt$verbose>=1)
-#   cat(glue::glue("[{par$prgmTag}]: Done. Loading gen_ref_fas={run$gen_ref_fas}{RET}{RET}"))
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#            0.4.2 Pre-processing:: Run Time:: SNP IUPAC Genome
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# snp_fwd_seq <- NULL
-# snp_fwd_tab <- NULL
-# if (FALSE) {
-#   run$gen_snp_fas <- 
-#     file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
-#               paste0(opt$genBuild,".dbSNP151-genome.fa.gz"))
-#   
-#   if (opt$verbose>=1)
-#     cat(glue::glue("[{par$prgmTag}]: Loading gen_snp_fas={run$gen_snp_fas}...{RET}"))
-#   
-#   if (!is.null(run$gen_snp_fas) && file.exists(run$gen_snp_fas)) {
-#     if (!is.null(run$max_chr) && is.numeric(run$max_chr)) {
-#       snp_fwd_seq <- 
-#         Biostrings::readDNAStringSet(filepath = run$gen_snp_fas, format = "fasta", nrec = 2)
-#     } else {
-#       snp_fwd_seq <- 
-#         Biostrings::readDNAStringSet(filepath = run$gen_snp_fas, format = "fasta")
-#     }
-#     
-#     snp_fwd_tab <- snp_fwd_seq %>% names() %>% 
-#       stringr::str_remove(" .*$") %>% 
-#       stringr::str_remove("^chr") %>%
-#       tibble::tibble() %>% 
-#       purrr::set_names("Chrom_Char") %>% 
-#       dplyr::mutate(Idx=dplyr::row_number(),
-#                     Chrom_Char=paste0("chr",Chrom_Char) )
-#     if (opt$verbose>=4)
-#       print(snp_fwd_tab)
-#     
-#     if (opt$verbose>=1)
-#       cat(glue::glue("[{par$prgmTag}]: Done. Loading gen_snp_fas={run$gen_snp_fas}{RET}{RET}"))
-#   }
-# }
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                          Immediate Design Steps::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-
-
-# dna_to_template() 
-# improbe_docker()
-# filter
-# bsmap
-#
-
-
-
-
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          VALIDATION CODE BELOW::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1102,16 +1046,11 @@ if (FALSE) {
   
 }
 
-
-
-
-
 if (FALSE) {
   #
   # LIFE GOT BETTER:: VCF Reading Scratch Space::
   #
-  opt$dbSNP <- "dbSNP-151"
-  
+  opt$dbSNP   <- "dbSNP-151"
   run$snp_vcf <- file.path(opt$annDir, "dbSNP", opt$dbSNP, opt$genBuild) %>% list.files(pattern = ".vcf.gz$", full.names=TRUE) %>% head(n=1)
   run$snp_csv <- run$snp_vcf %>% stringr::str_remove(".gz$") %>% stringr::str_remove(".vcf$") %>% paste0(".snps.csv.gz")
   run$snp_fas <- run$gen_ref_fas %>% stringr::str_remove(".gz$") %>% stringr::str_remove(".fa$") %>% paste(opt$dbSNP,"iupac.fa.gz", sep=".")
@@ -1383,53 +1322,66 @@ if (file.exists(cgn_bed_tsv)) {
 # 2. dbSNP-151
 # 3. Manifest Validation
 #
-new_cpg_dir <- '/Users/bretbarnes/Documents/data/CustomContent/EWAS/CORSIVs_and_others/Not_Already_Designed_Content'
-new_wat_csv <- file.path(new_cpg_dir, 'Waterland_CORSIVS/Waterland_CORSIV_Genomic_Coordinates_S3-Table_1.csv.gz')
 
-new_reg_tib <- suppressMessages(suppressWarnings(readr::read_csv(new_wat_csv) )) %>% 
-  dplyr::select(CorSIV_ID,CpG.Count,UCSC.Coordinates,USCS_Coordinates_CoRSIV) %>%
-  dplyr::rename(CpG_Count=CpG.Count) %>%
-  tidyr::separate(UCSC.Coordinates, into=c("Chr","range"), sep=":") %>%
-  tidyr::separate(range, into=c("Beg","End"), sep="-") %>%
-  clean_tibble() %>%
-  dplyr::group_by(CorSIV_ID) %>%
-  dplyr::mutate(Rep_Idx=row_number()) %>%
-  dplyr::ungroup() %>% 
-  tidyr::unite(Reg_ID, CorSIV_ID,Rep_Idx, sep="-", remove=FALSE)
+opt$dbSNP   <- "dbSNP-151"
+run$snp_vcf <- file.path(opt$annDir, "dbSNP", opt$dbSNP, opt$genBuild) %>% list.files(pattern = ".vcf.gz$", full.names=TRUE) %>% head(n=1)
+run$snp_csv <- run$snp_vcf %>% stringr::str_remove(".gz$") %>% stringr::str_remove(".vcf$") %>% paste0(".snps.csv.gz")
 
-new_reg_grs <- 
-  GRanges(
-    seqnames=Rle(new_reg_tib$Chr), # strand=Rle(new_reg_tib$strand),
-    CpG_Count=new_reg_tib$CpG_Count, 
-    USCS_Coordinates_CoRSIV=new_reg_tib$USCS_Coordinates_CoRSIV,
-    IRanges(start=new_reg_tib$Beg, 
-            end=new_reg_tib$End, 
-            names=new_reg_tib$Reg_ID)
-  )
+vcf_tib <- load_dbSNP_vcf(vcf=run$snp_vcf, file=run$snp_csv,
+                          fresh=opt$fresh,
+                          verbose=opt$verbose+10, tt=pTracker)
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                 X.X Intersect Target Regions with known CpGs
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# A tibble: 34,974 x 7
-new_imp_int_tib <- 
-  intersect_GRS(new_reg_grs, cgn_bed_grs, can_key="Reg_ID", 
-                verbose=opt$verbose, tt=pTracker) %>%
-  dplyr::distinct(chr,pos,end, .keep_all=TRUE) %>%
-  dplyr::rename(Chromosome=chr, Coordinate=pos)
-
-# Region Summary Coverage::
-#  - TBD:: Add missing regsions, can be done later...
-#
-new_imp_int_reg_sum <- new_imp_int_tib %>% 
-  dplyr::group_by(Reg_ID) %>%
-  dplyr::summarise(Reg_Cnt=n(), .groups="drop")
-# new_imp_int_reg_sum %>% print(n=base::nrow(new_imp_int_reg_sum))
-
-new_imp_int_cnt_sum <- new_imp_int_reg_sum %>%
-  dplyr::group_by(Reg_Cnt) %>%
-  dplyr::summarise(Count=n(), .groups="drop")
-new_imp_int_cnt_sum %>% print(n=base::nrow(new_imp_int_cnt_sum))
+if (FALSE) {
+  
+  new_cpg_dir <- '/Users/bretbarnes/Documents/data/CustomContent/EWAS/CORSIVs_and_others/Not_Already_Designed_Content'
+  new_wat_csv <- file.path(new_cpg_dir, 'Waterland_CORSIVS/Waterland_CORSIV_Genomic_Coordinates_S3-Table_1.csv.gz')
+  
+  new_reg_tib <- suppressMessages(suppressWarnings(readr::read_csv(new_wat_csv) )) %>% 
+    dplyr::select(CorSIV_ID,CpG.Count,UCSC.Coordinates,USCS_Coordinates_CoRSIV) %>%
+    dplyr::rename(CpG_Count=CpG.Count) %>%
+    tidyr::separate(UCSC.Coordinates, into=c("Chr","range"), sep=":") %>%
+    tidyr::separate(range, into=c("Beg","End"), sep="-") %>%
+    clean_tibble() %>%
+    dplyr::group_by(CorSIV_ID) %>%
+    dplyr::mutate(Rep_Idx=row_number()) %>%
+    dplyr::ungroup() %>% 
+    tidyr::unite(Reg_ID, CorSIV_ID,Rep_Idx, sep="-", remove=FALSE)
+  
+  new_reg_grs <- 
+    GRanges(
+      seqnames=Rle(new_reg_tib$Chr), # strand=Rle(new_reg_tib$strand),
+      CpG_Count=new_reg_tib$CpG_Count, 
+      USCS_Coordinates_CoRSIV=new_reg_tib$USCS_Coordinates_CoRSIV,
+      IRanges(start=new_reg_tib$Beg, 
+              end=new_reg_tib$End, 
+              names=new_reg_tib$Reg_ID)
+    )
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                 X.X Intersect Target Regions with known CpGs
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # A tibble: 34,974 x 7
+  new_imp_int_tib <- 
+    intersect_GRS(new_reg_grs, cgn_bed_grs, can_key="Reg_ID", 
+                  verbose=opt$verbose, tt=pTracker) %>%
+    dplyr::distinct(chr,pos,end, .keep_all=TRUE) %>%
+    dplyr::rename(Chromosome=chr, Coordinate=pos)
+  
+  # Region Summary Coverage::
+  #  - TBD:: Add missing regsions, can be done later...
+  #
+  new_imp_int_reg_sum <- new_imp_int_tib %>% 
+    dplyr::group_by(Reg_ID) %>%
+    dplyr::summarise(Reg_Cnt=n(), .groups="drop")
+  # new_imp_int_reg_sum %>% print(n=base::nrow(new_imp_int_reg_sum))
+  
+  new_imp_int_cnt_sum <- new_imp_int_reg_sum %>%
+    dplyr::group_by(Reg_Cnt) %>%
+    dplyr::summarise(Count=n(), .groups="drop")
+  new_imp_int_cnt_sum %>% print(n=base::nrow(new_imp_int_cnt_sum))
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #              X.X Extract Target Forward Design Sequences 122-mers
@@ -1437,14 +1389,14 @@ new_imp_int_cnt_sum %>% print(n=base::nrow(new_imp_int_cnt_sum))
 
 imp_dna_tib <- 
   fas_to_seq(
-    tib = new_imp_int_tib, 
+    tib = vcf_tib, # %>% head(n=10000), 
     fas = run$gen_ref_fas,
     file=run$imp_inp_tsv,
-    name="cgn",gen=opt$genBuild,
+    name="Seq_ID",gen=opt$genBuild,
     chr1="Chromosome",pos="Coordinate",chr2="Chrom_Char",
     ext_seq="Fwd_Seq",des_seq="Des_Seq",imp_seq="Sequence",
-    # iupac = "QI_T",
-    # nrec=2,
+    iupac = "AlleleC_Iup",
+    nrec=2,
     add_flank=FALSE,
     verbose = opt$verbose, tt=pTracker)
 

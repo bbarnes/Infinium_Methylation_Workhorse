@@ -215,11 +215,98 @@ improbe_design_all = function(tib, ptype, outDir, gen,
 }
 
 improbe_docker = function(dir, file, name, image, shell, 
-                          verbose=0,vt=3,tc=1,tt=NULL) {
+                          level=0, add_inf=TRUE,
+                          verbose=1,vt=3,tc=1,tt=NULL) {
   funcTag <- 'improbe_docker'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; name={name}...{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; level={level}; name={name}...{RET}"))
+  
+  # improbe output original fields::
+  #
+  org_cols <- NULL
+  new_cols <- NULL
+  if (level>0) {
+    # Level 1::
+    ids_org_cols <- c("Seq_ID", "Genome_Build", "Chromosome", "Coordinate")
+    seq_org_cols <- c("Forward_Sequence", "Top_Sequence")
+    prb_org_cols <- c("Methyl_Probe_Covered_Top_Sequence", "UnMethyl_Probe_Sequence", "Methyl_Probe_Sequence")
+    srd_org_cols <- c("Methyl_Allele_FR_Strand", "Methyl_Allele_TB_Strand", "Methyl_Allele_CO_Strand", "Methyl_Next_Base")
+    
+    # Level 2:: Final Scores::
+    scrF_org_cols <- c("UnMethyl_Final_Score", "Methyl_Final_Score")
+    
+    # Level 3:: Both Metric/Score::
+    rawB_org_cols <- c("Methyl_Underlying_CpG_Count", "Methyl_Underlying_CpG_Min_Dist")
+    scrB_org_cols <- c("Methyl_Underlying_CpG_Score", "Methyl_Next_Base_Score")
+    
+    # Level 4:: Metrics
+    rawM_org_cols <- c("Methyl_Tm",    "Methyl_GC_Percent", "Methyl_13mer_Count", "Methyl_Address_Count",
+                       "Methyl_Self_Complementarity",       "Methyl_Mono_Run",    "Methyl_Ectopic_Count")
+    rawU_org_cols <- paste0("Un",rawM_org_cols)
+    
+    # Level 5:: Scores
+    scrM_org_cols <- c("Methyl_Tm_Score","Methyl_GC_Score",   "Methyl_13mer_Score",  "Methyl_Address_Score",
+                       "Methyl_Self_Complementarity_Score", "Methyl_Mono_Run_Score", "Methyl_Ectopic_Score")
+    scrU_org_cols <- paste0("Un",scrM_org_cols)
+    
+    # improbe output new fields::
+    #
+    ids_new_cols <- c("Seq_ID", "Genome_Build", "Chromosome", "Coordinate")
+    seq_new_cols <- c("Forward_Sequence", "Top_Sequence")
+    prb_new_cols <- c("Probe_Seq_T", "Probe_Seq_U", "Probe_Seq_M")
+    srd_new_cols <- c("Strand_FR", "Strand_TB", "Strand_CO", "Next_Base")
+    
+    # Level 2:: Final Scores
+    scrF_new_cols <- c("Scr_U", "Scr_M")
+    
+    # Level 3: Both Metric/Score::
+    rawB_new_cols <- c("Cpg_Cnt", "Cpg_Dis")
+    scrB_new_cols <- c("Cpg_Scr", "Nxb_Scr")
+    
+    # Level 4:: New Metrics::
+    met_new_cols  <- c("Tm", "GC", "Mer13", "Address", "SelfCmpl", "Mono", "Ectopic")
+    rawU_new_cols <- paste(met_new_cols, "Raw_U", sep="_")
+    rawM_new_cols <- paste(met_new_cols, "Raw_M", sep="_")
+    
+    # Level 5:: New Metrics::
+    scrU_new_cols <- paste(met_new_cols, "Scr_U", sep="_")
+    scrM_new_cols <- paste(met_new_cols, "Scr_M", sep="_")
+    
+    #
+    # Old/New Field Names to Select/Return::
+    #
+    if (level>=1) {
+      org_cols <- c(org_cols, ids_org_cols,seq_org_cols,prb_org_cols,srd_org_cols)
+      new_cols <- c(new_cols, ids_new_cols,seq_new_cols,prb_new_cols,srd_new_cols)
+    }
+    if (level>=2) {
+      org_cols <- c(org_cols, scrF_org_cols)
+      new_cols <- c(new_cols, scrF_new_cols)
+    }
+    if (level>=3) {
+      org_cols <- c(org_cols, rawB_org_cols,scrB_org_cols)
+      new_cols <- c(new_cols, rawB_new_cols,scrB_new_cols)
+    }
+    if (level>=4) {
+      org_cols <- c(org_cols, rawU_org_cols,rawM_org_cols)
+      new_cols <- c(new_cols, rawU_new_cols,rawM_new_cols)
+    }
+    if (level>=5) {
+      org_cols <- c(org_cols, scrU_org_cols,scrM_org_cols)
+      new_cols <- c(new_cols, scrU_new_cols,scrM_new_cols)
+    }
+    
+    if (verbose>=4) {
+      org_cols %>% length() %>% print()
+      print(org_cols)
+
+      new_cols %>% length() %>% print()
+      print(new_cols)
+    }
+  } else {
+    cat(glue::glue("[{funcTag}]:{tabsStr} Returning full data (level={level})...{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -257,9 +344,48 @@ improbe_docker = function(dir, file, name, image, shell,
     
     ret_tib <- 
       suppressMessages(suppressWarnings( readr::read_tsv(ret_tsv) ))
-    if (verbose>=vt+4) print(ret_tib)
     
-    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Raw improbe data={RET}"))
+      print(ret_tib)
+    }
+
+    # Now subset and rename based on input level::
+    #
+    if (!is.null(org_cols) && !is.null(new_cols)) {
+      ret_tib <- ret_tib %>% 
+        dplyr::select(dplyr::all_of(org_cols)) %>%
+        dplyr::mutate(Methyl_Allele_TB_Strand=stringr::str_sub(Methyl_Allele_TB_Strand, 1,1)) %>%
+        purrr::set_names(new_cols)
+    }
+    ret_tib <- ret_tib %>% clean_tibble()
+    
+    if (add_inf && level>=3) {
+      ret_tib <- ret_tib %>%
+        dplyr::mutate(
+          Scr_Min=pmin(Scr_U,Scr_M),
+          Inf_Type=dplyr::case_when(
+            Scr_Min<0.2                  ~ 0,
+            Scr_Min<0.3 & Strand_CO=="C" ~ 0,
+            
+            Scr_Min< 0.3 & Strand_CO=="O" & Cpg_Cnt==0 ~ 1,
+            Scr_Min< 0.4 & Strand_CO=="O" & Cpg_Cnt==1 ~ 1,
+            Scr_Min< 0.5 & Strand_CO=="O" & Cpg_Cnt==2 ~ 1,
+            Scr_Min< 0.6 & Strand_CO=="O" & Cpg_Cnt==3 ~ 1,
+            
+            Scr_Min< 0.4 & Strand_CO=="C" & Cpg_Cnt==0 ~ 1,
+            Scr_Min< 0.5 & Strand_CO=="C" & Cpg_Cnt==1 ~ 1,
+            Scr_Min< 0.6 & Strand_CO=="C" & Cpg_Cnt==2 ~ 1,
+            Scr_Min< 0.7 & Strand_CO=="C" & Cpg_Cnt==3 ~ 1,
+            
+            Scr_Min>=0.7 ~ 1,
+            
+            TRUE ~ 2
+          )
+        )
+    }
+
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="new")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)

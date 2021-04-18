@@ -72,7 +72,7 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'workhorse'
-par$prgmTag <- 'workhorse_main'
+par$prgmTag <- 'workhorse_main_EWAS'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 
@@ -275,7 +275,6 @@ if (args.dat[1]=='RStudio') {
   if (par$local_runType=='GSA') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
-    opt$version  <- 'A1'
     opt$version  <- 'A2'
     opt$Species  <- "Human"
     
@@ -1721,6 +1720,173 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     dplyr::mutate(across(where(is.factor),  as.character) )
   
 }
+
+# Frist Join::
+# imp_des_tib %>%
+#   dplyr::filter(Probe_Seq_U %in% bsp_imp_tib$Aln_Prb) %>%
+#   dplyr::filter(Probe_Seq_M %in% bsp_imp_tib$Aln_Prb) %>%
+#   dplyr::add_count(Seq_ID,Strand_FR,Strand_TB,Strand_CO, name="CGN_Cnt") %>%
+#   dplyr::filter(CGN_Cnt==1) %>%
+#   dplyr::distinct(Probe_Seq_U,Probe_Seq_M, .keep_all=TRUE)
+
+bsp_imp_srds <- bsp_imp_tib %>% split(.$Ord_Des)
+bsp_mat_tib  <- 
+  dplyr::inner_join(
+    bsp_imp_srds$U,bsp_imp_srds$M,
+    by=c("Imp_Cgn","Imp_Chr","Imp_Pos","Ord_Din",
+         "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
+         "Bsp_Din_Ref","Bsp_Din_Scr","Imp_Top_Srd","Can_Mis_Scr"),
+    suffix=c("_U","_M")
+  )
+
+fin_des_tib <- imp_des_tib %>%
+  dplyr::filter(Probe_Seq_U %in% bsp_mat_tib$Aln_Prb_U & Probe_Seq_M %in% bsp_mat_tib$Aln_Prb_M) %>%
+  dplyr::add_count(Seq_ID,Strand_FR,Strand_TB,Strand_CO, name="CGN_Cnt") %>%
+  dplyr::filter(CGN_Cnt==1) %>%
+  dplyr::distinct(Probe_Seq_U,Probe_Seq_M, .keep_all=TRUE) %>%
+  dplyr::mutate(
+    Scr_Min=pmin(Scr_U,Scr_M),
+    Probe_Type="cg",
+    Inf_Type=dplyr::case_when(
+      Scr_Min<0.2                  ~ 0,
+      Scr_Min<0.3 & Strand_CO=="C" ~ 0,
+      
+      Scr_Min< 0.3 & Strand_CO=="O" & Cpg_Cnt==0 ~ 1,
+      Scr_Min< 0.4 & Strand_CO=="O" & Cpg_Cnt==1 ~ 1,
+      Scr_Min< 0.5 & Strand_CO=="O" & Cpg_Cnt==2 ~ 1,
+      Scr_Min< 0.6 & Strand_CO=="O" & Cpg_Cnt==3 ~ 1,
+      
+      Scr_Min< 0.4 & Strand_CO=="C" & Cpg_Cnt==0 ~ 1,
+      Scr_Min< 0.5 & Strand_CO=="C" & Cpg_Cnt==1 ~ 1,
+      Scr_Min< 0.6 & Strand_CO=="C" & Cpg_Cnt==2 ~ 1,
+      Scr_Min< 0.7 & Strand_CO=="C" & Cpg_Cnt==3 ~ 1,
+      
+      Scr_Min>=0.7 ~ 1,
+      
+      TRUE ~ 2
+    )
+  ) %>% dplyr::filter(Inf_Type!=0)
+
+# Validation of unique probes::
+fin_des_tib %>% dplyr::distinct(Top_Sequence,Strand_TB,Strand_CO) %>% base::nrow()
+fin_des_tib %>% dplyr::distinct(Seq_ID,Strand_TB,Strand_CO) %>% base::nrow()
+fin_des_tib %>% dplyr::distinct(Probe_Seq_U,Probe_Seq_M) %>% base::nrow()
+fin_des_tib %>% base::nrow()
+
+fin_all_des_tib <- 
+  fin_des_tib %>% 
+  desSeq_to_prbs(
+    ids_key = "Seq_ID", seq_key = "Forward_Sequence", prb_key = "Probe_Type",
+    strsSR = "FR",strsCO = "CO", 
+    addMatSeq = TRUE, parallel = TRUE, # max = 10,
+    verbose = opt$verbose, tt = pTracker)
+
+#
+# Clean spot here::
+#
+
+order_col <- c("Assay_Design_Id","AlleleA_Probe_Id","AlleleA_Probe_Sequence","AlleleB_Probe_Id","AlleleB_Probe_Sequence","Normalization_Bin")
+order_tib <- fin_des_tib %>% 
+  dplyr::inner_join(fin_all_des_tib, 
+                    by=c("Seq_ID", "Probe_Seq_U"="PRB1_U_MAT", "Probe_Seq_M"="PRB1_M_MAT", "Strand_CO"), 
+                    suffix=c("_FIN", "_DNV")) %>% 
+  dplyr::distinct(Probe_Seq_U,Probe_Seq_M, .keep_all = TRUE) %>%
+  dplyr::mutate(
+    AlleleA_Probe_Sequence=dplyr::case_when(
+      Inf_Type==1 ~ Probe_Seq_U,
+      Inf_Type==2 ~ PRB2_D_MAT,
+      TRUE ~ ""),
+    AlleleB_Probe_Sequence=dplyr::case_when(
+      Inf_Type==1 ~ Probe_Seq_M,
+      TRUE ~ ""),
+  ) %>%
+  dplyr::mutate(
+    Assay_Design_Id=paste(
+      paste0("cg",stringr::str_pad(Seq_ID, width = 8, side = "left", pad = "0")),
+      paste0(Strand_TB,Strand_CO), sep="_"),
+    AlleleA_Probe_Id=paste(Assay_Design_Id,"A", sep="_"),
+    AlleleB_Probe_Id=dplyr::case_when(
+      Inf_Type==1 ~ paste(Assay_Design_Id,"B", sep="_"),
+      TRUE ~ ""),
+    Normalization_Bin=dplyr::case_when(
+      Inf_Type==1 & NXB_N=="A" ~ "A",
+      Inf_Type==1 & NXB_N=="T" ~ "A",
+      Inf_Type==1 & NXB_N=="C" ~ "B",
+      Inf_Type==1 & NXB_N=="G" ~ "B",
+      TRUE ~ "C")
+  ) %>%
+  dplyr::select(dplyr::all_of(order_col))
+
+order_csv <- file.path(run$manDir, "EWAS-V2-80k.order.csv.gz")
+order2stats(order_tib)
+
+readr::write_csv(order_tib, order_csv)
+
+
+
+
+
+fin_des_tib %>% dplyr::group_by(Inf_Type) %>% dplyr::summarise(Count=n(), .groups="drop")
+
+# A tibble: 2 x 2
+# Inf_Type Count
+# <dbl> <int>
+#   1        1 35762
+#   2        2 20023
+
+#
+# New method not tested::
+#
+# fin_fwd_prb_tib <- 
+#   fas_to_seq(
+#     tib = fin_des_tib, 
+#     fas = run$gen_ref_fas %>% 
+#       stringr::str_remove(".gz$") %>% stringr::str_remove(".fa$") %>% 
+#       paste("FCM","fa.gz", sep="."),
+#     
+#     name="Seq_ID",gen=opt$genBuild,
+#     chr1="Chromosome",pos="Coordinate",chr2="Chrom_Char",
+#     srd="F",
+#     ext_seq="Fwd_Seq",des_seq="Des_Seq",imp_seq="Sequence",
+#     # iupac = "QI_T",
+#     # nrec=2,
+#     add_flank=FALSE,
+#     verbose = opt$verbose, tt=pTracker
+#   )
+# 
+#   dplyr::mutate(
+#     PRB1_Seq = paste0(
+#       fin_fwd_prb_tib$up61,
+#       fin_fwd_prb_tib$dn61,
+#       fin_fwd_prb_tib$dn60,
+#       fin_fwd_prb_tib$dn59,
+#       rfin_fwd_prb_tib$dn58 %>% stringr::str_sub(1,46)
+#     ) %>% revCmp()
+#   )
+#   
+
+
+
+
+# Validate against previous order::
+cur_ord_csv <- "/Users/bretbarnes/Documents/data/CustomContent/EWASv1_EPICv2_current_reorder.csv.gz"
+cur_ord_tib <- readr:: read_csv(cur_ord_csv) %>% 
+  dplyr::mutate(Seq_ID_Int=stringr::str_remove(Seq_ID,"^cg") %>% stringr::str_remove("^0+") %>% as.integer())
+
+fin_des_tib %>% dplyr::filter(Probe_Seq_U %in% cur_ord_tib$AlleleA_Probe_Sequence)
+fin_des_tib %>% dplyr::filter(Probe_Seq_M %in% cur_ord_tib$AlleleB_Probe_Sequence)
+cur_ord_tib %>% dplyr::filter(Seq_ID_Int %in% fin_des_tib$Seq_ID) %>%
+  dplyr::filter(AlleleA_Probe_Sequence %in% fin_des_tib$Probe_Seq_U)
+
+dplyr::bind_rows(
+  fin_des_tib %>% dplyr::filter(Probe_Seq_U %in% cur_ord_tib$AlleleA_Probe_Sequence) %>% dplyr::select(Seq_ID),
+  fin_des_tib %>% dplyr::filter(Probe_Seq_M %in% cur_ord_tib$AlleleB_Probe_Sequence) %>% dplyr::select(Seq_ID),
+  cur_ord_tib %>% dplyr::filter(Seq_ID_Int %in% fin_des_tib$Seq_ID) %>%
+    dplyr::filter(AlleleA_Probe_Sequence %in% fin_des_tib$Probe_Seq_U) %>% dplyr::select(Seq_ID_Int) %>%
+    dplyr::rename(Seq_ID=Seq_ID_Int)
+) %>% dplyr::distinct()
+
+
 
 
 #
