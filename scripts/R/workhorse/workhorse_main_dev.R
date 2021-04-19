@@ -300,7 +300,8 @@ if (args.dat[1]=='RStudio') {
       # sep=',')
 
     opt$vcfs   <- paste(
-      "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/common_all_20180423.snps.csv.gz",
+      # "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/common_all_20180423.snps.csv.gz",
+      "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz",
       sep=',')
     opt$beds   <- NULL
     opt$snps   <- paste(
@@ -877,75 +878,6 @@ if (opt$verbose>=1)
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-#
-# Building All SNPs::
-#
-if (FALSE) {
-  opt$dbSNP   <- "dbSNP-151"
-  run$snp_csv <- tibble::tibble(
-    vcf_file=file.path(opt$annDir, "dbSNP", opt$dbSNP, opt$genBuild) %>% 
-      list.files(pattern = ".snps.dup.csv.gz$", full.names=TRUE)) %>% 
-    dplyr::filter(stringr::str_detect(vcf_file, "All_")) %>% 
-    dplyr::pull(vcf_file) %>% head(n=1)
-  
-  file.exists(run$snp_csv)
-  all_snp_tib <- readr::read_csv(run$snp_csv)
-  
-  
-  # run$snp_csv <- run$snp_vcf %>% stringr::str_remove(".gz$") %>% stringr::str_remove(".vcf$") %>% paste0(".snps.csv.gz")
-  # 
-  # file.exists(run$snp_vcf)
-  # file.exists(run$snp_csv)
-  # 
-  # vcf_tib <- load_dbSNP_vcf(vcf=run$snp_vcf, file=run$snp_csv,
-  #                           fresh=opt$fresh,
-  #                           verbose=opt$verbose+10, tt=pTracker)
-}
-
-if (FALSE) {
-
-  #
-  # Tabix::
-  #  tabix -b 2 -c C -s 3 data/annotation/
-  
-  # dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz 
-  #  tabix -b 2 -c C -s 3 tmp/dbSNP.tmp.tsv
-  #
-  
-  # gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz | head -n 10000000 | perl -pe 's/,/\t/gi' > tmp/dbSNP.tmp.tsv
-  # bgzip -f tmp/dbSNP.tmp.tsv
-  # tabix -c C  -s 1 -b 2 -e 2 -f tmp/dbSNP.tmp.tsv.gz
-  #
-  
-  # tabix -R tmp/dbSNP.test.bed.gz tmp/dbSNP.tmp.tsv.gz
-  # tabix -R tmp/dbSNP.test.bed.tsv.gz tmp/dbSNP.tmp.tsv.gz
-  
-  bed_non_tib <- dbSNP_non_tib %>% 
-    dplyr::rename(beg=Coordinate) %>%
-    dplyr::mutate(end=beg+1) %>% 
-    dplyr::select(Chromosome,beg,end,Seq_ID,dplyr::everything()) %>%
-    dplyr::arrange(Chromosome,beg)
-  
-  bed_non_tsv <- "/Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv"
-  readr::write_tsv(bed_non_tib,bed_non_tsv, col_names = FALSE)
-  
-  # bgzip -f /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv
-  # tabix -s 1 -b 2 -e 3 -f /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv.gz
-  
-  # tabix tmp/dbSNP.tmp.tsv.gz /Users/bretbarnes/Documents/tmp/dbSNP.test.bed.tsv.gz
-  
-  # gzip -dc tmp/dbSNP.test.bed.tsv.gz | perl -pe 's/^chr//; ' > tmp/dbSNP.test.chr.bed
-  # bgzip tmp/dbSNP.test.chr.bed 
-  
-  # tabix -R tmp/dbSNP.test.chr.bed.gz /Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz
-  
-  # gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz| grep -v "^Chromosome" | join -t "," -12 -22 - data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv
-  
-  # head data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv | grep -v "^Chromosome" | join -t "," -12 -22 - data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.chr-pos-sorted.csv
-  # gzip -dc data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.snps.dup.csv.gz| grep -v "^Chromosome" | head -n 100000000 > tmp/dbSNP.tmp.10M.csv
-  
-}
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #                0.4 Extract Forward Sequence from Genome::
@@ -985,6 +917,10 @@ if (FALSE) {
 # - Check all CpG names against product names
 #
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                              Format Inputs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 name_bed <- snps_vec %>% head(n=1) %>% 
   stringr::str_remove(".gz$") %>% 
   stringr::str_remove(".csv$") %>% 
@@ -993,79 +929,139 @@ name_bed <- snps_vec %>% head(n=1) %>%
 snps_dir <- snps_vec %>% head(n=1) %>% 
   base::dirname()
 
-snps_tar_tib <- NULL
-snps_tar_tib <- lapply(snps_vec, readr::read_csv) %>%
+snps_can_tib <- NULL
+snps_can_tib <- lapply(snps_vec, readr::read_csv) %>%
   dplyr::bind_rows() %>%
   dplyr::arrange(Chromosome, Coordinate) %>%
   dplyr::mutate(Chromosome=stringr::str_remove(Chromosome, "^chr"),
-  #              Chromosome=paste0("chr",Chromosome),
+                Chromosome_Str=paste0("chr",Chromosome),
                 Allele_C=paste0(Allele_A,Allele_B) %>% mapDIs()
   ) %>% 
   dplyr::arrange(Chromosome,Coordinate) %>%
   dplyr::mutate(Beg=Coordinate-1, End=Beg+1) %>% 
-  dplyr::select(Chromosome, Beg, End, Seq_ID, Coordinate, dplyr::everything())
+  dplyr::select(Chromosome, Beg, End, Seq_ID, Coordinate, dplyr::everything()) %>%
+  clean_tibble()
 
-all_ref_vcf <- "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz"
-pipe_str <- glue::glue("grep 'VC=SNV'")
-snps_ref_tib <- write_tabix_bed(tib = snps_tar_tib, dir = opt$outDir, name = name_bed, ref = all_ref_vcf, 
-                            verbose = opt$verbose, tt = pTracker)
+# pipe_str <- glue::glue("grep 'VC=SNV'")
+snps_ref_tib <- write_tabix_bed(
+  tib = snps_can_tib, dir = opt$outDir, name = name_bed, ref = vcfs_vec[1], 
+  verbose = opt$verbose, tt = pTracker)
 
-
-
-
-
-# load_dbSNP_vcf("/Users/bretbarnes/Documents/scratch/workhorse_main_dev/TruDx-GSA-A2-GRCh37/TruDx_target_SNPs.All_20180423.intersect.tsv.gz")
-
-# tabix intersect comand::
-# tabix -R data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.sorted.bed.gz /Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz
-
-# TBD:: Add auto intersect and provide returns instead of file
-
-if (FALSE) {
-  dbSNP_tib <- NULL
-  dbSNP_tib <- lapply(vcfs_vec, readr::read_csv) %>% 
-    dplyr::bind_rows()
-  
-  dbSNP_int_tib <- dbSNP_tib %>% dplyr::inner_join(snps_tar_tib, by=c("Chromosome","Coordinate"), suffix=c("_db","_usr"))
-  dbSNP_non_tib <- snps_tar_tib %>% dplyr::anti_join(dbSNP_tib, by=c("Chromosome","Coordinate"))
-  
-  # RS# name mismatch::
-  dbSNP_int_tib %>% dplyr::filter(Seq_ID_db != Seq_ID_usr)
-}
-
-
-
-ref_fas_prbs <-
-  fas_to_seq(
-    tib = tar_tib, 
-    fas = run$gen_ref_fas,
-    file=run$imp_inp_tsv,
-    name="Seq_ID",gen=opt$genBuild,
-    chr1="Chromosome",pos="Coordinate",chr2="Chrom_Char",
-    srd="F",
-    ext_seq="Fwd_Seq",des_seq="Des_Seq",imp_seq="Sequence",
-    iupac = "Allele_C",
-    add_flank=TRUE,
-    verbose = opt$verbose+10, tt=pTracker
-  ) %>%
-  dplyr::mutate(
-    Probe_Type="rs"
-  )
-
-imp_des_tib <- 
-  improbe_docker(dir = run$desDir, file = run$imp_inp_tsv, 
-                 name = opt$runName, 
-                 image = image_str, shell = image_ssh,
-                 level = 3, add_inf = TRUE,
-                 verbose = opt$verbose, tt=pTracker) %>%
-  dplyr::mutate(
-    Probe_Type="rs"
-  )
-
-# imp_des_tib %>% dplyr::filter(Inf_Type!=0)
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                            Clean-up Inputs::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 #
-# TBD:: Join ref_fas_prbs & imp_des_tib by Probe Sequences
+# TBD:: Seq_ID_U needs a case_when for is.na(Seq_ID_ref)
+#   - ALSO; do some name cleaning to user provided names... replace all with "-"
+#
+#   Example::
+# mat_tib %>% dplyr::filter(Seq_ID_can %in% dplyr::pull( dplyr::filter(mat_tib, is.na(Seq_ID_ref) ), Seq_ID_can) ) %>%
+#   dplyr::select("Chromosome_Str","Coordinate",
+#                 "Seq_ID_U","Allele_A","Allele_B","Allele_C",
+#                 "Probe_Type","Seq_ID_can","Info")
+
+mat_tib <- snps_can_tib %>% 
+  dplyr::left_join(snps_ref_tib,
+  # dplyr::inner_join(snps_ref_tib,
+                    by=c("Chromosome_Str"="Chromosome","Coordinate"="Coordinate"),
+                    suffix=c("_can","_ref")) %>%
+  dplyr::mutate(Seq_ID_U=paste(Seq_ID_ref,Allele_C, sep='-'),
+                Seq_ID_1=paste(Seq_ID_ref,AlleleC_Iup1, sep='-'),
+                Seq_ID_2=paste(Seq_ID_ref,AlleleC_Iup2, sep='-'),
+                Probe_Type="rs"
+  )
+
+matC_tib <- mat_tib %>% dplyr::filter(Allele_C==AlleleC_Iup1)
+misC_tib <- mat_tib %>% dplyr::filter(Allele_C!=AlleleC_Iup1)
+
+misC_tib %>% dplyr::filter(!Seq_ID_ref %in% matC_tib$Seq_ID_ref)
+
+# NOTES:: Now build all possible types:: 3 types::
+#
+#  Chromosome,Coordinate,Seq_ID_ref,Allele_C,Customer,       Allele_A/B,     Info, Seq_ID_can=Seq_ID_usr
+#  Chromosome,Coordinate,Seq_ID_ref,AlleleC_Iup1,dbSNP-151   AlleleA/B_str1, Info, Seq_ID_can=Seq_ID_usr
+#  Chromosome,Coordinate,Seq_ID_ref,AlleleC_Iup2,dbSNP-151,  AlleleA/B_str2, Info, Seq_ID_can=Seq_ID_usr
+#
+
+snp_des_pos_col <- c("Chromosome","Coordinate","Seq_ID","Ref","Alt","Iupac","Probe_Type","Seq_ID_Usr","Info","Source")
+snp_des_ord_col <- c("Chromosome","Coordinate","Seq_ID","Ref","Alt","Iupac","Probe_Type","Seq_ID_Usr","Source","Info")
+
+snp_des_pos_tib <- dplyr::bind_rows(
+  dplyr::select(mat_tib, "Chromosome_Str","Coordinate",
+                "Seq_ID_U","Allele_A","Allele_B","Allele_C",
+                "Probe_Type","Seq_ID_can","Info") %>% 
+    dplyr::mutate(Source="Customer") %>%
+    purrr::set_names(snp_des_pos_col),
+  dplyr::select(mat_tib, "Chromosome_Str","Coordinate",
+                "Seq_ID_1","AlleleA_Str","AlleleB_Str1","AlleleC_Iup1",
+                "Probe_Type","Seq_ID_can","Info") %>% 
+    dplyr::mutate(Source="dbSNP-151-All") %>%
+    purrr::set_names(snp_des_pos_col),
+  dplyr::select(mat_tib, "Chromosome_Str","Coordinate",
+                "Seq_ID_2","AlleleA_Str","AlleleB_Str2","AlleleC_Iup2",
+                "Probe_Type","Seq_ID_can","Info") %>%
+    dplyr::mutate(Source="dbSNP-151-All") %>%
+    purrr::set_names(snp_des_pos_col)
+) %>%
+  dplyr::filter(!is.na(Ref) & !is.na(Alt)) %>% 
+  dplyr::arrange(Chromosome, Coordinate, Seq_ID, Source) %>%
+  dplyr::distinct() %>%
+  dplyr::select(dplyr::all_of(snp_des_ord_col))
+  
+
+# This should be zero:: TRUE
+snp_des_pos_tib %>% dplyr::filter(Source=="Customer") %>% dplyr::filter(! Seq_ID_Usr %in% snps_can_tib$Seq_ID) 
+
+# This should be zero:: TRUE
+snps_can_tib %>% dplyr::distinct(Seq_ID, .keep_all=TRUE) %>% dplyr::filter(! Seq_ID %in% snp_des_pos_tib$Seq_ID_Usr)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Extract Design Template Sequences::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+can_seq_tib <-
+  fas_to_seq(
+    tib = snp_des_pos_tib, 
+    fas = run$gen_ref_fas,
+    file=run$imp_inp_tsv,
+    name="Seq_ID",din="Probe_Type",gen=opt$genBuild,
+    chr1="Chromosome",pos="Coordinate",chr2="Chrom_Char",
+    srd="F",
+    fwd_seq="Fwd_Temp_Seq",iup_seq="Iup_Temp_Seq",imp_seq="Imp_Temp_Seq",
+    iupac = "Iupac",
+    ref_col="Ref", alt_col="Alt",iup_col="Iupac", # Iupac Column might be redundant
+    add_flank=TRUE,
+    verbose = opt$verbose, tt=pTracker
+  )
+
+# NOTE/Quick-QC:: This looks correct now; to be tested...
+can_seq_tib %>% dplyr::select(Seq_ID,Probe_Type,Des_Din,Probe_Type,Fwd_Temp_Seq) %>% dplyr::filter(Probe_Type=="cg")
+can_seq_tib %>% dplyr::select(Seq_ID,Probe_Type,Des_Din,Probe_Type,Iup_Temp_Seq) %>% dplyr::filter(Probe_Type=="cg")
+can_seq_tib %>% dplyr::select(Seq_ID,Probe_Type,Des_Din,Probe_Type,Imp_Temp_Seq) %>% dplyr::filter(Probe_Type=="cg")
+can_seq_tib %>% dplyr::filter(Probe_Type=="cg")
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Design All Probes:: improbe
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+imp_des_tib <- 
+  improbe_docker(
+    dir = run$desDir, file = run$imp_inp_tsv, 
+    name = opt$runName, 
+    image = image_str, shell = image_ssh,
+    level = 3, add_inf = TRUE,
+    verbose = opt$verbose, tt=pTracker) %>%
+  dplyr::distinct()
+
+# Quick-QC:: 751 for TruDx SNPs
+imp_des_tib %>% dplyr::filter(Inf_Type!=0) %>%
+  dplyr::distinct(Seq_ID) %>%
+  dplyr::mutate(Seq_ID=stringr::str_remove(Seq_ID,"-.*$")) %>%
+  dplyr::distinct(Seq_ID)
+
+#
+# TBD:: Join can_seq_tib & imp_des_tib by Probe Sequences
 #  - Actually can't do this unless we use bed_to_prbs()
 #    for now we can compare imp_des_tib against iup_des_tib below...
 #
@@ -1073,25 +1069,108 @@ imp_des_tib <-
 # TBD:: Need to design all possible designs, but with iupac R code so we can match
 #  probes via Infinium I/II, etc...
 
-# FOR CpGs::
-if (FALSE) {
-  iup_des_tib <- imp_des_tib %>% 
-    dplyr::select(Seq_ID,Forward_Sequence,Probe_Type) %>% 
-    desSeq_to_prbs(
-      ids_key = "Seq_ID", seq_key = "Forward_Sequence", prb_key = "Probe_Type",
-      strsSR = "FR",strsCO = "CO", 
-      addMatSeq = TRUE, parallel = TRUE, # max = 10,
-      verbose = opt$verbose, tt = pTracker)
-}
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Design All Probes:: iupac-Raw
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# For SNPs::
-iup_des_tib <- ref_fas_prbs %>% 
-  dplyr::select(Seq_ID,Des_Seq,Probe_Type) %>% 
+# Tested Probe Design Method based in R::
+iup_des_tib <- can_seq_tib %>% 
+  dplyr::select(Seq_ID,Iup_Temp_Seq,Probe_Type) %>% 
+  dplyr::distinct() %>%
   desSeq_to_prbs(
-    ids_key = "Seq_ID", seq_key = "Des_Seq", prb_key = "Probe_Type",
-    strsSR = "FR",strsCO = "CO", 
+    ids_key = "Seq_ID", seq_key = "Iup_Temp_Seq", prb_key = "Probe_Type",
+    strsSR = "FR",strsCO = "CO",
     addMatSeq = TRUE, parallel = TRUE, # max = 10,
-    verbose = opt$verbose, tt = pTracker)
+    verbose = opt$verbose, tt = pTracker) %>%
+  dplyr::distinct()
+
+# Quick-QC:: To be replaced::
+cur_mat_tib <- iup_des_tib %>% 
+  dplyr::filter(Probe_Type=="cg") %>% 
+  dplyr::inner_join(imp_des_tib,
+                    by=c("Seq_ID","Strand_SR"="Strand_FR","Strand_CO"),
+                    suffix=c("_iup","_imp")
+  ) %>% dplyr::distinct()
+cur_mat_tib %>% dplyr::filter(PRB1_U_MAT==Probe_Seq_U & PRB1_M_MAT==Probe_Seq_M)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Design All Probes:: iupac-Fas
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+fas_prb_tab <- can_seq_tib %>% 
+  dplyr::select(Seq_ID,Probe_Type,Chromosome,Coordinate,Iupac) %>%
+  dplyr::distinct() %>%
+  bed_to_prbs(fas=run$gen_ref_fas, gen=opt$genBuild,
+              cgn="Seq_ID",chr="Chromosome", pos="Coordinate",
+              iupac = "Iupac",
+              # nrec=2,
+              verbose=opt$verbose, tt=pTracker)
+
+# Missing: "Probe_Type"
+fas_prb_tab %>% dplyr::group_by(Probe_Type,Iupac) %>% dplyr::summarise(Count=n(), .groups="drop")
+fas_prb_tab %>% dplyr::distinct(Chromosome,Coordinate,Seq_ID,Prb_Seq1,Prb_Seq2)
+
+
+
+
+
+
+
+#
+#
+# TBD: Compare Methods (All three: imp, iup, fas)
+#
+#  fas_prb_tab %>% dplyr::select(Prb_Seq1,Prb_Seq2)
+#  iup_des_tib %>% dplyr::select(PRB1_U_MAT,PRB1_M_MAT,PRB2_D_MAT)
+#  imp_des_tib %>% dplyr::select(Probe_Seq_U,Probe_Seq_M)
+#
+
+fas_prb_tab
+iup_des_tib
+imp_des_tib
+
+# FRIST ISSUE NO SEQ_ID::
+iup_des_tib %>% dplyr::distinct(Seq_ID,Strand_SR,Strand_CO,PRB1_U_MAT,PRB1_M_MAT,PRB2_D_MAT)
+
+tmp_tib <- can_seq_tib %>% 
+  dplyr::select(Seq_ID,Iup_Temp_Seq,Probe_Type) %>% 
+  dplyr::distinct() %>%
+  desSeq_to_prbs(
+    ids_key = "Seq_ID", seq_key = "Iup_Temp_Seq", prb_key = "Probe_Type",
+    strsSR = "FR",strsCO = "CO",
+    addMatSeq = TRUE, parallel = TRUE, # max = 10,
+    verbose = opt$verbose+10, tt = pTracker)
+
+# Need summaries
+#  The double comparison below can't be good...
+fas_prb_tab %>% 
+  dplyr::inner_join(iup_des_tib, by=c("Seq_ID","Probe_Type")) %>%
+  dplyr::filter(Prb_Seq1==PRB1_U_MAT) %>%
+  dplyr::filter(Prb_Seq1==PRB1_M_MAT)
+  
+#  dplyr::select(Seq_ID, Prb_Seq1,PRB1_U_MAT)
+
+fas_prb_mus <- fas_prb_tab %>% split(.$Srd_MU)
+
+iup_des_tib %>% 
+  dplyr::inner_join(fas_prb_mus[["U"]],
+                    by=c("Seq_ID","Probe_Type"),
+                    suffix=c("_iup","_fas"))
+
+# These should all be zero::
+fas_prb_tab %>% dplyr::anti_join(iup_des_tib, by=c("Seq_ID"))
+fas_prb_tab %>% dplyr::anti_join(imp_des_tib, by=c("Seq_ID"))
+
+iup_des_tib %>% dplyr::anti_join(fas_prb_tab, by=c("Seq_ID"))
+iup_des_tib %>% dplyr::anti_join(imp_des_tib, by=c("Seq_ID"))
+
+imp_des_tib %>% dplyr::anti_join(fas_prb_tab, by=c("Seq_ID"))
+imp_des_tib %>% dplyr::anti_join(iup_des_tib, by=c("Seq_ID"))
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Downstream Filtering:: for later...
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 #
 # Need to filter on matchin U==M probes (iup_des_tib)

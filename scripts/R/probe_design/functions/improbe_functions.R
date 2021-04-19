@@ -1057,10 +1057,14 @@ desSeq_to_prbs = function(tib,
       tib <- tib %>% head(n=max)
     }
     
-    src_man_tib <- tib %>% dplyr::select(!!ids_sym, !!prb_sym, !!seq_sym) %>% 
+    src_man_tib <- tib %>% 
+      dplyr::select(!!ids_sym, !!prb_sym, !!seq_sym) %>% 
       dplyr::mutate(Seq_ID:=!!ids_sym, PRB_DES:=!!prb_sym)
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} src_man_tib(original)={RET}"))
-    if (verbose>=vt+4) print(src_man_tib)
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} src_man_tib(original)={RET}"))
+      print(src_man_tib)
+    }
     
     # Ensure we have 122 mer format 60[NN]60
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Validating design sequneces...{RET}"))
@@ -1074,29 +1078,39 @@ desSeq_to_prbs = function(tib,
                     PosSeqN=stringr::str_pad(string=PosSeqN, width=60, side='right', pad='N'),
                     DesNucA=stringr::str_sub(MidSeqN, 1,1), DesNucB=stringr::str_sub(MidSeqN, 2,2),
                     !!seq_sym :=paste0(PreSeqN,'[',MidSeqN,']',PosSeqN) )
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} src_man_tib(122 check)={RET}"))
-    if (verbose>=vt+4) print(src_man_tib)
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} src_man_tib(122 check)={RET}"))
+      print(src_man_tib)
+    }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                      Calcluate Probes on All Strands::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building forward & reverse design sequneces...{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Building forward & reverse design sequneces...{RET}"))
     
-    des_seq_F_C <- src_man_tib %>% 
+    des_seq_F_C <- 
+      src_man_tib %>%
       dplyr::mutate(SR=TRUE, CO=TRUE, DesSeqN=shearBrac(!!seq_sym))
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_F_C={RET}"))
-    if (verbose>=vt+4) print(des_seq_F_C)
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_F_C={RET}"))
+      print(des_seq_F_C)
+    }
     
-    des_seq_R_C <- des_seq_F_C %>% dplyr::mutate(
+    des_seq_R_C <- 
+      des_seq_F_C %>% dplyr::mutate(
       SR=!SR,CO=CO, DesSeqN=revCmp(DesSeqN) )
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_R_C={RET}"))
-    if (verbose>=vt+4) print(des_seq_R_C)
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_R_C={RET}"))
+      print(des_seq_R_C)
+    }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                        Build All Design Strands::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building bisulfite converted design strands...{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Building bisulfite converted design strands...{RET}"))
     
     bsc_tibs <- NULL
     
@@ -1105,7 +1119,8 @@ desSeq_to_prbs = function(tib,
       DesBscU = bscUs(DesSeqN),
       DesBscM = bscMs(DesSeqN),
       DesBscD = bscDs(DesSeqN) )
-    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(FC).{RET}{RET}"))
+    if (verbose>=vt+1) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(FC).{RET}{RET}"))
     if (verbose>=vt+4) bsc_tibs$FC %>% head(n=3) %>% print()
     
     # BSC-Foward-Opposite::
@@ -1114,7 +1129,8 @@ desSeq_to_prbs = function(tib,
       DesBscU=revCmp(DesBscU),
       DesBscM=revCmp(DesBscM),
       DesBscD=revCmp(DesBscD) )
-    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(FO).{RET}{RET}"))
+    if (verbose>=vt+1)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(FO).{RET}{RET}"))
     if (verbose>=vt+4) bsc_tibs$FO %>% head(n=3) %>% print()
     
     # BSC-Reverse-Converted::
@@ -1122,7 +1138,8 @@ desSeq_to_prbs = function(tib,
       DesBscU = bscUs(DesSeqN),
       DesBscM = bscMs(DesSeqN),
       DesBscD = bscDs(DesSeqN) )
-    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(RC).{RET}{RET}"))
+    if (verbose>=vt+1)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(RC).{RET}{RET}"))
     if (verbose>=vt+4) bsc_tibs$RC %>% head(n=3) %>% print()
     
     # BSC-Reverse-Opposite::
@@ -1131,10 +1148,12 @@ desSeq_to_prbs = function(tib,
       DesBscU=revCmp(DesBscU),
       DesBscM=revCmp(DesBscM),
       DesBscD=revCmp(DesBscD) )
-    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(RO).{RET}{RET}"))
+    if (verbose>=vt+1)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite(RO).{RET}{RET}"))
     if (verbose>=vt+4) bsc_tibs$RO %>% head(n=3) %>% print()
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite converted design strands.{RET}{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done.Building bisulfite converted design strands.{RET}{RET}"))
     # return(bsc_tibs)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1142,32 +1161,40 @@ desSeq_to_prbs = function(tib,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     srd_names <- names(bsc_tibs)
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Strand Names={RET}"))
-    if (verbose>=vt+4) print(srd_names)
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Strand Names={RET}"))
+      print(srd_names)
+    }
     
     if (parallel) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Build probes for each strand (Parallel)...{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Build probes for each strand (Parallel)...{RET}"))
       ret_tib <- foreach (srd=srd_names, .combine=rbind) %dopar% {
         lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
                verbose=verbose, vt=vt+1, tc=tc+1) %>% dplyr::bind_rows()
       }
     } else {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Build probes for each strand (Linear)...{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Build probes for each strand (Linear)...{RET}"))
       for (srd in srd_names) {
         ret_tib <- ret_tib %>% dplyr::bind_rows(
           lapply(split(bsc_tibs[[srd]], bsc_tibs[[srd]]$PRB_DES), desAllPrbs, 
                  verbose=verbose, vt=vt+1, tc=tc+1) %>% dplyr::bind_rows() )
       }
     }
-    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+
     # Update Keys::
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Updating keys and strands.{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Updating keys and strands.{RET}"))
+    
     ret_tib <- ret_tib %>% dplyr::mutate(
       Strand_SR=case_when(SR ~ sr_vec[1], !SR ~ sr_vec[2], TRUE ~ NA_character_),
       Strand_CO=case_when(CO ~ co_vec[1], !CO ~ co_vec[2], TRUE ~ NA_character_),
       Seq_ID_Uniq=paste(Seq_ID,paste0(Strand_SR,Strand_CO), sep=del)
     ) %>% dplyr::arrange(Seq_ID_Uniq)
-    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+
     # OLD Naming Scheme::
     #
     # ret_tib <- ret_tib %>% dplyr::mutate(
@@ -1184,10 +1211,7 @@ desSeq_to_prbs = function(tib,
                       PRB1_M_MAT=stringr::str_to_upper(PRB1_M),
                       PRB2_D_MAT=stringr::str_to_upper(PRB2_D) )
     }
-    
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
-    if (verbose>=vt+4) print(ret_tib)
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)

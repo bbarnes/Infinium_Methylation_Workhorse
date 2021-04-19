@@ -334,7 +334,9 @@ bed_to_prbs = function(tib, fas,
     # Get List of BSC Genomes::
     # fas_dir <- fas %>% base::dirname()
     fas_pre <- fas %>% stringr::str_remove(".gz$") %>% stringr::str_remove(".fa$")
-    fas_pre %>% print()
+    if (is.null(gen)) gen <- base::basename(fas_pre)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Prefix({gen})={fas_pre}.{RET}"))
     
     srd_frs <- c("F","R")
     srd_cos <- c("C","O")
@@ -352,19 +354,23 @@ bed_to_prbs = function(tib, fas,
           gen_fas <- paste0(fas_pre,".", fr,co,mu, ".fa.gz")
           
           if (!file.exists(gen_fas)) {
-            if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} gen_fas={gen_fas} does not exist. Skipping...{RET}"))
+            if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Skipping; gen_fas=({fr},{co},{mu})",
+                                            "={gen_fas} Does NOT Exist!{RET}"))
             next
           } else {
-            if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading gen_fas={gen_fas}...{RET}"))
+            if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading; gen_fas({fr},{co},{mu})",
+                                            "={gen_fas}...{RET}"))
           }
           
           cur_tib <- fas_to_seq(
             tib=tib, fas=gen_fas,
             file=file,
             name=cgn,gen=gen,
+            din="Probe_Type", # TBD:: Pass this in as well
             chr1=chr,pos=pos,
             srd=fr,
-            ext_seq="Fwd_Seq",des_seq="Des_Seq",imp_seq="Sequence",
+            # Will Pass these variables in later...
+            # fwd_seq="Fwd_Temp_Seq",des_seq="Iup_Temp_Seq",imp_seq="Imp_Temp_Seq",
             iupac=iupac,
             nrec=nrec,
             add_flank=FALSE,
@@ -376,7 +382,7 @@ bed_to_prbs = function(tib, fas,
               Srd_MU=mu
             )
           
-          if (verbose>=vt) {
+          if (verbose>=vt+4) {
             cat(glue::glue("[{funcTag}]:{tabsStr} Current Tib Pre Join={RET}"))
             print(cur_tib)
           }
@@ -429,10 +435,7 @@ bed_to_prbs = function(tib, fas,
             stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported fr={fr}...{RET}"))
             return(NULL)
           }
-          print(prb_tib)
-          
           cur_tib <- cur_tib %>% dplyr::left_join(prb_tib, by="Seq_ID")
-          
           ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
         }
       }
@@ -451,15 +454,16 @@ bed_to_prbs = function(tib, fas,
 
 fas_to_seq = function(tib, fas, 
                       file=NULL,
-                      name="Name",gen="na",
+                      name,din,gen="na",
                       chr1="Chromosome", pos="Coordinate",
                       chr2="Chrom_Char", srd="F",
-                      ext_seq="Fwd_Seq",
-                      des_seq="Des_Seq",
-                      imp_seq="Sequence",
+                      fwd_seq="Fwd_Temp_Seq",
+                      iup_seq="Iup_Temp_Seq",
+                      imp_seq="Imp_Temp_Seq",
                       ups_len=60, seq_len=122, nrec=0,
-                      iupac=NULL, add_flank=FALSE,
-                      del="_", 
+                      iupac=NULL,
+                      ref_col="Ref",alt_col="Alt",iup_col="Iupac",
+                      add_flank=FALSE,del="_", 
                       verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'fas_to_seq'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -491,9 +495,14 @@ fas_to_seq = function(tib, fas,
     name_sym <- rlang::sym(name)
     chr1_sym <- rlang::sym(chr1)
     chr2_sym <- rlang::sym(chr2)
-    ext_sym  <- rlang::sym(ext_seq)
-    des_sym  <- rlang::sym(des_seq)
+    fwd_sym  <- rlang::sym(fwd_seq)
+    iup_sym  <- rlang::sym(iup_seq)
     imp_sym  <- rlang::sym(imp_seq)
+    din_sym  <- rlang::sym(din)
+    
+    ref_col_sym  <- rlang::sym(ref_col)
+    alt_col_sym  <- rlang::sym(alt_col)
+    iup_col_sym  <- rlang::sym(iup_col)
     
     chr_list <- tib %>% 
       dplyr::arrange(!!chr1_sym,!!pos_sym) %>%
@@ -577,7 +586,7 @@ fas_to_seq = function(tib, fas,
       #
       cur_tib <- cur_tib %>%
         dplyr::mutate(
-          !!ext_sym := ref_seqs %>% addBrac(),
+          !!fwd_sym := ref_seqs %>% addBrac(),
           
           up01=ref_up01,
           up02=ref_up02,
@@ -599,7 +608,7 @@ fas_to_seq = function(tib, fas,
           
           # Now we can assemble to optimal template::
           #
-          !!des_sym := paste0(up58,
+          !!iup_sym := paste0(up58,
                               up59,up60,
                               iupac,dn61,
                               dn60,dn59,
@@ -640,12 +649,22 @@ fas_to_seq = function(tib, fas,
         ups_tib <- cur_tib %>% 
           dplyr::filter(up59=="C" & up60=="G") %>%
           dplyr::mutate(
-            !!des_sym := paste0(up01,up02,up58,up59,up60,iupac,dn61,dn60,dn59,dn58) %>%
+            !!din_sym := "cg",
+            !!fwd_sym := paste0(up01,up02,up58,up59,up60,up61,dn61,dn60,dn59,dn58) %>%
               stringr::str_sub(1,seq_len) %>%
               addBrac(),
+            !!iup_sym := paste0(up01,up02,up58,up59,up60,iupac,dn61,dn60,dn59,dn58) %>%
+              stringr::str_sub(1,seq_len) %>%
+              addBrac(),
+            !!imp_sym := paste0(up01,up02,up58,"CG",up61,dn61,dn60,dn59,dn58) %>%
+              stringr::str_sub(1,seq_len) %>%
+              addBrac(),
+            !!ref_col_sym := "C",
+            !!alt_col_sym := "T",
+            !!iup_col_sym := "Y",
             Din_Str=stringr::str_to_lower(paste0(up59,up60)),
             Des_Din="cg",
-            !!name_sym:=paste(!!name_sym,"CG_UP", sep=del),
+            !!name_sym:=paste(!!name_sym,"CG-UP", sep='-'),
             Coordinate=as.integer(Coordinate-2)
           )
         
@@ -655,12 +674,22 @@ fas_to_seq = function(tib, fas,
         dns_tib <- cur_tib %>% 
           dplyr::filter(dn61=="C" & dn60=="G") %>%
           dplyr::mutate(
-            !!des_sym := paste0(up58,up59,up60,iupac,dn61,dn60,dn59,dn58,dn02) %>%
+            !!din_sym := "cg",
+            !!fwd_sym := paste0(up58,up59,up60,up61,dn61,dn60,dn59,dn58,dn02) %>%
               stringr::str_sub(2) %>%
               addBrac(),
+            !!iup_sym := paste0(up58,up59,up60,iupac,dn61,dn60,dn59,dn58,dn02) %>%
+              stringr::str_sub(2) %>%
+              addBrac(),
+            !!imp_sym := paste0(up58,up59,up60,up61,"CG",dn59,dn58,dn02) %>%
+              stringr::str_sub(2) %>%
+              addBrac(),
+            !!ref_col_sym := "C",
+            !!alt_col_sym := "T",
+            !!iup_col_sym := "Y",
             Din_Str=stringr::str_to_lower(paste0(dn61,dn60)),
             Des_Din="cg",
-            !!name_sym:=paste(!!name_sym,"CG_DN", sep=del),
+            !!name_sym:=paste(!!name_sym,"CG-DN", sep='-'),
             Coordinate=as.integer(Coordinate+2)
           )
       }
@@ -679,8 +708,7 @@ fas_to_seq = function(tib, fas,
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Substring chr_str={chr_str}.{RET}{RET}"))
     }
-    print(ret_tib)
-    
+
     if (!is.null(file)) {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr} Writing improbe input TSV={file}...{RET}"))

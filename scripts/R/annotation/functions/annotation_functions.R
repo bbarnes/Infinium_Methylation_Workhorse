@@ -57,8 +57,9 @@ mutate_chrom_seq = function(seq, pos, val,
   ret_seq
 }
 
-load_dbSNP_vcf = function(vcf, file=NULL, fresh=FALSE,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+load_dbSNP_vcf = function(vcf, file=NULL, 
+                          fresh=FALSE, unique=FALSE,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'load_dbSNP_vcf'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -74,30 +75,39 @@ load_dbSNP_vcf = function(vcf, file=NULL, fresh=FALSE,
     if (fresh || !valid_time_stamp(stamp_vec)) {
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Building clean snp_csv from={vcf}...{RET}"))
-
+      
       vcf_sel <- c("#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO")
       vcf_col <- c("Chromosome","Coordinate","Seq_ID","AlleleA_Str","AlleleB_Str","Qual","Filter","Info")
       
-      ret_tib <- fread(vcf, select=vcf_sel) %>% # head(n=100000) %>%
+      ret_tib <- fread(vcf, select=vcf_sel) %>%
         tibble::as_tibble() %>%
-        purrr::set_names(vcf_col) %>% # clean_tibble() # No need for clean with fread() ...
+        purrr::set_names(vcf_col) %>% 
         dplyr::filter(stringr::str_detect(AlleleA_Str, "^[A-Z]$")) %>%
         dplyr::filter(
           stringr::str_detect(AlleleB_Str, "^[A-Z]$") | 
             stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z]$") |
             stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z],[A-Z]$")) %>%
-        dplyr::mutate(AlleleB_Str2=dplyr::case_when(
-          stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z],[A-Z]$") ~ stringr::str_remove(AlleleB_Str,",[A-Z]$"),
-          TRUE ~ AlleleB_Str),
+        dplyr::mutate(
+          AlleleB_Str1=stringr::str_remove(AlleleB_Str, ",.*$"),
+          AlleleB_Str2=dplyr::case_when(
+            stringr::str_detect(AlleleB_Str, "^[A-Z],[A-Z],[A-Z]$") ~ stringr::str_remove(AlleleB_Str,",[A-Z]$"),
+            TRUE ~ AlleleB_Str),
           
-          AlleleB_Iup=stringr::str_remove_all(AlleleB_Str, ",") %>% 
+          AlleleC_Iup1=paste0(AlleleA_Str, stringr::str_remove_all(AlleleB_Str1, ",")) %>% 
             mapDIs(),
-          AlleleC_Iup=paste0(AlleleA_Str, stringr::str_remove_all(AlleleB_Str2, ",")) %>% 
+          AlleleC_Iup2=paste0(AlleleA_Str, stringr::str_remove_all(AlleleB_Str2, ",")) %>% 
             mapDIs(),
+          
           Chromosome=paste0("chr",stringr::str_remove(Chromosome, "^chr")),
-          AlleleB_Len=stringr::str_length(AlleleB_Str)
+          AlleleB_Len=stringr::str_remove_all(AlleleB_Str,",") %>% 
+            stringr::str_length()
         ) %>% 
-        dplyr::arrange(Chromosome,Coordinate, -AlleleB_Len) %>%
+        dplyr::arrange(Chromosome,Coordinate, -AlleleB_Len)
+      
+      # TBD:: Add VC filtering like below::
+      # ret_tib %>% dplyr::filter(stringr::str_detect(Info,"VC=SNV"))
+      
+      if (unique) ret_tib <- ret_tib %>%
         dplyr::distinct(Chromosome,Coordinate, .keep_all=TRUE)
       
       if (!is.null(file)) {
@@ -107,7 +117,7 @@ load_dbSNP_vcf = function(vcf, file=NULL, fresh=FALSE,
     } else {
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Loading snp_csv={file}...{RET}"))
-
+      
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(file) ))
     }
     
@@ -125,7 +135,7 @@ load_dbSNP_vcf = function(vcf, file=NULL, fresh=FALSE,
         dplyr::summarise(Count=n(), .groups="drop")
       ret_sum %>% print(n=base::nrow(ret_sum))
     }
-
+    
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -307,7 +317,7 @@ manifestToAnnotation = function(tib, ann, gen, csv=NULL, key="Seq_ID",
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 intersectGranges = function(man,ref,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
+                            verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'intersectGranges'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -332,7 +342,7 @@ intersectGranges = function(man,ref,
       
       gene_tib <- ref %>% as.data.frame() %>%
         rownames_to_column(var='Name') %>% tibble::as_tibble() # %>% 
-        # purrr::set_names(c('Gene','chrom','chromStart','chromEnd','chromLength','chromStrand'))
+      # purrr::set_names(c('Gene','chrom','chromStart','chromEnd','chromLength','chromStrand'))
       gene_len <- gene_tib %>% base::nrow()
       
       #
@@ -452,7 +462,7 @@ loadNcbiGeneGR = function(file,
     dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
     colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
     dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE) # %>% dplyr::mutate(transcript=name, name=name2)
-
+    
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
     if (verbose>=vt+4) print(dat_tib)
     
@@ -523,7 +533,7 @@ loadUcscGeneGR = function(file,
     dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) ))
     colnames(dat_tib)[1] <- stringr::str_remove(colnames(dat_tib)[1], '^#')
     dat_tib <- dat_tib %>% dplyr::distinct(name, .keep_all=TRUE)
-
+    
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Raw Data={RET}"))
     if (verbose>=vt+4) print(dat_tib)
     
