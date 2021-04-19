@@ -310,11 +310,11 @@ seq_to_prbs = function(tib, seq,
 
 bed_to_prbs = function(tib, fas,
                        file=NULL,
-                       gen="na",
+                       din="Probe_Type",gen="na",
                        cgn="Seq_ID",chr="Chromosome", pos="Coordinate",
-                       ext_seq="Fwd_Seq",
-                       des_seq="Des_Seq",
-                       imp_seq="Sequence",
+                       fwd_seq="Fwd_Temp_Seq",
+                       iup_seq="Iup_Temp_Seq",
+                       imp_seq="Imp_Temp_Seq",
                        ups_len=60, seq_len=122, nrec=0,
                        iupac=NULL, add_flank=FALSE,
                        del="_", 
@@ -367,12 +367,14 @@ bed_to_prbs = function(tib, fas,
           cur_tib <- fas_to_seq(
             tib=tib, fas=gen_fas,
             file=file,
-            name=cgn,gen=gen,
-            din="Probe_Type", # TBD:: Pass this in as well
+            name=cgn,din=din,gen=gen,
             chr1=chr,pos=pos,
             srd=fr,
-            # Will Pass these variables in later...
+            fwd_seq=fwd_seq,iup_seq=iup_seq,imp_seq=imp_seq,
+            
+            # See Above:: Will Pass these variables in later...
             # fwd_seq="Fwd_Temp_Seq",des_seq="Iup_Temp_Seq",imp_seq="Imp_Temp_Seq",
+            
             iupac=iupac,
             nrec=nrec,
             add_flank=FALSE,
@@ -396,6 +398,7 @@ bed_to_prbs = function(tib, fas,
           prb_tib <- NULL
           if (fr=="F") {
             prb_tib <- tibble::tibble(
+              # TBD:: This should be pulled by symbolic name
               Seq_ID = cur_tib$Seq_ID,
               
               # Forward Converted Designs:: Infinium I/II
@@ -413,10 +416,6 @@ bed_to_prbs = function(tib, fas,
                 cur_tib$dn59,
                 cur_tib$dn58 %>% stringr::str_sub(1,47)
               ) %>% revCmp(),
-              
-              #
-              # LEFT OFF HERE:: In testing...
-              #
               
               # Forward Opposite Designs:: Infinium I/II
               #   Just need to back up by one base::
@@ -438,6 +437,11 @@ bed_to_prbs = function(tib, fas,
               
             )
           } else if (fr=="R") {
+            #
+            # NOTE: From the ch/rs perspective the reverse strand 
+            #   coordinates frame should be moved back by 1
+            #
+            # if ()
             prb_tib <- tibble::tibble(
               Seq_ID = cur_tib$Seq_ID,
 
@@ -457,10 +461,6 @@ bed_to_prbs = function(tib, fas,
                 # cur_tib$dn61,
                 # cur_tib$dn60
               ) %>% cmpl(),
-              
-              #
-              # LEFT OFF HERE:: In testing...
-              #
               
               # Reverse Opposite Designs:: Infinium I/II
               #   Just need to move forward by 1::
