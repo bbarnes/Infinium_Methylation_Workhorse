@@ -962,14 +962,21 @@ snps_ref_tib <- write_tabix_bed(
 #                 "Probe_Type","Seq_ID_can","Info")
 
 mat_tib <- snps_can_tib %>% 
-  dplyr::left_join(snps_ref_tib,
   # dplyr::inner_join(snps_ref_tib,
-                    by=c("Chromosome_Str"="Chromosome","Coordinate"="Coordinate"),
-                    suffix=c("_can","_ref")) %>%
-  dplyr::mutate(Seq_ID_U=paste(Seq_ID_ref,Allele_C, sep='-'),
-                Seq_ID_1=paste(Seq_ID_ref,AlleleC_Iup1, sep='-'),
-                Seq_ID_2=paste(Seq_ID_ref,AlleleC_Iup2, sep='-'),
-                Probe_Type="rs"
+  dplyr::left_join(
+    snps_ref_tib,
+    by=c("Chromosome_Str"="Chromosome","Coordinate"="Coordinate"),
+    suffix=c("_can","_ref")) %>%
+  dplyr::mutate(
+    Seq_ID_can_clean=Seq_ID_can %>%
+      stringr::str_replace_all("[.:_]","-")) %>%
+  dplyr::mutate(
+    Seq_ID_U=dplyr::case_when(
+      is.na(Seq_ID_ref) ~ Seq_ID_can_clean,
+      TRUE ~ paste(Seq_ID_ref,Allele_C, sep='-')),
+    Seq_ID_1=paste(Seq_ID_ref,AlleleC_Iup1, sep='-'),
+    Seq_ID_2=paste(Seq_ID_ref,AlleleC_Iup2, sep='-'),
+    Probe_Type="rs"
   )
 
 matC_tib <- mat_tib %>% dplyr::filter(Allele_C==AlleleC_Iup1)
@@ -1008,7 +1015,6 @@ snp_des_pos_tib <- dplyr::bind_rows(
   dplyr::arrange(Chromosome, Coordinate, Seq_ID, Source) %>%
   dplyr::distinct() %>%
   dplyr::select(dplyr::all_of(snp_des_ord_col))
-  
 
 # This should be zero:: TRUE
 snp_des_pos_tib %>% dplyr::filter(Source=="Customer") %>% dplyr::filter(! Seq_ID_Usr %in% snps_can_tib$Seq_ID) 
