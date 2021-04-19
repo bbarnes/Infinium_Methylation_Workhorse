@@ -1103,7 +1103,7 @@ cur_mat_tib %>% dplyr::filter(PRB1_U_MAT==Probe_Seq_U & PRB1_M_MAT==Probe_Seq_M)
 #                          Design All Probes:: iupac-Fas
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-fas_prb_tab <- can_seq_tib %>% 
+fas_prb_tib <- can_seq_tib %>% 
   dplyr::select(Seq_ID,Probe_Type,Chromosome,Coordinate,Iupac) %>%
   dplyr::distinct() %>%
   bed_to_prbs(fas=run$gen_ref_fas, gen=opt$genBuild,
@@ -1112,9 +1112,8 @@ fas_prb_tab <- can_seq_tib %>%
               # nrec=2,
               verbose=opt$verbose, tt=pTracker)
 
-# Missing: "Probe_Type"
-fas_prb_tab %>% dplyr::group_by(Probe_Type,Iupac) %>% dplyr::summarise(Count=n(), .groups="drop")
-fas_prb_tab %>% dplyr::distinct(Chromosome,Coordinate,Seq_ID,Prb_Seq1,Prb_Seq2)
+# Quick-QC::
+fas_prb_tib %>% dplyr::group_by(Probe_Type,Iupac) %>% dplyr::summarise(Count=n(), .groups="drop")
 
 
 
@@ -1126,51 +1125,103 @@ fas_prb_tab %>% dplyr::distinct(Chromosome,Coordinate,Seq_ID,Prb_Seq1,Prb_Seq2)
 #
 # TBD: Compare Methods (All three: imp, iup, fas)
 #
-#  fas_prb_tab %>% dplyr::select(Prb_Seq1,Prb_Seq2)
+#  fas_prb_tib %>% dplyr::select(Prb_Seq1,Prb_Seq2)
 #  iup_des_tib %>% dplyr::select(PRB1_U_MAT,PRB1_M_MAT,PRB2_D_MAT)
 #  imp_des_tib %>% dplyr::select(Probe_Seq_U,Probe_Seq_M)
 #
 
-fas_prb_tab
+fas_prb_tib
 iup_des_tib
 imp_des_tib
 
-# FRIST ISSUE NO SEQ_ID::
-iup_des_tib %>% dplyr::distinct(Seq_ID,Strand_SR,Strand_CO,PRB1_U_MAT,PRB1_M_MAT,PRB2_D_MAT)
+fas_prb_tib %>% dplyr::group_by(Probe_Type,Srd_FR,Srd_CO,Prb_Des) %>% dplyr::summarise(Count=n(), .groups="drop")
+iup_des_tib %>% dplyr::group_by(Probe_Type,Strand_SR,Strand_CO) %>% dplyr::summarise(Count=n(), .groups="drop")
 
-tmp_tib <- can_seq_tib %>% 
-  dplyr::select(Seq_ID,Iup_Temp_Seq,Probe_Type) %>% 
-  dplyr::distinct() %>%
-  desSeq_to_prbs(
-    ids_key = "Seq_ID", seq_key = "Iup_Temp_Seq", prb_key = "Probe_Type",
-    strsSR = "FR",strsCO = "CO",
-    addMatSeq = TRUE, parallel = TRUE, # max = 10,
-    verbose = opt$verbose+10, tt = pTracker)
 
-# Need summaries
-#  The double comparison below can't be good...
-fas_prb_tab %>% 
-  dplyr::inner_join(iup_des_tib, by=c("Seq_ID","Probe_Type")) %>%
-  dplyr::filter(Prb_Seq1==PRB1_U_MAT) %>%
-  dplyr::filter(Prb_Seq1==PRB1_M_MAT)
+fas_prb_mus  <- fas_prb_tib %>% split(.$Prb_Des)
+fas_prb_cols <- c("Seq_ID","Prb_Din","Srd_FR","Prb_Des","Prb_Seq","Srd_CO")
+fas_ord_cols <- c("Seq_ID","Prb_Din","Prb_Des","Srd_FR","Srd_CO","Prb_Seq")
+
+fas_prb_tab  <- dplyr::bind_rows(
+  fas_prb_mus[["U"]] %>% 
+    dplyr::select(Seq_ID,Probe_Type,Srd_FR,Prb_Des, Prb_SeqC1) %>% 
+    dplyr::mutate(Srd_CO="C") %>% 
+    purrr::set_names(fas_prb_cols),
+  fas_prb_mus[["M"]] %>% 
+    dplyr::select(Seq_ID,Probe_Type,Srd_FR,Prb_Des, Prb_SeqC1) %>% 
+    dplyr::mutate(Srd_CO="C") %>% 
+    purrr::set_names(fas_prb_cols),
+  fas_prb_mus[["D"]] %>% 
+    dplyr::select(Seq_ID,Probe_Type,Srd_FR,Prb_Des, Prb_SeqC2) %>% 
+    dplyr::mutate(Srd_CO="C") %>% 
+    purrr::set_names(fas_prb_cols),
   
-#  dplyr::select(Seq_ID, Prb_Seq1,PRB1_U_MAT)
+  fas_prb_mus[["U"]] %>% 
+    dplyr::select(Seq_ID,Probe_Type,Srd_FR,Prb_Des, Prb_SeqO1) %>% 
+    dplyr::mutate(Srd_CO="O") %>% 
+    purrr::set_names(fas_prb_cols),
+  fas_prb_mus[["M"]] %>% 
+    dplyr::select(Seq_ID,Probe_Type,Srd_FR,Prb_Des, Prb_SeqO1) %>% 
+    dplyr::mutate(Srd_CO="O") %>% 
+    purrr::set_names(fas_prb_cols),
+  fas_prb_mus[["D"]] %>% 
+    dplyr::select(Seq_ID,Probe_Type,Srd_FR,Prb_Des, Prb_SeqO2) %>% 
+    dplyr::mutate(Srd_CO="O") %>% 
+    purrr::set_names(fas_prb_cols)
+  
+) %>% 
+  dplyr::select(dplyr::all_of(fas_ord_cols)) %>%
+  dplyr::arrange(Seq_ID)
 
-fas_prb_mus <- fas_prb_tab %>% split(.$Srd_MU)
+#
+# TBD:: Build iup_prb_tab from iup_des_tib
+#
+iup_prb_cols <- c("Seq_ID","Prb_Din","Srd_FR","Srd_CO","Prb_Seq","Prb_Des")
+
+iup_prb_tab  <- dplyr::bind_rows(
+  iup_des_tib %>% 
+    dplyr::select(Seq_ID,Probe_Type,Strand_SR,Strand_CO,PRB1_U_MAT) %>%
+    dplyr::mutate(Prb_Des="U") %>%
+    purrr::set_names(iup_prb_cols),
+  iup_des_tib %>% 
+    dplyr::select(Seq_ID,Probe_Type,Strand_SR,Strand_CO,PRB1_M_MAT) %>%
+    dplyr::mutate(Prb_Des="M") %>%
+    purrr::set_names(iup_prb_cols),
+  iup_des_tib %>% 
+    dplyr::select(Seq_ID,Probe_Type,Strand_SR,Strand_CO,PRB2_D_MAT) %>%
+    dplyr::mutate(Prb_Des="D") %>%
+    purrr::set_names(iup_prb_cols)
+) %>%
+  dplyr::select(dplyr::all_of(fas_ord_cols)) %>%
+  dplyr::arrange(Seq_ID)
+
+  
+  
+#
+# TBD:: Sesame Manifest -> chr1/ch/cg/rs -> validate
+#
 
 iup_des_tib %>% 
-  dplyr::inner_join(fas_prb_mus[["U"]],
-                    by=c("Seq_ID","Probe_Type"),
-                    suffix=c("_iup","_fas"))
+  dplyr::inner_join(
+    fas_prb_mus[["U"]],
+    # by=c("Seq_ID","Probe_Type","Strand_SR"="Srd_FR","Strand_CO"="Srd_CO"),
+    by=c("Seq_ID","Probe_Type","Strand_SR"="Srd_FR"),
+    suffix=c("_iup","_fas")
+  ) %>%
+  dplyr::filter(Strand_CO=="C" & Prb_SeqC1!=PRB1_U_MAT) %>%
+  dplyr::select(Seq_ID,Probe_Type,Strand_SR,Strand_CO, Prb_SeqC1,PRB1_U_MAT) %>%
+  dplyr::group_by(Probe_Type,Strand_SR,Strand_CO) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
 
+  
 # These should all be zero::
-fas_prb_tab %>% dplyr::anti_join(iup_des_tib, by=c("Seq_ID"))
-fas_prb_tab %>% dplyr::anti_join(imp_des_tib, by=c("Seq_ID"))
+fas_prb_tib %>% dplyr::anti_join(iup_des_tib, by=c("Seq_ID"))
+fas_prb_tib %>% dplyr::anti_join(imp_des_tib, by=c("Seq_ID"))
 
-iup_des_tib %>% dplyr::anti_join(fas_prb_tab, by=c("Seq_ID"))
+iup_des_tib %>% dplyr::anti_join(fas_prb_tib, by=c("Seq_ID"))
 iup_des_tib %>% dplyr::anti_join(imp_des_tib, by=c("Seq_ID"))
 
-imp_des_tib %>% dplyr::anti_join(fas_prb_tab, by=c("Seq_ID"))
+imp_des_tib %>% dplyr::anti_join(fas_prb_tib, by=c("Seq_ID"))
 imp_des_tib %>% dplyr::anti_join(iup_des_tib, by=c("Seq_ID"))
 
 

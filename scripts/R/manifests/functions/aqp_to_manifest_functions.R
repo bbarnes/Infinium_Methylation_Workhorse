@@ -338,11 +338,13 @@ bed_to_prbs = function(tib, fas,
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr} Prefix({gen})={fas_pre}.{RET}"))
     
-    srd_frs <- c("F","R")
-    srd_cos <- c("C","O")
-    srd_cos <- c("C")
-    srd_mus <- c("U","M","D")
+    # There isn't an opposite genome, need to build that from the converted::
+    # srd_cos <- c("C","O")
     
+    srd_cos <- c("C")
+    srd_frs <- c("F","R")
+    srd_mus <- c("U","M","D")
+
     for (fr in srd_frs) {
       # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} fr={fr}...{RET}"))
       
@@ -379,7 +381,7 @@ bed_to_prbs = function(tib, fas,
             dplyr::mutate(
               Srd_FR=fr,
               Srd_CO=co,
-              Srd_MU=mu
+              Prb_Des=mu
             )
           
           if (verbose>=vt+4) {
@@ -396,40 +398,87 @@ bed_to_prbs = function(tib, fas,
             prb_tib <- tibble::tibble(
               Seq_ID = cur_tib$Seq_ID,
               
-              Prb_Seq1 = paste0(
+              # Forward Converted Designs:: Infinium I/II
+              Prb_SeqC1 = paste0(
                 cur_tib$up61,
                 cur_tib$dn61,
                 cur_tib$dn60,
                 cur_tib$dn59,
                 cur_tib$dn58 %>% stringr::str_sub(1,46)
               ) %>% revCmp(),
-              Prb_Seq2 = paste0(
+              Prb_SeqC2 = paste0(
                 # cur_tib$up61,
                 cur_tib$dn61,
                 cur_tib$dn60,
                 cur_tib$dn59,
                 cur_tib$dn58 %>% stringr::str_sub(1,47)
-              ) %>% revCmp()
+              ) %>% revCmp(),
+              
+              #
+              # LEFT OFF HERE:: In testing...
+              #
+              
+              # Forward Opposite Designs:: Infinium I/II
+              #   Just need to back up by one base::
+              Prb_SeqO1 = paste0(
+                cur_tib$up58 %>% stringr::str_sub(12,58), # 13 -> 12
+                cur_tib$up59,
+                cur_tib$up60,
+                cur_tib$up61
+                # cur_tib$dn61 # Remove dn61
+              ), # No complement
+              Prb_SeqO2 = paste0(
+                cur_tib$up58 %>% stringr::str_sub(11,58), # 12 -> 11
+                cur_tib$up59,
+                cur_tib$up60
+                # cur_tib$up61 # Remove dn61
+                # cur_tib$dn61,
+                # cur_tib$dn60
+              ) # No Complement
+              
             )
           } else if (fr=="R") {
             prb_tib <- tibble::tibble(
               Seq_ID = cur_tib$Seq_ID,
 
-              Prb_Seq1 = paste0(
+              # Reverse Converted Designs:: Infinium I/II
+              Prb_SeqC1 = paste0(
                 cur_tib$up58 %>% stringr::str_sub(13,58),
                 cur_tib$up59,
                 cur_tib$up60,
                 cur_tib$up61,
                 cur_tib$dn61
               ) %>% cmpl(),
-              Prb_Seq2 = paste0(
+              Prb_SeqC2 = paste0(
                 cur_tib$up58 %>% stringr::str_sub(12,58),
                 cur_tib$up59,
                 cur_tib$up60,
                 cur_tib$up61
                 # cur_tib$dn61,
                 # cur_tib$dn60
-              ) %>% cmpl()
+              ) %>% cmpl(),
+              
+              #
+              # LEFT OFF HERE:: In testing...
+              #
+              
+              # Reverse Opposite Designs:: Infinium I/II
+              #   Just need to move forward by 1::
+              Prb_SeqO1 = paste0(
+                # cur_tib$up61, # Remove up61
+                cur_tib$dn61,
+                cur_tib$dn60,
+                cur_tib$dn59,
+                cur_tib$dn58 %>% stringr::str_sub(1,47) # 46 -> 47
+              ), # %>% revCmp(), # No revCmp
+              Prb_SeqO2 = paste0(
+                # cur_tib$up61,
+                # cur_tib$dn61, # Remove dn61
+                cur_tib$dn60,
+                cur_tib$dn59,
+                cur_tib$dn58 %>% stringr::str_sub(1,48) # 47 -> 48
+              ) # %>% revCmp(), # No revCmp
+
             )
           } else {
             stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported fr={fr}...{RET}"))
