@@ -696,6 +696,7 @@ fas_to_seq = function(tib, fas,
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Upstream CG Flank Seuqnces({chr_str})...{RET}"))
         
         ups_tib <- cur_tib %>% 
+          dplyr::filter(!!din_sym == "rs") %>%
           dplyr::filter(up59=="C" & up60=="G") %>%
           dplyr::mutate(
             !!din_sym := "cg",
@@ -721,6 +722,7 @@ fas_to_seq = function(tib, fas,
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Downstream CG Flank Seuqnces({chr_str})...{RET}"))
         
         dns_tib <- cur_tib %>% 
+          dplyr::filter(!!din_sym == "rs") %>%
           dplyr::filter(dn61=="C" & dn60=="G") %>%
           dplyr::mutate(
             !!din_sym := "cg",
