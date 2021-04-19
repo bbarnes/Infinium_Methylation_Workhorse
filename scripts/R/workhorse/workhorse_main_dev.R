@@ -931,7 +931,7 @@ if (FALSE) {
     dplyr::filter(LenA == 50) %>% dplyr::distinct() %>% 
     dplyr::distinct(Assay_Design_ID,AlleleA_ProbeSeq, .keep_all = TRUE)
   
-  mat_cpg_csv <- file.path(opt$outDir, paste(opt$runName, "order.cpg-updated-info.csv.gz"))
+  mat_cpg_csv <- file.path(opt$outDir, paste(opt$runName, "order.cpg-updated-info.csv.gz", sep='.'))
   mat_cpg_tib <- dplyr::bind_rows(
     cpg_tib %>% dplyr::inner_join(ses_epi_tib, by=c("Assay_Design_ID"="Seq_ID")) %>%
       dplyr::filter(AlleleA_ProbeSeq==ProbeSeq_A) %>%
