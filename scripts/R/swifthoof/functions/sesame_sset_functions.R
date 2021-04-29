@@ -1076,7 +1076,8 @@ mutateSset = function(sset, method, full=TRUE,
     } else if (method=='open') {
       sset <- sset %>% 
         sesame::pOOBAH(force=force) %>% 
-        sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids) %>% 
+        # sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids) %>% 
+        sesame::noob(bgR=oobR_ids, bgG=oobG_ids) %>% 
         sesame::dyeBiasCorrTypeINorm()
     } else if (method=='dyeBiasCorrTypeINorm') {
       sset <- sset %>% sesame::dyeBiasCorrTypeINorm()
@@ -1088,7 +1089,7 @@ mutateSset = function(sset, method, full=TRUE,
       # sset <- noob2(sset=sset,
       #               oobRprobes=oobR_ids, oobGprobes=oobG_ids,
       #               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- sset %>% sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids)
+      sset <- sset %>% sesame::noob(bgR=oobR_ids, bgG=oobG_ids)
     } else if (method=='noobsb') {
       sset <- sset %>% sesame::noobsb()
     } else if (method=='inferTypeIChannel') {
@@ -1176,8 +1177,8 @@ getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE, extra=TRUE)
                                  sum.TypeI = sum.TypeI)))
   }
   stopifnot(is(sset, "SigSet"))
-  IGs <- IG(sset)
-  IRs <- IR(sset)
+  IGs <- sesame::IG(sset)
+  IRs <- sesame::IR(sset)
   if (sum.TypeI) {
     IGs <- IGs + oobR2(sset)
     IRs <- IRs + oobG2(sset)
@@ -1186,9 +1187,10 @@ getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE, extra=TRUE)
     IGs[!sset@extra$IGG, ] <- sset@oobR[!sset@extra$IGG, ]
     IRs[!sset@extra$IRR, ] <- sset@oobG[!sset@extra$IRR, ]
   }
-  betas <- c(pmax(IGs[, "M"], 1)/pmax(IGs[, "M"] + IGs[, "U"], 2), 
-             pmax(IRs[, "M"], 1)/pmax(IRs[, "M"] + IRs[, "U"], 2), 
-             pmax(II(sset)[, "M"], 1)/pmax(II(sset)[, "M"] + II(sset)[, "U"], 2))
+  betas <- c(pmax(IGs[,"M"], 1)/pmax(IGs[,"M"] + IGs[, "U"], 2),
+             pmax(IRs[,"M"], 1)/pmax(IRs[,"M"] + IRs[, "U"], 2),
+             pmax(sesame::II(sset)[,"M"], 1)/
+               pmax(sesame::II(sset)[,"M"] + sesame::II(sset)[,"U"], 2))
   if (mask) 
     betas[!is.na(match(names(betas), sset@extra$mask))] <- NA
   betas
@@ -1202,30 +1204,30 @@ pOOBAH2 = function (sset, force = FALSE)
     # cat("Retuning original sset\n")
     return(sset)
   }
-  funcG <- ecdf(oobG(sset))
-  funcR <- ecdf(oobR(sset))
+  funcG <- ecdf(sesame::oobG(sset))
+  funcR <- ecdf(sesame::oobR(sset))
   # funcR <- ecdf(oobR(sset) %>% head())
   
-  pIR <- 1 - apply(cbind(funcR(IR(sset)[, "M"]), funcR(IR(sset)[, 
-                                                                "U"])), 1, max)
-  pIG <- 1 - apply(cbind(funcG(IG(sset)[, "M"]), funcG(IG(sset)[, 
-                                                                "U"])), 1, max)
-  pII <- 1 - apply(cbind(funcG(II(sset)[, "M"]), funcR(II(sset)[, 
-                                                                "U"])), 1, max)
-  names(pIR) <- rownames(IR(sset))
-  names(pIG) <- rownames(IG(sset))
-  names(pII) <- rownames(II(sset))
-  if (!("pvals" %in% names(extra(sset)))) {
+  pIR <- 1 - apply(cbind(funcR(sesame::IR(sset)[,"M"]), 
+                         funcR(sesame::IR(sset)[,"U"])), 1, max)
+  pIG <- 1 - apply(cbind(funcG(sesame::IG(sset)[,"M"]), 
+                         funcG(sesame::IG(sset)[,"U"])), 1, max)
+  pII <- 1 - apply(cbind(funcG(sesame::II(sset)[,"M"]), 
+                         funcR(sesame::II(sset)[,"U"])), 1, max)
+  names(pIR) <- rownames(sesame::IR(sset))
+  names(pIG) <- rownames(sesame::IG(sset))
+  names(pII) <- rownames(sesame::II(sset))
+  if (!("pvals" %in% names(sesame::extra(sset)))) {
     # cat("Creating fresh list\n")
-    extra(sset)[["pvals"]] <- list()
+    sesame::extra(sset)[["pvals"]] <- list()
   }
   # cat(glue::glue("Setting method={method}{RET}{RET}"))
   pIR %>% head() %>% print()
-  IR(sset) %>% head() %>% print()
+  sesame::IR(sset) %>% head() %>% print()
   # oobR(sset) %>% head() %>% print()
   print(funcR)
   
-  extra(sset)[["pvals"]][[method]] <- c(pIR, pIG, pII)
+  sesame::extra(sset)[["pvals"]][[method]] <- c(pIR, pIG, pII)
   sset
 }
 

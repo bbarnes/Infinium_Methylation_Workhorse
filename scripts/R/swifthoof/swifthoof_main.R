@@ -25,7 +25,7 @@ rm(list=ls(all=TRUE))
 
 # suppressPackageStartupMessages(base::require() )
 # Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
-# suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("dbplyr") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
