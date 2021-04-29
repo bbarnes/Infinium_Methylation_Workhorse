@@ -16,33 +16,43 @@ else
     exit
 fi
 
+echo "RSC="${RSCRIPT}
+
 if [ -e ${EXE_A} ]; then
     EXE=${EXE_A}
+
+    echo "Docker Run..."
+    echo "EXE="${EXE}
 
     INP=/input
     OUT=/output
     CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --idatsDir=${INP} --outDir=${OUT} $@"
-
-    echo "Docker Run..."
     
 elif [ -e ${EXE_B} ]; then
     EXE=${EXE_B}
-
-    # INP=$1
-    # OUT=$2
-
-    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} $@"
+    
     echo "Local Run..."
+    echo "EXE="${EXE}
+    
+    INP=$1
+    OUT=$2
+
+    if [ "$#" -lt 2 ]; then
+	echo "Usage: $0 idatsDir outDir [options]"
+	exit 1
+    fi
+    
+    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} $@"
     
 else
     echo "Unrecognized EXE directory!"
     exit
 fi
 
-echo "RSC="${RSCRIPT}
-echo "EXE="${EXE}
 echo "INP="${INP}
 echo "OUT="${OUT}
+echo ""
+
 echo "CMD="${CMD}
 echo ""
 

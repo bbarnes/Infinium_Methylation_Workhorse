@@ -224,12 +224,15 @@ program_init = function(name,defs=NULL,
   }
   # if (!is.null(defs))
   #   def_tib <- dplyr::bind_rows(defs) %>% tidyr::gather("Params", "Value")
-  opt_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
+  opt_tib <- dplyr::bind_rows(opts) %>% 
+    tidyr::gather("Option", "Value") %>%
+    dplyr::distinct()
+  
   par_tib <- pars %>%
     unlist(recursive = TRUE) %>%
     dplyr::bind_rows() %>% 
-    tidyr::gather("Params", "Value")
-  if (opts$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
+    tidyr::gather("Params", "Value") %>%
+    dplyr::distinct()
   if (opts$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
