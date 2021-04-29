@@ -285,9 +285,8 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- 'AKE-EPIDX'
     
     opt$auto_detect <- TRUE
-    opt$workflow <- "nd,ind"
-    
-    
+    # opt$workflow <- "nd,ind"
+    opt$workflow <- "i,ind"
     
   } else if (par$local_runType=='COVID') {
     opt$runName  <- 'COVID-Direct-Set1'

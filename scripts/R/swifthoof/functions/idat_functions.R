@@ -70,6 +70,10 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, csv=NULL, ssh=NULL,
                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
 
       ret_tib <- dplyr::full_join(grn_sig, red_sig, by="Address")
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Joined Grn/Red Idats(tib)={RET}"))
+        print(tib)
+      }
 
       grn_ann <- dplyr::bind_cols(
         getIdatBarcodeTib(grn_idat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),
