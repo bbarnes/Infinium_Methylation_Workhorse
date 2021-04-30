@@ -70,6 +70,7 @@ opt$runName   <- NULL
 # Class Parameters::
 # Really simple test to make sure we can seperate the sexes...
 opt$classVar <- NULL
+opt$workflow <- NULL
 
 opt$trainClass <- NULL
 opt$cross_perc_min <- 90
@@ -164,10 +165,6 @@ if (args.dat[1]=='RStudio') {
   # End of local parameter definitions::
   #
   
-  #
-  # End of local parameter definitions::
-  #
-  
   opt$addPval     <- TRUE
   opt$buildDml    <- FALSE
   opt$buildDbl    <- FALSE
@@ -176,11 +173,13 @@ if (args.dat[1]=='RStudio') {
   opt$buildDml    <- TRUE
   opt$buildDbl    <- TRUE
   
+  opt$single   <- TRUE
   opt$single   <- FALSE
   opt$cluster  <- FALSE
   opt$parallel <- FALSE
   
   opt$samplePvalName <- "Poob_Pass_0_Perc"
+  opt$samplePvalName <- "cg_pvals_pOOBAH_pass_perc_1"
   opt$samplePvalPerc <- 90
   
   # Loci Level Filtering Parameters::
@@ -197,11 +196,12 @@ if (args.dat[1]=='RStudio') {
   
   opt$seeds <- "13,17,42,43,57,61,69"
   opt$seeds <- "13,42"
-
+  
   opt$featuresCsv <- NULL
   opt$featuresDml <- NULL
-
+  
   opt$classVar <- 'Sample_Class'
+  opt$workflow <- "ind"
   par$platform <- 'EPIC'
   par$version  <- 'B4'
   
@@ -226,122 +226,59 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GENK'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
+  par$local_runType <- 'NA12878'
+  par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
   
-  if (par$local_runType=='COVID') {
-    opt$single <- TRUE
-    
-    opt$lociBetaKey <- "i_beta,d_beta,dn_beta,dni_beta,ind_beta"
-    # opt$lociBetaKey <- "d_beta"
-    
-    opt$lociPvalKey <- "i_poob,d_poob,dn_poob,dni_poob,ind_poob"
-    # opt$lociPvalKey <- "d_poob"
-    
-    opt$lociPvalMin <- "1.0"
-    opt$samplePvalPerc <- 0
-
-    opt$runName  <- 'COVID-Direct-Set1'
+  if (FALSE) {
+  } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
+    opt$runName  <- par$local_runType
     opt$classVar <- 'Sample_Class'
-    par$platform <- 'COVID'
-    par$version  <- 'C1'
-    
-    opt$mergeDir  <- paste(
-      # 'scratch/merge_builds/COVID/C1/Sample_Class/COVID-Direct-Set1'
-      file.path(par$topDir, 'scratch/merge_builds', par$platform,par$version,opt$classVar, opt$runName),
-      sep=',')
-    
-    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
-    
-  } else if (par$local_runType=='COVIC') {
-    opt$runName  <- 'COVIC-Set7-06082020'
-    opt$runName  <- 'COVIC-Set5-10062020'
-    opt$runName  <- 'COVIC-Set1-15052020'
-    
-    par$version  <- 'C0'
-    
-    opt$mergeDir  <- paste(
-      file.path(par$topDir, 'scratch/merge_builds', par$platform,par$version,opt$classVar, opt$runName),
-      sep=',')
-    
-    opt$trainClass <- paste('nSARSCov2', 'pSARSCov2', sep=',')
-    
-    # Loci (Feature) Selection Parameters::
-    #
-    # opt$featuresCsv <- paste( file.path(par$datDir, 'sampleSheets/dmls/Ivana-145.csv.gz'),
-    #                           file.path(par$datDir, 'sampleSheets/dmls/Genknowme-2043.csv.gz'),
-    #                           file.path(par$datDir, 'sampleSheets/dmls/COVIC-hit.csv.gz'),
-    #                           sep=',')
-    # opt$featuresDml <- "100"
-    
-  } else if (par$local_runType=='GRCm38') {
-    par$runNameA  <- 'ILMN_mm10_betaTest_17082020'
-    par$runNameB  <- 'VanAndel_mm10_betaTest_31082020'
-    par$runNameC  <- 'MURMETVEP_mm10_betaTest_06082020'
-    
-    opt$runName   <- 'mm10_controls'
-
-    opt$buildDir  <- paste(
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameA),
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameB),
-      file.path(par$topDir, 'scratch/swifthoof_main', par$runNameC),
-      sep=',')
-    
-    opt$classVar <- 'Sample_Name'
-    par$platform <- 'LEGX'
-
-    par$titration <- FALSE
-    par$titration <- TRUE
-    if (par$titration) {
-      opt$runName  <- 'mm10-ILS-VAI.Titration'
-      opt$trainClass <- paste('T00DZ','T50DZ','T99DZ', sep=',')
-    } else {
-      opt$runName  <- 'mm10-ILS-VAI.Replicate'
-      opt$trainClass <- paste('RepAC','RepS3','RepM1','RepSA', sep=',')
-    }
-    
-    opt$mergeDir  <- paste(
-      file.path(par$topDir,'merge_builds/LEGX/S1/Sample_Name',opt$runName),
-      sep=',')
-    
-  } else if (par$local_runType=='qcMVP') {
-    opt$classVar <- 'AutoSample_dB_Key'
+    opt$workflow <- "ind"
     par$platform <- 'EPIC'
     par$version  <- 'B4'
     
-    opt$samplePvalPerc <- 10
+    opt$single   <- FALSE
+    # opt$parallel <- TRUE
     
-    par$runNameA <- 'CNTL-Samples_VendA_10092020'
-    par$runNameB <- 'CNTL-Samples_VendB_10092020'
-    par$runNameC <- 'BETA-8x1-EPIC-Core'
-    par$runNameD <- 'DELTA-8x1-EPIC-Core'
-    par$runNameE <- 'BETA-8x1-EPIC-Bad'
-    par$runNameF <- 'DELTA-24x1-EPIC'
+    opt$lociBetaKey <- "betas"
+    opt$lociPvalKey <- "pvals_pOOBAH"
     
-    opt$runName  <- paste(par$local_runType,'decoder', sep='_')
-    
-    opt$trainClass <- paste('HELA','JURKAT','MCF7','RAJI','T00BZ','T50BZ','T99BZ', sep=',')
-    
-    opt$mergeDir  <- paste(
-      file.path(par$topDir,'scratch/merge_builds',par$platform,par$version,opt$classVar,opt$runName),
-      
-      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameA),
-      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameB),
-      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameC),
-      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameD),
-      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameE),
-      # file.path(par$topDir,'merge_builds',par$platform,par$version,opt$classVar,par$runNameF),
+    opt$mergeDir <- paste(
+      file.path(par$topDir,"scratch","merge_builds",opt$runName,
+                par$platform,par$version,opt$classVar,opt$workflow),
+      file.path(par$topDir,"scratch","merge_builds","EPIC-8x1-EM-Sample-Prep.v0",
+                par$platform,par$version,opt$classVar,opt$workflow),
       sep=',')
     
-    opt$plot_pairs <- TRUE
+    opt$trainClass <- paste('BS','EM', sep=',')
+    
+  } else if (par$local_runType=='NA12878') {
+    opt$runName  <- par$local_runType
+    opt$classVar <- 'Sample_Class'
+    opt$workflow <- "ind"
+    par$platform <- 'EPIC'
+    par$version  <- 'B4'
+    
+    opt$single   <- FALSE
+    # opt$parallel <- TRUE
+    
+    opt$lociBetaKey <- "betas"
+    opt$lociPvalKey <- "pvals_pOOBAH"
+    
+    opt$mergeDir <- paste(
+      file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
+                par$platform,par$version,opt$classVar,opt$workflow),
+      sep=',')
+    
+    opt$trainClass <- paste('NA12878', sep=',')
     
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
   
-  opt$single   <- TRUE
-  opt$single   <- FALSE
-  
-  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag, par$platform, par$version)
-  opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
+  # opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag, par$platform, par$version)
+  # opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
+  opt$outDir <- file.path(par$topDir, 'scratch', par$runMode)
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -376,9 +313,18 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--runName"), type="character", default=opt$runName, 
                 help="Run Name [default= %default]", metavar="character"),
     
+    # Chip Platform and Version Parameters::
+    # make_option(c("--platform"), type="character", default=opt$platform, 
+    #             help="Platform name (HM50, EPIC) [default= %default]", metavar="character"),
+    # make_option(c("--version"), type="character", default=opt$version, 
+    #             help="Manifest version (B2, B4, C0) [default= %default]", metavar="character"),
+    
     # Class Parameters::
     make_option(c("--classVar"), type="character", default=opt$classVar, 
                 help="Classification Variable Name [default= %default]", metavar="character"),
+    make_option(c("--workflow"), type="character", default=opt$workflow, 
+                help="Target Workflow Variable Name [default= %default]", metavar="character"),
+    
     make_option(c("--trainClass"), type="character", default=opt$trainClass, 
                 help="Training Class Variable Names, comma seperated [default= %default]", metavar="character"),
     make_option(c("--cross_perc_min"), type="double", default=opt$cross_perc_min,
@@ -457,136 +403,66 @@ if (args.dat[1]=='RStudio') {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                            Validate Options::
+#                         Program Initialization::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (is.null(par$runMode) || is.null(par$prgmDir) || is.null(par$prgmTag) || 
-    is.null(par$scrDir) || is.null(par$datDir)) {
-  
-  par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
-  par_tib %>% base::print(n=base::nrow(par_tib) )
-  
-  if (is.null(par$runMode)) cat(glue::glue("[Usage]: runMode is NULL!!!{RET}"))
-  if (is.null(par$prgmDir)) cat(glue::glue("[Usage]: prgmDir is NULL!!!{RET}"))
-  if (is.null(par$prgmTag)) cat(glue::glue("[Usage]: prgmTag is NULL!!!{RET}"))
-  if (is.null(par$scrDir))  cat(glue::glue("[Usage]: scrDir is NULL!!!{RET}"))
-  if (is.null(par$datDir))  cat(glue::glue("[Usage]: darDir is NULL!!!{RET}"))
-  base::stop("Null Parameters!\n\n")
-}
+par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
+opt_reqs <- c('outDir','Rscript','verbose')
+opt_reqs <- c('outDir','Rscript','verbose','clean',
+              'mergeDir','runName','classVar','workflow',
+              'trainClass', 'cross_perc_min', 
+              'samplePvalName', 'samplePvalPerc', 
+              'lociBetaKey', 'lociPvalKey', 'lociPvalMin', 
+              'alphaMin','alphaMax','alphaInc','seeds', 
+              # 'platform','version',
+              'percisionBeta','percisionPval',
+              'execute','single','parallel','cluster')
 
-if (is.null(opt$outDir) || is.null(opt$mergeDir) || 
-    is.null(opt$runName) || 
-    is.null(opt$classVar) || is.null(opt$trainClass) ||
-    is.null(opt$samplePvalName) || is.null(opt$samplePvalPerc) ||
-    is.null(opt$lociBetaKey) || is.null(opt$lociPvalKey) || is.null(opt$lociPvalMin) || 
-    is.null(opt$alphaMin) || is.null(opt$alphaMax) || is.null(opt$alphaInc) ||
-    # (is.null(opt$featuresCsv) && is.null(opt$featuresDml) && is.null(opt$featuresDbl) ) ||
-    is.null(opt$seeds) ||
-    is.null(opt$percisionBeta) || is.null(opt$percisionPval) || 
-    is.null(opt$execute) || is.null(opt$single) || is.null(opt$parallel) || is.null(opt$cluster) ||
-    
-    is.null(opt$clean) || is.null(opt$Rscript) || is.null(opt$verbose)) {
-  if (par$runMode=='CommandLine') print_help(opt_parser)
-  
-  opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
-  opt_tib %>% base::print(n=base::nrow(opt_tib) )
-  # OLD data.frame print method::
-  # dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value") %>% as.data.frame() %>% print()
-  
-  cat(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
-  if (is.null(opt$outDir))     cat(glue::glue("[Usage]: outDir is NULL!!!{RET}"))
-  if (is.null(opt$mergeDir))   cat(glue::glue("[Usage]: buildDirs is NULL!!!{RET}"))
-  if (is.null(opt$runName))    cat(glue::glue("[Usage]: runName is NULL!!!{RET}"))
-  
-  if (is.null(opt$classVar))   cat(glue::glue("[Usage]: classVar is NULL!!!{RET}"))
-  if (is.null(opt$trainClass)) cat(glue::glue("[Usage]: trainClass is NULL!!!{RET}"))
-  if (is.null(opt$cross_perc_min)) cat(glue::glue("[Usage]: cross_perc_min is NULL!!!{RET}"))
-  
-  if (is.null(opt$samplePvalName)) cat(glue::glue("[Usage]: samplePvalName is NULL!!!{RET}"))
-  if (is.null(opt$samplePvalPerc)) cat(glue::glue("[Usage]: samplePvalPerc is NULL!!!{RET}"))
-  
-  if (is.null(opt$lociBetaKey)) cat(glue::glue("[Usage]: lociBetaKey is NULL!!!{RET}"))
-  if (is.null(opt$lociPvalKey)) cat(glue::glue("[Usage]: lociPvalKey is NULL!!!{RET}"))
-  if (is.null(opt$lociPvalMin)) cat(glue::glue("[Usage]: lociPvalMin is NULL!!!{RET}"))
-  
-  if (is.null(opt$alphaMin)) cat(glue::glue("[Usage]: alphaMin is NULL!!!{RET}"))
-  if (is.null(opt$alphaMax)) cat(glue::glue("[Usage]: alphaMax is NULL!!!{RET}"))
-  if (is.null(opt$alphaInc)) cat(glue::glue("[Usage]: alphaInc is NULL!!!{RET}"))
-  
-  # if (is.null(opt$featuresCsv) && is.null(opt$featuresDml) && is.null(opt$featuresDbl)) 
-  #   cat(glue::glue("[Usage]: Both featuresCsv AND featuresDml AND featuresDbl are NULL!!!{RET}"))
-  if (is.null(opt$seeds)) cat(glue::glue("[Usage]: seeds is NULL!!!{RET}"))
-  
-  if (is.null(opt$percisionBeta)) cat(glue::glue("[Usage]: percisionBeta is NULL!!!{RET}"))
-  if (is.null(opt$percisionPval)) cat(glue::glue("[Usage]: percisionPval is NULL!!!{RET}"))
-  
-  if (is.null(opt$execute))  cat(glue::glue("[Usage]: execute is NULL!!!{RET}"))
-  if (is.null(opt$single))   cat(glue::glue("[Usage]: single is NULL!!!{RET}"))
-  if (is.null(opt$parallel)) cat(glue::glue("[Usage]: parallel is NULL!!!{RET}"))
-  if (is.null(opt$cluster))  cat(glue::glue("[Usage]: cluster is NULL!!!{RET}"))
-  
-  if (is.null(opt$clean))   cat(glue::glue("[Usage]: clean is NULL!!!{RET}"))
-  if (is.null(opt$Rscript)) cat(glue::glue("[Usage]: Rscript is NULL!!!{RET}"))
-  if (is.null(opt$verbose)) cat(glue::glue("[Usage]: verbosity is NULL!!!{RET}"))
-  base::stop(glue::glue("{RET}[Usage]: Missing arguements!!!{RET}{RET}") )
-}
-par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
-opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
-if (opt$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
-if (opt$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
-cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                              Source Files::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 par$gen_src_dir <- file.path(par$scrDir, 'functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form General Source={par$gen_src_dir}!{RET}{RET}") )
+if (!dir.exists(par$gen_src_dir))
+  stop(glue::glue("[{par$prgmTag}]: General Source={par$gen_src_dir} does not exist!{RET}"))
 
-par$prgm_src_dir <- file.path(par$scrDir,par$prgmDir, 'functions')
-if (!dir.exists(par$prgm_src_dir)) stop(glue::glue("[{par$prgmTag}]: Program Source={par$prgm_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Program Source={par$prgm_src_dir}!{RET}{RET}") )
+for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', 
+                         full.names=TRUE, recursive=TRUE)) base::source(sfile)
+if (opt$verbose>=0)
+  cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form ",
+                 "General Source={par$gen_src_dir}!{RET}{RET}") )
 
-# Load All other function methods::
-par$man_src_dir <- file.path(par$scrDir, 'manifests/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$man_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$man_src_dir}!{RET}{RET}") )
+opt <- program_init(name=par$prgmTag,
+                    opts=opt, opt_reqs=opt_reqs, 
+                    pars=par, par_reqs=par_reqs,
+                    libs=TRUE,rcpp=FALSE,
+                    verbose=opt$verbose,vt=3,tc=0,tt=NULL)
 
-par$swt_src_dir <- file.path(par$scrDir, 'swifthoof/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$swt_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$swt_src_dir}!{RET}{RET}") )
-
-par$prb_src_dir <- file.path(par$scrDir, 'probe_design/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$prb_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$prb_src_dir}!{RET}{RET}") )
-
-par$anl_src_dir <- file.path(par$scrDir, 'analysis/functions')
-if (!dir.exists(par$gen_src_dir)) stop(glue::glue("[{par$prgmTag}]: Manifest Source={par$anl_src_dir} does not exist!{RET}"))
-for (sfile in list.files(path=par$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form Manifest Source={par$anl_src_dir}!{RET}{RET}") )
-
-cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files.{RET}{RET}"))
+opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
+par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Preprocessing:: System Params
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
-if (!opt$isLinux && opt$buildDbl) {
-  suppressWarnings(suppressPackageStartupMessages( require("Rcpp") ))
-  
-  par$sourceCpp <- file.path(par$scrDir, 'R/Rcpp/cpgLociVariation.cpp')
-  if (!file.exists(par$sourceCpp)) par$sourceCpp <- file.path(par$scrDir, 'Rcpp/cpgLociVariation.cpp')
-  if (!file.exists(par$sourceCpp)) stop(glue::glue("[{par$prgmTag}]: Source={par$sourceCpp} does not exist!{RET}"))
-  Rcpp::sourceCpp(par$sourceCpp)
-  
-  cat(glue::glue("[{par$prgmTag}]: Loading Source Files form sourceCpp={par$sourceCpp}!{RET}{RET}") )
+#
+# Not sure if this is needed anymore...
+#
+if (FALSE) {
+  opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
+  if (!opt$isLinux && opt$buildDbl) {
+    suppressWarnings(suppressPackageStartupMessages( require("Rcpp") ))
+    
+    par$sourceCpp <- file.path(par$scrDir, 'R/Rcpp/cpgLociVariation.cpp')
+    if (!file.exists(par$sourceCpp)) par$sourceCpp <- file.path(par$scrDir, 'Rcpp/cpgLociVariation.cpp')
+    if (!file.exists(par$sourceCpp)) stop(glue::glue("[{par$prgmTag}]: Source={par$sourceCpp} does not exist!{RET}"))
+    Rcpp::sourceCpp(par$sourceCpp)
+    
+    cat(glue::glue("[{par$prgmTag}]: Loading Source Files form sourceCpp={par$sourceCpp}!{RET}{RET}") )
+  }
 }
+
+#
+#
+# Left off here: Rename Script...
+#
+#
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Preprocessing:: General Params
@@ -610,8 +486,11 @@ class_idx <- rlang::sym("Class_Idx")
 exp_var   <- 'Experiment_Key'
 exp_sym   <- rlang::sym(exp_var)
 
-opt$outDir <- file.path(opt$outDir, opt$classVar, opt$runName)
-if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
+opt$outDir <- file.path(opt$outDir, 
+                        # opt$platform, opt$version, 
+                        opt$classVar, opt$workflow)
+if (!dir.exists(opt$outDir))
+  dir.create(opt$outDir, recursive=TRUE)
 
 cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 
@@ -640,12 +519,8 @@ for (betaKey in lociBetaKey_vec) {
     for (pvalMin in lociPvalMin_vec) {
       cat(glue::glue("[{par$prgmTag}]: Starting; betaKey={betaKey}, pvalKey={pvalKey}, pvalMin={pvalMin}.{RET}{RET}") )
       
-#       break
-#     }
-#     break
-#   }
-#   break
-# }
+      # break } break } break }
+
       opt$clean <- TRUE
       
       betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
@@ -659,7 +534,9 @@ for (betaKey in lociBetaKey_vec) {
       
       cur_opt_dir <- file.path(opt$outDir, dirName)
       if (!dir.exists(cur_opt_dir)) dir.create(cur_opt_dir, recursive=TRUE)
-      cat(glue::glue("[{par$prgmTag}]: Built; cur_opt_dir={cur_opt_dir}!{RET}") )
+      
+      if (opt$verbose>0)
+        cat(glue::glue("[{par$prgmTag}]: Built; cur_opt_dir={cur_opt_dir}!{RET}") )
       
       opt$plotDir <- file.path(cur_opt_dir,'plots')
       if (!dir.exists(opt$plotDir)) dir.create(opt$plotDir, recursive=TRUE)
@@ -683,7 +560,8 @@ for (betaKey in lociBetaKey_vec) {
       
       # opt$clean <- FALSE
       # opt$clean <- TRUE
-
+      # opt$verbose <- 4
+      
       beta_file_tib <- getCallsMatrixFiles(
         betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=mergeDirs_vec, cgn=NULL, classes=opt$trainClass,
         class_var=class_var, class_idx=class_idx, pval_name=opt$samplePvalName, pval_perc=opt$samplePvalPerc,
@@ -700,8 +578,13 @@ for (betaKey in lociBetaKey_vec) {
       # Now load previous results from file::
       if (opt$addPval) pval_select_mat <- loadFromFileTib(tib=beta_file_tib, type="Pval")
       sampleSheet_tib <- loadFromFileTib(tib=beta_file_tib, type="SampleSheet") %>% 
-        dplyr::mutate(Experiment_Key=stringr::str_remove(Experiment_Key,'-Samples') %>% 
-                        stringr::str_remove('-EPIC-Core') %>% stringr::str_remove('CNTL-')) 
+        dplyr::mutate(Experiment_Key=Experiment_Key %>%
+                        stringr::str_remove('-Samples') %>% 
+                        stringr::str_remove('-EPIC-Core') %>% 
+                        stringr::str_remove('CNTL-'),
+                      platformUsed=detect_platform, 
+                      platVersUsed=detect_version)
+      
       index_masks_tib <- loadFromFileTib(tib=beta_file_tib, type="Mask")
       beta_impute_mat <- loadFromFileTib(tib=beta_file_tib, type="Beta")
       beta_masked_mat <- beta_impute_mat
@@ -725,15 +608,16 @@ for (betaKey in lociBetaKey_vec) {
       #  4. Load signal sets
       #  5. Plot signal sets
       #
-      opt$plot_pairs <- TRUE
       opt$plot_pairs <- FALSE
+      opt$plot_pairs <- TRUE
       if (opt$plot_pairs) {
         sam_pval_name_sym <- rlang::sym(opt$samplePvalName)
         
         opt$filterSamples <- FALSE
         opt$filterSamples <- TRUE
         # Load Manifest base on Sample Sheet
-        #
+        #   detect_platform = platformUsed
+        
         man_platform <- sampleSheet_tib %>% dplyr::distinct(platformUsed) %>% head(n=1) %>% dplyr::pull(platformUsed)
         man_version  <- sampleSheet_tib %>% dplyr::distinct(platVersUsed) %>% head(n=1) %>% dplyr::pull(platVersUsed)
         man_pattern  <- paste(paste(man_platform,man_version, sep='-'), 'manifest.sesame-base.cpg-sorted.csv.gz', sep='.')
@@ -773,8 +657,8 @@ for (betaKey in lociBetaKey_vec) {
         
         plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name=Class_Name)
         
-        # ss_class_list <- plotSheet_tib %>% split(.$Class_Name)
-        ss_class_list <- plotSheet_tib %>% split(.$Amp_Incubation)
+        # ss_class_list <- plotSheet_tib %>% split(.$Amp_Incubation)
+        ss_class_list <- plotSheet_tib %>% split(.$Class_Name)
         ss_class_keys <- names(ss_class_list)
         
         for (cIdx in c(1:length(ss_class_keys))) {
@@ -835,7 +719,7 @@ for (betaKey in lociBetaKey_vec) {
                   cur_ss_tibA <- cur_ss_tibA %>% dplyr::filter(!!sam_pval_name_sym >= opt$samplePvalPerc)
                   cur_ss_tibB <- cur_ss_tibB %>% dplyr::filter(!!sam_pval_name_sym >= opt$samplePvalPerc)
                 }
-
+                
                 # Reduce to 3 max for plotting::
                 red_ss_tibA <- reduceSortedTib(cur_ss_tibA)
                 red_ss_tibB <- reduceSortedTib(cur_ss_tibB) %>% dplyr::mutate(Plot_Name=stringr::str_replace(Plot_Name,'^A_', 'B_'))
@@ -844,7 +728,7 @@ for (betaKey in lociBetaKey_vec) {
                   tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
                 pval_tibA <- pval_select_mat[ ,red_ss_tibA$Sentrix_Name ] %>% as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
                   tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
-
+                
                 beta_tibB <- beta_masked_mat[ ,red_ss_tibB$Sentrix_Name ] %>% as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
                   tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
                 pval_tibB <- pval_select_mat[ ,red_ss_tibB$Sentrix_Name ] %>% as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
@@ -859,9 +743,9 @@ for (betaKey in lociBetaKey_vec) {
                                     outDir=opt$plotDir,
                                     probeType='cg', field='Beta', field_str=betaKey, detp=pvalKey, minPval=pvalMin,
                                     format='both', verbose=opt$verbose)
-
+                
                 cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}{RET}") )
-
+                
               }
             }
           }
@@ -988,7 +872,7 @@ for (betaKey in lociBetaKey_vec) {
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                         Plot R-Squared/DeltaBeta::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
+      
       # Example for plotting::
       if (FALSE) {
         # Load Auto Sample Sheet from merged builds::
@@ -999,22 +883,25 @@ for (betaKey in lociBetaKey_vec) {
         for (merDir in mergeDirs_vec) {
           exp_source <- base::basename(merDir)
           cur_ss_csv <- list.files(merDir, pattern='_AutoSampleSheet.csv.gz', full.names=TRUE) %>% head(n=1)
-          cur_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_ss_csv) )) %>% dplyr::mutate(!!exp_src_var:=exp_source)
+          cur_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_ss_csv) )) %>% 
+            dplyr::mutate(!!exp_src_var:=exp_source)
           auto_ss_tib <- auto_ss_tib %>% dplyr::bind_rows(cur_ss_tib)
         }
-        auto_ss_tib %>% dplyr::select(Sentrix_Name,!!class_var,!!exp_src_var) %>% dplyr::arrange(!!class_var,!!exp_src_var) %>%
-          dplyr::group_by(!!class_var,!!exp_src_var) %>% dplyr::mutate(Class_Idx=dplyr::row_number())
+        auto_ss_tib %>% dplyr::select(Sentrix_Name,!!class_var,!!exp_src_var) %>% 
+          dplyr::arrange(!!class_var,!!exp_src_var) %>%
+          dplyr::group_by(!!class_var,!!exp_src_var) %>% 
+          dplyr::mutate(Class_Idx=dplyr::row_number())
         
         # sampleSheet_tib %>% dplyr::mutate(Class_Int=dplyr::cur_group_id(), !!class_idx:=Class_Int-1 )
-        
-        
         
         # WE really want::
         #   Exp_Idx
         #   Sample_Idx
         #   Class_Idx  = What is going to be tested
-        auto_ss_tib %>% dplyr::select(Sentrix_Name,!!class_var,!!exp_src_var) %>% dplyr::arrange(!!class_var,!!exp_src_var) %>%
-          dplyr::group_by(!!class_var,!!exp_src_var) %>% dplyr::mutate(Class_Int=dplyr::cur_group_id(), !!class_idx:=Class_Int-1 )
+        auto_ss_tib %>% dplyr::select(Sentrix_Name,!!class_var,!!exp_src_var) %>% 
+          dplyr::arrange(!!class_var,!!exp_src_var) %>%
+          dplyr::group_by(!!class_var,!!exp_src_var) %>% 
+          dplyr::mutate(Class_Int=dplyr::cur_group_id(), !!class_idx:=Class_Int-1 )
         
         # Load Manifest::
         #
@@ -1023,19 +910,32 @@ for (betaKey in lociBetaKey_vec) {
         # Load Detection P-values::
         
         # Only pick two classes::
-        picked_sentrix <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::pull(Sentrix_Name)
+        picked_sentrix <- sampleSheet_tib %>% 
+          dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% 
+          dplyr::pull(Sentrix_Name)
         
         useSampleName <- FALSE
         if (useSampleName) {
-          picked_sam_vec <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::group_by(Sample_Name) %>%
-            dplyr::mutate(Rep_Num=row_number(), Rep_Name=paste0(Sample_Name,'_Rep',Rep_Num)) %>% dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
+          picked_sam_vec <- sampleSheet_tib %>% 
+            dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% 
+            dplyr::group_by(Sample_Name) %>%
+            dplyr::mutate(Rep_Num=row_number(), 
+                          Rep_Name=paste0(Sample_Name,'_Rep',Rep_Num)) %>% 
+            dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
         } else {
-          picked_sam_vec <- sampleSheet_tib %>% dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% dplyr::group_by(Sample_Class) %>% 
-            dplyr::mutate(Rep_Num=row_number(), Rep_Name=paste0(Sample_Class,'_Rep',Rep_Num)) %>% dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
+          picked_sam_vec <- sampleSheet_tib %>% 
+            dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% 
+            dplyr::group_by(Sample_Class) %>% 
+            dplyr::mutate(Rep_Num=row_number(), 
+                          Rep_Name=paste0(Sample_Class,'_Rep',Rep_Num)) %>% 
+            dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
         }
         
-        beta_masked_tib <- beta_masked_mat[,picked_sentrix] %>% as.data.frame() %>% purrr::set_names(picked_sam_vec) %>% 
-          tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble() %>%
+        beta_masked_tib <- beta_masked_mat[,picked_sentrix] %>% 
+          as.data.frame() %>% 
+          purrr::set_names(picked_sam_vec) %>% 
+          tibble::rownames_to_column(var="Probe_ID") %>% 
+          tibble::as_tibble() %>%
           dplyr::mutate(Probe_Type=stringr::str_sub(Probe_ID, 1,2), 
                         Design_Type=stringr::str_remove(Probe_ID, '^.*_[A-Z][A-Z]') %>% stringr::str_remove('[A-Z][0-9]$'),
                         Design_Type=dplyr::case_when(
@@ -1044,35 +944,42 @@ for (betaKey in lociBetaKey_vec) {
           dplyr::select(Probe_ID,Probe_Type,Design_Type, everything())
         
         # Quick Fix...
+        #  TBD:: Use manifest that was loaded above...
+        #
         beta_masked_tib$Design_Type <- 'I'
         
         plotDir <- file.path(opt$outDir,'plots')
         if (useSampleName) {
-          gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
-                              probeType='cg', field='Beta', field_str='ind_beta', detp='i_poob', minPval=pvalMin,
+          gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', 
+                              nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
+                              probeType='cg', field='Beta', field_str='ind_beta', 
+                              detp='i_poob', minPval=pvalMin,
                               format='pdf',
-                              verbose=opt$verbose+3)
+                              verbose=opt$verbose)
         } else {
-          beta_masked_tib2 <- beta_masked_tib %>% dplyr::mutate(
+          beta_masked_tib2 <- beta_masked_tib %>% 
+            dplyr::mutate(
             Design_Type=stringr::str_remove(Probe_ID,'^[^_]*_[A-Z][A-Z]') %>% stringr::str_remove('[0-9]$'),
             Design_Type=dplyr::case_when(
               Design_Type=='1' ~ 'I',
               Design_Type=='2' ~ 'II',
-              TRUE ~ NA_character_
-            ) )
+              TRUE ~ NA_character_)
+            )
 
-          gg <- plotPairsBeta(beta_masked_tib2, sample='NEGvsPOS', nameA='nSARSCov2', nameB='pSARSCov2', outDir=plotDir,
-                              probeType='cg', field='Beta', field_str=betaKey, detp=pvalKey, minPval=pvalMin,
+          gg <- plotPairsBeta(beta_masked_tib2, sample='NEGvsPOS', 
+                              nameA='nSARSCov2', nameB='pSARSCov2', outDir=plotDir,
+                              probeType='cg', field='Beta', field_str=betaKey, 
+                              detp=pvalKey, minPval=pvalMin,
                               format='pdf',
-                              verbose=opt$verbose+30)
+                              verbose=opt$verbose)
         }
-
+        
         # gg <- plotPairsBeta(beta_masked_tib, sample='T00vs50', nameA='T00DZ', nameB='T50DZ', outDir=plotDir,
         #                 probeType='cg', field='Beta', field_str='ind_beta', detp='i_poob', # maxCnt = , minPval=minPval,
         #                 spread=spread, outType=outType, dpi=dpi, format=format,
         #                 verbose=verbose, tc=tc+1)
       }
-
+      
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                               Build DMLs::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1144,7 +1051,7 @@ for (betaKey in lociBetaKey_vec) {
               mvp_ss_exp_keys <- names(mvp_ss_exp_list)
               
               for (expKey in mvp_ss_exp_keys) {
-              
+                
                 sample_cnt_tib <- mvp_ss_exp_list[[expKey]] %>% dplyr::group_by(Class_Name) %>% 
                   dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(Class_Name) )
                 
@@ -1204,7 +1111,7 @@ for (betaKey in lociBetaKey_vec) {
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
       if (opt$buildModels) {
-      
+        
         # TBD::
         #  - [DONE]: Loop over top feature sizes from DML AND create tag
         #  - [DONE]: Loop over pre-defined features and extract them from DML AND create tag
@@ -1251,7 +1158,7 @@ for (betaKey in lociBetaKey_vec) {
           
           if (!is.null(cgn_pre_str))
             dml_opt_tib <- dml_opt_tib %>% tibble::add_row( Option="featureNamePre", Value=cgn_pre_str, Type="Feature" )
-
+          
           # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
           #                               Build Models::
           # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

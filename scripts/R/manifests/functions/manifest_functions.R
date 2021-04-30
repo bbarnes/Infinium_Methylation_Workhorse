@@ -2192,7 +2192,8 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
                              verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'idatToManifestMap'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting, field={field}...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -2207,9 +2208,11 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
     field_sym <- rlang::sym(field)
     
     # Get vector of addresses...
-    can_tib <- tib %>% dplyr::filter(!is.na(!!field_sym)) %>% 
+    can_tib <- tib %>% 
+      dplyr::filter(!is.na(!!field_sym)) %>% 
       dplyr::distinct(!!field_sym)
     can_cnt <- can_tib %>% base::nrow()
+    
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr} Idat Address Count={can_cnt}.{RET}"))
     
@@ -2252,13 +2255,18 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
       }
 
       add_len <- max(ref_tib$Address_Len, na.rm=TRUE)
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Max Address Length={add_len}.{RET}"))
+      }
+      
       if (add_len!=8 && add_len!=10) {
         stop(glue::glue("{RET}[{funcTag}]: ERROR: Invalid Max Address Length {add_len} != [8,10].{RET}{RET}"))
         return(ret_tib)
       }
       
       if (add_len==10) {
-        if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Trimming address (len={add_len})...{RET}"))
+        if (verbose>=vt+1) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Trimming address (len={add_len})...{RET}"))
         
         ref_tib <- ref_tib %>% dplyr::mutate(
           !!field_sym := stringr::str_remove(!!field_sym,'^1') %>% 

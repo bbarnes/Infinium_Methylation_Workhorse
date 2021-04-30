@@ -71,6 +71,7 @@ opt$findSampleSheet <- FALSE
 opt$classVar <- 'Karyotype_0_Call'
 opt$classVar <- 'Sample_Name'
 opt$classVar <- 'Sample_Class'
+opt$workflow <- NULL
 
 opt$select <- FALSE
 opt$clean_gta <- FALSE
@@ -210,8 +211,23 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVID'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
+  par$local_runType <- 'NA12878'
   
-  if (par$local_runType=='COVID') {
+  if (FALSE) {
+  } else if (par$local_runType=='NA12878') {
+    opt$runName  <- par$local_runType
+    
+    opt$workflow    <- "ind"
+    opt$manDirName  <- 'core'
+    
+    opt$single   <- FALSE
+    # opt$parallel <- TRUE
+    
+    opt$buildDir <- paste(
+      file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
+      sep=',')
+    
+  } else if (par$local_runType=='COVID') {
     
     opt$flagDetectPval   <- FALSE
     opt$flagSampleDetect <- FALSE
@@ -299,7 +315,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$platform <- 'EPIC'
     opt$version  <- 'B4'
-
+    
     # par$runName1  <- 'CNTL-Samples_VendA_10092020'
     # par$runName2  <- 'CNTL-Samples_VendB_10092020'
     # 
@@ -353,7 +369,7 @@ if (args.dat[1]=='RStudio') {
     par$datSrc <- file.path(par$topDir, "data/VA_MVP/docker-v.1.11")
     opt$buildDir <- 
       do.call(paste, c(as.list(list.files(par$datSrc, full.names = TRUE)), sep=","))
-
+    
     opt$runName  <- paste(par$local_runType, sep='_')
     
     opt$addPathsCall <- TRUE
@@ -363,9 +379,8 @@ if (args.dat[1]=='RStudio') {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
   
-  # opt$outDir <- file.path(par$topDir, 'scratch', par$prgmTag)
   opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
-
+  
 } else {
   par$runMode    <- 'CommandLine'
   par$exePath <- base::substring(args.dat[grep("--file=", args.dat)], 8)
@@ -382,7 +397,7 @@ if (args.dat[1]=='RStudio') {
     # Directory Parameters::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("-b","--buildDirs"), type="character", default=opt$buildDir, 
+    make_option(c("-b","--buildDir"), type="character", default=opt$buildDir, 
                 help="List of Build Directory [default= %default]", metavar="character"),
     
     # Run Parameters::
@@ -395,7 +410,7 @@ if (args.dat[1]=='RStudio') {
     
     make_option(c("--findSampleSheet"), action="store_true", default=opt$findSampleSheet,
                 help="Boolean variable to search or human provided sample sheet in build directories [default= %default]", metavar="boolean"),
-
+    
     # Chip Platform and Version Parameters::
     make_option(c("--platform"), type="character", default=opt$platform, 
                 help="Platform name (HM50, EPIC) [default= %default]", metavar="character"),
@@ -405,6 +420,8 @@ if (args.dat[1]=='RStudio') {
     # Class Parameters::
     make_option(c("--classVar"), type="character", default=opt$classVar, 
                 help="Classification Variable Name [default= %default]", metavar="character"),
+    make_option(c("--workflow"), type="character", default=opt$workflow, 
+                help="Target Workflow Variable Name [default= %default]", metavar="character"),
     
     # Sample Sheet Parameters::
     make_option(c("--addSampleName"), action="store_true", default=opt$addSampleName, 
@@ -420,18 +437,18 @@ if (args.dat[1]=='RStudio') {
                 help="Sample Sheet processing to add flag for failed Auto-Detected Samples (mostly testing stuff) [default= %default]", metavar="boolean"),
     make_option(c("--flagRefMatch"), action="store_true", default=opt$flagRefMatch, 
                 help="Sample Sheet processing to add flag for failed Auto-Detected Methods Agreements (mostly testing stuff) [default= %default]", metavar="boolean"),
-
+    
     make_option(c("--pvalDetectMinKey"), type="character", default=opt$pvalDetectMinKey, 
                 help="Sample Sheet processing to Min Detection Pval Key [default= %default]", metavar="character"),
     make_option(c("--pvalDetectMinVal"), type="double", default=opt$pvalDetectMinVal,
                 help="Sample Sheet processing to Min Detection Pval Value [default= %default]", metavar="double"),
-
+    
     # Output Format Parameters::
     make_option(c("--percisionBeta"), type="integer", default=opt$percisionBeta,
                 help="Rounding percision for beta values in calls output files [default= %default]", metavar="integer"),
     make_option(c("--percisionPval"), type="integer", default=opt$percisionPval,
                 help="Rounding percision for detection p-values in calls output files [default= %default]", metavar="integer"),
-
+    
     make_option(c("--clean_gta"), action="store_true", default=opt$clean_gta, 
                 help="Boolean variable to remove Genotyping tails from Sentrix Names (mostly testing stuff) [default= %default]", metavar="boolean"),
     
@@ -444,7 +461,7 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to run parallel on multi-core [default= %default]", metavar="boolean"),
     make_option(c("--cluster"), action="store_true", default=opt$cluster,
                 help="Boolean variable to run jobs on cluster by chip [default= %default]", metavar="boolean"),
-
+    
     # Make clean output
     make_option(c("--clean"), action="store_true", default=opt$clean, 
                 help="Boolean variable to clean output directory (mostly testing stuff) [default= %default]", metavar="boolean"),
@@ -470,7 +487,7 @@ if (args.dat[1]=='RStudio') {
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
 opt_reqs <- c('outDir','Rscript','verbose')
 opt_reqs <- c('outDir','Rscript','verbose','clean',
-              'buildDir','runName','classVar',
+              'buildDir','runName','classVar','workflow',
               'addSampleName','addPathsCall','addPathsSset',
               'flagDetectPval','flagSampleDetect','flagRefMatch',
               'platform','version','percisionBeta','percisionPval',
@@ -509,12 +526,22 @@ class_idx <- rlang::sym("Class_Idx")
 
 opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 
-opt$outDir <- file.path(opt$outDir, opt$platform, opt$version, opt$classVar)
-if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
+opt$outDir <- file.path(opt$outDir, 
+                        opt$platform, opt$version, 
+                        opt$classVar, opt$workflow)
+if (!dir.exists(opt$outDir))
+  dir.create(opt$outDir, recursive=TRUE)
 
-cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
-print(blds_dir_vec)
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
+
+if (opt$verbose>0) {
+  cat(glue::glue("[{par$prgmTag}]: blds_dir_vec={RET}") )
+  print(blds_dir_vec)
+}
+
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Load Auto Detect Sample Sheets::
@@ -548,7 +575,7 @@ for (curDir in blds_dir_vec) {
   cur_ss_tib <- NULL
   cur_ss_tib <- 
     loadAutoSampleSheets(dir=curDir, 
-                         platform=opt$platform, manifest=opt$version, workflow="ind",
+                         platform=opt$platform, manifest=opt$version, workflow=opt$workflow,
                          suffix=suffix,
                          
                          addSampleName=opt$addSampleName, 
@@ -585,195 +612,109 @@ for (curDir in blds_dir_vec) {
   # print(cur_ss_tib)
 }
 auto_ss_len <- auto_ss_tib %>% base::nrow()
-cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len}.{RET}{RET}"))
+
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len}.{RET}{RET}"))
 # print(auto_ss_tib)
-auto_ss_tib %>% dplyr::distinct(build_source)
+# auto_ss_tib %>% dplyr::distinct(build_source)
 
 auto_ss_sum <- auto_ss_tib %>% 
   dplyr::group_by(Run_Name,AutoSample_dB_Key_2) %>% 
   dplyr::summarise(Count=n(), .groups="drop")
 auto_ss_sum %>% print(n=base::nrow(auto_ss_sum))
 
-
-
-
-
-opt$clean_source <- FALSE
-if (opt$clean_source) {
-  
-  # VA data from cluster::
-  # va_ss_csv <- '/Users/bretbarnes/Documents/data/docker.v.1.8.AutoSampleSheet.csv.gz'
-  # va_ss_tib <- readr::read_csv(va_ss_csv)
-  # auto_ss_tib <- va_ss_tib %>% dplyr::mutate(build_source=Run_Name)
-  
-  pass_vec <- c("CNTL-Samples_VendA_10092020",
-                "CNTL-Samples_VendB_10092020",
-                # "BETA-8x1-EPIC-Core",
-                "DELTA-8x1-EPIC-Core",
-                # "BETA-8x1-EPIC-Bad",
-                "COVIC-Set1-15052020",
-                # "COVIC-Set2-31052020",
-                # "COVIC-Set3-05062020",
-                # "COVIC-Set4-09062020",
-                "COVIC-Set5-10062020",
-                "COVIC-Set8-26182020",
-                # "Excalibur-Old-1609202",
-                "Excalibur-New-1609202")
-  
-  auto_bk_tib <- auto_ss_tib
-  
-  plot_core_tib <- NULL
-  plot_core_tib <- auto_ss_tib %>%
-    dplyr::mutate(
-      group_class=dplyr::case_when(build_source %in% pass_vec ~ 'P', TRUE ~ 'F'),
-      build_source = 
-        stringr::str_remove(build_source, '^CNTL-Samples_') %>% 
-        stringr::str_remove('_[0-9]+$') %>% 
-        stringr::str_remove('-[0-9]+$') %>%
-        stringr::str_remove('-8x1-EPIC-Core$') %>%
-        stringr::str_replace('-8x1-EPIC-Bad$', '_Bad') %>%
-        stringr::str_replace('Excalibur-New', 'E') %>%
-        stringr::str_replace('Excalibur-Old', 'E') %>%
-        stringr::str_replace('COVID-Set', 'C') %>%
-        stringr::str_replace('COVIC-Set', 'C') %>%
-        stringr::str_replace('BETA', 'B') %>%
-        stringr::str_replace('DELTA', 'D') %>%
-        stringr::str_replace('Vend', 'V') %>%
-        # stringr::str_remove('-Set') %>%
-        stringr::str_replace_all('-','_')
-    ) %>%
-    dplyr::filter(! stringr::str_starts(AutoSample_dB_Key_2, 'T')) %>%
-    dplyr::group_by(build_source) %>%
-    dplyr::mutate(build_source_idx=dplyr::cur_group_id(),
-                  # build_source=paste(paste0(group_class,build_source_idx),build_source, sep='_'),
-                  build_source=paste(paste0(build_source_idx),build_source, sep='_'),
-                  Sample=AutoSample_dB_Key_2) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(group_class,build_source_idx,Sample) %>%
-    # dplyr::filter(AutoSample_dB_Key_2 == AutoSample_R2_Key_2) %>%
-    # dplyr::select(group_class,build_source,Sample, # build_source_idx,
-    dplyr::select(group_class,build_source,Sample, # build_source_idx,
-                  AutoSample_R2_1_Val_2,AutoSample_R2_2_Val_2,
-                  AutoSample_dB_1_Val_2,AutoSample_dB_2_Val_2,
-                  cg_1_pvals_pOOBAH_pass_perc_1,
-                  cg_2_pvals_pOOBAH_pass_perc_1) %>%
-    purrr::set_names(stringr::str_remove_all(names(.), 'AutoSample_')) %>%
-    purrr::set_names(stringr::str_replace_all(names(.), '_pvals_', '_')) %>%
-    purrr::set_names(stringr::str_remove_all(names(.), '_pass_perc_1')) %>%
-    purrr::set_names(stringr::str_remove_all(names(.), '_Val_2'))
-  
-  plot_core_tib %>% dplyr::group_by(group_class,build_source) %>% 
-    dplyr::summarise(Count=n(), .groups="drop")
-  
-  #
-  # Build Plotting Data::
-  #
-  plot_stack_tib <- dplyr::bind_rows(
-    dplyr::select(plot_core_tib, group_class,build_source,Sample, R2_1,cg_1_pOOBAH) %>% 
-      purrr::set_names(c("Class","Experiment","Sample","Metric","Pval_Perc")) %>%
-      dplyr::mutate(Metric_Type="R2",Design_Type="I") %>% 
-      dplyr::select(Class,Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
-    
-    dplyr::select(plot_core_tib, group_class,build_source,Sample, R2_2,cg_2_pOOBAH) %>% 
-      purrr::set_names(c("Class","Experiment","Sample","Metric","Pval_Perc")) %>%
-      dplyr::mutate(Metric_Type="R2",Design_Type="II") %>% 
-      dplyr::select(Class,Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
-    
-    dplyr::select(plot_core_tib, group_class,build_source,Sample, dB_1,cg_1_pOOBAH) %>% 
-      purrr::set_names(c("Class","Experiment","Sample","Metric","Pval_Perc")) %>%
-      dplyr::mutate(Metric_Type="dB",Design_Type="I", Metric=Metric/100) %>% 
-      dplyr::select(Class,Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc),
-    
-    dplyr::select(plot_core_tib, group_class,build_source,Sample, dB_2,cg_2_pOOBAH) %>% 
-      purrr::set_names(c("Class","Experiment","Sample","Metric","Pval_Perc")) %>%
-      dplyr::mutate(Metric_Type="dB",Design_Type="II", Metric=Metric/100) %>% 
-      dplyr::select(Class,Experiment,Sample,Metric_Type,Design_Type,Metric,Pval_Perc)
-  ) %>%
-    dplyr::mutate(Pval_Frac=Pval_Perc/100)
-  
-  
-  plot_stack_tib %>% 
-    dplyr::group_by(Class,Experiment,Metric_Type,Design_Type) %>% 
-    dplyr::summarise(Pval_Min=min(Pval_Frac, na.rm=TRUE),
-                     Pval_Perc=cntPer_gte(Pval_Frac,0.85), 
-                     Metric_Perc=cntPer_gte(Metric,0.98), .groups="drop") %>% print(n=100)
-  
-  
-  #
-  # Linear Plotting::
-  #
-  plot_stack_tib %>% 
-    # dplyr::filter(Metric>=0.6) %>%
-    dplyr::filter(Class=="F") %>%
-    ggplot2::ggplot() +
-    ggplot2::geom_point(aes(x=Pval_Frac,y=Metric, color=Sample) ) +
-    ggplot2::facet_grid(rows=vars(Class,Experiment),
-                        cols=vars(Design_Type,Metric_Type) ) +
-    geom_hline(yintercept=0.98 ) +
-    geom_vline(xintercept=0.85 )
-
-  plot_stack_tib %>% 
-    # dplyr::filter(Metric>=0.6) %>%
-    dplyr::filter(Class=="P") %>%
-    ggplot2::ggplot() +
-    ggplot2::geom_point(aes(x=Pval_Frac,y=Metric, color=Sample) ) +
-    ggplot2::facet_grid(rows=vars(Class,Experiment),
-                        cols=vars(Design_Type,Metric_Type) ) +
-    geom_hline(yintercept=0.98 ) +
-    geom_vline(xintercept=0.85 )
-
-  #
-  # Log Versions::
-  #
-  plot_stack_tib %>% 
-    # dplyr::filter(Metric>=0.6) %>%
-    dplyr::filter(Class=="F") %>%
-    ggplot2::ggplot() +
-    ggplot2::geom_point(aes(x=log(Pval_Frac+1),y=log(Metric+1), color=Sample) ) +
-    ggplot2::facet_grid(rows=vars(Class,Experiment),
-                        cols=vars(Design_Type,Metric_Type) ) +
-    geom_hline(yintercept=log(1.98) ) +
-    geom_vline(xintercept=log(1.85) )
-  
-  plot_stack_tib %>% 
-    # dplyr::filter(Metric>=0.6) %>%
-    dplyr::filter(Class=="P") %>%
-    ggplot2::ggplot() +
-    ggplot2::geom_point(aes(x=log(Pval_Frac+1),y=log(Metric+1), color=Sample) ) +
-    ggplot2::facet_grid(rows=vars(Class,Experiment),
-                        cols=vars(Design_Type,Metric_Type) ) +
-    geom_hline(yintercept=log(1.98) ) +
-    geom_vline(xintercept=log(1.85) )
-  
+#
+#
+# Quick fix for NA12878
+#
+#
+if (FALSE) {
+  hum_ss_tib <- auto_ss_tib %>% 
+    dplyr::select(Sentrix_Name) %>% 
+    dplyr::mutate(Sample_Class="NA12878")
 }
-# print(auto_ss_tib)
 
+# TBD:: This code needs to be moved else where, its basically a simple way to 
+#  to add new auto detect samples to the default auto detection dataset in github
+#
+if (FALSE) {
 
-# Temp Output::
-# va_ss_csv <- '/Users/bretbarnes/Documents/VA-MVP.AutoSampleSheet.csv.gz'
-# va_ss_tib <- auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::select(Sentrix_Name,AutoSample_R2_Key,build_source, everything())
-# readr::write_csv(va_ss_tib,va_ss_csv)
+  pre_beta_csv <- "/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz"
+  add_beta_csv <- "/Users/bretbarnes/Documents/scratch/RStudio/swifthoof_main/NA12878/200348350023_R08C01_EPIC_B4_ind.call.dat.csv.gz"
+  new_beta_csv <- "/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.new.csv.gz"
+  
+  pre_beta_tib <- readr::read_csv(pre_beta_csv)
+  add_beta_tib <- readr::read_csv(add_beta_csv)
+  
+  new_beta_tib <- pre_beta_tib %>% 
+    dplyr::left_join(
+      dplyr::select(add_beta_tib, Probe_ID,betas) %>% dplyr::rename(NA12878=betas),
+      by="Probe_ID") %>% 
+    dplyr::select(Probe_ID:T99BZ,NA12878, dplyr::everything())
+  
+  readr::write_csv(new_beta_tib,new_beta_csv)
 
-# auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key!=AutoSample_R2_Key) %>% dplyr::select(AutoSample_dB_Key,AutoSample_R2_Key,AutoSample_dB_Val,AutoSample_R2_Val,Poob_Pass_0_Perc)
-# auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::arrange(Poob_Pass_0_Perc)
-# auto_ss_tib %>% dplyr::filter(AutoSample_dB_Key==AutoSample_R2_Key) %>% dplyr::arrange(Poob_Pass_0_Perc) %>% dplyr::select(Poob_Pass_0_Perc)
+}
 
+if (FALSE) {
+  
+  ast_dir  <- "/Users/bretbarnes/Documents/data/CustomContent/AstraZeneca_EM_SamplePrep"
+  ast1_csv <- file.path(ast_dir, "20201007_AstraZenecaManifest_formatted.csv.gz")
+  ast2_csv <- file.path(ast_dir, "20201007_AstraZenecaManifest_6326_BN_SampleSheet.csv.gz")
+  
+  ast1_tib <- readr::read_csv(ast1_csv) %>% clean_tibble()
+  ast2_tib <- readr::read_csv(ast2_csv) %>% clean_tibble()
+  
+  ast_out_csv <- file.path(ast_dir, "AstraZeneca_20201007_Human_SampleSheet.csv.gz")
+  ast_out_csv <- file.path(ast_dir, "AstraZeneca_30042021_Human_SampleSheet.csv.gz")
+  ast_out_tib <- ast1_tib %>% 
+    dplyr::inner_join(ast2_tib, by=c("GSL_ID"="Sample_Name")) %>% 
+    dplyr::select(Sentrix_ID,Sentrix_Position,Sample_Class,Tissue_type,Sample_ID,Concentration,Volume) %>% 
+    dplyr::rename(Sample_Type=Tissue_type,
+                  Sample_Name=Sample_ID) %>%
+    dplyr::mutate(Sample_Name=Sample_Name %>%
+                    stringr::str_remove("\\s.*$") %>% 
+                    stringr::str_remove("_.*$"), 
+                  Sample_Class=Sample_Class %>%
+                    stringr::str_replace("unconverted DNA","BS") %>% 
+                    stringr::str_replace("EM converted DNA", "EM"),
+                  Sample_Prep=Sample_Class,
+                  Sample_Type=Sample_Type %>%
+                    stringr::str_replace("Fresh","FF") %>%
+                    stringr::str_replace("FFPE","PE"),
+                  Sample_Class=paste(Sample_Prep,Sample_Type, sep="-")
+    )
+  
+  ast_sum_tib <- ast_out_tib %>% 
+    # dplyr::group_by(Sample_Prep,Sample_Type,Sample_Name) %>% 
+    dplyr::group_by(Sample_Class,Sample_Name) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  ast_sum_tib %>% print(n=base::nrow(ast_sum_tib))
+  
+  readr::write_csv(ast_out_tib,ast_out_csv)
+  
+  # Processed data::
+  new_ss_csv <- "/Users/bretbarnes/Documents/scratch/merge_builds/EPIC-8x1-EM-Sample-Prep/EPIC/B4/Sample_Class/ind/EPIC-8x1-EM-Sample-Prep_EPIC_B4_ind_AutoSampleSheet.csv.gz"
+  new_ss_tib <- readr::read_csv(new_ss_csv)
+  new_ss_tib %>% dplyr::select(Sample_Class:Volume) %>% as.data.frame()
+  
+  
+  new_ss_csv <- "/Users/bretbarnes/Documents/scratch/merge_builds/EPIC-8x1-EM-Sample-Prep.v0/EPIC/B4/Sample_Class/ind/EPIC-8x1-EM-Sample-Prep.v0_EPIC_B4_ind_AutoSampleSheet.csv.gz"
+  new_ss_tib <- readr::read_csv(new_ss_csv)
+  new_ss_tib %>% dplyr::select(Sample_Class:Volume) %>% as.data.frame()
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   Load Humman Annotation Sample Sheets::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Human Classifcation Sample Sheets are assumed to formatted!!!
-#
-# TBD::
-#  - Assume any unidentified sample is COVID-
-#  - Add Nasal Swabs to master sample sheet
-#
 labs_ss_tib <- NULL
 if (! is.null(hum_ss_tib)) {
   cat(glue::glue("[{par$prgmTag}]: Adding default class_var='{opt$classVar}'{RET}") )
   
-  labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+  labs_ss_tib <- auto_ss_tib %>% 
+    dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
+    dplyr::arrange(!!class_var)
   
 } else if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
   
@@ -808,18 +749,6 @@ if (! is.null(hum_ss_tib)) {
     dplyr::arrange(!!class_var)
 }
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        Join Human and Auto Sample Sheets::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-#
-# TBD:: Not sure this is needed yet, but its to force every sample to have
-#  a class. Should default to the last classs in opt$trainClass
-#
-# null_class <- 'nSARSCov2'
-# null_class <- rlang::sym(null_class)
-# labs_ss_tib <- labs_ss_tib %>% dplyr::mutate(!!class_var := dplyr::case_when(is.na(!!class_var) ~ 'nSARSCov2', TRUE ~ !!class_var) )
-
 labs_ss_len <- labs_ss_tib %>% base::nrow()
 cat(glue::glue("[{par$prgmTag}]: Done. Joining Human Classification and Auto Sample Sheets; Total={labs_ss_len}.{RET}{RET}"))
 print(labs_ss_tib)
@@ -828,7 +757,7 @@ print(labs_ss_tib)
 #                          Import Datasets (Calls)::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-outName <- paste(opt$runName, opt$platform, opt$version, sep='_')
+outName <- paste(opt$runName, opt$platform, opt$version, opt$workflow, sep='_')
 
 opt$beg_file <- file.path(opt$outDir, paste(outName, 'load-beg.txt', sep='_') )
 opt$end_file <- file.path(opt$outDir, paste(outName, 'load-end.txt', sep='_') )
@@ -861,66 +790,31 @@ if (file.exists(opt$beg_file) && file.exists(opt$end_file) && file.exists(opt$ca
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (!pass_time_check) {
-  cat(glue::glue("[{par$prgmTag}]: Building from scratch...{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Building from scratch...{RET}"))
   unlink( list.files(opt$outDir, full.names=TRUE) )
   
   cmd <- paste('touch',opt$beg_file, sep=' ')
   system(cmd)
   
-  # Testing::
-  # par$maxTest <- 3
-  
-  #
-  # TESTING::
-  #
-  if (FALSE) {
-    labs_ss_tib %>% dplyr::arrange(desc(Poob_Pass_0_Perc)) %>% dplyr::select(Sentrix_Name, opt$samplePvalName) %>% as.data.frame()
-    
-    labs_ss_tib %>% dplyr::arrange(opt$samplePvalName) %>%
-      dplyr::group_by(!!class_var) %>% 
-      dplyr::mutate(Sample_Rank=paste(!!class_var, dplyr::row_number(), sep='_') ) %>% 
-      dplyr::ungroup() %>% dplyr::select(Sample_Rank)
-    
-    call_list <- labs_ss_tib$Ssets_Path
-    names(call_list) <- labs_ss_tib$Sentrix_Name
-    
-    
-    lapply(head(call_list, n=3), readr::read_csv)
-    data_list <- lapply(head(call_list, n=3), function(x) { 
-      d <- readr::read_csv(x)
-      n <- names(d)
-      print(n)
-      
-      d
-    }
-    )
-    
-    cur_tib <- lapply(head(call_list, n=3), readr::read_csv) %>% dplyr::bind_rows(.id="Sentrix_Name")
-    
-    data_list %>% reduce(left_join, by = "Probe_ID")
-    
-    data_list %>% purrr::reduce(dplyr::left_join, by = c("Probe_ID","Probe_Design"))
-    
-    data_list %>% reduce(dplyr::left_join, by = c("Probe_ID","Probe_Design")) %>% 
-      purrr::set_names(c('Probe_ID','Probe_Design', paste('M',data_list,sep='_'), paste('U',data_list,sep='_')) )
-    
-    
-    paste(c('M','U'),names(data_list),sep='_')
-  }
-  
   # Write Merged Call Files Tibble::
   if (opt$addPathsCall) {
-    call_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=par$maxTest, outName=outName, outDir=opt$outDir, 
-                                 chipName="Sentrix_Name", pathName="Calls_Path", joinNameA="Probe_ID",
-                                 verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
+    call_tib <- mergeCallsFromSS(
+      ss=labs_ss_tib, max=par$maxTest, outName=outName, outDir=opt$outDir, 
+      chipName="Sentrix_Name", pathName="Calls_Path", joinNameA="Probe_ID",
+      verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
+    
     readr::write_csv(call_tib, opt$call_csv)
   }
-
+  
   # Write Merged Sset Files Tibble::
   if (opt$addPathsSset) {
-    sset_tib <- mergeCallsFromSS(ss=labs_ss_tib, max=par$maxTest, outName=outName, outDir=opt$outDir, 
-                                 chipName="Sentrix_Name", pathName="Ssets_Path", joinNameA="Probe_ID", joinNameB="Probe_Design",
-                                 verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
+    sset_tib <- mergeCallsFromSS(
+      ss=labs_ss_tib, max=par$maxTest, outName=outName, outDir=opt$outDir, 
+      chipName="Sentrix_Name", pathName="Ssets_Path", 
+      joinNameA="Probe_ID", joinNameB="Probe_Design",
+      verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
+    
     readr::write_csv(sset_tib, opt$sset_csv)
   }
   

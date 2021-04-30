@@ -698,7 +698,8 @@ plotPairsBeta = function(beta, pval=NULL, sample, nameA, nameB,
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting sample={sample}: {nameA} vs. {nameB}{RET}"), sep='')
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting ",
+                   "sample={sample}: {nameA} vs. {nameB}{RET}"))
   
   plotDir  <- file.path(outDir, paste(nameA,'VS',nameB,paste('pval',minPval, sep='-'), sep='_'))
   plotName <- paste(sample,nameA,'VS',nameB,probeType,field_str, sep='_')
@@ -712,13 +713,32 @@ plotPairsBeta = function(beta, pval=NULL, sample, nameA, nameB,
   
   valid_probe_types <- c('cg','ch','rs','rp','mu')
   
-  beta_tib <- beta %>% dplyr::filter(Probe_Type %in% valid_probe_types) %>% 
+  beta_tib <- NULL
+  beta_tib <- beta %>% 
+    dplyr::filter(Probe_Type %in% valid_probe_types) %>% 
     dplyr::mutate(!!group := paste0(!!groupA,'.',!!groupB) ) %>% 
-    dplyr::select(-c(1,!!groupA, !!groupB)) %>% dplyr::select(!!group, everything())
-  pval_tib <- pval %>% dplyr::filter(Probe_Type %in% valid_probe_types) %>% 
-    dplyr::mutate(!!group := paste0(!!groupA,'.',!!groupB) ) %>% 
-    dplyr::select(-c(1,!!groupA, !!groupB)) %>% dplyr::select(!!group, everything())
+    dplyr::select(-c(1,!!groupA, !!groupB)) %>% 
+    dplyr::select(!!group, everything())
   
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} beta_tib={RET}"), sep='')
+    print(beta_tib)
+  }
+  
+  pval_tib <- NULL
+  if (!is.null(pval)) {
+    pval_tib <- pval %>% 
+      dplyr::filter(Probe_Type %in% valid_probe_types) %>% 
+      dplyr::mutate(!!group := paste0(!!groupA,'.',!!groupB) ) %>% 
+      dplyr::select(-c(1,!!groupA, !!groupB)) %>% 
+      dplyr::select(!!group, everything())
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} pval_tib={RET}"), sep='')
+      print(pval_tib)
+    }
+  }
+
   ncols_org <- base::ncol(beta_tib)
   nrows_org <- base::nrow(beta_tib)
   tarColIdxes <- c(2:ncols_org)
@@ -774,20 +794,20 @@ plotPairsBeta = function(beta, pval=NULL, sample, nameA, nameB,
     upper = list(combo = "box_no_facet",
                  continuous = wrap(geomDensity1d_Delta, fdat=beta_tib, bufs=bufs, group=group, minDelta=minDelta, only=probeType,
                                    alpha=alpha_hih,alpha_lab=alpha_lab, size=dsize_low, wsize=wsize_low,
-                                   verbose=verbose,vt=vt+1,tc=tc+1) ),
+                                   verbose=verbose,vt=vt+3,tc=tc+1) ),
     
     # diag  = list(continuous='blankDiag'),
     diag  = list(continuous=wrap(diag_density, fdat=pval_tib, group=group, minPval=minPval, only=probeType, field=field,
                                  alpha=alpha_mid,alpha_lab=alpha_lab, size=dsize_low, wsize=wsize_low, non.ref=non.ref,
                                  x_min=0,x_max=1,y_min=0,ticks=3,
-                                 verbose=verbose,vt=vt+1,tc=tc+1) ),
+                                 verbose=verbose,vt=vt+3,tc=tc+1) ),
     
     # lower = 'blank'
     lower = list(combo = "box_no_facet",
                  continuous = wrap(geomDensity2d_RSquared, fdat=beta_tib, group=group, only=probeType,
                                    alpha=alpha_low,alpha_lab=alpha_lab, size=dsize_low, wsize=wsize_low,
                                    x_min=0,x_max=1,y_min=0,y_max=1,ticks=3,
-                                   verbose=verbose,vt=vt+1,tc=tc+1) )
+                                   verbose=verbose,vt=vt+3,tc=tc+1) )
   )
   gg <- gg +
     theme(panel.grid.major = element_blank()) +

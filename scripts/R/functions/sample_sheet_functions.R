@@ -130,9 +130,14 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #  Flag Auto Detection with poor matching (pval)::
       if (flagRefMatch) {
-        ret_tib <- ret_tib %>% dplyr::filter() %>% dplyr::filter(!!dbVal >= dbMin) %>% dplyr::filter(!!r2Val >= r2Min)
+        ret_tib <- ret_tib %>% 
+          dplyr::filter() %>% 
+          dplyr::filter(!!dbVal >= dbMin) %>% 
+          dplyr::filter(!!r2Val >= r2Min)
         auto_ss_flen <- base::nrow(ret_tib)
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(filt)={auto_ss_flen}{RET}"))
+        
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(filt)={auto_ss_flen}{RET}"))
         
         # Remove Unidentifiable
         # if (rmOdd) ret_tib <- ret_tib %>% dplyr::filter(Bead_Pool!='Odd')
@@ -355,16 +360,20 @@ formatSS_COVID = function(csv, skip=0, addID,
 #                        Merge Calls Files Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-mergeCallsFromSS = function(ss, max=0, outName, outDir, 
-                            chipName='Sentrix_Name', pathName='Calls_Path', joinNameA="Probe_ID", joinNameB="Probe_Design",
+mergeCallsFromSS = function(ss, max=0, outName, outDir,
+                            chipName='Sentrix_Name', pathName='Calls_Path', 
+                            joinNameA="Probe_ID", joinNameB="Probe_Design",
                             verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'mergeCallsFromSS'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; chipName={chipName}, pathName={pathName}, joinName={joinNameA}.{RET}"))
   
-  files_tib <- tibble::tibble()
   file_list <- base::list()
   data_list <- base::list()
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  
   stime <- system.time({
     
     if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
@@ -375,7 +384,10 @@ mergeCallsFromSS = function(ss, max=0, outName, outDir,
       call_path    <- ss[[pathName]][ssIdx]
       
       ss_perc = round(100*ssIdx/ss_cnt, 3)
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading {pathName}; idx={ssIdx}/{ss_cnt}={ss_perc}, sentrix_name={sentrix_name}; path={call_path}.{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading {pathName}; ",
+                       "idx={ssIdx}/{ss_cnt}={ss_perc}, ",
+                       "sentrix_name={sentrix_name}; path={call_path}.{RET}"))
       
       call_tib  <- suppressMessages(suppressWarnings( readr::read_csv(call_path) ))
       
@@ -418,20 +430,30 @@ mergeCallsFromSS = function(ss, max=0, outName, outDir,
     
     for (name in names(data_list)) {
       out_name <- paste(outName,name, sep='_')
-      file_list[[name]] <- file.path(outDir, paste(out_name,'raw-data.csv.gz', sep='.') )
-      cat(glue::glue("[{funcTag}]: Writing {pathName} File; name={name}, out_name={out_name}; CSV={file_list[[name]]}...{RET}"))
+      file_list[[name]] <- file.path(outDir, paste(out_name,'dat.csv.gz', sep='.') )
       
-      readr::write_csv(data_list[[name]], file_list[[name]])
+      safe_write(data_list[[name]],"csv",file_list[[name]],
+                 funcTag=funcTag, verbose=verbose,tt=tt)
+      
+      # if (verbose>=vt)
+      #   cat(glue::glue("[{funcTag}]: Writing {pathName} File; name={name}, out_name={out_name}; CSV={file_list[[name]]}...{RET}"))
+      # readr::write_csv(data_list[[name]], file_list[[name]])
     }
     
     # Build return tibble of mreged/split calls files::
-    files_tib <- file_list %>% dplyr::bind_rows() %>% tidyr::gather(Method, Full_Path)
+    ret_tib <- file_list %>% 
+      dplyr::bind_rows() %>% 
+      tidyr::gather(Method, Full_Path)
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  files_tib
+  ret_tib
 }
 
 loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, ss=NULL, 
@@ -469,7 +491,8 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, s
     if (verbose>=vt+4) print(pval_tib)
     
     if (addPval) {
-      if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will combine pvals with beta values...{RET}"))
+      if (verbose>=vt+1) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will combine pvals with beta values...{RET}"))
       
       beta_col <- paste(names(beta_tib),betaName, sep=del)
       beta_col[1] <- idKey
@@ -481,7 +504,8 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, s
     }
     
     # Convert to matrix::
-    if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Converting to matricies...{RET}"))
+    if (verbose>=vt+1)
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Converting to matricies...{RET}"))
     beta_mat <- beta_tib %>% tibble::column_to_rownames(var=idKey) %>% as.data.frame() %>% as.matrix()
     pval_mat <- pval_tib %>% tibble::column_to_rownames(var=idKey) %>% as.data.frame() %>% as.matrix()
     
@@ -492,7 +516,8 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, s
     if (fail_cnt>0) beta_mat[pval_idx] <- NA
     nana_cnt <- which(is.na(beta_mat)) %>% length()
     
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} minPval={minPval}, failCnt={fail_cnt}, naCnt={nana_cnt}.{RET}"))
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} minPval={minPval}, failCnt={fail_cnt}, naCnt={nana_cnt}.{RET}"))
     
     if (addPval) {
       beta_mat <- cbind(beta_mat, pval_mat[ match(rownames(beta_mat), rownames(pval_mat)), ])
@@ -506,6 +531,10 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, s
       mat <- cbind(mat, beta_mat[ match(rownames(mat), rownames(beta_mat)), ] )
     }
     
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} dim(mat)={RET}"))
+      mat %>% dim() %>% print()
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -643,21 +672,34 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
         stopifnot(file.exists(cur_ss_csv), file.exists(cur_fn_csv))
         
         # Load and filter::
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Loading Sample CSV; cur_ss_csv={cur_ss_csv}...{RET}") )
-        cur_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_ss_csv) )) %>% dplyr::mutate(!!exp_name:=base_key)
-        if (!is.null(pval_name) && !is.null(pval_perc)) cur_ss_tib <- cur_ss_tib %>% dplyr::filter(!!pval_name > !!pval_perc)
-        if (verbose>=vt+4) print(cur_ss_tib)
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{TAB} Loading Sample CSV; cur_ss_csv={cur_ss_csv}...{RET}") )
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Filtering Sample CSV; class_var={class_var}...{RET}") )
+        cur_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_ss_csv) )) %>% 
+          dplyr::mutate(!!exp_name:=base_key)
+        if (!is.null(pval_name) && !is.null(pval_perc)) cur_ss_tib <- cur_ss_tib %>% dplyr::filter(!!pval_name > !!pval_perc)
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{TAB} cur_ss_tib={RET}") )
+          print(cur_ss_tib)
+        }
+        
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{TAB} Filtering Sample CSV; class_var={class_var}...{RET}") )
         if (!is.null(classes) && length(trainClass_vec)>0)
           cur_ss_tib <- cur_ss_tib %>% dplyr::filter(!!class_var %in% trainClass_vec)
         
-        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{TAB} Filtered Sample Sheet; cur_ss_tib=...{RET}") )
-        if (verbose>=vt+4) print(cur_ss_tib)
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{TAB} Filtered Sample Sheet; cur_ss_tib={RET}") )
+          print(cur_ss_tib)
+        }
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{TAB} Loading call_table={cur_fn_csv}...{RET}") )
+        if (verbose>=vt)
+          cat(glue::glue("[{funcTag}]:{TAB} Loading call_table={cur_fn_csv}...{RET}") )
         calls_path_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_fn_csv) ))
-        if (verbose>=vt+4) print(calls_path_tib)
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{TAB} calls_path_tib={RET}") )
+          print(calls_path_tib)
+        }
         
         betas_path_tib <- calls_path_tib %>% dplyr::filter(Method %in% c(betaKey))
         pvals_path_tib <- calls_path_tib %>% dplyr::filter(Method %in% c(pvalKey))
@@ -669,7 +711,8 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
         #            Load Beta/Pval And Merge into Previous Matrix::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Load Beta/Pval And Merge into Previous Matrix...{RET}") )
+        if (verbose>=vt)
+          cat(glue::glue("[{funcTag}]:{tabsStr} Load Beta/Pval And Merge into Previous Matrix...{RET}") )
         
         beta_csv <- file.path(base_dir, base::basename(betas_path_tib$Full_Path[1]) )
         pval_csv <- file.path(base_dir, base::basename(pvals_path_tib$Full_Path[1]) )
@@ -680,19 +723,26 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
                                     cgn=cgn, ss=cur_ss_tib,
                                     idKey=idKey, addPval=addPval, betaName=betaName, pvalName=pvalName, del='.',
                                     verbose=verbose, vt=vt,tc=1, tt=tt)
-        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} beta_mat=...{RET}") )
-        if (verbose>=vt+4) beta_mat %>% head(n=1) %>% print()
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} beta_mat={RET}") )
+          beta_mat %>% head(n=1) %>% print()
+        }
         
         labs_tib <- labs_tib %>% dplyr::bind_rows(cur_ss_tib)
         
         if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Finished loading; outName={outName}.{RET}") )
-        if (verbose>=vt+4) print(labs_tib)
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} labs_tib={RET}") )
+          print(labs_tib)
+        }
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                      Sort Sample Sheet by class_var::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Sorting Sample Sheet by class_var={class_var}.{RET}") )
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Sorting Sample Sheet by class_var={class_var}.{RET}") )
+        
         sort_ss_tib <- labs_tib %>% dplyr::arrange(!!class_var) %>% 
           dplyr::mutate(!!class_var := as.factor(!!class_var),
                         !!class_idx := as.integer(!!class_var)-1) %>% 
@@ -700,7 +750,10 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
           dplyr::select(!!sentrix_name,!!class_var,!!class_idx,!!exp_name, everything()) 
         # %>% dplyr::select(!!sentrix_name, !!class_var, !!class_idx)
         
-        if (verbose>=vt+4) print(sort_ss_tib)
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} sort_ss_tib={RET}") )
+          print(sort_ss_tib)
+        }
         
         # Bit of tricks going on below; order of operations matters::
         pval_mat <- NULL
@@ -720,10 +773,14 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
           pval_col <- pval_mat %>% colnames() %>% stringr::str_remove(paste0(del,pvalName))
           colnames(pval_mat) <- pval_col
         }
-        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Masked Matrix={RET}") )
-        if (verbose>=vt+4) beta_mat %>% head(n=1) %>% print()
-        if (verbose>=vt+4) print(beta_col)
-        if (verbose>=vt+4) mask_mat %>% head(n=1) %>% print()
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} Masked Matrix beta_mat={RET}") )
+          beta_mat %>% head(n=1) %>% print()
+          cat(glue::glue("[{funcTag}]:{tabsStr} Masked Matrix beta_col={RET}") )
+          print(beta_col)
+          cat(glue::glue("[{funcTag}]:{tabsStr} Masked Matrix mask_mat={RET}") )
+          mask_mat %>% head(n=1) %>% print()
+        }
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                   Build Raw and Imputed Sorted Matricies::
@@ -735,8 +792,10 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
         # Imputation needs to be done on a class basis::
         #
         sort_ss_names <- sort_ss_tib %>% dplyr::distinct(!!class_var) %>% dplyr::pull(!!class_var) %>% as.vector()
-        if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} sort_ss_names={RET}") )
-        if (verbose>=vt+4) print(sort_ss_names)
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} sort_ss_names={RET}") )
+          print(sort_ss_names)
+        }
         
         impt_mat <- NULL
         for (sName in sort_ss_names) {

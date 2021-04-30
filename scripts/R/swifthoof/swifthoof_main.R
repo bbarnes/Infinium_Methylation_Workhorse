@@ -278,22 +278,40 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'NA12878'
-  
   par$local_runType <- 'qcMVP2'
-
+  par$local_runType <- "EPIC-8x1-EM-Sample-Prep"
+  
+  par$local_runType <- 'NA12878'
+  
   opt$fresh <- TRUE
   
   if (FALSE) {
-  } else if (par$local_runType=='NA12878') {
+  } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     opt$runName  <- par$local_runType
-
+    
     opt$auto_detect <- TRUE
     opt$workflow    <- "ind"
     opt$manDirName  <- 'core'
     
     opt$single   <- FALSE
+    opt$single   <- TRUE
+    
     opt$parallel <- TRUE
-
+    opt$parallel <- FALSE
+    
+  } else if (par$local_runType=='NA12878') {
+    opt$runName  <- par$local_runType
+    
+    opt$auto_detect <- TRUE
+    opt$workflow    <- "ind"
+    opt$manDirName  <- 'core'
+    
+    opt$write_snps  <- FALSE
+    
+    opt$single   <- FALSE
+    opt$parallel <- TRUE
+    opt$parallel <- FALSE
+    
   } else if (par$local_runType=='qcMVP2') {
     opt$runName  <- 'IBX-Zymogen'
     opt$runName  <- 'IBX-EPIDX'

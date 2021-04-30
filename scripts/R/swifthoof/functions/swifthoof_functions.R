@@ -131,7 +131,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       tidyr::spread(name, value) %>%
       addBeadPoolToSampleSheet(field="Loci_Count_cg",
                                verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
-    
+
     if (retData) {
       ret_dat$prefix <- prefix
       
@@ -157,9 +157,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     open_sum2_ssh <- NULL
     if (man_map_tib$platform[1]=='EPIC' ||
         man_map_tib$platform[1]=='HM450') {
+      
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detection p-value for ",
+                       "manifest={man_map_tib$platform[1]}.{RET}"))
+
       open_sset_dat <- sesame::openSesame(x=prefix, what = 'sigset')
+      print(open_sset_dat)
       open_beta_tib <- sesame::getBetas(sset = open_sset_dat, 
                                         mask=FALSE, sum.TypeI=FALSE)
+      print(open_beta_tib)
       
       open_sum1_ssh <- 
         ssetToPassPercSsheet(sset=open_sset_dat, man=NULL,
@@ -178,6 +185,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         ret_dat$open_beta_tib <- open_beta_tib
         ret_dat$open_sum1_ssh <- open_sum1_ssh
         ret_dat$open_sum2_ssh <- open_sum2_ssh
+        
+        return(ret_dat)
       }
     }
     
