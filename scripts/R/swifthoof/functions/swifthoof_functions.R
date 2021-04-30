@@ -48,25 +48,24 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
   # opt_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
   # def_tib <- dplyr::bind_rows(defs) %>% tidyr::gather("Option", "Value")
   
-  # Retrun Value::
+  # Return Values::
   ret_cnt <- 0
   ret_dat <- NULL
   stime <- system.time({
     
-    tTracker <- timeTracker$new()
-    if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
-    if (opt$fresh) {
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Cleaning; prefix={prefix}.{RET}{RET}"))
-      cleaned_files <- lapply(list.files(opt$outDir, pattern=prefix, full.names=TRUE), unlink)
-    }
-    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Initialize Starting Outputs::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    basecode <- basename(prefix)
-    out_name <- paste(basecode, sep=del)
+    tTracker <- timeTracker$new()
+    out_name <- basename(prefix)
     out_prefix <- file.path(opts$outDir, out_name)
+    
+    if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
+    if (opts$fresh) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cleaning; dir={opts$outDir}, pattern={out_name}...{RET}"))
+      cleaned_files <- lapply(list.files(opts$outDir, pattern=out_name, full.names=TRUE), unlink)
+    }
     
     stampBeg_txt <- file.path(opts$outDir, paste(out_name, 'timestamp.beg.txt', sep=del) )
     stampEnd_txt <- file.path(opts$outDir, paste(out_name, 'timestamp.end.txt', sep=del) )
@@ -76,7 +75,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                      Write Run Options/Defaults::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    opts_csv <- file.path(opt$outDir, paste(out_name,'program-options.csv', sep=del) )
+    opts_csv <- file.path(opts$outDir, paste(out_name,'program-options.csv', sep=del) )
     opts_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
     if (!is.null(defs)) {
       opts_tib <- opts_tib %>% dplyr::left_join(
@@ -103,6 +102,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       prefixToIdat(prefix=prefix, load=opts$load_idat, save=opts$save_idat, 
                    csv=idat_sigs_csv, ssh=idat_info_csv,
                    verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
+
     idat_info_tib <- 
       suppressMessages(suppressWarnings( readr::read_csv(idat_info_csv) ))
     
@@ -113,15 +113,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     #                     Get Sesame Manifest/Address Tables::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    man_map_tib <- idatToManifestMap(tib=idat_sigs_tib, mans=mans, sortMax=TRUE,
-                                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    man_map_tib <- idatToManifestMap(
+      tib=idat_sigs_tib, mans=mans, sortMax=TRUE,
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     top_man_tib <- mans[[man_map_tib[1,]$manifest]] %>% 
       dplyr::distinct(Probe_ID, .keep_all=TRUE)
     
-    bead_sum_tib <- 
-      getManifestBeadStats(dat=idat_sigs_tib, man=top_man_tib, types=btypes, 
-                           verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
+    bead_sum_tib <- getManifestBeadStats(
+      dat=idat_sigs_tib, man=top_man_tib, types=btypes, 
+      verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
     
     #
     # TBD:: Replace or improve addBeadPoolToSampleSheet()
@@ -259,7 +260,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     new_sset <- NULL
     new_sset <- newSset(prefix=prefix, 
                         platform=platform_key, manifest=top_man_tib,
-                        load=opts$load_sset,save=opt$save_sset,rds=new_sset_rds,
+                        load=opts$load_sset,save=opts$save_sset,rds=new_sset_rds,
                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     if (retData) {
@@ -298,7 +299,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         
         cur_sset <- mutateSSET_workflow(
           sset=new_sset, workflow=cur_workflow, pvals=pvals,
-          save=opt$save_sset, rds=cur_sset_rds,
+          save=opts$save_sset, rds=cur_sset_rds,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       }
       stopifnot(!is.null(cur_sset))
@@ -310,7 +311,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         pvals=pvals, min_pvals=min_pvals, min_percs=min_percs,
         basic=open_beta_tib,
         
-        write_sset=opt$save_sset, sset_rds=NULL, ret_sset=retData2,
+        write_sset=opts$save_sset, sset_rds=NULL, ret_sset=retData2,
         
         write_beta=opts$write_beta, beta_csv=NULL, ret_beta=retData2,
         write_bsum=opts$write_bsum, bsum_csv=NULL, ret_bsum=retData2,
@@ -416,7 +417,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # if (verbose>=vt)
     #   cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Compressing Outputs (CSV)...{RET}"))
     #
-    # gzip_list <- lapply(list.files(opt$outDir, pattern='.csv$', full.names=TRUE), 
+    # gzip_list <- lapply(list.files(opts$outDir, pattern='.csv$', full.names=TRUE), 
     #                     function(x) { system(glue::glue("gzip -f {x}")) } )
     
     readr::write_lines(x=date(),file=stampEnd_txt,sep='\n',append=FALSE)
@@ -449,24 +450,40 @@ maskTibs = function(tib, id, field, pval, minPval, del='_',
                     verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'maskTibs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; field={field}, pval={pval}, minPval={minPval}.{RET}"))
-  if (!no.mask) {
-    pval_del <- paste0(del,pval)
-    snames <- tib %>% dplyr::select(ends_with(pval_del)) %>% names() %>% stringr::str_remove(pval_del)
-    for (sname in snames) {
-      fstr <- paste(sname,field, sep=del)
-      pstr <- paste(sname,pval, sep=del)
-      tib <- maskTib(tib, field=fstr, id=id, pval=pstr, minPval=minPval, 
-                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    }
-  }
-  if (only.field) tib <- tib %>% dplyr::select(1,ends_with(field))
-  if (rm.suffix) tib  <- tib %>% purrr::set_names(stringr::str_remove(names(.), paste0(del,field) ) )
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; field={field}, pval={pval}, minPval={minPval}.{RET}"))
   
-  tib
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    if (!no.mask) {
+      pval_del <- paste0(del,pval)
+      snames <- tib %>% dplyr::select(ends_with(pval_del)) %>% names() %>% stringr::str_remove(pval_del)
+      for (sname in snames) {
+        fstr <- paste(sname,field, sep=del)
+        pstr <- paste(sname,pval, sep=del)
+        tib <- maskTib(tib, field=fstr, id=id, pval=pstr, minPval=minPval, 
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      }
+    }
+    if (only.field) tib <- tib %>% dplyr::select(1,ends_with(field))
+    if (rm.suffix) tib  <- tib %>% purrr::set_names(stringr::str_remove(names(.), paste0(del,field) ) )
+    
+    ret_tib <- tib
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
 }
 
-maskTib = function(tib, id, field, pval, minPval, rm.pval=FALSE, only.field=FALSE, mask.controls=FALSE,
+maskTib = function(tib, id, field, pval, minPval, 
+                   rm.pval=FALSE, only.field=FALSE, mask.controls=FALSE,
                    verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'maskTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -477,21 +494,28 @@ maskTib = function(tib, id, field, pval, minPval, rm.pval=FALSE, only.field=FALS
   id    <- id %>% rlang::sym()
   # minPval <- minPval %>% rlang::sym()
   
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     if (mask.controls) {
-      tib <- tib %>% dplyr::mutate(!!field := case_when(!!pval > !!minPval ~ NA_real_, TRUE ~ !!field))
+      ret_tib <- tib %>% dplyr::mutate(!!field := case_when(!!pval > !!minPval ~ NA_real_, TRUE ~ !!field))
     } else {
-      tib <- tib %>% dplyr::mutate(!!field := case_when(
+      ret_tib <- tib %>% dplyr::mutate(!!field := case_when(
         !stringr::str_starts(!!id, 'ctl_') & !!pval > !!minPval ~ NA_real_, 
         TRUE ~ !!field))
     }
-    if (rm.pval) tib <- tib %>% dplyr::select(-!!pval)
-    if (only.field) tib <- tib %>% dplyr::select(!!field)
+    if (rm.pval) ret_tib <- ret_tib %>% dplyr::select(-!!pval)
+    if (only.field) ret_tib <- ret_tib %>% dplyr::select(!!field)
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  tib
+  ret_tib
 }
 
 maskCall = function(tib, field, minKey, minVal, verbose=0,vt=3,tc=1,tt=NULL) {

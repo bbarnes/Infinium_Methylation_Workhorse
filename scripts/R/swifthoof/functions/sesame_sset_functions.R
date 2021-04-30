@@ -311,6 +311,7 @@ safeVCF = function(sset, vcf, verbose=0,vt=3,tc=1,tt=NULL) {
     ret_val = tryCatch({
       try_str <- 'Pass'
       suppressMessages(suppressWarnings(sesame::formatVCF(sset=sset, vcf=vcf) ))
+      if (verbose>=vt) cat("\n")
       
       #
       # TBD:: Use bgzip and tabix to compress VCF

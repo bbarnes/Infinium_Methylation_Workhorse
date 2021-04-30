@@ -59,6 +59,7 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, csv=NULL, ssh=NULL,
     } else {
       grn_idat <- loadIdat(prefix, 'Grn', gzip=gzip, 
                            verbose=verbose,vt=vt+4,tc=tc+1,tt=tt)
+
       red_idat <- loadIdat(prefix, 'Red', gzip=gzip, 
                            verbose=verbose,vt=vt+4,tc=tc+1,tt=tt)
       
@@ -69,11 +70,12 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, csv=NULL, ssh=NULL,
       red_sig <- getIdatSignalTib(red_idat, channel='Red', 
                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
 
+      if (verbose>=vt+4)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Joining Grn/Red data...{RET}"))
       ret_tib <- dplyr::full_join(grn_sig, red_sig, by="Address")
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Joined Grn/Red Idats(tib)={RET}"))
-        print(tib)
-      }
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+      if (verbose>=vt+4)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done.Joining Grn/Red data{RET}{RET}"))
 
       grn_ann <- dplyr::bind_cols(
         getIdatBarcodeTib(grn_idat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt),
@@ -147,18 +149,25 @@ loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
     idat_file <- paste0(prefix,"_",col,".idat")
     if (file.exists(idat_file)) {
       if (gzip) {
-        if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Compressing file={idat_file}.{RET}"))
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Compressing file={idat_file}.{RET}"))
+        
         system(paste0("gzip ",idat_file))
         idat_file <- paste0(prefix,"_",col,".idat.gz")
       }
     } else {
       idat_file <- paste0(prefix,"_",col,".idat.gz")
     }
-    if (!file.exists(idat_file)) stop(glue::glue("{RET}[{funcTag}]: ERROR: idat_file={idat_file} does NOT exist!!!{RET}{RET}"))
+    if (!file.exists(idat_file)) {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: idat_file={idat_file} does NOT exist!!!{RET}{RET}"))
+      return(ret_dat)
+    }
     stopifnot(file.exists(idat_file))
+
+    if (verbose>=vt+4) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading IDAT={idat_file}.{RET}"))
     
-    ret_dat <- illuminaio::readIDAT(idat_file)
-    
+    ret_dat <- suppressMessages(suppressWarnings( illuminaio::readIDAT(idat_file) ))
     ret_cnt <- ret_dat %>% names() %>% length()
     if (verbose>=vt+5) {
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} names(ret_dat({ret_cnt}))={RET}"))

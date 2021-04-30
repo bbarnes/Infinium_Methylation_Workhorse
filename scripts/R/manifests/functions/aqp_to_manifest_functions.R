@@ -868,7 +868,7 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1,
       cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
     cmd_ret <- system(cmd_str)
     
-    if (opt$verbose>=1)
+    if (verbose>=vt)
       cat(glue::glue("[{funcTag}]: Loading intersection output={out}...{RET}"))
     
     ret_tib <- suppressMessages(suppressWarnings( 

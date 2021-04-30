@@ -271,7 +271,7 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'DKFZ'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
-
+  
   par$local_runType <- 'qcMVP2'
   
   opt$fresh <- TRUE
@@ -285,8 +285,8 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- 'AKE-EPIDX'
     
     opt$auto_detect <- TRUE
-    # opt$workflow <- "nd,ind"
-    opt$workflow <- "i,ind"
+    opt$workflow    <- "nd,ind"
+    opt$manDirName  <- 'core'
     
   } else if (par$local_runType=='COVID') {
     opt$runName  <- 'COVID-Direct-Set1'

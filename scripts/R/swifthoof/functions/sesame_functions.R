@@ -157,14 +157,15 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       
       if (verbose>=vt+6) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}pval_sum_tab({pval_key},min={min_pval},per={min_perc})={RET}"))
-        print(pval_dat_tib)
+        ret_cnt <- print_tib(pval_dat_tib,funcTag, verbose,vt+4,tc, n="pval_dat_tib")
+        
         pval_sum_tab <- pval_dat_tib %>% 
           purrr::set_names(c("Probe_ID","Pval")) %>%
           dplyr::left_join(man, by="Probe_ID") %>%
           dplyr::group_by(Probe_Type,Probe_Design) %>%
           dplyr::summarise(Pass_Perc=cntPer_lte(Pval,min_pval),
                            .groups="drop")
-        pval_sum_tab %>% print(n=base::nrow(pval_sum_tab))
+        ret_cnt <- print_tib(pval_sum_tab,funcTag, verbose,vt+4,tc, n="pval_sum_tab")
         cat(glue::glue("{RET}{RET}{RET}"))
       }
       
@@ -187,9 +188,10 @@ ssetToSummary = function(sset, man, idx, workflow, name,
       
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}pval_dat_tib({pval_key},min={min_pval},per={min_perc})={RET}"))
-        print(pval_dat_tib)
+        ret_cnt <- print_tib(pval_dat_tib,funcTag, verbose,vt+4,tc, n="pval_dat_tib")
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}pval_sum_tib({pval_key},min={min_pval},per={min_perc})={RET}"))
-        print(pval_sum_tib)
+        ret_cnt <- print_tib(pval_sum_tib,funcTag, verbose,vt+4,tc, n="pval_sum_tib")
+        cat(glue::glue("{RET}RET}"))
       }
       
       if (!is.null(mask)) {
@@ -210,9 +212,9 @@ ssetToSummary = function(sset, man, idx, workflow, name,
         sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(pval_sum_tib)
         
         if (verbose>=vt+6) {
-          cat(glue::glue("{RET}{RET}{RET} sums_dat_tib(mask_pval_key={mask_pval_key})={RET}"))
-          print(sums_dat_tib)
-          cat(glue::glue("sums_dat_tib... done...{RET}{RET}{RET}RET}"))
+          cat(glue::glue("{RET} sums_dat_tib(mask_pval_key={mask_pval_key})={RET}"))
+          ret_cnt <- print_tib(sums_dat_tib,funcTag, verbose,vt+4,tc, n="sums_dat_tib")
+          cat(glue::glue("{RET}RET}"))
         }
       }
     }
@@ -267,7 +269,7 @@ ssetToSummary = function(sset, man, idx, workflow, name,
                           by="Probe_ID", suffix=c("_ref","_can")) %>%
         dplyr::filter(stringr::str_starts(Probe_ID,'cg')) %>% 
         dplyr::mutate(dB=base::abs(betas_ref-betas_can)) %>% 
-        dplyr::summarise(pass_perc=cntPer_lte(dB,opt$minDeltaBeta)) %>%
+        dplyr::summarise(pass_perc=cntPer_lte(dB,minDb)) %>%
         head(n=1) %>% dplyr::pull(1)
       
       if (percision_beta != -1)
@@ -283,11 +285,10 @@ ssetToSummary = function(sset, man, idx, workflow, name,
         !!dB_basic_key := dB_basic_val )
 
       if (verbose>=vt+6) {
-        cat(glue::glue("{RET}{RET}{RET}"))
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}base_dat_tib={RET}"))
-        print(base_dat_tib)
+        cat(glue::glue("{RET}"))
+        ret_cnt <- print_tib(base_dat_tib,funcTag, verbose,vt+4,tc, n="base_dat_tib")
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ",
-                       "base_dat_tib... done...{RET}{RET}{RET}RET}"))
+                       "base_dat_tib... done...{RET}{RET}"))
       }
     }
     if (ret_beta || ret_bsum) ret_dat$beta <- ret_beta_dat
@@ -419,9 +420,9 @@ ssetToSummary = function(sset, man, idx, workflow, name,
                     dplyr::everything())
     
     if (verbose>=vt+4) {
-      cat(glue::glue("{RET}{RET}{RET} data_ssh_tib={RET}"))
-      print(data_ssh_tib)
-      cat(glue::glue("data_ssh_tib done...{RET}{RET}{RET}{RET}"))
+      cat(glue::glue("{RET}"))
+      ret_cnt <- print_tib(data_ssh_tib,funcTag, verbose,vt+4,tc, n="data_ssh_tib")
+      cat(glue::glue("{RET}{RET}"))
     }
     # pvals_pOOBAH
     
@@ -443,9 +444,9 @@ ssetToSummary = function(sset, man, idx, workflow, name,
                     dplyr::everything())
     
     if (verbose>=vt+4) {
-      cat(glue::glue("{RET}{RET}{RET} pval_ssh_tib={RET}"))
-      print(pval_ssh_tib)
-      cat(glue::glue("pval_ssh_tib done...{RET}{RET}{RET}{RET}"))
+      cat(glue::glue("{RET}"))
+      ret_cnt <- print_tib(pval_ssh_tib,funcTag, verbose,vt+4,tc, n="pval_ssh_tib")
+      cat(glue::glue("{RET}{RET}"))
     }
     
     sums_ssh_tib <- 

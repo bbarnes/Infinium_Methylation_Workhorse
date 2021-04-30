@@ -269,7 +269,7 @@ program_init = function(name,defs=NULL,
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   pars$cmd_shell <- file.path(opts$outDir,paste(pars$prgmTag,name,'command.sh', sep='.'))
   pars$cmd_shell <- 
-    optsToCommand(opts=opt_tib, pre=opt$Rscript,exe=pars$exePath, file=pars$cmd_shell, 
+    optsToCommand(opts=opt_tib, pre=opts$Rscript,exe=pars$exePath, file=pars$cmd_shell, 
                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
   
   ret_cnt <- names(opts) %>% length()
