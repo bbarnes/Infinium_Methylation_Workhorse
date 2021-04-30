@@ -732,6 +732,10 @@ if (FALSE) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
+  opt$sampleCsv <- file.path(par$datDir, "ss/AstraZeneca_30042021_Human_SampleSheet.csv.gz")
+}
+
+if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
   
   stop(glue::glue("[{par$prgmTag}]: Failed to find predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))
   
