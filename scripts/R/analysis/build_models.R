@@ -244,13 +244,14 @@ if (args.dat[1]=='RStudio') {
     opt$lociPvalKey <- "pvals_pOOBAH"
     
     opt$mergeDir <- paste(
-      file.path(par$topDir,"scratch","merge_builds",opt$runName,
+      file.path(par$topDir,"scratch","merge_builds_latest/merge_builds",opt$runName,
                 par$platform,par$version,opt$classVar,opt$workflow),
-      file.path(par$topDir,"scratch","merge_builds","EPIC-8x1-EM-Sample-Prep.v0",
+      file.path(par$topDir,"scratch","merge_builds_latest/merge_builds","EPIC-8x1-EM-Sample-Prep.v0",
                 par$platform,par$version,opt$classVar,opt$workflow),
       sep=',')
     
-    opt$trainClass <- paste('BS','EM', sep=',')
+    # opt$trainClass <- paste('BS','EM', sep=',')
+    opt$trainClass <- paste('BS-FF','BS-PE', 'EM-FF', 'EM-PE', sep=',')
     
   } else if (par$local_runType=='NA12878') {
     opt$runName  <- par$local_runType
@@ -654,11 +655,17 @@ for (betaKey in lociBetaKey_vec) {
           dplyr::mutate(Plot_Name=paste0(Rank_Chr,'_Rep',Rank_Idx,'_',as.integer(!!sam_pval_name_sym))) %>%
           dplyr::ungroup() %>%
           dplyr::select(Sentrix_Name, Class_Name, !!class_idx, !!exp_sym, Class_Int, !!sam_pval_name_sym, Rank_Idx,Rank_Chr,Plot_Name, everything())
+
+        # NOTE:: Previous Versions Re-assigned Sample_Name to equal Class_Name
+        # plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name=Class_Name)
+        #  plotSheet_tib %>% dplyr::select(Sample_Name, Class_Name)
         
-        plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name=Class_Name)
-        
+        # NOTE:: Once we have both Sample_Name and Class_Name we should split
+        #  by Sample_Name and then later by Class_Name... Testing....
+        #
         # ss_class_list <- plotSheet_tib %>% split(.$Amp_Incubation)
-        ss_class_list <- plotSheet_tib %>% split(.$Class_Name)
+        # ss_class_list <- plotSheet_tib %>% split(.$Class_Name)
+        ss_class_list <- plotSheet_tib %>% split(.$Sample_Name)
         ss_class_keys <- names(ss_class_list)
         
         for (cIdx in c(1:length(ss_class_keys))) {
@@ -724,18 +731,26 @@ for (betaKey in lociBetaKey_vec) {
                 red_ss_tibA <- reduceSortedTib(cur_ss_tibA)
                 red_ss_tibB <- reduceSortedTib(cur_ss_tibB) %>% dplyr::mutate(Plot_Name=stringr::str_replace(Plot_Name,'^A_', 'B_'))
                 
-                beta_tibA <- beta_masked_mat[ ,red_ss_tibA$Sentrix_Name ] %>% as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
+                beta_tibA <- beta_masked_mat[ ,red_ss_tibA$Sentrix_Name ] %>% 
+                  as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
                   tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
-                pval_tibA <- pval_select_mat[ ,red_ss_tibA$Sentrix_Name ] %>% as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
-                  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
-                
-                beta_tibB <- beta_masked_mat[ ,red_ss_tibB$Sentrix_Name ] %>% as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
-                  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
-                pval_tibB <- pval_select_mat[ ,red_ss_tibB$Sentrix_Name ] %>% as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
+                pval_tibA <- pval_select_mat[ ,red_ss_tibA$Sentrix_Name ] %>% 
+                  as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
                   tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
                 
-                beta_plot_tib <- ses_man_tib %>% dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% dplyr::rename(Design_Type=DESIGN) %>%
-                  dplyr::left_join(beta_tibA, by="Probe_ID") %>% dplyr::left_join(beta_tibB, by="Probe_ID")
+                beta_tibB <- beta_masked_mat[ ,red_ss_tibB$Sentrix_Name ] %>% 
+                  as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
+                  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                pval_tibB <- pval_select_mat[ ,red_ss_tibB$Sentrix_Name ] %>% 
+                  as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
+                  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                
+                beta_plot_tib <- ses_man_tib %>% 
+                  dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% 
+                  dplyr::rename(Design_Type=DESIGN) %>%
+                  dplyr::left_join(beta_tibA, by="Probe_ID") %>% 
+                  dplyr::left_join(beta_tibB, by="Probe_ID")
+                
                 pval_plot_tib <- ses_man_tib %>% dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% dplyr::rename(Design_Type=DESIGN) %>%
                   dplyr::left_join(pval_tibA, by="Probe_ID") %>% dplyr::left_join(pval_tibB, by="Probe_ID")
                 

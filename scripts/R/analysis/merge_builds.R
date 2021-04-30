@@ -212,8 +212,27 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'NA12878'
+  par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
+  
   
   if (FALSE) {
+    
+  } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
+    opt$runName  <- par$local_runType
+    
+    opt$workflow    <- "ind"
+    opt$manDirName  <- 'core'
+    
+    opt$single   <- FALSE
+    # opt$parallel <- TRUE
+    
+    opt$buildDir <- paste(
+      # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
+      # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',"EPIC-8x1-EM-Sample-Prep.v0"),
+      file.path(par$topDir, 'scratch/swifthoof_main',opt$runName),
+      file.path(par$topDir, 'scratch/swifthoof_main',"EPIC-8x1-EM-Sample-Prep.v0"),
+      sep=',')
+    
   } else if (par$local_runType=='NA12878') {
     opt$runName  <- par$local_runType
     
@@ -529,6 +548,7 @@ opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
 opt$outDir <- file.path(opt$outDir, 
                         opt$platform, opt$version, 
                         opt$classVar, opt$workflow)
+
 if (!dir.exists(opt$outDir))
   dir.create(opt$outDir, recursive=TRUE)
 
@@ -623,6 +643,9 @@ auto_ss_sum <- auto_ss_tib %>%
   dplyr::summarise(Count=n(), .groups="drop")
 auto_ss_sum %>% print(n=base::nrow(auto_ss_sum))
 
+
+
+
 #
 #
 # Quick fix for NA12878
@@ -707,6 +730,15 @@ if (FALSE) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                   Load Humman Annotation Sample Sheets::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
+  
+  stop(glue::glue("[{par$prgmTag}]: Failed to find predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))
+  
+} else {
+  cat(glue::glue("[{par$prgmTag}]: FOUND predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))  
+}
+
 
 labs_ss_tib <- NULL
 if (! is.null(hum_ss_tib)) {
