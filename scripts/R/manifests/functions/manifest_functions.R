@@ -2217,6 +2217,9 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
     man_cnts <- length(man_keys)
     
     for (man_key in man_keys) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting man_key={man_key}...{RET}"))
+      
       man_tib <- mans[[man_key]]
       
       # Init current manifest rc-overlap tib::
@@ -2224,6 +2227,11 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
       rec_tib <- tibble::tibble(manifest=man_key) %>% 
         tidyr::separate(manifest, into=c("platform","version"), sep="-", remove=FALSE) %>%
         dplyr::mutate(sample_cnt=can_cnt)
+      
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} rec_tib={RET}"))
+        print(rec_tib)
+      }
       
       #
       #
@@ -2238,6 +2246,11 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
         dplyr::filter(!is.na(!!field_sym)) %>% 
         dplyr::mutate(Address_Len=stringr::str_length(!!field_sym))
       
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref_tib={RET}"))
+        print(ref_tib)
+      }
+
       add_len <- max(ref_tib$Address_Len, na.rm=TRUE)
       if (add_len!=8 && add_len!=10) {
         stop(glue::glue("{RET}[{funcTag}]: ERROR: Invalid Max Address Length {add_len} != [8,10].{RET}{RET}"))
@@ -2250,6 +2263,11 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
         ref_tib <- ref_tib %>% dplyr::mutate(
           !!field_sym := stringr::str_remove(!!field_sym,'^1') %>% 
             stringr::str_remove('^0+') %>% as.numeric() %>% as.integer() )
+        
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref_tib={RET}"))
+          print(ref_tib)
+        }
       }
       ref_cnt <- ref_tib %>% dplyr::distinct(!!field_sym) %>% base::nrow()
       mat_cnt <- dplyr::inner_join(can_tib,ref_tib, by=field) %>% 
@@ -2278,14 +2296,21 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
     max_match_cnt <- ret_tib$match_cnt[1]
     max_rc_per    <- ret_tib$rc_per[1]
     
-    ret_cnt <- ret_tib %>% base::nrow()
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} max({RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}      platform={max_platform},{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}      version={max_version},{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}      match={max_match_cnt},{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}      RCP={max_rc_per}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}     ){RET}"))
+    }
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} max(platform={max_platform}, version={max_version}, ",
-                   "match={max_match_cnt}, RCP={max_rc_per}){RET}",
-                   "[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib

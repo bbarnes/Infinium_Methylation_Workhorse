@@ -257,6 +257,12 @@ if (args.dat[1]=='RStudio') {
   opt$cluster  <- TRUE
   opt$cluster  <- FALSE
   
+  opt$save_idat <- TRUE
+  opt$load_idat <- TRUE
+  
+  opt$save_sset <- TRUE
+  opt$load_sset <- TRUE
+
   opt$manDirName  <- 'base'
   opt$manDirName  <- 'core'
   
@@ -271,12 +277,23 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'DKFZ'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
+  par$local_runType <- 'NA12878'
   
   par$local_runType <- 'qcMVP2'
-  
+
   opt$fresh <- TRUE
   
   if (FALSE) {
+  } else if (par$local_runType=='NA12878') {
+    opt$runName  <- par$local_runType
+
+    opt$auto_detect <- TRUE
+    opt$workflow    <- "ind"
+    opt$manDirName  <- 'core'
+    
+    opt$single   <- FALSE
+    opt$parallel <- TRUE
+
   } else if (par$local_runType=='qcMVP2') {
     opt$runName  <- 'IBX-Zymogen'
     opt$runName  <- 'IBX-EPIDX'
@@ -369,12 +386,6 @@ if (args.dat[1]=='RStudio') {
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
-  
-  opt$save_idat <- TRUE
-  opt$load_idat <- TRUE
-  
-  opt$save_sset <- TRUE
-  opt$load_sset <- TRUE
   
   opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
   if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
