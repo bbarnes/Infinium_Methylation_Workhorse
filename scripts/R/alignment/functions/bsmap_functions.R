@@ -46,6 +46,12 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 run_bsmap = function(exe, fas, gen, bsp, 
+                     add=NULL, bed=NULL, org=NULL,
+                     
+                     join_key="Aln_Key",join_type="inner",
+                     des_key="Ord_Des",din_key="Ord_Din",
+                     sort=TRUE,
+                     
                      opt=NULL, lan=NULL, run=FALSE,
                      verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'run_bsmap'
@@ -53,8 +59,8 @@ run_bsmap = function(exe, fas, gen, bsp,
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; bsp={bsp}.{RET}"))
   
-  aln_bsp <- bsp
-  
+  ret_cnt <- 0
+  ret_tib <- NULL
   aln_ssh <- NULL
   ret_tsv <- NULL
   sys_ret <- "Not_Run"
@@ -62,39 +68,49 @@ run_bsmap = function(exe, fas, gen, bsp,
     if (is.null(opt) || length(opt)==0)
       opt="-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
     
-    build_file_dir(aln_bsp)
-    aln_ssh <- paste(aln_bsp, 'run.sh', sep='.')
-    ret_tsv <- paste(aln_bsp, 'tsv.gz', sep='.')
+    build_file_dir(bsp)
+    aln_ssh <- paste(bsp, 'run.sh', sep='.')
+    ret_tsv <- paste(bsp, 'tsv.gz', sep='.')
     
-    aln_cmd <- glue::glue("{exe} -a {fas} -d {gen} {opt} -o {aln_bsp}{RET}",
-                          "cat {aln_bsp} | ",
+    aln_cmd <- glue::glue("{exe} -a {fas} -d {gen} {opt} -o {bsp}{RET}",
+                          "cat {bsp} | ",
                           # "cut -f 1,2,4-11 | ",
                           "gzip -c - > {ret_tsv}{RET}",
-                          "rm -f {aln_bsp}{RET}")
+                          "rm -f {bsp}{RET}")
     
-    safe_write(aln_cmd,"line",aln_ssh,
-               funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    safe_write(aln_cmd,"line",aln_ssh,funcTag=funcTag,
+               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     Sys.chmod(paths=aln_ssh, mode="0777")
     
     if (run) {
-      fas_name <- fas %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
-      gen_name <- gen %>% base::basename() %>% stringr::str_remove('.[A-Za-z]+$') %>% stringr::str_remove('.[A-Za-z]+$')
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Will Execute bsmap: {fas_name} vs. {gen_name}...{RET}"))
-      
       exe_method="Running"
       if (!is.null(lan)) {
         exe_method="Launching"
         aln_ssh <- paste(lan,aln_ssh, sep=' ')
       }
+      
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} {exe_method}; CMD={aln_cmd}...{RET}"))
-      
       sys_ret <- base::system(aln_ssh)
-      
       if (sys_ret!=0) {
         stop(glue::glue("{RET}[{funcTag}]: ERROR: sys_ret({sys_ret}) != 0!!!{RET}{RET}"))
         return(NULL)
+      }
+      
+      if (!is.null(add)) {
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        #                      Join Address and Alignment Data::
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        ret_tib <-
+          join_bsmap(
+            add=add, bed=bed, org=org, file=ret_tsv,
+            join_key=join_key,join_type="inner",
+            prb_des_key=des_key,prb_din_key=din_key,
+            sort=TRUE,
+            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        
+        ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
       }
     }
   })
@@ -103,6 +119,7 @@ run_bsmap = function(exe, fas, gen, bsp,
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; sys={sys_ret}; elapsed={etime}.{RET}{RET}"))
   
+  if (!is.null(ret_tib)) return(ret_tib)
   if (run) return(ret_tsv)
   aln_ssh
 }
@@ -492,11 +509,11 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
     }
     
     ret_tib <- ret_tib  %>%
+      dplyr::mutate(Cgn_Id=stringr::str_remove(Aln_Key_Unq, "-.*$")) %>%
       dplyr::select(dplyr::any_of(imp_col_vec),
                     dplyr::everything()) %>%
-      utils::type.convert() %>% 
-      dplyr::mutate(across(where(is.factor), as.character) )
-    
+      clean_tibble()
+
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)

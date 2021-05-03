@@ -46,14 +46,18 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                ORD/MAT/AQP/Manifest File Methods:: Loading
+#                ORD/MAT/AQP/Manifest File Workflows:: Generation
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
-                                 bpn=NULL, aqn=NULL,
-                                 csv=NULL, runName=NA, retData=FALSE,
-                                 verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'aqp_manifest_workflow'
+aqp_address_workflow = function(ord, 
+                                mat=NULL, aqp=NULL,
+                                bpn=NULL, aqn=NULL,
+                                add_csv=NULL, man_csv=NULL,
+                                add_fas=NULL,
+                                u49_tsv=NULL, m49_tsv=NULL,
+                                runName=NA, retData=FALSE,
+                                verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'aqp_address_workflow'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -74,7 +78,7 @@ aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
     ord_len <- length(ord_vec)
     bpn_vec <- c(1:ord_len)
     aqn_vec <- c(1:ord_len)
-    ord_tib <- load_man_files(ord_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
+    ord_tib <- load_aqp_files(ord_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
     if (!is.null(bpn)) bpn_vec <- stringr::str_split(bpn, pattern=",", simplify=TRUE) %>% 
       BiocGenerics::as.vector()
     
@@ -100,8 +104,8 @@ aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
                         "({ord_len} != {mat_len})! Exiting...{RET}"))
         return(ret_tib)
       }
-      mat_tib <- load_man_files(mat_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
-
+      mat_tib <- load_aqp_files(mat_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
+      
       if (retData) ret_dat$mat <- mat_tib
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -120,10 +124,13 @@ aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
                         "({aqp_len} != {mat_len})! Exiting...{RET}"))
         return(ret_tib)
       }
-      aqp_tib <- load_man_files(aqp_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
+      aqp_tib <- load_aqp_files(aqp_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
       
       if (retData) ret_dat$aqp <- aqp_tib
     }
+    if (verbose>=vt+4)
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} Done. Loading data.{RET}{RET}"))
+    ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n="order")
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Build Bead Pool/AQP/PQC Info Data Structure::
@@ -133,16 +140,22 @@ aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
       dplyr::mutate(Ord_Idx=dplyr::row_number()) %>% 
       dplyr::select(Ord_Idx, dplyr::everything()) %>% 
       clean_tibble()
+    exp_cnt <- print_tib(exp_tib,funcTag, verbose,vt+4,tc, n="experiment")
     
+    # if (verbose>=vt+4) {
+    #   cat(glue::glue("{RET}[{funcTag}]:{tabsStr} exp_tib={RET}"))
+    #   print(exp_tib)
+    # }
     if (retData) ret_dat$exp <- exp_tib
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                                Join Data::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    add_tib <- ord_tib %>% 
+    ret_tib <- ord_tib %>% 
       dplyr::arrange(-Ord_Idx,Ord_Key) %>%
       dplyr::left_join(exp_tib, by="Ord_Idx")
-      
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_1")
+    
     if (!is.null(mat_tib) && !is.null(aqp_tib)) {
       if (verbose>=vt+4)
         cat(glue::glue("{RET}[{funcTag}]:{tabsStr} Joining mat/aqp...{RET}"))
@@ -150,7 +163,7 @@ aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
       mat_tib <- mat_tib %>% dplyr::left_join(exp_tib, by="Ord_Idx")
       aqp_tib <- aqp_tib %>% dplyr::left_join(exp_tib, by="Ord_Idx")
       
-      add_tib <- add_tib %>%
+      ret_tib <- ret_tib %>%
         dplyr::full_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
                                        "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
         dplyr::left_join(aqp_tib, by=c("Address",
@@ -159,19 +172,21 @@ aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
         dplyr::filter(!is.na(Decode_Status)) %>%
         dplyr::filter(Decode_Status==0) %>%
         dplyr::distinct(Address, .keep_all=TRUE)
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_2")
     }
-    add_tib <- add_tib %>%
+    ret_tib <- ret_tib %>%
       dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
       dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep") %>%
       dplyr::select(Ord_Key,Ord_Des,Ord_Din,Ord_Col,Ord_Idx,Ord_Prb,
                     Ord_Prb_Rep,Ord_Par_Rep,
                     dplyr::everything())
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_3")
     
     # Write Summary::
     if (verbose>=vt+4 &&
         !is.null(mat_tib) && !is.null(aqp_tib)) {
       ret_sum <- 
-        add_tib %>% 
+        ret_tib %>% 
         dplyr::group_by(Ord_Idx,Bpn_Idx,Aqp_Idx,
                         Ord_Des,Ord_Col,Ord_Din,
                         Decode_Status) %>% 
@@ -180,23 +195,41 @@ aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
       # sum_cnt <- print_tib(ret_sum,funcTag, verbose,vt+4,tc, n="summary")
     }
     
-    man_vec <- c("Ord_Key","Ord_Din","Ord_Col",
-                     dplyr::all_of(base::names(exp_tib) ) )
+    # Write Manifest Output::
+    if (!is.null(man_csv)) {
+      man_vec <- c("Ord_Key","Ord_Din","Ord_Col",
+                   dplyr::all_of(base::names(exp_tib) ) )
+      
+      man_tib <- ret_tib %>%
+        add_to_man(join=man_vec,
+                   runName=runName,
+                   des_key="Ord_Des", pid="Ord_Key",
+                   col_key="Ord_Col",
+                   csv=man_csv,
+                   validate=TRUE,
+                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (retData) ret_dat$man <- man_tib
+    }
     
-    ret_tib <- add_tib %>%
-      add_to_man(join=man_vec,
-                 runName=runName,
-                 des_key="Ord_Des", pid="Ord_Key",
-                 col_key="Ord_Col",
-                 csv=csv,
-                 validate=TRUE, 
-                 verbose=opt$verbose, tt=pTracker)
-
-    # Write Output::
-    # if (!is.null(csv)) {
-    #   safe_write(ret_tib,"csv",csv,
-    #              funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    # }
+    # Write Outputs::
+    if (!is.null(add_fas)) {
+      # Write Fasta Output::
+      ret_tib <- ret_tib %>%
+        add_to_fas(
+          prb_key="Ord_Prb", add_key="Ord_Key", 
+          des_key="Ord_Des", din_key="Ord_Din",
+          prb_fas=add_fas, dat_csv=add_csv,
+          u49_tsv=u49_tsv, m49_tsv=m49_tsv,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+    } else if (!is.null(add_csv)) {
+      # Write Address Output::
+      safe_write(ret_tib,"csv",add_csv,
+                 funcTag=funcTag,
+                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    }
+    if (retData) ret_dat$add <- ret_tib
+    
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -210,9 +243,9 @@ aqp_manifest_workflow = function(ord, mat=NULL, aqp=NULL,
   ret_tib
 }
 
-load_man_files = function(file,
-                     verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'load_man_files'
+load_aqp_files = function(file,
+                          verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'load_aqp_files'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -229,11 +262,11 @@ load_man_files = function(file,
     }
     
     ret_tib <- file_vec %>%
-      lapply(load_man_file,
-             verbose=opt$verbose,tt=pTracker) %>% 
+      lapply(load_aqp_file,
+             verbose=verbose,tt=tt) %>% 
       dplyr::bind_rows(.id="Ord_Idx") %>%
       clean_tibble()
-
+    
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="Order")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -245,10 +278,10 @@ load_man_files = function(file,
   ret_tib
 }
 
-load_man_file = function(file, idx=NULL,
+load_aqp_file = function(file, idx=NULL,
                          n_max=100, guess=1000,
                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'load_man_file'
+  funcTag <- 'load_aqp_file'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   # Saftey Check for Empty Files::
@@ -330,7 +363,7 @@ load_man_file = function(file, idx=NULL,
   ret_tib <- NULL
   stime <- system.time({
     
-    guess_tib <- guess_man_file(file, n_max=n_max,
+    guess_tib <- guess_aqp_file(file, n_max=n_max,
                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     row_num=guess_tib$row_num[1]
@@ -430,9 +463,13 @@ load_man_file = function(file, idx=NULL,
           dplyr::select(dplyr::all_of(ord_colA)) %>%
           purrr::set_names(ord_cols)
       ) %>% 
-        dplyr::mutate(Ord_Din=stringr::str_sub(Ord_Key, 1,2)) %>%
-        dplyr::select(Ord_Key,Ord_Des,Ord_Din,Ord_Col,
-                      dplyr::everything())
+        dplyr::mutate(
+          Ord_Din=stringr::str_sub(Ord_Key, 1,2),
+          Ord_Key=stringr::str_replace_all(Ord_Key, "_", "-")
+        ) %>%
+        dplyr::select(
+          Ord_Key,Ord_Des,Ord_Din,Ord_Col,dplyr::everything()
+        )
     }
     
     # Apply Formatting Rules:: Match/AQP/PQC Data Types:: Address
@@ -483,12 +520,12 @@ load_man_file = function(file, idx=NULL,
   ret_tib
 }
 
-guess_man_file = function(file, 
+guess_aqp_file = function(file, 
                           fields=c("Assay_Design_Id","Plate","address_names","Address"), 
                           cols=NULL,
                           n_max=100, # guess=100000,
                           verbose=0,vt=6,tc=1,tt=NULL) {
-  funcTag <- 'guess_man_file'
+  funcTag <- 'load_aqp_files'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -627,13 +664,16 @@ add_comb = function(tibA, tibB, field,
   ret_tib
 }
 
-man_to_add = function(tib, 
-                      pid="IlmnID", des="Man_Des", din="Man_Din", inf="Man_Inf",
-                      addA="AddressA_ID", prbA="AlleleA_ProbeSeq", 
-                      addB="AddressB_ID", prbB="AlleleB_ProbeSeq",
-                      del="_",
-                      verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'man_to_add'
+broken_man_to_add = function(tib, 
+                             # pid, des, din, inf,
+                             # addA, prbA, 
+                             # addB, prbB,
+                             pid="IlmnID", des="Man_Des", din="Man_Din", inf="Man_Inf",
+                             addA="AddressA_ID", prbA="AlleleA_ProbeSeq",
+                             addB="AddressB_ID", prbB="AlleleB_ProbeSeq",
+                             del="_",
+                             verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'broken_man_to_add'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -654,37 +694,43 @@ man_to_add = function(tib,
     
     inf_list <- tib %>%
       dplyr::mutate(
-        !!din_sym:=stringr::str_sub(!!pid_sym, 1,2),
-        !!inf_sym:=dplyr::case_when(
+        Man_Din=stringr::str_sub(!!pid_sym, 1,2),
+        Man_Des=dplyr::case_when(
           is.na(!!addA_sym) | is.na(!!prbA_sym) ~ NA_real_,
           is.na(!!addB_sym) | is.na(!!prbB_sym) ~ 2,
           !is.na(!!addA_sym) & ! is.na(!!prbA_sym) &
             !is.na(!!addB_sym) & ! is.na(!!prbB_sym) ~ 1,
           TRUE ~ NA_real_) %>% as.integer()
-      ) %>% split(.[[inf]])
+      ) %>% split(.[["Man_Des"]])
+    print(inf_list)
     
     ret_tib <- dplyr::bind_rows(
       inf_list[["1"]] %>% 
-        dplyr::mutate(!!des_sym:=as.character("U")) %>%
+        # dplyr::mutate(!!des_sym:=as.character("U")) %>%
+        dplyr::mutate(Man_Des=as.character("U")) %>%
         dplyr::rename(Man_Add=!!addA_sym,
                       Man_Prb=!!prbA_sym,
                       Man_PID=!!pid_sym) %>%
-        dplyr::select(Man_Add,!!des,Man_Din,!!inf,Man_Prb,Man_PID),
+        dplyr::select(Man_Add,!!des,!!din_sym,!!inf,Man_Prb,Man_PID),
       
       inf_list[["1"]] %>% 
-        dplyr::mutate(!!des_sym:=as.character("M")) %>%
+        # dplyr::mutate(!!des_sym:=as.character("M")) %>%
+        dplyr::mutate(Man_Des=as.character("M")) %>%
         dplyr::rename(Man_Add=!!addB_sym,
                       Man_Prb=!!prbB_sym,
                       Man_PID=!!pid_sym) %>%
-        dplyr::select(Man_Add,!!des,Man_Din,!!inf,Man_Prb,Man_PID),
+        dplyr::select(Man_Add,!!des,!!din_sym,!!inf,Man_Prb,Man_PID),
       
       inf_list[["2"]] %>% 
-        dplyr::mutate(!!des_sym:=as.character("2")) %>%
+        # dplyr::mutate(!!des_sym:=as.character("2")) %>%
+        dplyr::mutate(Man_Des=as.character("2")) %>%
         dplyr::rename(Man_Add=!!addA_sym,
                       Man_Prb=!!prbA_sym,
                       Man_PID=!!pid_sym) %>%
-        dplyr::select(Man_Add,!!des,Man_Din,!!inf,Man_Prb,Man_PID)
+        dplyr::select(Man_Add,!!des,!!din_sym,!!inf,Man_Prb,Man_PID)
+      # dplyr::select(Man_Add,!!des,Man_Din,!!inf,Man_Prb,Man_PID)
     ) %>% dplyr::arrange(Man_Add)
+    print(ret_tib)
     
     ret_tib <- ret_tib %>%
       clean_tibble(verbose=verbose,tt=tt)
@@ -847,7 +893,7 @@ add_to_man = function(tib, join, runName,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 add_to_fas = function(tib, prb_key="Prb_Seq", 
-                      add_key="Address", des_key="Prb_Des", type_key="prb_type",
+                      add_key="Address", des_key="Prb_Des", din_key="prb_type",
                       prb_fas=NULL,dat_csv=NULL,
                       u49_tsv=NULL,m49_tsv=NULL,
                       del="_",
@@ -863,7 +909,7 @@ add_to_fas = function(tib, prb_key="Prb_Seq",
     
     prb_sym <- rlang::sym(prb_key)
     des_sym <- rlang::sym(des_key)
-    aln_vec <- c(add_key,des_key,type_key)
+    aln_vec <- c(add_key,des_key,din_key)
     
     # Build Alignment Keys/Seqs
     ret_tib <- tib %>% # tail(n=200) %>%

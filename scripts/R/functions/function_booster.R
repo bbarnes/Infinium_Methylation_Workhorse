@@ -321,36 +321,49 @@ load_libraries = function(opts, pars, rcpp=FALSE,
   stopifnot(!is.null(pars$prgmDir))
   stopifnot(!is.null(pars$scrDir))
   
+  # list.files("/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R", full.names = TRUE) %>% file.path("functions")
+  # list.files(par$scrDir, full.names = TRUE) %>% file.path("functions")
+  
   pars$prgm_src_dir <- file.path(pars$scrDir,pars$prgmDir, 'functions')
   if (!dir.exists(pars$prgm_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Program Source={pars$prgm_src_dir} does not exist!{RET}"))
   for (sfile in list.files(path=pars$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
   cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Program Source={pars$prgm_src_dir}!{RET}{RET}") )
   
-  # Load All other function methods::
-  pars$man_src_dir <- file.path(pars$scrDir, 'manifests/functions')
-  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$man_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=pars$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$man_src_dir}!{RET}{RET}") )
+  # Load All other function methods:: Search Method::
+  src_files <- base::list.files(pars$scrDir, full.names = TRUE) %>% 
+    file.path("functions") %>% base::list.files(pattern='.R$', full.names=TRUE)
+  for (sfile in src_files ) {
+    base::source(sfile)
+    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source File={sfile}!{RET}") )
+  }
   
-  pars$swt_src_dir <- file.path(pars$scrDir, 'swifthoof/functions')
-  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$swt_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=pars$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$swt_src_dir}!{RET}{RET}") )
-  
-  pars$prb_src_dir <- file.path(pars$scrDir, 'probe_design/functions')
-  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$prb_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=pars$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$prb_src_dir}!{RET}{RET}") )
-  
-  pars$anl_src_dir <- file.path(pars$scrDir, 'analysis/functions')
-  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$anl_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=pars$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$anl_src_dir}!{RET}{RET}") )
-  
-  pars$anl_src_dir <- file.path(pars$scrDir, 'annotation/functions')
-  if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$anl_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=pars$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$anl_src_dir}!{RET}{RET}") )
+  # OLD Direct Method::
+  if (FALSE) {
+    pars$man_src_dir <- file.path(pars$scrDir, 'manifests/functions')
+    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$man_src_dir} does not exist!{RET}"))
+    for (sfile in list.files(path=pars$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$man_src_dir}!{RET}{RET}") )
+    
+    pars$swt_src_dir <- file.path(pars$scrDir, 'swifthoof/functions')
+    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$swt_src_dir} does not exist!{RET}"))
+    for (sfile in list.files(path=pars$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$swt_src_dir}!{RET}{RET}") )
+    
+    pars$prb_src_dir <- file.path(pars$scrDir, 'probe_design/functions')
+    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$prb_src_dir} does not exist!{RET}"))
+    for (sfile in list.files(path=pars$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$prb_src_dir}!{RET}{RET}") )
+    
+    pars$anl_src_dir <- file.path(pars$scrDir, 'analysis/functions')
+    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$anl_src_dir} does not exist!{RET}"))
+    for (sfile in list.files(path=pars$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$anl_src_dir}!{RET}{RET}") )
+    
+    pars$anl_src_dir <- file.path(pars$scrDir, 'annotation/functions')
+    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$anl_src_dir} does not exist!{RET}"))
+    for (sfile in list.files(path=pars$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
+    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$anl_src_dir}!{RET}{RET}") )
+  }
   
   if (rcpp) {
     opts <- setLaunchExe(opts=opts, pars=pars, verbose=opts$verbose, vt=5,tc=0)
