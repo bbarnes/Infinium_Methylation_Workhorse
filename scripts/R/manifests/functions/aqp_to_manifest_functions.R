@@ -163,12 +163,30 @@ aqp_address_workflow = function(ord,
       mat_tib <- mat_tib %>% dplyr::left_join(exp_tib, by="Ord_Idx")
       aqp_tib <- aqp_tib %>% dplyr::left_join(exp_tib, by="Ord_Idx")
       
+      if (mat_len==aqp_len) {
+        if (verbose>=vt-2)
+          cat(glue::glue("{RET}[{funcTag}]:{tabsStr} AQP MATCHING...{RET}"))
+        
+        ret_tib <- ret_tib %>%
+          dplyr::full_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
+                                         "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
+          dplyr::left_join(aqp_tib, by=c("Address",
+                                         "Ord_Idx","Bpn_Idx","Aqp_Idx") )
+      } else {
+        if (verbose>=vt-2)
+          cat(glue::glue("{RET}[{funcTag}]:{tabsStr} PQC MATCHING...{RET}"))
+        
+        aqp_tib <- aqp_tib %>% 
+          dplyr::select(-dplyr::all_of( c("Ord_Idx","Bpn_Idx","Aqp_Idx") ))
+        
+        ret_tib <- ret_tib %>%
+          dplyr::full_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
+                                         "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
+          dplyr::left_join(aqp_tib, by=c("Address") )
+      }
+      if (verbose>=vt-2) print(ret_tib)
+
       ret_tib <- ret_tib %>%
-        dplyr::full_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
-                                       "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
-        dplyr::left_join(aqp_tib, by=c("Address",
-                                       "Ord_Idx","Bpn_Idx","Aqp_Idx")
-        ) %>%
         dplyr::filter(!is.na(Decode_Status)) %>%
         dplyr::filter(Decode_Status==0) %>%
         dplyr::distinct(Address, .keep_all=TRUE)
@@ -216,7 +234,8 @@ aqp_address_workflow = function(ord,
       # Write Fasta Output::
       ret_tib <- ret_tib %>%
         add_to_fas(
-          prb_key="Ord_Prb", add_key="Ord_Key", 
+          # prb_key="Ord_Prb", add_key="Ord_Key", 
+          prb_key="Ord_Prb", add_key="Address", 
           des_key="Ord_Des", din_key="Ord_Din",
           prb_fas=add_fas, dat_csv=add_csv,
           u49_tsv=u49_tsv, m49_tsv=m49_tsv,
@@ -835,8 +854,10 @@ add_to_man = function(tib, join, runName,
         dplyr::mutate(
           Color_Channel=dplyr::case_when(
             Infinium_Design==2 ~ 'Both',
-            Infinium_Design==1 & (!!nxb_sym=='A' | !!nxb_sym=='T') ~ 'Red',
-            Infinium_Design==1 & (!!nxb_sym=='C' | !!nxb_sym=='G') ~ 'Grn',
+            Infinium_Design==1 & (!!nxb_sym=='A' | !!nxb_sym=='T' |
+                                    !!nxb_sym=='a' | !!nxb_sym=='t') ~ 'Red',
+            Infinium_Design==1 & (!!nxb_sym=='C' | !!nxb_sym=='G' |
+                                    !!nxb_sym=='c' | !!nxb_sym=='g') ~ 'Grn',
             TRUE ~ NA_character_),
           col=dplyr::case_when(
             Infinium_Design==2 ~ NA_character_,
@@ -1278,9 +1299,9 @@ bed_to_prbs = function(tib, fas,
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr} Prefix({gen})={fas_pre}.{RET}"))
     
-    # There isn't an opposite genome, need to build that from the converted::
-    # srd_cos <- c("C","O")
-    
+    # NOTE:: There isn't an opposite genome, build that from the converted::
+    #  This is why we don't need 'srd_cos <- c("C","O")' below::
+    #
     srd_cos <- c("C")
     srd_frs <- c("F","R")
     srd_mus <- c("U","M","D")
@@ -1292,7 +1313,8 @@ bed_to_prbs = function(tib, fas,
         # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} co={co}...{RET}"))
         
         for (mu in srd_mus) {
-          if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} fr={fr}, co={co}, mu={mu}...{RET}"))
+          if (verbose>=vt) 
+            cat(glue::glue("[{funcTag}]:{tabsStr} fr={fr}, co={co}, mu={mu}...{RET}"))
           gen_fas <- paste0(fas_pre,".", fr,co,mu, ".fa.gz")
           
           if (!file.exists(gen_fas)) {
@@ -1325,12 +1347,9 @@ bed_to_prbs = function(tib, fas,
               Srd_CO=co,
               Prb_Des=mu
             )
-          
-          if (verbose>=vt+4) {
-            cat(glue::glue("[{funcTag}]:{tabsStr} Current Tib Pre Join={RET}"))
-            print(cur_tib)
-          }
-          
+          cur_cnt <- print_tib(cur_tib,funcTag, verbose,vt+4,tc, n="cur-pre-join")
+          cgn_vec <- cur_tib %>% dplyr::pull(!!cgn_sym)
+
           # TBD:: Add the current FR/CO/TB fields to cur_tib
           # TBD:: Add the opposite designs
           # TBD:: Remove previous information from the input tibble
@@ -1338,8 +1357,7 @@ bed_to_prbs = function(tib, fas,
           prb_tib <- NULL
           if (fr=="F") {
             prb_tib <- tibble::tibble(
-              # TBD:: This should be pulled by symbolic name
-              Seq_ID = cur_tib$Seq_ID,
+              !!cgn_sym := cgn_vec,
               
               # Forward Converted Designs:: Infinium I/II
               Prb_SeqC1 = paste0(
@@ -1383,7 +1401,9 @@ bed_to_prbs = function(tib, fas,
             #
             # if ()
             prb_tib <- tibble::tibble(
-              Seq_ID = cur_tib$Seq_ID,
+              # Seq_ID = cur_tib$Seq_ID,
+              # !!cgn_sym := cur_tib[[!!cgn_sym]],
+              !!cgn_sym := cgn_vec,
               
               # Reverse Converted Designs:: Infinium I/II
               Prb_SeqC1 = paste0(
@@ -1424,7 +1444,9 @@ bed_to_prbs = function(tib, fas,
             stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported fr={fr}...{RET}"))
             return(NULL)
           }
-          cur_tib <- cur_tib %>% dplyr::left_join(prb_tib, by="Seq_ID")
+          prb_cnt <- print_tib(prb_tib,funcTag, verbose,vt+4,tc, n="prb")
+
+          cur_tib <- cur_tib %>% dplyr::left_join(prb_tib, by=cgn)
           ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
         }
       }

@@ -267,12 +267,12 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- NULL
   par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'GRCm10'
   par$local_runType <- 'GSA'
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
   par$local_runType <- 'EWAS'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'GRCm10'
   
   if (par$local_runType=='EWAS') {
     opt$genBuild <- 'GRCh37'
@@ -446,6 +446,7 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'A5'
     opt$version  <- 'A6'
     opt$version  <- 'A7'
+    opt$version  <- 'A8'
     
     opt$Species  <- "Human"
     
@@ -510,6 +511,8 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'C30'
     opt$version  <- 'C31'
     opt$version  <- 'C32'
+    opt$version  <- 'C0'
+    opt$version  <- 'P0'
     
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
@@ -543,7 +546,14 @@ if (args.dat[1]=='RStudio') {
       file.path(par$aqpDir, 'BP4/20455357_AQP1_LifeEpigen_BP4.txt.gz'),
       sep=',')
     
-    if (FALSE) {
+    if (opt$version == 'P0') {
+      opt$aqps <- paste(
+        file.path(par$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
+        sep=',')
+      opt$aqpn <- paste(1, sep=",")
+      
+    } else {
+      
       opt$aqps <- paste(
         file.path(par$aqpDir, 'AQP_Copy/BS0032527-AQP.txt.gz'),
         file.path(par$aqpDir, 'AQP_Copy/BS0032533-AQP.txt.gz'),
@@ -551,12 +561,6 @@ if (args.dat[1]=='RStudio') {
         file.path(par$aqpDir, 'AQP_Copy/BS0032636-AQP.txt.gz'),
         sep=',')
       opt$aqpn <- paste(1,1,2,1, sep=",")
-      
-    } else {
-      opt$aqps <- paste(
-        file.path(par$aqpDir, 'PQC/20042400_A_ProductQC.txt.gz'),
-        sep=',')
-      opt$aqpn <- paste(1, sep=",")
     }
     
     opt$bpns <- paste(1,2,2,3, sep=",")
@@ -776,6 +780,7 @@ pTracker <- timeTracker$new(verbose=opt$verbose)
 
 image_key <- "bbarnesimdocker/im_workhorse:Infinium_Methylation_Workhorse_Centos"
 image_ver <- "v.1.15"
+image_ver <- "v.1.25"
 image_ssh <- "run_improbe.sh"
 image_str <- glue::glue("{image_key}.{image_ver}")
 
@@ -838,6 +843,8 @@ run$aqp_m49_tsv  <- file.path(run$intDir, paste(opt$runName,"aqp-pass.address-m4
 run$aqp_prb_bsp  <- file.path(run$alnDir, paste(opt$runName,"aqp-pass.address.bsp",  sep='.') )
 run$aqp_bsp_tsv  <- file.path(run$alnDir, paste(opt$runName,"aqp-pass.address-bsp.tsv.gz",  sep='.') )
 
+run$imp_inp_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
+run$imp_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.tsv.gz', sep='.') )
 
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Defining Run Time Files.{RET}{RET}"))
@@ -847,6 +854,13 @@ if (opt$verbose>=1)
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 par$retData <- FALSE
+
+#
+# TBD:: Critical:: Pass in Ord_Key or Address as main key!!!
+#   - Testing right now
+#   - Issue is passing in Ord_Key can create too long (20 char) for improbe
+#   - Issue is poor uniqueness of keys!!!
+#
 
 stamp_vec <- c(stamp_vec,run$aqp_add_csv)
 if (opt$fresh || !valid_time_stamp(stamp_vec)) {
@@ -903,19 +917,60 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   aqp_bsp_tib <- suppressMessages(suppressWarnings(
     readr::read_csv(run$aqp_bsp_tsv, guess_max=100000) )) %>%
     clean_tibble()
-  
-  # Expectation::
-  # A tibble: 98,456 x 59
-  # Raw elasped time = 240 
-  # Validated up to this point!!!
 }
 
+if (FALSE) {
+  man_bsp_tib <- aqp_bsp_tib %>% 
+    dplyr::filter(Bsp_Tag=="UM") %>%
+    add_to_man(join = "Ord_Key", runName = opt$runName, 
+               des_key = "Ord_Des", pid_key = "Aln_Key", 
+               # rep_key = "Ord_Par_Rep", rep_val = "Ord_Par_Rep", 
+               # col_key = "Ord_Col", 
+               # nxb_key = "Bsp_Nxb_Ref", 
+               verbose = opt$verbose, tt=pTracker)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       4.0 Write improbe input::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+fwd_des_tib <- aqp_bsp_tib %>% # head(n=10) %>%
+  fas_to_seq(fas = run$gen_ref_fas, file = run$imp_inp_tsv, name = "Aln_Key", 
+             din = "Ord_Din", gen = opt$genBuild, 
+             chr1 = "Bsp_Chr", pos = "Bsp_Pos",
+             # nrec = 1,
+             verbose=opt$verbose+10, tt=pTracker)
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     5.0 Run improbe designs:: docker
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+imp_des_tib <- 
+  improbe_docker(
+    dir=run$desDir, file=run$imp_inp_tsv, 
+    name=opt$runName, image=image_str, shell=image_ssh,
+    level=3, add_inf=TRUE,
+    verbose=opt$verbose, tt=pTracker)
+
+# %>%
+#   dplyr::mutate(Methyl_Allele_TB_Strand=stringr::str_sub(Methyl_Allele_TB_Strand,1,1))
 #
-# TBD:: aqp_bsp_tib -> bsp_fwd_tib
-#
+
+# Qucik QC::
+#  imp_des_tib %>% dplyr::filter(Inf_Type != 0) %>% dplyr::distinct(Seq_ID)
 
 
+# All srd probe extraction::
+#  - Seesm to be working, will validate later...
+if (FALSE) {
 
+  all_srd_prb_tib <- aqp_bsp_tib %>% head(n=10) %>%
+    bed_to_prbs(fas=run$gen_ref_fas, 
+                din="Ord_Din", cgn="Aln_Key",
+                chr="Bsp_Chr", pos="Bsp_Pos",
+                nrec = 1,
+                verbose=opt$verbose+10, tt=pTracker)
+
+}
 
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
