@@ -185,8 +185,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         ret_dat$open_beta_tib <- open_beta_tib
         ret_dat$open_sum1_ssh <- open_sum1_ssh
         ret_dat$open_sum2_ssh <- open_sum2_ssh
-        
-        return(ret_dat)
       }
     }
     

@@ -306,12 +306,13 @@ if (args.dat[1]=='RStudio') {
     opt$workflow    <- "ind"
     opt$manDirName  <- 'core'
     
-    opt$write_snps  <- FALSE
+    opt$write_snps  <- TRUE
     
     opt$single   <- FALSE
     opt$parallel <- TRUE
-    opt$parallel <- FALSE
     
+    opt$fresh <- TRUE
+
   } else if (par$local_runType=='qcMVP2') {
     opt$runName  <- 'IBX-Zymogen'
     opt$runName  <- 'IBX-EPIDX'
@@ -328,8 +329,7 @@ if (args.dat[1]=='RStudio') {
     par$expChipNum <- '204756130014'
     
     opt$auto_detect <- FALSE
-    par$retData  <- TRUE
-    
+
     opt$workflow <- "nd,ind"
     
   } else if (par$local_runType=='COVIC') {
