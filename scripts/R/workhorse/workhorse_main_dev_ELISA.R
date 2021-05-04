@@ -72,7 +72,7 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'workhorse'
-par$prgmTag <- 'workhorse_main_dev_seq'
+par$prgmTag <- 'workhorse_main_dev_ELISA'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 
@@ -737,7 +737,7 @@ if (args.dat[1]=='RStudio') {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
-opt_reqs <- c('outDir','impDir','Species',
+opt_reqs <- c('outDir','Species',
               # 'ords',
               'genBuild','platform','version','bsmap_exe', # 'bsmap_opt',
               'Rscript','verbose')
