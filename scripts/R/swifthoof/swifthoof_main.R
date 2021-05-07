@@ -541,20 +541,6 @@ if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form ",
                  "General Source={par$gen_src_dir}!{RET}{RET}") )
 
-# TestCase::
-if (FALSE && is.null(opt$idatsDir) || !dir.exists(opt$idatsDir)) {
-  opt$runName  <- "TestCase"
-  opt$idatsDir <- file.path(par$datDir,"idats_TestCase")
-  
-  if (opt$verbose>0) {
-    cat(glue::glue("[{par$prgmTag}]: idatsDir does not exist or ",
-                   "is missing will use TestData={opt$idatsDir}!!!{RET}"))
-    cat(glue::glue("[{par$prgmTag}]: Overriding runName={opt$runName}.{RET}{RET}"))
-  }
-  
-  # stop(glue::glue("{RET}[{par$prgmTag}]: idatsDir={opt$idatsDir} does not exist!!!{RET}{RET}"))
-}
-
 opt <- program_init(name=par$prgmTag,
                     opts=opt, opt_reqs=opt_reqs, 
                     pars=par, par_reqs=par_reqs,

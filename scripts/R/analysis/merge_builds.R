@@ -543,14 +543,19 @@ if (is.null(opt$classVar)) opt$classVar <- 'Source_Sample_Name'
 class_var <- rlang::sym(opt$classVar)
 class_idx <- rlang::sym("Class_Idx")
 
-opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
+# opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
+
+cat(glue::glue("[{par$prgmTag}]: Bulding outDir-1={opt$outDir}!{RET}{RET}") )
+
+if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 
 opt$outDir <- file.path(opt$outDir, 
                         opt$platform, opt$version, 
                         opt$classVar, opt$workflow)
 
-if (!dir.exists(opt$outDir))
-  dir.create(opt$outDir, recursive=TRUE)
+cat(glue::glue("[{par$prgmTag}]: Bulding outDir-2={opt$outDir}!{RET}{RET}") )
+
+if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
 
 if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
