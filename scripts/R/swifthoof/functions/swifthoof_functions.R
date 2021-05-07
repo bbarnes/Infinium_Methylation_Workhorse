@@ -3,18 +3,13 @@
 #                              Source Packages::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+# Load Core Packages::
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("minfi",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-
-# Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
+# Load Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -163,11 +158,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
                        "manifest={man_map_tib$platform[1]}.{RET}"))
 
       open_sset_dat <- sesame::openSesame(x=prefix, what = 'sigset')
-      print(open_sset_dat)
       open_beta_tib <- sesame::getBetas(sset = open_sset_dat, 
                                         mask=FALSE, sum.TypeI=FALSE)
-      print(open_beta_tib)
-      
       open_sum1_ssh <- 
         ssetToPassPercSsheet(sset=open_sset_dat, man=NULL,
                              min=min_pvals[1], per=min_percs[1],
@@ -566,12 +558,12 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
     } else {
       tib <- suppressMessages(suppressWarnings(readr::read_csv(file)) )
     }
-    if (verbose>=vt+4) tib %>% print()
+    ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="file_tib")
     
     if (retRaw && !is.null(datKey)) {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} IS_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       tib <- tib %>% dplyr::select(!!selKey,ends_with(paste0(del,datKey)) )
-      if (verbose>=vt+4) tib %>% print()
+      ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="raw_tib")
     } else {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NOT_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       
@@ -580,7 +572,7 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
         if (verbose>=vt+4) {
           cat(glue::glue("[{funcTag}]:{tabsStr} USE_PVAL minVal={minVal}, ",
                          "SELECT=[selKey={selKey}, minKey={minKey}, datKey={datKey}].{RET}"))
-          tib %>% print()
+          ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="not_raw_tib")
         }
         
         tot_cnt  <- tib %>% base::nrow()
@@ -597,7 +589,7 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
       } else {
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NO_PVAL.{RET}"))
         if (!is.null(datKey)) tib <- tib %>% dplyr::select(!!selKey,!!datKey)
-        if (verbose>=vt+4) tib %>% print()
+        ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="no_pval_tib")
       }
       if (!is.null(prefix)) tib <- tib %>% purrr::set_names(paste(prefix,names(tib), sep='.') ) %>% dplyr::rename(!!selKey := 1)
     }
@@ -678,14 +670,14 @@ autoDetect_Wrapper = function(can, ref, man, mask=NULL,
       # dplyr::select(Probe_ID, Design_Type, Probe_Type) %>%
       dplyr::select(dplyr::all_of( c(!!jval, !!dname, !!pname) ) ) %>%
       dplyr::left_join(can, by="Probe_ID")
-    # print(auto_can)
+    ret_cnt <- print_tib(auto_can,funcTag, verbose,vt+4,tc, n="auto_can")
     
     auto_ref <- ref
     if (grep("_beta", names(ref)) %>% length() == 0) {
       auto_ref <- ref %>% purrr::set_names(paste(names(.),'beta', sep=del) )
       names(auto_ref)[1] <- 'Probe_ID'
     }
-    # print(auto_ref)
+    ret_cnt <- print_tib(auto_ref,funcTag, verbose,vt+4,tc, n="auto_ref")
     
     ret_tib <- sampleDetect(
       can=auto_can, ref=auto_ref, minPval=minPval, minDelta=minDelta,
@@ -799,12 +791,13 @@ rsquaredMatrix = function(mat, verbose=0,vt=3,tc=1,tt=NULL) {
 sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
                         jval, pval, field, suffix, del='_',
                         outDir=NULL, sname=NULL, plotMatrix=FALSE, writeMatrix=FALSE,
-                        dpi=120, format='png', datIdx=4, roundData=TRUE, non.ref=TRUE,
+                        dpi=120, format='png', datIdx=6, roundData=TRUE, non.ref=TRUE,
                         verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'sampleDetect'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting. dname={dname}, pname={pname},",
-                                  "field={field}, jval={jval}, pval={pval}.{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting. dname={dname}, pname={pname},",
+                   "field={field}, jval={jval}, pval={pval}.{RET}"))
   
   if (verbose>=vt+4) {
     cat(glue::glue("[{funcTag}]:{tabsStr} CAN::{RET}") )
@@ -842,7 +835,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     if (verbose>=vt+6) {
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Pre-join. dname={dname}, pname={pname}, pval={pval}, field={field}, jval={jval}.{RET}"))
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref=={RET}"))
-      head(ref) %>% print()
+      ret_cnt <- print_tib(ref,funcTag, verbose,vt+4,tc, n="ref")
       
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib1=={RET}"))
       can %>% dplyr::select(!!jval,!!dname,!!pname,!!pval,!!field) %>% print()
@@ -902,11 +895,9 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     
     if (TRUE) {
       if (verbose>=vt+6) {
-        cat(glue::glue("{RET}{RET}{RET}{RET}"))
-        cat(glue::glue("[{funcTag}]:{tabsStr} TIB={RET}"))
-        print(tib)
-        cat(glue::glue("[{funcTag}]:{tabsStr} done(TIB){RET}"))
-        cat(glue::glue("{RET}{RET}{RET}{RET}"))
+        cat(glue::glue("{RET}[{funcTag}]:{tabsStr} TIB={RET}"))
+        ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="tib")
+        cat(glue::glue("[{funcTag}]:{tabsStr} done(TIB){RET}{RET}"))
       }
       
       # 4.1 Build matrix
@@ -949,7 +940,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
           purrr::set_names('AutoSample_dB_1_Key', 'AutoSample_Total_1_Cnt', 'AutoSample_dB_1_Cnt', 'AutoSample_dB_1_Val')
       ) %>% dplyr::select(AutoSample_Total_1_Cnt, AutoSample_R2_1_Key, AutoSample_R2_1_Val, 
                           AutoSample_dB_1_Key, AutoSample_dB_1_Cnt, AutoSample_dB_1_Val)
-      if (verbose>=vt+6) print(sss_1_tib)
+      ret_cnt <- print_tib(sss_1_tib,funcTag, verbose,vt+6,tc, n="sss_1_tib")
       
       # 4.2 Build matrix
       #
@@ -964,7 +955,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
       r2m_2_tib <- 
         rsquaredMatrix(mat2, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
         tibble::as_tibble(rownames='Sample')
-      if (verbose>=vt+6) r2m_2_tib %>% head(n=2) %>% print()
+      ret_cnt <- print_tib(r2m_2_tib,funcTag, verbose,vt+6,tc, n="r2m_2_tib")
       
       # 6.2 Build Deleta Matrix
       dbm_2_tib <- 
@@ -991,7 +982,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
           purrr::set_names('AutoSample_dB_2_Key', 'AutoSample_Total_2_Cnt', 'AutoSample_dB_2_Cnt', 'AutoSample_dB_2_Val')
       ) %>% dplyr::select(AutoSample_Total_2_Cnt, AutoSample_R2_2_Key, AutoSample_R2_2_Val, 
                           AutoSample_dB_2_Key, AutoSample_dB_2_Cnt, AutoSample_dB_2_Val)
-      if (verbose>=vt+6) print(sss_2_tib)
+      ret_cnt <- print_tib(sss_2_tib,funcTag, verbose,vt+6,tc, n="sss_2_tib")
       
       sss <- sss %>% dplyr::bind_cols(sss_1_tib) %>% dplyr::bind_cols(sss_2_tib)
     }

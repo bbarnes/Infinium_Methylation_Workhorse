@@ -3,18 +3,13 @@
 #                              Source Packages::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+# Load Core Packages::
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("minfi",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-
-# Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
+# Load Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
 COM <- ","
 TAB <- "\t"

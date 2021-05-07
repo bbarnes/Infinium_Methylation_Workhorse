@@ -3,18 +3,13 @@
 #                              Source Packages::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+# Load Core Packages::
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("minfi",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-
-# Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
+# Load Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
 COM <- ","
 TAB <- "\t"
@@ -60,7 +55,6 @@ callToPassPerc = function(tib=NULL, file=NULL, key, name=NULL, idx=NULL,
     
     ret_tib <- tibble(
       pass_perc=pas_per,
-      pass_count=pas_cnt,
       mins_count=min_cnt,
       total_count=tot_cnt,
       min_cutoff=min,
@@ -98,6 +92,12 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
   funcTag <- 'ssetToPassPercSsheet'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  min={min}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  per={per}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  idx={idx}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} type={type}{RET}{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -119,7 +119,7 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
     #
     if (is.null(man)) {
       if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest present; pval_tib={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest present (type={type}); pval_tib={RET}"))
         pval_tib %>% 
           dplyr::filter(stringr::str_starts(Probe_ID,type)) %>% print()
       }
@@ -127,8 +127,7 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
       ret_tab <- pval_tib %>% 
         dplyr::filter(stringr::str_starts(Probe_ID,type)) %>% 
         dplyr::summarise(total_cnt=n(),
-                         pass_count=count(pvals<=min, na.rm=TRUE),
-                         pass_cnt=sum(pvals<=min, na.rm=TRUE),
+                         pass_cnt=base::sum(pvals<=min, na.rm=TRUE),
                          pass_perc=round(100*pass_cnt/total_cnt, 3),
                          .groups='drop')
       
@@ -148,7 +147,7 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
         dplyr::filter(Probe_Type==type) %>%
         dplyr::group_by(Probe_Type,Probe_Design) %>% 
         dplyr::summarise(total_cnt=n(),
-                         pass_cnt=count(pvals<=min, na.rm=TRUE),
+                         pass_cnt=base::sum(pvals<=min, na.rm=TRUE),
                          pass_perc=round(100*pass_cnt/total_cnt, 3),
                          .groups='drop')
 

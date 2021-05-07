@@ -4,20 +4,14 @@
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-# suppressWarnings(suppressPackageStartupMessages( base::require("grid") ))
 
 # Plotting Extras
 suppressWarnings(suppressPackageStartupMessages( base::require("GGally") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("hexbin") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("ggpubr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("Hmisc") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("corrplot") ))
+
+# suppressWarnings(suppressPackageStartupMessages( base::require("hexbin") ))
+# suppressWarnings(suppressPackageStartupMessages( base::require("ggpubr") ))
+# suppressWarnings(suppressPackageStartupMessages( base::require("Hmisc") ))
 
 # require(ggpubr)
 # require(tidyverse)

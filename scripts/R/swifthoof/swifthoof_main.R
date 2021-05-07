@@ -5,45 +5,14 @@
 
 rm(list=ls(all=TRUE))
 
-# Without Warnings for Testing::
-#
-# base::require("sesame")
-# base::require("dbplyr")
-# 
-# base::require("optparse",quietly=TRUE)
-# 
-# base::require("tidyverse")
-# base::require("plyr")
-# base::require("stringr")
-# base::require("readr")
-# base::require("glue")
-# 
-# base::require("matrixStats")
-# base::require("scales")
-#
-# base::require("doParallel")
-
-# suppressPackageStartupMessages(base::require() )
-# Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
-suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("dbplyr") ))
-
+# Load Core Packages::
 suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("minfi",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("readr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-
-# Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
-
-# tidyverse_update(recursive = FALSE, repos = getOption("repos"))
-# install.packages("lubridate")
+# Load Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -266,14 +235,14 @@ if (args.dat[1]=='RStudio') {
   opt$manDirName  <- 'base'
   opt$manDirName  <- 'core'
   
-  opt$verbose  <- 6
-  
+  opt$verbose  <- 3
+
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
   par$local_runType <- 'GRCm38'
-  par$local_runType <- 'DELTA'
+  par$local_runType <- 'DELTA-8x1-EPIC-Core'
   par$local_runType <- 'DKFZ'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
@@ -285,34 +254,30 @@ if (args.dat[1]=='RStudio') {
   
   opt$fresh <- TRUE
   
+  opt$auto_sam_csv <- 
+    file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+  
+  opt$auto_detect <- TRUE
+  opt$workflow    <- "ind"
+  opt$manDirName  <- 'core'
+  
+  opt$write_snps  <- TRUE
+  
+  opt$single   <- FALSE
+  opt$single   <- TRUE
+  
+  opt$parallel <- TRUE
+  opt$parallel <- FALSE
+  
+  opt$fresh <- TRUE
+
+  opt$runName  <- par$local_runType
+  
   if (FALSE) {
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
-    opt$runName  <- par$local_runType
-    
-    opt$auto_detect <- TRUE
-    opt$workflow    <- "ind"
-    opt$manDirName  <- 'core'
-    
-    opt$single   <- FALSE
-    opt$single   <- TRUE
-    
-    opt$parallel <- TRUE
-    opt$parallel <- FALSE
-    
-  } else if (par$local_runType=='NA12878') {
-    opt$runName  <- par$local_runType
-    
-    opt$auto_detect <- TRUE
-    opt$workflow    <- "ind"
-    opt$manDirName  <- 'core'
-    
-    opt$write_snps  <- TRUE
-    
-    opt$single   <- FALSE
-    opt$parallel <- TRUE
-    
-    opt$fresh <- TRUE
 
+  } else if (par$local_runType=='NA12878') {
+    
   } else if (par$local_runType=='qcMVP2') {
     opt$runName  <- 'IBX-Zymogen'
     opt$runName  <- 'IBX-EPIDX'
@@ -320,32 +285,21 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- 'AKE-Zymogen'
     opt$runName  <- 'AKE-EPIDX'
     
-    opt$auto_detect <- TRUE
-    opt$workflow    <- "nd,ind"
-    opt$manDirName  <- 'core'
-    
   } else if (par$local_runType=='COVID') {
-    opt$runName  <- 'COVID-Direct-Set1'
     par$expChipNum <- '204756130014'
-    
-    opt$auto_detect <- FALSE
-
-    opt$workflow <- "nd,ind"
     
   } else if (par$local_runType=='COVIC') {
     opt$runName  <- 'COVIC-Set1-15052020'
     par$expChipNum <- '204500250013'
-    opt$auto_detect <- TRUE
-    opt$workflow <- "ind"
-    opt$workflow <- "nd,ind"
     
-    opt$manDirName  <- 'covic'
     opt$manDirName  <- 'core'
+    opt$manDirName  <- 'covic'
     
   } else if (par$local_runType=='GRCm38') {
     opt$runName <- 'MURMETVEP_mm10_betaTest_06082020'
     opt$runName <- 'VanAndel_mm10_betaTest_31082020'
     opt$runName <- 'ILMN_mm10_betaTest_17082020'
+    
     opt$auto_detect <- FALSE
   } else if (par$local_runType=='qcMVP') {
     opt$runName  <- 'CNTL-Samples_VendA_10092020'
@@ -362,12 +316,9 @@ if (args.dat[1]=='RStudio') {
     par$expChipNum <- "203962710025"
     par$expSampNum <- "203962710025_R01C01"
     
-    opt$auto_detect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='DKFZ') {
-    opt$runName  <- 'DKFZ'
-    
-    opt$auto_detect <- TRUE
+
     opt$dpi <- 72
   } else if (par$local_runType=='CORE') {
     opt$runName  <- 'BETA-8x1-EPIC-Core'
@@ -381,7 +332,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$runName  <- 'EPIC-BETA-8x1-CoreCancer'
     par$expChipNum <- '201502830033'
-    opt$auto_detect <- TRUE
+
   } else if (par$local_runType=='EXCBR') {
     opt$runName  <- 'Excalibur-Old-1609202'
     par$expChipNum <- '204076530053'
@@ -389,9 +340,8 @@ if (args.dat[1]=='RStudio') {
     
     opt$runName  <- 'Excalibur-New-1609202'
     par$expChipNum <- '202915460071'
-    opt$auto_detect <- TRUE
-  } else if (par$local_runType=='DELTA') {
-    opt$runName    <- 'DELTA-8x1-EPIC-Core'
+    
+  } else if (par$local_runType=='DELTA-8x1-EPIC-Core') {
     par$expChipNum <- '203319730022'
     par$expSampNum <- '203319730022_R07C01'
     
@@ -406,8 +356,8 @@ if (args.dat[1]=='RStudio') {
   }
   
   opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
-  if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
-  opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+  if (!is.null(par$expChipNum)) 
+    opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
   
   # opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, opt$runName)
   opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
@@ -521,18 +471,6 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--minPerc"), type="character", default=opt$minPerc, 
                 help="Minimum percentage of loci passing detection p-value for each pval method (commas seperated list)  [default= %default]", metavar="character"),
     
-    # Old methods::
-    #
-    # make_option(c("--minNegPval"), type="double", default=opt$minNegPval, 
-    #             help="Minimum passing detection p-value using Negative Controls [default= %default]", metavar="double"),
-    # make_option(c("--minOobPval"), type="double", default=opt$minOobPval,
-    #             help="Minimum passing detection p-value using Negative Out-Of-Band [default= %default]", metavar="double"),
-    # 
-    # make_option(c("--minNegPerc"), type="double", default=opt$minNegPerc, 
-    #             help="Minimum percentage of loci passing detection p-value using Negative Controls to flag Requeue of sample. [default= %default]", metavar="double"),
-    # make_option(c("--minOobPerc"), type="double", default=opt$minOobPerc, 
-    #             help="Minimum percentage of loci passing detection p-value using Out-Of-Band to flag Requeue of sample. [default= %default]", metavar="double"),
-    
     make_option(c("--minDeltaBeta"), type="double", default=opt$minDeltaBeta,
                 help="Minimum passing delta-beta. Used in AutoSampleSheet cacluclations [default= %default]", metavar="double"),
     
@@ -599,7 +537,7 @@ if (!dir.exists(par$gen_src_dir))
 
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', 
                          full.names=TRUE, recursive=TRUE)) base::source(sfile)
-if (opt$verbose>=0)
+if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form ",
                  "General Source={par$gen_src_dir}!{RET}{RET}") )
 
@@ -772,12 +710,11 @@ if (opt$cluster) {
   if (opt$parallel) {
     par$funcTag <- 'sesamizeSingleSample-Parallel'
     par$retData <- FALSE
-    
-    if (opt$verbose>=1) 
+
+    if (opt$verbose>0)
       cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; ",
                      "num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
     
-    par$retData <- FALSE
     # chipTimes <- foreach (prefix=prefixe_names, .inorder=T, .final = function(x) setNames(x, prefixe_names)) %dopar% {
     chipTimes <- foreach (prefix=prefixe_names, .combine = rbind) %dopar% {
       

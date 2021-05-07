@@ -2,19 +2,13 @@
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Basic IDAT Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
- 
-suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+# Load Core Packages::
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("illuminaio",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-
-# Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
+# Load Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
 COM <- ","
 TAB <- "\t"
@@ -43,7 +37,7 @@ prefixesToChipTib = function(prefixes) {
 
 prefixToIdat = function(prefix, load=FALSE, save=FALSE, csv=NULL, ssh=NULL,
                         gzip=TRUE, validate=TRUE, 
-                        verbose=0,vt=4,tc=1,tt=NULL) {
+                        verbose=0,vt=6,tc=1,tt=NULL) {
   funcTag <- 'prefixToIdat'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
@@ -136,7 +130,7 @@ prefixToIdat = function(prefix, load=FALSE, save=FALSE, csv=NULL, ssh=NULL,
   ret_tib
 }
 
-loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
+loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'loadIdat'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading prefix={prefix}.{RET}"))
@@ -187,7 +181,7 @@ loadIdat = function(prefix, col, gzip=TRUE, verbose=0,vt=3,tc=1,tt=NULL) {
 #                             Idat Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-getIdatSignalTib = function(idat, channel, del='_', verbose=0,vt=3,tc=1,tt=NULL) {
+getIdatSignalTib = function(idat, channel, del='_', verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'getIdatSignalTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
@@ -221,7 +215,7 @@ getIdatSignalTib = function(idat, channel, del='_', verbose=0,vt=3,tc=1,tt=NULL)
   ret_tib
 }
 
-getIdatBarcodeTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
+getIdatBarcodeTib = function(idat, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'getIdatBarcodeTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
@@ -253,7 +247,7 @@ getIdatBarcodeTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
   ret_tib
 }
 
-getIdatFormatTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
+getIdatFormatTib = function(idat, verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'getIdatFormatTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
@@ -288,7 +282,7 @@ getIdatFormatTib = function(idat, verbose=0,vt=3,tc=1,tt=NULL) {
 }
 
 getIdatTimeStampTib = function(idat, method='Extract', sherlockID='sherlockID', order='latest', 
-                               verbose=0,vt=4,tc=1,tt=NULL) {
+                               verbose=0,vt=6,tc=1,tt=NULL) {
   funcTag <- 'getIdatTimeStampTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
