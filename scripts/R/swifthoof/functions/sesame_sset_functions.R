@@ -1196,7 +1196,7 @@ getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE, extra=TRUE)
   betas
 }
 
-pOOBAH2 = function (sset, force = FALSE) 
+sset_pOOBAH2 = function (sset, force = FALSE) 
 {
   stopifnot(is(sset, "SigSet"))
   method <- "pOOBAH"

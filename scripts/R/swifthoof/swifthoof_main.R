@@ -249,9 +249,7 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NA12878'
   par$local_runType <- 'qcMVP2'
   par$local_runType <- "EPIC-8x1-EM-Sample-Prep"
-  
-  par$local_runType <- 'NA12878'
-  
+
   opt$fresh <- TRUE
   
   opt$auto_sam_csv <- 

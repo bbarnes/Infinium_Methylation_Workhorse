@@ -271,8 +271,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
   par$local_runType <- 'EWAS'
-  par$local_runType <- 'Chicago'
   par$local_runType <- 'GRCm10'
+  par$local_runType <- 'Chicago'
   
   if (par$local_runType=='EWAS') {
     opt$genBuild <- 'GRCh37'
@@ -447,6 +447,7 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'A6'
     opt$version  <- 'A7'
     opt$version  <- 'A8'
+    opt$version  <- 'A9'
     
     opt$Species  <- "Human"
     
@@ -832,6 +833,14 @@ run$gen_snp_fas <-
   file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
             paste0(opt$genBuild,".dbSNP151-genome.fa.gz"))
 
+# Define Pre-built improbe files
+run$imp_prb_dir <- file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-output/prbs-p49")
+run$imp_u49_tsv <- file.path(run$imp_prb_dir, paste("probe_U49_cgn-table.csv.gz", sep="-") )
+run$imp_m49_tsv <- file.path(run$imp_prb_dir, paste("probe_M49_cgn-table.csv.gz", sep="-") )
+stopifnot(dir.exists(run$imp_prb_dir))
+stopifnot(file.exists(run$imp_u49_tsv))
+stopifnot(file.exists(run$imp_m49_tsv))
+
 # Defined Run Time:: Intermediate Files
 run$aqp_man_csv  <- file.path(run$manDir, paste(opt$runName,"aqp-pass.manifest-sesame.csv.gz", sep="."))
 
@@ -842,6 +851,10 @@ run$aqp_m49_tsv  <- file.path(run$intDir, paste(opt$runName,"aqp-pass.address-m4
 
 run$aqp_prb_bsp  <- file.path(run$alnDir, paste(opt$runName,"aqp-pass.address.bsp",  sep='.') )
 run$aqp_bsp_tsv  <- file.path(run$alnDir, paste(opt$runName,"aqp-pass.address-bsp.tsv.gz",  sep='.') )
+
+run$int_u49_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-u49.intersect.tsv.gz", sep='.') )
+run$int_m49_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-m49.intersect.tsv.gz", sep='.') )
+run$int_seq_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-seq.intersect.tsv.gz", sep='.') )
 
 run$imp_inp_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
 run$imp_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.tsv.gz', sep='.') )
@@ -929,6 +942,154 @@ if (FALSE) {
                # nxb_key = "Bsp_Nxb_Ref", 
                verbose = opt$verbose, tt=pTracker)
 }
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#         3.4 Intersect Sequences Address and improbe:: U49/M49
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+seq_imp_tib <- NULL
+stamp_vec <- c(stamp_vec, 
+               run$int_u49_tsv,
+               run$int_m49_tsv,
+               run$int_seq_tsv)
+if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+  
+  int_u49_tib2 <- 
+    intersect_seq(ref=run$imp_u49_tsv,
+                  can=run$aqp_u49_tsv,
+                  out=run$int_u49_tsv,
+                  idxA=1, idxB=1, 
+                  verbose=opt$verbose,tt=pTracker)
+  
+  int_m49_tib2 <- 
+    intersect_seq(ref=run$imp_m49_tsv,
+                  can=run$aqp_m49_tsv, 
+                  out=run$int_m49_tsv,
+                  idxA=1, idxB=1, 
+                  verbose=opt$verbose,tt=pTracker)
+  
+  seq_imp_tib <- 
+    join_seq_intersect(u49=int_u49_tib2, m49=int_m49_tib2, 
+                       bed=cgn_bed_tib, org=add_org_tib,
+                       verbose=opt$verbose, tt=pTracker)
+  
+  safe_write(seq_imp_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
+             verbose=opt$verbose)
+  
+} else {
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading imp_seq_tsv={run$int_seq_tsv}...{RET}"))
+  seq_imp_tib <- 
+    suppressMessages(suppressWarnings( readr::read_tsv(run$int_seq_tsv) )) %>%
+    clean_file()
+
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                 3.4.1 Bind BSMAP & Seq-Match into Table::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Row Binding all_imp_tab=(seq_imp_tib/bsp_imp_tib)...{RET}"))
+
+com_des_cols <- c("Address","Ord_Des","Ord_Din")
+com_gen_cols <- c("Imp_Chr","Imp_Pos","Imp_FR","Imp_TB","Imp_CO")
+com_scr_cols <- c("Can_Mis_Scr","Mat_Src_Scr","Org_Mis_Scr","Bsp_Din_Scr")
+com_cgn_cols <- c("Imp_Cgn","Imp_Nxb","Imp_Din") # ,"Bsp_Din_Ref")
+
+imp_col_vec <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols)
+
+seq_cgn_tib <- seq_imp_tib %>%
+  dplyr::filter(is.na(Imp_Chr))
+
+seq_dat_tib <- seq_imp_tib %>%
+  dplyr::filter(!is.na(Imp_Chr)) %>%
+  dplyr::mutate(Imp_Din="CG", Bsp_Din_Scr=as.integer(8)) %>%
+  dplyr::mutate(Mat_Src_Scr=as.integer(0), Mat_Src_Key="Seq") %>%
+  dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
+
+bsp_dat_tib <- bsp_imp_tib %>%
+  dplyr::rename(Imp_Din=Bsp_Din_Ref) %>%
+  dplyr::mutate(Mat_Src_Scr=as.integer(1), Mat_Src_Key="Bsp") %>%
+  dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
+
+imp_col_vec2 <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols,"Mat_Src_Key")
+
+all_imp_tab <- NULL
+all_imp_tab <- dplyr::bind_rows(
+  dplyr::select( seq_dat_tib, dplyr::any_of(imp_col_vec2) ),
+  dplyr::select( bsp_dat_tib, dplyr::any_of(imp_col_vec2) ),
+)  %>% 
+  dplyr::mutate(
+    Can_Mis_Scr=dplyr::case_when(
+      is.na(Can_Mis_Scr) ~ 9,
+      TRUE ~ as.double(Can_Mis_Scr)
+    ) %>% as.integer(),
+    Org_Mis_Scr=dplyr::case_when(
+      is.na(Org_Mis_Scr) ~ 9,
+      TRUE ~ as.double(Org_Mis_Scr)
+    ) %>% as.integer(),
+    Bsp_Din_Scr=dplyr::case_when(
+      is.na(Bsp_Din_Scr) ~ 9,
+      TRUE ~ as.double(Bsp_Din_Scr)
+    ) %>% as.integer()
+  ) %>% 
+  dplyr::arrange( dplyr::across( dplyr::all_of(c(com_scr_cols)) ) ) %>%
+  dplyr::distinct()
+
+all_imp_tab %>% 
+  dplyr::arrange(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO) %>%
+  dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
+  dplyr::filter(Group_Count>1)
+
+all_imp_tab %>% 
+  dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
+  dplyr::group_by(Group_Count,Mat_Src_Key,Bsp_Din_Scr,Ord_Des) %>% 
+  dplyr::summarise(Count=n(), .groups="drop")
+
+# Max Best Extension::
+#   - This requires the template sequence and probe designs
+#     It can be inferred for BSP alignments, but requires full templates and 
+#     designs for Seq data. 
+#   - Question; is there ever a case where a probe matches non-seq matching
+#     more than seq-matching. Yes; poorly designed probes. This is why we need
+#     all the template sequences followed by designs.
+#
+# Max Canonical CGN
+#
+# Max Source (Seq,Bsp)
+# Max U over M
+#
+
+if (opt$verbose>=1)
+  cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_imp_tib/bsp_imp_tib).{RET}{RET}"))
+
+
+
+if (FALSE) {
+  #
+  # Spare scratch for TruResponse
+  #
+  
+  tru_tib <- readr::read_tsv("/Users/bretbarnes/Documents/data/CustomContent/TruReponse/sampleSheets/saliva-barcodes.txt")
+  
+  tru_tib %>% 
+    dplyr::group_by(Sample_Name,Sample_Long,Sample_Day,Sample_Hour,Sample_Prep) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count,Sample_Name) %>% 
+    print(n=1000)
+  
+  tru_tib %>% 
+    dplyr::group_by(Sample_Name,Sample_Long,Sample_Day,Sample_Prep) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count,Sample_Name) %>% 
+    print(n=1000)
+  
+  
+}
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       4.0 Write improbe input::

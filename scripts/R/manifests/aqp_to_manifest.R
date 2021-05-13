@@ -1462,7 +1462,6 @@ all_imp_tab <- dplyr::bind_rows(
   dplyr::arrange( dplyr::across( dplyr::all_of(c(com_scr_cols)) ) ) %>%
   dplyr::distinct()
 
-
 all_imp_tab %>% 
   dplyr::arrange(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO) %>%
   dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 

@@ -47,55 +47,6 @@ template_func = function(tib,
 #                          Genomic Range Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-intersect_seq = function(ref, can, out, idxA=1, idxB=1,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'intersect_seq'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
-  int_seq_cols <-
-    cols(
-      Imp_Seq  = col_character(),
-      Imp_Nuc  = col_character(),
-      
-      Imp_SrdI = col_integer(),
-      Imp_Srd3 = col_character(),
-      
-      Imp_Key  = col_character(),
-      Imp_Scr  = col_character(),
-      
-      Imp_Cnt  = col_integer(),
-      aln_key  = col_character()
-    )
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- system.time({
-    
-    cmd_str = glue::glue("gzip -dc {ref} | join -t $'\t' -1{idxA} -2{idxB} - {can} | gzip -c - > {out}")
-    if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
-    cmd_ret <- system(cmd_str)
-    
-    if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Loading intersection output={out}...{RET}"))
-    
-    ret_tib <- suppressMessages(suppressWarnings( 
-      readr::read_tsv(out, col_names=names(int_seq_cols$cols), col_types=int_seq_cols) )) %>%
-      utils::type.convert() %>% 
-      dplyr::mutate(across(where(is.factor), as.character) )
-    
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
 intersect_GRS = function(can,ref, can_key="unq_can_key", ref_prefix=NULL, # ref_prefix="imp",
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'intersect_GRS'
