@@ -22,6 +22,9 @@ suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
+# Rcpp::
+suppressWarnings(suppressPackageStartupMessages( require("Rcpp") ))
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -237,17 +240,24 @@ if (args.dat[1]=='RStudio') {
     par$platform <- 'EPIC'
     par$version  <- 'B4'
     
-    opt$single   <- FALSE
     # opt$parallel <- TRUE
+    opt$single   <- FALSE
+    opt$buildDml <- TRUE
+    opt$buildDbl <- TRUE
+    
     
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
     
+    # opt$mergeDir <- paste(
+    #   file.path(par$topDir,"scratch","merge_builds_latest/merge_builds",opt$runName,
+    #             par$platform,par$version,opt$classVar,opt$workflow),
+    #   file.path(par$topDir,"scratch","merge_builds_latest/merge_builds","EPIC-8x1-EM-Sample-Prep.v0",
+    #             par$platform,par$version,opt$classVar,opt$workflow),
+    #   sep=',')
+    
     opt$mergeDir <- paste(
-      file.path(par$topDir,"scratch","merge_builds_latest/merge_builds",opt$runName,
-                par$platform,par$version,opt$classVar,opt$workflow),
-      file.path(par$topDir,"scratch","merge_builds_latest/merge_builds","EPIC-8x1-EM-Sample-Prep.v0",
-                par$platform,par$version,opt$classVar,opt$workflow),
+      file.path(par$topDir, "data/CustomContent/EPIC-8x1-EM-Sample-Prep/docker-v.1.29/merge_builds/EPIC-8x1-EM-Sample-Prep/EPIC/B4"),
       sep=',')
     
     # opt$trainClass <- paste('BS','EM', sep=',')
@@ -520,8 +530,12 @@ for (betaKey in lociBetaKey_vec) {
     for (pvalMin in lociPvalMin_vec) {
       cat(glue::glue("[{par$prgmTag}]: Starting; betaKey={betaKey}, pvalKey={pvalKey}, pvalMin={pvalMin}.{RET}{RET}") )
       
-      # break } break } break }
-
+      #     }
+      #     break
+      #   }
+      #   break
+      # }
+      
       opt$clean <- TRUE
       
       betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
@@ -655,7 +669,7 @@ for (betaKey in lociBetaKey_vec) {
           dplyr::mutate(Plot_Name=paste0(Rank_Chr,'_Rep',Rank_Idx,'_',as.integer(!!sam_pval_name_sym))) %>%
           dplyr::ungroup() %>%
           dplyr::select(Sentrix_Name, Class_Name, !!class_idx, !!exp_sym, Class_Int, !!sam_pval_name_sym, Rank_Idx,Rank_Chr,Plot_Name, everything())
-
+        
         # NOTE:: Previous Versions Re-assigned Sample_Name to equal Class_Name
         # plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name=Class_Name)
         #  plotSheet_tib %>% dplyr::select(Sample_Name, Class_Name)
@@ -718,18 +732,25 @@ for (betaKey in lociBetaKey_vec) {
                 exp_keyA <-ss_exp_keys[idxA]
                 exp_keyB <-ss_exp_keys[idxB]
                 
-                cat(glue::glue("[{par$prgmTag}]:{TAB} Ploting; Class={class_key}: A({idxA})={exp_keyA} vs. B({idxB})={exp_keyB}!{RET}") )
+                cat(glue::glue("[{par$prgmTag}]:{TAB} Ploting; ",
+                               "Class={class_key}: A({idxA})={exp_keyA} vs. ",
+                               "B({idxB})={exp_keyB}!{RET}") )
                 
-                cur_ss_tibA <- ss_exp_list[[exp_keyA]] %>% dplyr::arrange(desc(!!sam_pval_name_sym))
-                cur_ss_tibB <- ss_exp_list[[exp_keyB]] %>% dplyr::arrange(desc(!!sam_pval_name_sym))
+                cur_ss_tibA <- ss_exp_list[[exp_keyA]] %>% 
+                  dplyr::arrange(desc(!!sam_pval_name_sym))
+                cur_ss_tibB <- ss_exp_list[[exp_keyB]] %>% 
+                  dplyr::arrange(desc(!!sam_pval_name_sym))
                 if (opt$filterSamples) {
-                  cur_ss_tibA <- cur_ss_tibA %>% dplyr::filter(!!sam_pval_name_sym >= opt$samplePvalPerc)
-                  cur_ss_tibB <- cur_ss_tibB %>% dplyr::filter(!!sam_pval_name_sym >= opt$samplePvalPerc)
+                  cur_ss_tibA <- cur_ss_tibA %>% 
+                    dplyr::filter(!!sam_pval_name_sym >= opt$samplePvalPerc)
+                  cur_ss_tibB <- cur_ss_tibB %>% 
+                    dplyr::filter(!!sam_pval_name_sym >= opt$samplePvalPerc)
                 }
                 
                 # Reduce to 3 max for plotting::
                 red_ss_tibA <- reduceSortedTib(cur_ss_tibA)
-                red_ss_tibB <- reduceSortedTib(cur_ss_tibB) %>% dplyr::mutate(Plot_Name=stringr::str_replace(Plot_Name,'^A_', 'B_'))
+                red_ss_tibB <- reduceSortedTib(cur_ss_tibB) %>% 
+                  dplyr::mutate(Plot_Name=stringr::str_replace(Plot_Name,'^A_', 'B_'))
                 
                 beta_tibA <- beta_masked_mat[ ,red_ss_tibA$Sentrix_Name ] %>% 
                   as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
@@ -751,13 +772,19 @@ for (betaKey in lociBetaKey_vec) {
                   dplyr::left_join(beta_tibA, by="Probe_ID") %>% 
                   dplyr::left_join(beta_tibB, by="Probe_ID")
                 
-                pval_plot_tib <- ses_man_tib %>% dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% dplyr::rename(Design_Type=DESIGN) %>%
-                  dplyr::left_join(pval_tibA, by="Probe_ID") %>% dplyr::left_join(pval_tibB, by="Probe_ID")
+                pval_plot_tib <- ses_man_tib %>% 
+                  dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% 
+                  dplyr::rename(Design_Type=DESIGN) %>%
+                  dplyr::left_join(pval_tibA, by="Probe_ID") %>% 
+                  dplyr::left_join(pval_tibB, by="Probe_ID")
                 
-                gg <- plotPairsBeta(beta=beta_plot_tib, pval=pval_plot_tib, sample=class_key, nameA=exp_keyA, nameB=exp_keyB,
-                                    outDir=opt$plotDir,
-                                    probeType='cg', field='Beta', field_str=betaKey, detp=pvalKey, minPval=pvalMin,
-                                    format='both', verbose=opt$verbose)
+                gg <- 
+                  plotPairsBeta(beta=beta_plot_tib, pval=pval_plot_tib, 
+                                sample=class_key, nameA=exp_keyA, nameB=exp_keyB,
+                                outDir=opt$plotDir,
+                                probeType='cg', field='Beta', 
+                                field_str=betaKey, detp=pvalKey, minPval=pvalMin,
+                                format='both', verbose=opt$verbose)
                 
                 cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}{RET}") )
                 
@@ -974,13 +1001,13 @@ for (betaKey in lociBetaKey_vec) {
         } else {
           beta_masked_tib2 <- beta_masked_tib %>% 
             dplyr::mutate(
-            Design_Type=stringr::str_remove(Probe_ID,'^[^_]*_[A-Z][A-Z]') %>% stringr::str_remove('[0-9]$'),
-            Design_Type=dplyr::case_when(
-              Design_Type=='1' ~ 'I',
-              Design_Type=='2' ~ 'II',
-              TRUE ~ NA_character_)
+              Design_Type=stringr::str_remove(Probe_ID,'^[^_]*_[A-Z][A-Z]') %>% stringr::str_remove('[0-9]$'),
+              Design_Type=dplyr::case_when(
+                Design_Type=='1' ~ 'I',
+                Design_Type=='2' ~ 'II',
+                TRUE ~ NA_character_)
             )
-
+          
           gg <- plotPairsBeta(beta_masked_tib2, sample='NEGvsPOS', 
                               nameA='nSARSCov2', nameB='pSARSCov2', outDir=plotDir,
                               probeType='cg', field='Beta', field_str=betaKey, 
@@ -1042,75 +1069,85 @@ for (betaKey in lociBetaKey_vec) {
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
       if (opt$buildDbl) {
-        if (!opt$isLinux) {
+        # 
+        # Suggested Older Install to fix the problem::
+        #   packageurl <- "https://cran.r-project.org/src/contrib/Archive/RcppArmadillo/RcppArmadillo_0.9.900.3.0.tar.gz"
+        #   install.packages(packageurl, repos=NULL, type="source")
+        #
+        # library(Rcpp)
+        # library(RcppArmadillo)
+        # There is a special Rccp source method...
+        # BAD:: source("/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R/Rcpp/cpgLociVariation.cpp")
+        # GOOD: Rcpp::sourceCpp(par$sourceCpp)
+        #       Rcpp::sourceCpp("/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R/Rcpp/cpgLociVariation.cpp")
+        #
+        
+        dbl_beg_txt  <- paste(full_dbl_csv,'begTime.txt', sep='.')
+        dbl_end_txt  <- paste(full_dbl_csv,'endTime.txt', sep='.')
+        
+        if (!opt$clean && file.exists(full_dbl_csv) &&
+            file.exists(dbl_beg_txt) && file.exists(dbl_end_txt) &&
+            file.mtime(dbl_beg_txt) < file.mtime(full_dbl_csv) && 
+            file.mtime(dbl_end_txt) > file.mtime(full_dbl_csv) ) {
           
-          dbl_beg_txt  <- paste(full_dbl_csv,'begTime.txt', sep='.')
-          dbl_end_txt  <- paste(full_dbl_csv,'endTime.txt', sep='.')
+          cat(glue::glue("[{par$prgmTag}]: deltaBetas already existst full_dbl_csv={full_dbl_csv}. Skipping...{RET}") )
           
-          if (!opt$clean && file.exists(full_dbl_csv) &&
-              file.exists(dbl_beg_txt) && file.exists(dbl_end_txt) &&
-              file.mtime(dbl_beg_txt) < file.mtime(full_dbl_csv) && 
-              file.mtime(dbl_end_txt) > file.mtime(full_dbl_csv) ) {
+        } else {
+          cat(glue::glue("[{par$prgmTag}]: Calculating deltaBetas...{RET}") )
+          cpp.verbose <- 0
+          
+          #
+          # Quick Fix for MVP::
+          #
+          if (FALSE) {
+            mvp_ss_exp_list <- plotSheet_tib %>% dplyr::filter(stringr::str_starts(Class_Name, 'T') ) %>% split(.$Experiment_Key)
+            mvp_ss_exp_keys <- names(mvp_ss_exp_list)
             
-            cat(glue::glue("[{par$prgmTag}]: deltaBetas already existst full_dbl_csv={full_dbl_csv}. Skipping...{RET}") )
-            
-          } else {
-            cat(glue::glue("[{par$prgmTag}]: Calculating deltaBetas...{RET}") )
-            cpp.verbose <- 0
-            
-            #
-            # Quick Fix for MVP::
-            #
-            if (FALSE) {
-              mvp_ss_exp_list <- plotSheet_tib %>% dplyr::filter(stringr::str_starts(Class_Name, 'T') ) %>% split(.$Experiment_Key)
-              mvp_ss_exp_keys <- names(mvp_ss_exp_list)
+            for (expKey in mvp_ss_exp_keys) {
               
-              for (expKey in mvp_ss_exp_keys) {
-                
-                sample_cnt_tib <- mvp_ss_exp_list[[expKey]] %>% dplyr::group_by(Class_Name) %>% 
-                  dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(Class_Name) )
-                
-                sample_ids_vec <- mvp_ss_exp_list[[expKey]]$Sentrix_Name
-                sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
-                sample_cnt_vec <- sample_cnt_tib %>% dplyr::pull(Count)
-                
-                beta_tit_mat <- beta_masked_mat[,sample_ids_vec]
-                
-                full_dbl_tib <- C_crossSampleLociRSquared(beta_tit_mat, sample_cnt_vec, sample_key_vec, cmb=FALSE, verbose=cpp.verbose) %>% 
-                  as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% tibble::as_tibble() %>% 
-                  dplyr::mutate_if(is.double, round, opt$percisionPval)
-              }
-            }
-            
-            if (TRUE) {
-              # Name by Real Classes::
-              #
-              sample_cnt_tib <- sampleSheet_tib %>% 
-                dplyr::group_by(!!class_var) %>% 
-                dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(!!class_var) )
+              sample_cnt_tib <- mvp_ss_exp_list[[expKey]] %>% dplyr::group_by(Class_Name) %>% 
+                dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(Class_Name) )
+              
+              sample_ids_vec <- mvp_ss_exp_list[[expKey]]$Sentrix_Name
               sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
               sample_cnt_vec <- sample_cnt_tib %>% dplyr::pull(Count)
               
-              sample_key_vec <- sampleSheet_tib %>% dplyr::pull(!!class_var) %>% unique()
-              sample_cnt_vec <- sampleSheet_tib %>% dplyr::group_by(!!class_var) %>% dplyr::summarise(Count=n()) %>% dplyr::pull(Count)
+              beta_tit_mat <- beta_masked_mat[,sample_ids_vec]
               
-              cpp.verbose <- 0
-              full_dbl_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
+              full_dbl_tib <- C_crossSampleLociRSquared(beta_tit_mat, sample_cnt_vec, sample_key_vec, cmb=FALSE, verbose=cpp.verbose) %>% 
                 as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% tibble::as_tibble() %>% 
                 dplyr::mutate_if(is.double, round, opt$percisionPval)
-              
-              #
-              # TBD:: Need to use beta/pval percision on output!!!
-              #
-              
-              system(glue::glue("touch {dbl_beg_txt}"))
-              readr::write_csv(full_dbl_tib,full_dbl_csv)
-              system(glue::glue("touch {dbl_end_txt}"))
-              Sys.sleep(1)
             }
-            
-            cat(glue::glue("[{par$prgmTag}]: Done. Writing deltaBetas...{RET}{RET}") )
           }
+          
+          if (TRUE) {
+            # Name by Real Classes::
+            #
+            sample_cnt_tib <- sampleSheet_tib %>% 
+              dplyr::group_by(!!class_var) %>% 
+              dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(!!class_var) )
+            sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
+            sample_cnt_vec <- sample_cnt_tib %>% dplyr::pull(Count)
+            
+            sample_key_vec <- sampleSheet_tib %>% dplyr::pull(!!class_var) %>% unique()
+            sample_cnt_vec <- sampleSheet_tib %>% dplyr::group_by(!!class_var) %>% dplyr::summarise(Count=n()) %>% dplyr::pull(Count)
+            
+            cpp.verbose <- 0
+            full_dbl_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
+              as.data.frame() %>% tibble::rownames_to_column(var='Probe_ID') %>% tibble::as_tibble() %>% 
+              dplyr::mutate_if(is.double, round, opt$percisionPval)
+            
+            #
+            # TBD:: Need to use beta/pval percision on output!!!
+            #
+            
+            system(glue::glue("touch {dbl_beg_txt}"))
+            readr::write_csv(full_dbl_tib,full_dbl_csv)
+            system(glue::glue("touch {dbl_end_txt}"))
+            Sys.sleep(1)
+          }
+          
+          cat(glue::glue("[{par$prgmTag}]: Done. Writing deltaBetas...{RET}{RET}") )
         }
       }
       

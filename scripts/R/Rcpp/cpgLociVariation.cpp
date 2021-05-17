@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <iomanip>
 #include <math.h>
+
 using namespace std;
+
 //[[Rcpp::depends(RcppArmadillo)]]
 #include <Rcpp.h>
 using namespace Rcpp;

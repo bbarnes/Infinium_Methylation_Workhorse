@@ -237,7 +237,7 @@ program_init = function(name,defs=NULL,
   #                            Build Directories::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  # opts$outDir <- file.path(opts$outDir, par$prgmDir, name)
+  # opts$outDir <- file.path(opts$outDir, pars$prgmDir, name)
   opts$outDir <- file.path(opts$outDir, name)
   if (!is.null(opts$runName)) opts$outDir <- file.path(opts$outDir, opts$runName)
   if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
@@ -254,9 +254,9 @@ program_init = function(name,defs=NULL,
   if (!file.exists(opts$time_org_txt) || (!is.null(opts[['fresh']]) && opts$fresh) )
     readr::write_lines(x=date(),file=opts$time_org_txt,sep='\n',append=FALSE)
   
-  opts$opt_csv  <- file.path(opts$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )
-  opts$par_csv  <- file.path(opts$outDir, paste(par$prgmTag,'program-parameters.csv', sep='.') )
-  opts$time_csv <- file.path(opts$outDir, paste(par$prgmTag,'time-tracker.csv.gz', sep='.') )
+  opts$opt_csv  <- file.path(opts$outDir, paste(pars$prgmTag,'program-options.csv', sep='.') )
+  opts$par_csv  <- file.path(opts$outDir, paste(pars$prgmTag,'program-parameters.csv', sep='.') )
+  opts$time_csv <- file.path(opts$outDir, paste(pars$prgmTag,'time-tracker.csv.gz', sep='.') )
   
   if (file.exists(opts$opt_csv))  unlink(opts$opt_csv)
   if (file.exists(opts$par_csv))  unlink(opts$par_csv)
@@ -320,7 +320,7 @@ load_libraries = function(opts, pars, rcpp=FALSE,
   stopifnot(!is.null(pars$scrDir))
   
   # list.files("/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R", full.names = TRUE) %>% file.path("functions")
-  # list.files(par$scrDir, full.names = TRUE) %>% file.path("functions")
+  # list.files(pars$scrDir, full.names = TRUE) %>% file.path("functions")
   
   pars$prgm_src_dir <- file.path(pars$scrDir,pars$prgmDir, 'functions')
   if (!dir.exists(pars$prgm_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Program Source={pars$prgm_src_dir} does not exist!{RET}"))
@@ -364,13 +364,16 @@ load_libraries = function(opts, pars, rcpp=FALSE,
   }
   
   if (rcpp) {
-    opts <- setLaunchExe(opts=opts, pars=pars, verbose=opts$verbose, vt=5,tc=0)
+    pars$sourceCpp <- file.path(pars$scrDir, 'Rcpp/cpgLociVariation.cpp')
     
-    if (!opts$isLinux) {
-      par$sourceCpp <- file.path(par$scrDir, 'R/Rcpp/cpgLociVariation.cpp')
-      if (!file.exists(par$sourceCpp)) par$sourceCpp <- file.path(par$scrDir, 'Rcpp/cpgLociVariation.cpp')
-      if (!file.exists(par$sourceCpp)) stop(glue::glue("[{par$prgmTag}]: Source={par$sourceCpp} does not exist!{RET}"))
-      Rcpp::sourceCpp(par$sourceCpp)
+    # Don't care about linux now that we use docker::
+    # TBD:: Keeping this next line for now, but should be removed if not used
+    opts <- setLaunchExe(opts=opts, pars=pars, verbose=opts$verbose, vt=5,tc=0)
+    # if (!opts$isLinux) {
+    if (file.exists(pars$sourceCpp)) {
+      if (!file.exists(pars$sourceCpp)) pars$sourceCpp <- file.path(pars$scrDir, 'Rcpp/cpgLociVariation.cpp')
+      if (!file.exists(pars$sourceCpp)) stop(glue::glue("[{pars$prgmTag}]: Source={pars$sourceCpp} does not exist!{RET}"))
+      Rcpp::sourceCpp(pars$sourceCpp)
     }
   }
   ret_cnt <- opts %>% names() %>% length()
