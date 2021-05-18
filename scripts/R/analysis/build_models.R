@@ -442,7 +442,7 @@ if (opt$verbose>=0)
 opt <- program_init(name=par$prgmTag,
                     opts=opt, opt_reqs=opt_reqs, 
                     pars=par, par_reqs=par_reqs,
-                    libs=TRUE,rcpp=FALSE,
+                    libs=TRUE,rcpp=TRUE,
                     verbose=opt$verbose,vt=3,tc=0,tt=NULL)
 
 opt_tib <- dplyr::bind_rows(opt) %>% tidyr::gather("Option", "Value")
