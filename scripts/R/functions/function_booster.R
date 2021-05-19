@@ -696,8 +696,19 @@ findFileByPattern = function(dir, pattern, max=1, recursive=FALSE,
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; max={max}, pattern={pattern}, dir={dir}.{RET}"))
   
   files <- NULL
-  files <- base::list.files(path=dir, pattern=pattern, full.names=TRUE, recursive=recursive)
+  files <- base::list.files(path=dir, full.names=TRUE)
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} All Files (no recursive)={RET}"))
+    print(files)
+  }
   
+  files <- base::list.files(path=dir, full.names=TRUE, recursive=TRUE)
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} All Files (recursive)={RET}"))
+    print(files)
+  }
+
+  files <- base::list.files(path=dir, pattern=pattern, full.names=TRUE, recursive=recursive)
   if (verbose>=vt) {
     cat(glue::glue("[{funcTag}]:{tabsStr} Files={RET}"))
     print(files)
