@@ -583,7 +583,7 @@ for (betaKey in lociBetaKey_vec) {
         clean=opt$clean,addPval=opt$addPval, 
         sentrix_name="Sentrix_Name",idKey="Probe_ID", betaName='beta', pvalName='pval', del='.',exp_name=exp_sym,
         beta_rds=beta_masked_rds, pval_rds=pval_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
-        sam_suffix="_AutoSampleSheet.csv.gz$", dat_suffix="_MergedDataFiles.tib.csv.gz", 
+        sam_suffix="_AutoSampleSheet.csv.gz", dat_suffix="_MergedDataFiles.tib.csv.gz", 
         verbose=opt$verbose, vt=3,tc=1,tt=cTracker)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

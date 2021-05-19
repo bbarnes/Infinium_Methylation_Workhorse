@@ -335,34 +335,6 @@ load_libraries = function(opts, pars, rcpp=FALSE,
     cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source File={sfile}!{RET}") )
   }
   
-  # OLD Direct Method::
-  if (FALSE) {
-    pars$man_src_dir <- file.path(pars$scrDir, 'manifests/functions')
-    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$man_src_dir} does not exist!{RET}"))
-    for (sfile in list.files(path=pars$man_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$man_src_dir}!{RET}{RET}") )
-    
-    pars$swt_src_dir <- file.path(pars$scrDir, 'swifthoof/functions')
-    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$swt_src_dir} does not exist!{RET}"))
-    for (sfile in list.files(path=pars$swt_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$swt_src_dir}!{RET}{RET}") )
-    
-    pars$prb_src_dir <- file.path(pars$scrDir, 'probe_design/functions')
-    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$prb_src_dir} does not exist!{RET}"))
-    for (sfile in list.files(path=pars$prb_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$prb_src_dir}!{RET}{RET}") )
-    
-    pars$anl_src_dir <- file.path(pars$scrDir, 'analysis/functions')
-    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$anl_src_dir} does not exist!{RET}"))
-    for (sfile in list.files(path=pars$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$anl_src_dir}!{RET}{RET}") )
-    
-    pars$anl_src_dir <- file.path(pars$scrDir, 'annotation/functions')
-    if (!dir.exists(pars$gen_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Manifest Source={pars$anl_src_dir} does not exist!{RET}"))
-    for (sfile in list.files(path=pars$anl_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Manifest Source={pars$anl_src_dir}!{RET}{RET}") )
-  }
-  
   if (rcpp) {
     pars$sourceCpp <- file.path(pars$scrDir, 'Rcpp/cpgLociVariation.cpp')
     
