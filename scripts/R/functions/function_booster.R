@@ -687,16 +687,26 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL,
 #                          File Searching Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-findFileByPattern = function(dir, pattern, max=1, recursive=FALSE, verbose=0,vt=3,tc=1,tt=NULL) {
+findFileByPattern = function(dir, pattern, max=1, recursive=FALSE, 
+                             verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'findFileByPattern'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; max={max}, pattern={pattern}, dir={dir}.{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; max={max}, pattern={pattern}, dir={dir}.{RET}"))
   
   files <- NULL
-  files <- list.files(path=dir, pattern=pattern, full.names=TRUE, recursive=recursive)
-  if (is.null(files) || length(files)==0)
-    stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed to find pattern={pattern} in dir={dir}!!!{RET}{RET}"))
+  files <- base::list.files(path=dir, pattern=pattern, full.names=TRUE, recursive=recursive)
+  
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} Files={RET}"))
+    print(files)
+  }
+  if (is.null(files) || length(files)==0) {
+    stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed to find ",
+                    "pattern='{pattern}' in dir='{dir}'!!!{RET}{RET}"))
+    return(NULL)
+  }
   
   files_cnt <- length(files)
   if (files_cnt>max)
