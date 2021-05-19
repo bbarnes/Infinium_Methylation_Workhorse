@@ -1,12 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
-# TOP="/Users/bretbarnes/Documents"
-# SRC="${TOP}/tools/Infinium_Methylation_Workhorse"
-# EXE="${SRC}/scripts/R/
-
-EXE_PATH="Infinium_Methylation_Workhorse/scripts/R/analysis/build_models.R"
-EXE_A="/repo/${EXE_PATH}"
-EXE_B="/Users/bretbarnes/Documents/tools/${EXE_PATH}"
+EXE_NAME=Infinium_Methylation_Workhorse/scripts/R/swifthoof/swifthoof_main.R
+EXE_A=/repo/${EXE_NAME}
+EXE_B=/Users/bretbarnes/Documents/tools/${EXE_NAME}
 
 RSCRIPT_A=/usr/local/bin/Rscript
 RSCRIPT_B=/usr/bin/Rscript
@@ -42,7 +38,7 @@ elif [ -e ${EXE_B} ]; then
     OUT=$2
 
     if [ "$#" -lt 2 ]; then
-	echo "Usage: $0 buildDir outDir [options]"
+	echo "Usage: $0 idatsDir outDir [options]"
 	exit 1
     fi
     
@@ -57,11 +53,31 @@ echo "INP="${INP}
 echo "OUT="${OUT}
 echo ""
 
-echo "CMD=${CMD}"
+echo "CMD="${CMD}
 echo ""
 
-eval $CMD
+${CMD}
 
-echo "done build_models..."
+echo "done."
+
+exit
+
+${RSCRIPT} ${EXE} \
+    --Rscript ${RSCRIPT} \
+    -i ${INP} -o ${OUT} \
+    --workflows="i,ind" \
+    --writeCalls \
+    --writeSsheet
+
+
+    
+#    --minNegPval=0.02 \
+#    --minOobPval=0.1 \
+#    --minNegPerc=98 \
+#    --minOobPerc=90 \
+#    --minDeltaBeta=0.2 \
+#    --percisionBeta=4 \
+#    --percisionPval=6 \
+#    --verbose=${VER}
 
 # End of file

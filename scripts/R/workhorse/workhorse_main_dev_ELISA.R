@@ -271,8 +271,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
   par$local_runType <- 'EWAS'
-  par$local_runType <- 'Chicago'
   par$local_runType <- 'GRCm10'
+  par$local_runType <- 'Chicago'
   
   if (par$local_runType=='EWAS') {
     opt$genBuild <- 'GRCh37'

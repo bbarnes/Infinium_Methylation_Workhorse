@@ -33,7 +33,7 @@ if [ -e ${EXE_A} ]; then
 
     INP=/input
     OUT=/output
-    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --buildDir=${INP} --outDir=${OUT} $@"
+    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --datDir=${INP} --outDir=${OUT} $@"
     
 elif [ -e ${EXE_B} ]; then
     EXE=${EXE_B}
@@ -66,38 +66,5 @@ echo ""
 eval $CMD
 
 echo "done merge_builds..."
-
-exit
-
-
-
-DAT="${TOP}/data/idats/idats_${EXP}"
-OUT="${TOP}/scratch"
-
-VERBOSE=4
-
-SHELL="${TOP}/tools/Infinium_Methylation_Workhorse/shells/docker/run_swifthoof.sh"
-BUILD="${TOP}/scratch/Rstudio/swifthoof_main/${EXP}"
-WORK="ind"
-PLAT="EPIC"
-VERS="B4"
-RSCRIPT="/usr/local/bin/Rscript"
-
-RUN="${RSCRIPT} ${EXE} --outDir=${OUT} \
-	--buildDir=${BUILD} \
-	--workflow=${WORK} \
-	--runName=${EXP} \
-	--platform=${PLAT} \
-	--version=${VERS} \
-	--addPathsCall \
-	--Rscript=${RSCRIPT} \
-        --verbose=${VERBOSE}"
-
-
-echo "RUN=${RUN}"
-eval $RUN
-
-echo "done merge_builds..."
-
 
 # End of file

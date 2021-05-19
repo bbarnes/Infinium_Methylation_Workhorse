@@ -58,8 +58,8 @@ par$humanSampleSheetName <- 'humanSampleSheet.csv'
 opt$inputsCsv <- NULL
 
 # Directory Parameters::
-opt$outDir    <- NULL
-opt$buildDir  <- NULL
+opt$outDir  <- NULL
+opt$datDir  <- NULL
 
 # Run Parameters::
 opt$runName   <- NULL
@@ -226,7 +226,7 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- FALSE
     # opt$parallel <- TRUE
     
-    opt$buildDir <- paste(
+    opt$datDir <- paste(
       # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
       # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',"EPIC-8x1-EM-Sample-Prep.v0"),
       file.path(par$topDir, 'scratch/swifthoof_main',opt$runName),
@@ -242,7 +242,7 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- FALSE
     # opt$parallel <- TRUE
     
-    opt$buildDir <- paste(
+    opt$datDir <- paste(
       file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
       sep=',')
     
@@ -268,7 +268,7 @@ if (args.dat[1]=='RStudio') {
     opt$platform <- 'COVID'
     opt$version  <- 'C1'
     
-    opt$buildDir <- paste(
+    opt$datDir <- paste(
       file.path(par$topDir, 'scratch/COVID_All/swifthoof_main',opt$runName),
       sep=',')
     
@@ -279,7 +279,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$version  <- 'C0'
     
-    opt$buildDir <- paste(
+    opt$datDir <- paste(
       file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameA),
       file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameB),
       file.path(par$topDir, 'scratch/swifthoof_main', opt$runNameC),
@@ -302,7 +302,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$runName   <- 'mm10_controls'
     
-    opt$buildDir  <- paste(
+    opt$datDir  <- paste(
       file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameA),
       file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameB),
       file.path(par$topDir, 'scratch/GRCh38/swifthoof_main', par$runNameC),
@@ -322,7 +322,7 @@ if (args.dat[1]=='RStudio') {
       opt$trainClass <- paste('RepAC','RepS3','RepM1','RepSA', sep=',')
     }
     
-    opt$mergeDir  <- paste(
+    opt$datDir  <- paste(
       file.path(par$topDir,'scratch/merge_builds/LEGX/S1/Sample_Name',opt$runName),
       sep=',')
     
@@ -360,7 +360,7 @@ if (args.dat[1]=='RStudio') {
     #               par$runName7,par$runName11,par$runName12,
     #               par$runName15)
     # 
-    # opt$buildDir  <- paste(
+    # opt$datDir  <- paste(
     #   # Known passed chips::
     #   file.path(par$topDir,'scratch/swifthoof_main',par$runName1),
     #   file.path(par$topDir,'scratch/swifthoof_main',par$runName2),
@@ -386,7 +386,7 @@ if (args.dat[1]=='RStudio') {
     #   sep=',')
     
     par$datSrc <- file.path(par$topDir, "data/VA_MVP/docker-v.1.11")
-    opt$buildDir <- 
+    opt$datDir <- 
       do.call(paste, c(as.list(list.files(par$datSrc, full.names = TRUE)), sep=","))
     
     opt$runName  <- paste(par$local_runType, sep='_')
@@ -416,8 +416,8 @@ if (args.dat[1]=='RStudio') {
     # Directory Parameters::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("-b","--buildDir"), type="character", default=opt$buildDir, 
-                help="List of Build Directory [default= %default]", metavar="character"),
+    make_option(c("-d","--datDir"), type="character", default=opt$datDir, 
+                help="List of Build Directory(s), commas seperated [default= %default]", metavar="character"),
     
     # Run Parameters::
     make_option(c("--runName"), type="character", default=opt$runName, 
@@ -506,7 +506,7 @@ if (args.dat[1]=='RStudio') {
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
 opt_reqs <- c('outDir','Rscript','verbose')
 opt_reqs <- c('outDir','Rscript','verbose','clean',
-              'buildDir','runName','classVar','workflow',
+              'datDir','runName','classVar','workflow',
               'addSampleName','addPathsCall','addPathsSset',
               'flagDetectPval','flagSampleDetect','flagRefMatch',
               'platform','version','percisionBeta','percisionPval',
@@ -537,7 +537,7 @@ par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
-blds_dir_vec  <- opt$buildDir %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+blds_dir_vec  <- opt$datDir %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 if (is.null(opt$classVar)) opt$classVar <- 'Source_Sample_Name'
 class_var <- rlang::sym(opt$classVar)
@@ -666,7 +666,7 @@ if (FALSE) {
 #  to add new auto detect samples to the default auto detection dataset in github
 #
 if (FALSE) {
-
+  
   pre_beta_csv <- "/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz"
   add_beta_csv <- "/Users/bretbarnes/Documents/scratch/RStudio/swifthoof_main/NA12878/200348350023_R08C01_EPIC_B4_ind.call.dat.csv.gz"
   new_beta_csv <- "/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.new.csv.gz"
@@ -681,7 +681,7 @@ if (FALSE) {
     dplyr::select(Probe_ID:T99BZ,NA12878, dplyr::everything())
   
   readr::write_csv(new_beta_tib,new_beta_csv)
-
+  
 }
 
 if (FALSE) {

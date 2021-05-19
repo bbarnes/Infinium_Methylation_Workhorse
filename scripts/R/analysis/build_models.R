@@ -60,7 +60,7 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Directory Parameters::
 opt$outDir    <- NULL
-opt$mergeDir  <- NULL
+opt$datDir  <- NULL
 
 opt$addPval     <- FALSE
 opt$buildDml    <- TRUE
@@ -249,14 +249,14 @@ if (args.dat[1]=='RStudio') {
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
     
-    # opt$mergeDir <- paste(
+    # opt$datDir <- paste(
     #   file.path(par$topDir,"scratch","merge_builds_latest/merge_builds",opt$runName,
     #             par$platform,par$version,opt$classVar,opt$workflow),
     #   file.path(par$topDir,"scratch","merge_builds_latest/merge_builds","EPIC-8x1-EM-Sample-Prep.v0",
     #             par$platform,par$version,opt$classVar,opt$workflow),
     #   sep=',')
     
-    opt$mergeDir <- paste(
+    opt$datDir <- paste(
       file.path(par$topDir, "data/CustomContent/EPIC-8x1-EM-Sample-Prep/docker-v.1.29/merge_builds/EPIC-8x1-EM-Sample-Prep/EPIC/B4"),
       sep=',')
     
@@ -276,7 +276,7 @@ if (args.dat[1]=='RStudio') {
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
     
-    opt$mergeDir <- paste(
+    opt$datDir <- paste(
       file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
                 par$platform,par$version,opt$classVar,opt$workflow),
       sep=',')
@@ -307,9 +307,9 @@ if (args.dat[1]=='RStudio') {
     # Directory Parameters::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("-m","--mergeDir"), type="character", default=opt$mergeDir, 
+    make_option(c("-d","--datDir"), type="character", default=opt$datDir, 
                 help="List of Merged Swifthoof Build Directory(s), commas seperated [default= %default]", metavar="character"),
-    
+
     make_option(c("--addPval"), action="store_true", default=opt$addPval, 
                 help="Boolean variable to write and return pval matrix [default= %default]", metavar="boolean"),
     
@@ -420,7 +420,7 @@ if (args.dat[1]=='RStudio') {
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
 opt_reqs <- c('outDir','Rscript','verbose')
 opt_reqs <- c('outDir','Rscript','verbose','clean',
-              'mergeDir','runName','classVar','workflow',
+              'datDir','runName','classVar','workflow',
               'trainClass', 'cross_perc_min', 
               'samplePvalName', 'samplePvalPerc', 
               'lociBetaKey', 'lociPvalKey', 'lociPvalMin', 
@@ -481,7 +481,7 @@ if (FALSE) {
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
-mergeDirs_vec   <- opt$mergeDir %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+mergeDirs_vec   <- opt$datDir %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 lociBetaKey_vec <- opt$lociBetaKey %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 lociPvalKey_vec <- opt$lociPvalKey %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()

@@ -53,8 +53,8 @@ par$retData     <- FALSE
 opt$Rscript <- NULL
 
 # Directories::
-opt$outDir     <- NULL
-opt$idatsDir   <- NULL
+opt$outDir <- NULL
+opt$datDir <- NULL
 
 # Optional Files::
 opt$subManifest  <- FALSE
@@ -353,9 +353,9 @@ if (args.dat[1]=='RStudio') {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
   
-  opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
+  opt$datDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
   if (!is.null(par$expChipNum)) 
-    opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
+    opt$datDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
   
   # opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, opt$runName)
   opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
@@ -381,9 +381,9 @@ if (args.dat[1]=='RStudio') {
     # Directories::
     make_option(c("--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("--idatsDir"), type="character", default=opt$idatsDir, 
-                help="idats directory [default= %default]", metavar="character"),
-    
+    make_option(c("-d","--datDir"), type="character", default=opt$datDir, 
+                help="List of idats directory(s), commas seperated [default= %default]", metavar="character"),
+
     # Optional Files::
     make_option(c("--manifestPath"), type="character", default=opt$manifestPath,
                 help="Path to manfifest (CSV) otherwise use dat [default= %default]", metavar="character"),
@@ -574,7 +574,7 @@ cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 #             Select Chips from idats and/or Target Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 chipPrefixes <- NULL
-chipPrefixes <- sesame::searchIDATprefixes(opt$idatsDir)
+chipPrefixes <- sesame::searchIDATprefixes(opt$datDir)
 sampleCounts <- chipPrefixes %>% names() %>% length()
 
 if (is.null(chipPrefixes) || length(chipPrefixes)==0)
