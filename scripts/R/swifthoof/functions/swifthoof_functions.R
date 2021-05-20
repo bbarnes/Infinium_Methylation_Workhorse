@@ -109,10 +109,10 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     man_map_tib <- idatToManifestMap(
-      tib=idat_sigs_tib, mans=mans, sortMax=TRUE,
+      tib=idat_sigs_tib, mans=man, sortMax=TRUE,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
-    top_man_tib <- mans[[man_map_tib[1,]$manifest]] %>% 
+    top_man_tib <- man[[man_map_tib[1,]$manifest]] %>% 
       dplyr::distinct(Probe_ID, .keep_all=TRUE)
     
     bead_sum_tib <- getManifestBeadStats(

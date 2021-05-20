@@ -36,14 +36,470 @@ RET <- "\n"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 template_func = function(tib,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'template_func'
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='template_func') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
+    
+    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Manifest I/O::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+get_manifest_list = function(file=NULL, dir=NULL, platform=NULL, version=NULL,
+                           suffix=".manifest.sesame-base.cpg-sorted.csv.gz",
+                           verbose=0,vt=3,tc=1,tt=NULL,
+                           funcTag="get_manifest_list") {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    path_vec <- NULL
+    if (!is.null(file) && file.exists(file)) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding direct manifest[1]={file}.{RET}"))
+      path_vec <- c(path_vec,file)
+    }
+    
+    if (!is.null(dir) && dir.exists(dir)) {
+      
+      if (!is.null(platform) && !is.null(version)) {
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Specific search[2]; ",
+                         "platform={platform}, version={version}, ",
+                         "suffix={suffix}, dir={dir}.{RET}"))
+        
+        fileName <- paste0(platform,'-',version,suffix)
+        filePath <- file.path(dir, fileName)
+        if (!file.exists(filePath)) {
+          stop(glue::glue("[{funcTag}]: ERROR: Failed to find ",
+                          "manifest={filePath}; ",
+                          "platform={platform}, version={version}, ",
+                          "suffix={suffix}, dir={dir}.{RET}{RET}"))
+          return(ret_tib)
+        }
+        path_vec <- c(path_vec,filePath)
+      } else {
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Full search[3]; ",
+                         "suffix={suffix}, dir={dir}.{RET}"))
+        
+        curPaths <- list.files(file.path(dir), pattern=suffix, full.names=TRUE)
+        path_vec <- c(path_vec,curPaths)
+      }
+    }
+    
+    path_cnt <- length(path_vec)
+    if (path_cnt==0) {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed to find any files!{RET}{RET}"))
+      return(ret_tib)
+    }
+    ret_tib <- tibble::tibble(path=base::unique(path_vec))
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+load_manifest_list = function(tib, field="path",
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='load_manifest_list') {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_dat <- NULL
+  stime <- system.time({
+    
+    field_sym <- rlang::sym(field)
+    file_vec <- tib %>% dplyr::distinct(!!field_sym) %>% purrr::as_vector()
+
+    tib_row_cnt <- base::nrow(tib)
+    for (ii in c(1:tib_row_cnt)) {
+      cur_file <- file_vec[ii]
+      if (verbose>=vt+4)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading manifest[{ii}]={cur_file}...{RET}"))
+      
+      cur_key_tib <- cur_file %>% base::basename() %>% 
+        stringr::str_remove('\\.manifest.*$') %>% 
+        stringr::str_split(pattern='-', simplify=TRUE) %>% as.data.frame() %>% 
+        purrr::set_names(c('platform', 'manifest'))
+      
+      cur_platform <- cur_key_tib$platform
+      cur_manifest <- cur_key_tib$manifest
+      cur_key <- paste(cur_platform, cur_manifest, sep='-')
+      
+      ret_dat[[cur_key]] <- 
+        suppressMessages(suppressWarnings( readr::read_csv(cur_file) )) %>%
+        dplyr::mutate(
+          M=as.integer(M),
+          U=as.integer(U),
+          Probe_ID=stringr::str_replace_all(
+            stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
+          Probe_Type=stringr::str_replace_all( 
+            stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
+          # Probe_Type=stringr::str_replace_all( 
+          #   stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
+          col=dplyr::case_when(
+            !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
+            # Probe_Type=='ct' & is.na(col) ~ 'black',
+            TRUE ~ col),
+          Probe_Design=dplyr::case_when(
+            is.na(M) ~ '2',
+            TRUE ~ '1'
+          )
+        )
+      
+      print_tag <- glue::glue("{ii}={cur_key}")
+      print_tib(ret_dat[[cur_key]],funcTag, verbose,vt+4,tc, n=print_tag)
+    }
+
+    ret_cnt <- ret_dat %>% names() %>% length()
+    # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_dat
+}
+
+getManifestList_old = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL, 
+                               verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'getManifestList_old'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  if ( is.null(path) && (is.null(platform) || is.null(manifest) || is.null(dir) ) ) {
+    stop(glue::glue("[{funcTag}]: ERROR: Path, platform, manifest, dir can't all be null!{RET}{RET}"))
+    return(NULL)
+  }
+  
+  ret_cnt <- 0
+  ret_dat <- NULL
+  stime <- system.time({
+    paths <- NULL
+    if (!is.null(path) && file.exists(path)) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Matched[1] path={path}.{RET}"))
+      
+      paths <- list.files(base::dirname(path), pattern=base::basename(path), full.names=TRUE)
+      
+    } else if (!is.null(platform) && !is.null(manifest) && !is.null(dir) ) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Searching[2] for platform={platform}, ",
+                       "manifest={manifest}, dir={dir}.{RET}"))
+      
+      fileName <- paste0(platform,'-',manifest,'.manifest.sesame-base.cpg-sorted.csv.gz')
+      filePath <- file.path(dir, fileName)
+      stopifnot(file.exists(filePath))
+      paths <- list.files(dir, pattern=fileName, full.names=TRUE)
+      
+    } else if ( !is.null(path) && !is.null(dir) && path=='auto' ) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Sesame Assumed[3] path={path}; dir={dir}.{RET}"))
+      
+      pat_str <- paste0('.manifest.sesame-base.cpg-sorted.csv.gz')
+      paths   <- list.files(file.path(dir), pattern=pat_str, full.names=TRUE)
+      
+    } else {
+      stop(glue::glue("[{funcTag}]: ERROR: Path, platform, manifest, dir FAILED CHECK!{RET}{RET}"))
+      return(ret_dat)
+    }
+    if (is.null(paths) || length(paths)==0) {
+      stop(glue::glue("[{funcTag}]: ERROR: Paths length is zero or non-existent!{RET}{RET}"))
+      return(ret_dat)
+    }
+    
+    paths_len <- length(paths)
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} paths({paths_len})={RET}"))
+      print(paths)
+    }
+    
+    for (ii in c(1:paths_len)) {
+      if (verbose>=vt+4) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading manifest={paths[ii]}...{RET}"))
+      
+      cur_key_tib <- paths[ii] %>% base::basename() %>% 
+        stringr::str_remove('\\.manifest.*$') %>% 
+        stringr::str_split(pattern='-', simplify=TRUE) %>% as.data.frame() %>% 
+        purrr::set_names(c('platform', 'manifest'))
+      
+      cur_platform <- cur_key_tib$platform
+      cur_manifest <- cur_key_tib$manifest
+      cur_key <- paste(cur_platform, cur_manifest, sep='-')
+      
+      ret_dat[[cur_key]] <- 
+        suppressMessages(suppressWarnings( readr::read_csv(paths[ii]) )) %>%
+        dplyr::mutate(
+          M=as.integer(M),
+          U=as.integer(U),
+          Probe_ID=stringr::str_replace_all(
+            stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
+          Probe_Type=stringr::str_replace_all( 
+            stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
+          # Probe_Type=stringr::str_replace_all( 
+          #   stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
+          col=dplyr::case_when(
+            !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
+            # Probe_Type=='ct' & is.na(col) ~ 'black',
+            TRUE ~ col),
+          Probe_Design=dplyr::case_when(
+            is.na(M) ~ '2',
+            TRUE ~ '1'
+          )
+        )
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done; Loading manifest={RET}"))
+        print(ret_dat[[cur_key]])
+      }
+    }
+    
+    ret_cnt <- ret_dat %>% names %>% length()
+  })
+  if (verbose>vt+4) print(ret_dat)
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_dat
+}
+
+loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retType=NULL, max=0,
+                                    verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'loadManifestGenomeStudio'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading file={file}.{RET}"))
+  
+  ctl_cols <- c('Address', 'Control_Group', 'Control_Color', 'Control_Name')
+  
+  ret_cnt <- 0
+  ret_dat <- NULL
+  stime <- system.time({
+    tib <- NULL
+    man_tib <- NULL
+    ctl_tib <- NULL
+    
+    src <- base::basename(file) %>% 
+      stringr::str_remove('\\.gz$') %>% 
+      stringr::str_remove('\\.csv$')
+    
+    cmd <- glue::glue("gzip -dc {file} | head -n 50 | grep -n '^IlmnID' ")
+    cnt <- suppressMessages(suppressWarnings( system(as.character(cmd), intern=TRUE, ignore.stderr=TRUE) )) %>% 
+      stringr::str_remove('\\r$') %>% 
+      stringr::str_remove(':.*$') %>% as.integer()
+    
+    cnt <- cnt - 1
+    if (max>0) {
+      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt, n_max=max, col_types = cols(.default = "c"))))
+    } else {
+      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt, col_types = cols(.default = "c"))))
+    }
+    
+    tib_len <- base::nrow(tib)
+    ctl_idx <- which(tib$IlmnID=='[Controls]') %>% head(n=1) %>% as.integer()
+    
+    man_tib <- tib %>% head(n=ctl_idx-1) %>%
+      clean_tibble()
+    
+    if (ctl_idx>0)
+      ctl_tib <- tib %>% 
+      tail(tib_len-ctl_idx) %>% 
+      dplyr::select(1:4) %>% 
+      purrr::set_names(ctl_cols) %>%
+      clean_tibble()
+    
+    if ("Chr" %in% names(man_tib)) {
+      man_tib <- man_tib %>% dplyr::rename(Chromosome=Chr)
+    }
+    if ("CHR" %in% names(man_tib)) {
+      man_tib <- man_tib %>% dplyr::rename(Chromosome=CHR)
+    }
+    
+    if ("MapInfo" %in% names(man_tib)) {
+      man_tib <- man_tib %>% dplyr::rename(Coordinate=MapInfo)
+    }
+    if ("MAPINFO" %in% names(man_tib)) {
+      man_tib <- man_tib %>% dplyr::rename(Coordinate=MAPINFO)
+    }
+    
+    man_tib <- man_tib %>% 
+      dplyr::mutate(
+        Chromosome=paste0("chr",stringr::str_remove(Chromosome, "^chr")) %>%
+          as.character(),
+        Probe_Type=stringr::str_sub(IlmnID, 1,2),
+        Strand_CO=case_when(
+          Probe_Type=='cg' ~ 'C',
+          Probe_Type=='rs' ~ 'C',
+          Probe_Type=='ch' ~ 'O',
+          TRUE ~ NA_character_
+        )
+      )
+    
+    man_tib <- man_tib %>% 
+      dplyr::mutate(AddressA_ID=stringr::str_remove(AddressA_ID, '^0+') %>% as.double(),
+                    AddressB_ID=stringr::str_remove(AddressB_ID, '^0+') %>% as.double() ) %>%
+      select(where(~sum(!is.na(.x)) > 0))
+    
+    if (normalize) {
+      # Check for field that are unique to known manifests::
+      if (grep("SNP", names(man_tib)) %>% length() == 1 &&
+          grep("IlmnStrand", names(man_tib)) %>% length() == 1 &&
+          grep("SourceStrand", names(man_tib)) %>% length() == 1 &&
+          grep("RefStrand", names(man_tib)) %>% length() == 1 &&
+          grep("SourceSeq", names(man_tib)) %>% length() == 1 &&
+          grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {
+        
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing GSA SNP Manifest.{RET}"))
+        
+        man_tib <- man_tib %>% 
+          dplyr::rename(Forward_Sequence=SourceSeq,
+                        Top_Sequence=TopGenomicSeq,
+                        Genome_Build=GenomeBuild) %>%
+          dplyr::mutate(Ilmn_TB=stringr::str_sub(IlmnStrand, 1,1),
+                        Source_TB=stringr::str_sub(SourceStrand, 1,1),
+                        Strand_FR=dplyr::case_when(
+                          RefStrand=="+" ~ "F",
+                          RefStrand=="-" ~ "R",
+                          TRUE ~ NA_character_) ) %>%
+          dplyr::mutate(Infinium_Design='I') %>% 
+          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
+                        'Top_Sequence', 'Forward_Sequence', 
+                        'Probe_Type','Infinium_Design', # 'Next_Base', 'Color_Channel',
+                        'Genome_Build', 'Chromosome', 'Coordinate', 
+                        'Strand_FR','Ilmn_TB', 'Source_TB','Strand_CO')
+        
+      } else if (grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing 27k Methylation Manifest.{RET}"))
+        
+        man_tib <- man_tib %>% 
+          dplyr::rename(Top_Sequence=TopGenomicSeq,
+                        Genome_Build=GenomeBuild) %>%
+          dplyr::mutate(Ilmn_TB=stringr::str_sub(IlmnStrand, 1,1),
+                        Source_TB=stringr::str_sub(SourceStrand, 1,1)) %>%
+          dplyr::mutate(Infinium_Design='I') %>% 
+          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
+                        'Top_Sequence', 'SourceSeq', 
+                        'Probe_Type','Infinium_Design','Next_Base', 'Color_Channel',
+                        'Genome_Build', 'Chromosome', 'Coordinate', 
+                        'Ilmn_TB', 'Source_TB','Strand_CO')
+        
+      } else if (grep("Forward_Sequence", names(man_tib)) %>% length() == 1) {
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing 450k/EPIC Methylation Manifest.{RET}"))
+        
+        man_tib <- man_tib %>% 
+          dplyr::rename(Strand_FR=Strand,Infinium_Design=Infinium_Design_Type) %>%
+          # Chromosome=CHR, Coordinate=MAPINFO, 
+          # Strand_FR=Strand) %>%
+          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
+                        'Forward_Sequence', 'SourceSeq', 
+                        'Probe_Type','Infinium_Design','Next_Base', 'Color_Channel',
+                        'Genome_Build', 'Chromosome', 'Coordinate', 
+                        'Strand_FR', 'Strand_CO')
+        
+      } else {
+        stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR; Unknown Genome Studio Manifest Type!!!{RET}{RET}"))
+        return(NULL)
+      }
+      
+      man_tib <- man_tib %>%
+        dplyr::mutate(Chromosome=as.character(Chromosome))
+    }
+    
+    if (addSource) {
+      man_tib <- man_tib %>% dplyr::mutate(Man_Source=!!src)
+      ctl_tib <- ctl_tib %>% dplyr::mutate(Man_Source=!!src)
+    }
+    
+    if (is.null(retType)) {
+      ret_dat$man <- man_tib
+      ret_dat$ctl <- ctl_tib
+      ret_cnt <- ret_dat %>% names %>% length()
+    } else if (!is.null(retType) && retType=='man') {
+      ret_dat <- man_tib
+      ret_cnt <- ret_dat %>% base::nrow()
+    } else if (!is.null(retType) && retType=='ctl') {
+      ret_dat <- ctl_tib
+      ret_cnt <- ret_dat %>% base::nrow()
+    } else {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Warning: Unsupported retType request={retType}. Defaulting to list.{RET}"))
+      ret_dat$man <- man_tib
+      ret_dat$ctl <- ctl_tib
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_dat
+}
+
+# TBD:: Should be renamed loadManifestSource -> loadManifestSesame
+loadManifestSource = function(file,addSource=FALSE, 
+                              verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'loadManifestSource'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading file={file}.{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    if ( stringr::str_ends(file, '.tsv') || stringr::str_ends(file, '.tsv.gz') ) {
+      ret_tib <- suppressMessages(suppressWarnings(readr::read_tsv(file)))
+      source <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.tsv$')
+    } else if ( stringr::str_ends(file, '.csv') || stringr::str_ends(file, '.csv.gz') ) {
+      ret_tib <- suppressMessages(suppressWarnings(readr::read_csv(file)))
+      source <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.csv$')
+    } else if ( stringr::str_ends(file, '.rds')) {
+      ret_tib <- suppressMessages(suppressWarnings(readr::read_rds(file)))
+      source <- base::basename(file) %>% stringr::str_remove('\\.rds$')
+    } else {
+      stop("{RET}[{funcTag}]: ERROR: Unsupported manifest format suffix (only csv/csv.gz or rds): file={file}!!!{RET}{RET}")
+    }
+    
+    # Fix Genecode Fields if its Genecode...
+    if ( length( grep('genesUniq', names(ret_tib) ) ) > 0 && 
+         length( grep('distToTSS', names(ret_tib) ) ) > 0)
+      ret_tib <- ret_tib %>% dplyr::mutate(genesUniq=as.character(genesUniq), distToTSS=as.integer(distToTSS) )
+    
+    if (addSource) {
+      ret_tib <- ret_tib %>% dplyr::mutate(Man_Source=!!source)
+    }
     
     ret_cnt <- ret_tib %>% base::nrow()
   })
@@ -54,6 +510,71 @@ template_func = function(tib,
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
+}
+
+loadAddressSource = function(file, man, fresh=FALSE, save=TRUE, split=FALSE,
+                             verbose=0,vt=4,tc=1,tt=NULL) {
+  funcTag <- 'loadAddressSource'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  ret_cnt <- 0
+  stime <- system.time({
+    tibs <- NULL
+    if (!fresh && file.exists(file)) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading file={file}.{RET}"))
+      ## TBD:: CHeck Type!!!
+      if (stringr::str_ends(file,'.rds')) {
+        tibs <- suppressMessages(suppressWarnings(readr::read_rds(file) ))
+      } else {
+        tibs <- suppressMessages(suppressWarnings(readr::read_csv(file) ))
+      }
+    } else {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building file={file}.{RET}"))
+      
+      if (split) {
+        tibs[['I1']] <- man %>% dplyr::filter(DESIGN=='I') %>% 
+          dplyr::select(Probe_ID,Probe_Type,U,M) %>% 
+          tidyr::gather(Design_Type,Address, -Probe_Type, -Probe_ID) %>% 
+          dplyr::arrange(Address)
+        
+        tibs[['I2']] <- man %>% dplyr::filter(DESIGN=='II') %>% 
+          dplyr::rename(Address=U) %>% dplyr::select(Probe_ID,Probe_Type,Address) %>%
+          dplyr::arrange(Address)
+      } else {
+        tibs <- dplyr::bind_rows(
+          man %>% dplyr::filter(DESIGN=='I') %>% 
+            dplyr::select(Probe_ID,Probe_Type,U,M, col) %>% 
+            tidyr::gather(Design_Type,Address, -Probe_Type, -Probe_ID, -col) %>%
+            dplyr::rename(Man_Col=col) %>% 
+            dplyr::mutate(Design_Type=paste0(Design_Type,'I')) %>%
+            dplyr::select(Probe_ID,Address,Man_Col,Design_Type,Probe_Type),
+          
+          man %>% dplyr::filter(DESIGN=='II') %>% 
+            dplyr::rename(Address=U, Man_Col=col) %>%
+            dplyr::mutate(Design_Type='II') %>%
+            dplyr::select(Probe_ID,Address,Man_Col,Design_Type,Probe_Type)
+        ) %>% dplyr::arrange(Probe_ID)
+      }
+      
+      ret_cnt <- tibs %>% base::nrow()
+      if (save) {
+        if (stringr::str_ends(file,'.rds')) {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Saving file(RDS)={file}.{RET}"))
+          readr::write_rds(tibs, file, compress='gz')
+        } else {
+          if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Saving file(CSV)={file}.{RET}"))
+          readr::write_csv(tibs, file)
+        }
+      }
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  tibs
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -72,7 +593,7 @@ manToAdd = function(man, sel=c("Probe_ID","Next_Base","Probe_Type","Probe_Source
     
     # Remove Design_Type from sel vector and then add it back...
     sel <- sel %>% purrr::discard(~ .x %in% c("Design_Type","M","U") )
-
+    
     ret_tib <- dplyr::bind_rows(
       
       man %>% dplyr::filter(!is.na(U)) %>% 
@@ -116,121 +637,6 @@ manToAdd = function(man, sel=c("Probe_ID","Next_Base","Probe_Type","Probe_Source
   
   ret_tib
 }
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                          Adhoc CpH/SNP/Ctl Method::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# adhoc_desToMAN = function(man, des_csv, probe_type,
-#                           name=NULL,outDir=NULL,origin=NULL,
-#                           idsKey,seqKey,prbKey,strsSR,strsCO,
-#                           parallel=FALSE,fresh=FALSE,fixIds=FALSE, del='.',max=0,
-#                           verbose=0,vt=3,tc=1,tt=NULL) {
-#   funcTag <- 'adhoc_desToMAN'
-#   tabsStr <- paste0(rep(TAB, tc), collapse='')
-#   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting (fresh={fresh})...{RET}"))
-#   
-#   ret_cnt <- 0
-#   ret_tib <- NULL
-#   ret_csv <- NULL
-#   stp_tib <- NULL
-#   stime <- system.time({
-#     
-#     if (!is.null(name) && !is.null(outDir)) {
-#       outDir <- file.path(outDir,probe_type)
-#       if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-#       out_name <- paste(name,funcTag,probe_type, sep=del)
-#       ret_csv <- file.path(outDir,paste(out_name,'csv.gz', sep=del) )
-#       csv_vec <- c(ret_csv)
-#       stp_tib <- check_timeStamps(name=out_name,outDir=outDir,origin=origin,files=csv_vec,
-#                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-#     }
-#     
-#     if (!fresh && !is.null(stp_tib) && stp_tib$isValid[1]) {
-#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pre-defined data={ret_csv}...{RET}"))
-#       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(ret_csv) ))
-#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Loading.{RET}{RET}"))
-#     } else {
-#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh data from={des_csv}...{RET}"))
-#       des_tib <- suppressMessages(suppressWarnings(readr::read_csv(des_csv)))
-#       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} des_tib={RET}"))
-#       if (verbose>=vt+4) print(des_tib)
-#       
-#       man_tib <- man %>% dplyr::filter(Probe_Type==probe_type)
-#       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib={RET}"))
-#       if (verbose>=vt+4) print(man_tib)
-#       
-#       man_tib <- dplyr::inner_join(man_tib,des_tib, by="Seq_ID", suffix=c("_Man","_Des"))
-#       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib+des_tib={RET}"))
-#       if (verbose>=vt+4) print(man_tib)
-#       
-#       man_tib <- man_tib %>%
-#         dplyr::rename(Probe_Type=Probe_Type_Man,
-#                       Top_Sequence=IUPAC_Forward_Sequence ) %>% 
-#         dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type,Infinium_Design,AQP,U,M,
-#                         AlleleA_Probe_Sequence,AlleleB_Probe_Sequence, .keep_all=TRUE) %>% 
-#         dplyr::mutate(M=as.double(M),U=as.double(U),Probe_ID=Seq_ID) %>%
-#         dplyr::select(-CO_Str)
-#       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(clean)={RET}"))
-#       if (verbose>=vt+4) print(man_tib)
-#       
-#       # if (fixIds) {
-#       #   man_tib <- man_tib %>%
-#       #     fixOrderProbeIDs(verbose=verbose+4,vt=vt+1,tc=tc+1,tt=tt)
-#       #   if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(fixed)={RET}"))
-#       #   if (verbose>=vt+4) print(man_tib)
-#       # }
-#       
-#       # Summary Stats::
-#       if (verbose>=vt+4) {
-#         cat(glue::glue("[{funcTag}]:{tabsStr} man_tib(clean)={RET}"))
-#         man_tib %>% 
-#           dplyr::group_by(Probe_Type,AQP,Infinium_Design) %>% 
-#           dplyr::summarise(Count=n(), .groups='drop') %>% print()
-#       }
-#       
-#       # Top Tib::
-#       top_snp_tib <- man_tib %>%
-#         dplyr::distinct(Seq_ID,Top_Sequence,Probe_Type) %>%
-#         dplyr::select(Seq_ID,Top_Sequence,Probe_Type)
-#       
-#       # Design Probes::
-#       full_des_tib <- 
-#         desSeq_to_prbs(
-#           tib=top_snp_tib,
-#           idsKey=idsKey,seqKey=seqKey,prbKey=prbKey,strsSR=strsSR,strsCO=strsCO,
-#           parallel=parallel, max=max,
-#           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-#       
-#       ret_tib <- 
-#         man_join_prbs(man_tib,full_des_tib,
-#                       man_mat1U_key="AlleleA_Probe_Sequence", prb_mat1U_key="PRB1_U_MAT",
-#                       man_mat1M_key="AlleleB_Probe_Sequence", prb_mat1M_key="PRB1_M_MAT", 
-#                       man_mat2D_key="AlleleA_Probe_Sequence", prb_mat2D_key="PRB2_D_MAT",
-#                       verbose=verbose,vt+1,tc=tc+1,tt=tt) %>% 
-#         dplyr::filter(Top_Sequence_Man==Top_Sequence_Prb) %>%
-#         dplyr::rename(Top_Sequence=Top_Sequence_Man) %>%
-#         dplyr::select(-Top_Sequence_Prb)
-#       
-#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Writing data={ret_csv}...{RET}"))
-#       if (!is.null(ret_csv)) readr::write_csv(ret_tib,ret_csv)
-#       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Writing.{RET}{RET}"))
-#       
-#       readr::write_lines(x=date(),file=stp_tib$end[1],sep='\n',append=FALSE)
-#     }
-#     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib(final)={RET}"))
-#     if (verbose>=vt+4) print(ret_tib)
-#     
-#     ret_cnt <- ret_tib %>% base::nrow()
-#   })
-#   etime <- stime[3] %>% as.double() %>% round(2)
-#   if (!is.null(tt)) tt$addTime(stime,funcTag)
-#   if (verbose>=vt) 
-#     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-#                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-#   
-#   ret_tib
-# }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                Join Manifest Probes with Design Probes::
@@ -944,87 +1350,6 @@ intersect_tsv = function(man, man_tsv,imp_tsv,int_tsv,
       dplyr::select(dplyr::all_of(names(int_col$cols) )) %>% 
       dplyr::arrange(int_col$cols[1])
     # dplyr::select(CGN_Imp,TB_Imp,CO_Imp,M,U) %>% dplyr::arrange(dplyr::all_of(int_vec[1]))
-    
-    ret_cnt <- ret_tib %>% base::nrow()
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
-    if (verbose>=vt+4) print(ret_tib)
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
-#
-# NOT WORKING YET!!!
-#
-
-# s48_tsv <- file.path(impDir, 'designOutput_21092020/seq48U/seq48U-GRCh36-38-10-21092020.unq.noHeader.seq-sorted.csv.gz')
-# top_tsv <- file.path(impDir, 'designOutput_21092020/GRCh36-GRCh38-GRCm10-21092020.cgnTop.sorted.tsv.gz')
-#
-broken_seq48U_to_topSeq = function(tib, s48_tsv, top_tsv,
-                                   name=NULL, outDir=NULL,
-                                   mat_key='CGN_Imp',fresh=TRUE, max=0,del='.',
-                                   verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'seq48U_to_topSeq'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- system.time({
-    
-    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-    
-    if (max>0) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will subset input to max={max}.{RET}"))
-      tib <- tib %>% head(n=max)
-    }
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                             1. seq48U to CGN::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    rname <- 'seq48U_to_cgn'
-    colA <- 4
-    colB <- 3
-    # colB <- 1
-    mat_vec <- c(mat_key,'M','U')
-    int_col <- cols(Seq_48U = col_character(),
-                    CGN_Imp = col_character(),
-                    TB_Imp = col_character(),
-                    CO_Imp = col_character(),
-                    M = col_double(),
-                    U = col_double() )
-    
-    man_tsv <- file.path(outDir, paste(name,rname,'man',paste0(mat_key,'-sorted'),'tsv', sep=del) )
-    int_tsv <- file.path(outDir, paste(name,rname,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep=del) )
-    
-    int_tib <-intersect_tsv(
-      man=tib, man_tsv=man_tsv, imp_tsv=s48_tsv, int_tsv=int_tsv, 
-      colA=colA, colB=colB, mat_vec=mat_vec, int_col=int_col, fresh=fresh,
-      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                             2. CGN to topSeq::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    rname <- 'cgn_to_topSeq'
-    colA < -1
-    colB <- 1
-    mat_key <- as.character(names(int_col$cols)[2])
-    mat_vec <- c(mat_key)
-    int_col <- cols(Seq_ID = col_character(),
-                    Top_Sequence = col_character() )
-    
-    man_tsv <- file.path(outDir, paste(name,rname,'man',paste0(mat_key,'-sorted'),'tsv', sep=del) )
-    int_tsv <- file.path(outDir, paste(name,rname,'int',paste0(mat_key,'-sorted'),'tsv.gz', sep=del) )
-    
-    ret_tib <-intersect_tsv(
-      man=int_tib, man_tsv=man_tsv, imp_tsv=top_tsv, int_tsv=int_tsv,
-      colA=colA, colB=colB, mat_vec=mat_vec, int_col=int_col, fresh=fresh,
-      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     ret_cnt <- ret_tib %>% base::nrow()
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib({ret_cnt})::{RET}"))
@@ -2253,7 +2578,7 @@ idatToManifestMap = function(tib, mans, field='Address', sortMax=FALSE,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref_tib={RET}"))
         print(ref_tib)
       }
-
+      
       add_len <- max(ref_tib$Address_Len, na.rm=TRUE)
       if (verbose>=vt+4) {
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Max Address Length={add_len}.{RET}"))
@@ -2507,391 +2832,6 @@ idatAddToSsheet = function(dat, add, types=NULL,
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             Manifest I/O::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-getManifestList = function(path=NULL, platform=NULL, manifest=NULL, dir=NULL, 
-                           verbose=0,vt=4,tc=1,tt=NULL) {
-  funcTag <- 'getManifestList'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
-  if ( is.null(path) && (is.null(platform) || is.null(manifest) || is.null(dir) ) ) {
-    stop(glue::glue("[{funcTag}]: ERROR: Path, platform, manifest, dir can't all be null!{RET}{RET}"))
-    return(NULL)
-  }
-  
-  ret_cnt <- 0
-  stime <- system.time({
-    paths <- NULL
-    if (!is.null(path) && file.exists(path)) {
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Matched path={path}.{RET}"))
-      
-      paths <- list.files(base::dirname(path), pattern=base::basename(path), full.names=TRUE)
-      
-    } else if (!is.null(platform) && !is.null(manifest) && !is.null(dir) ) {
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Searching for platform={platform}, ",
-                       "manifest={manifest}, dir={dir}.{RET}"))
-      
-      fileName <- paste0(platform,'-',manifest,'.manifest.sesame-base.cpg-sorted.csv.gz')
-      filePath <- file.path(dir, fileName)
-      stopifnot(file.exists(filePath))
-      paths <- list.files(dir, pattern=fileName, full.names=TRUE)
-      
-    } else if ( !is.null(path) && !is.null(dir) && path=='auto' ) {
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} path={path}; dir={dir}.{RET}"))
-      
-      pat_str <- paste0('.manifest.sesame-base.cpg-sorted.csv.gz')
-      paths   <- list.files(file.path(dir), pattern=pat_str, full.names=TRUE)
-      
-    } else {
-      stop(glue::glue("[{funcTag}]: ERROR: Path, platform, manifest, dir FAILED CHECK!{RET}{RET}"))
-      return(NULL)
-    }
-    stopifnot(!is.null(paths))
-    stopifnot(length(paths)>0)
-    
-    paths_len <- length(paths)
-    if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} paths({paths_len})={RET}"))
-    if (verbose>=vt+4) print(paths)
-    
-    man_tibs <- NULL
-    for (ii in c(1:paths_len)) {
-      if (verbose>=vt+4) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading manifest={paths[ii]}...{RET}"))
-      
-      cur_key_tib <- paths[ii] %>% base::basename() %>% 
-        stringr::str_remove('\\.manifest.*$') %>% 
-        stringr::str_split(pattern='-', simplify=TRUE) %>% as.data.frame() %>% 
-        purrr::set_names(c('platform', 'manifest'))
-      
-      cur_platform <- cur_key_tib$platform
-      cur_manifest <- cur_key_tib$manifest
-      cur_key <- paste(cur_platform, cur_manifest, sep='-')
-      
-      man_tibs[[cur_key]] <- 
-        suppressMessages(suppressWarnings( readr::read_csv(paths[ii]) )) %>%
-        dplyr::mutate(
-          M=as.integer(M),
-          U=as.integer(U),
-          Probe_ID=stringr::str_replace_all(
-            stringr::str_squish((stringr::str_replace_all(Probe_ID, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
-          Probe_Type=stringr::str_replace_all( 
-            stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
-          # Probe_Type=stringr::str_replace_all( 
-          #   stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
-          col=dplyr::case_when(
-            !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
-            # Probe_Type=='ct' & is.na(col) ~ 'black',
-            TRUE ~ col),
-          Probe_Design=dplyr::case_when(
-            is.na(M) ~ '2',
-            TRUE ~ '1'
-          )
-        )
-      if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done; Loading manifest.{RET}{RET}"))
-      if (verbose>=vt+4) print(man_tibs[[cur_key]])
-    }
-    
-    ret_cnt <- man_tibs %>% names %>% length()
-  })
-  if (verbose>vt+4) print(man_tibs)
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  man_tibs
-}
-
-loadManifestGenomeStudio = function(file, addSource=FALSE, normalize=FALSE, retType=NULL, max=0,
-                                    verbose=0,vt=4,tc=1,tt=NULL) {
-  funcTag <- 'loadManifestGenomeStudio'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading file={file}.{RET}"))
-  
-  ctl_cols <- c('Address', 'Control_Group', 'Control_Color', 'Control_Name')
-  
-  ret_cnt <- 0
-  ret_dat <- NULL
-  stime <- system.time({
-    tib <- NULL
-    man_tib <- NULL
-    ctl_tib <- NULL
-    
-    src <- base::basename(file) %>% 
-      stringr::str_remove('\\.gz$') %>% 
-      stringr::str_remove('\\.csv$')
-    
-    cmd <- glue::glue("gzip -dc {file} | head -n 50 | grep -n '^IlmnID' ")
-    cnt <- suppressMessages(suppressWarnings( system(as.character(cmd), intern=TRUE, ignore.stderr=TRUE) )) %>% 
-      stringr::str_remove('\\r$') %>% 
-      stringr::str_remove(':.*$') %>% as.integer()
-    
-    cnt <- cnt - 1
-    if (max>0) {
-      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt, n_max=max, col_types = cols(.default = "c"))))
-    } else {
-      tib <- suppressMessages(suppressWarnings(readr::read_csv(file, skip=cnt, col_types = cols(.default = "c"))))
-    }
-    
-    tib_len <- base::nrow(tib)
-    ctl_idx <- which(tib$IlmnID=='[Controls]') %>% head(n=1) %>% as.integer()
-    
-    man_tib <- tib %>% head(n=ctl_idx-1) %>%
-      clean_tibble()
-    
-    if (ctl_idx>0)
-      ctl_tib <- tib %>% 
-      tail(tib_len-ctl_idx) %>% 
-      dplyr::select(1:4) %>% 
-      purrr::set_names(ctl_cols) %>%
-      clean_tibble()
-    
-    if ("Chr" %in% names(man_tib)) {
-      man_tib <- man_tib %>% dplyr::rename(Chromosome=Chr)
-    }
-    if ("CHR" %in% names(man_tib)) {
-      man_tib <- man_tib %>% dplyr::rename(Chromosome=CHR)
-    }
-    
-    if ("MapInfo" %in% names(man_tib)) {
-      man_tib <- man_tib %>% dplyr::rename(Coordinate=MapInfo)
-    }
-    if ("MAPINFO" %in% names(man_tib)) {
-      man_tib <- man_tib %>% dplyr::rename(Coordinate=MAPINFO)
-    }
-    
-    man_tib <- man_tib %>% 
-      dplyr::mutate(
-        Chromosome=paste0("chr",stringr::str_remove(Chromosome, "^chr")) %>%
-          as.character(),
-        Probe_Type=stringr::str_sub(IlmnID, 1,2),
-        Strand_CO=case_when(
-          Probe_Type=='cg' ~ 'C',
-          Probe_Type=='rs' ~ 'C',
-          Probe_Type=='ch' ~ 'O',
-          TRUE ~ NA_character_
-        )
-      )
-    
-    man_tib <- man_tib %>% 
-      dplyr::mutate(AddressA_ID=stringr::str_remove(AddressA_ID, '^0+') %>% as.double(),
-                    AddressB_ID=stringr::str_remove(AddressB_ID, '^0+') %>% as.double() ) %>%
-      select(where(~sum(!is.na(.x)) > 0))
-
-    if (normalize) {
-      # Check for field that are unique to known manifests::
-      if (grep("SNP", names(man_tib)) %>% length() == 1 &&
-          grep("IlmnStrand", names(man_tib)) %>% length() == 1 &&
-          grep("SourceStrand", names(man_tib)) %>% length() == 1 &&
-          grep("RefStrand", names(man_tib)) %>% length() == 1 &&
-          grep("SourceSeq", names(man_tib)) %>% length() == 1 &&
-          grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {
-        
-        if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing GSA SNP Manifest.{RET}"))
-        
-        man_tib <- man_tib %>% 
-          dplyr::rename(Forward_Sequence=SourceSeq,
-                        Top_Sequence=TopGenomicSeq,
-                        Genome_Build=GenomeBuild) %>%
-          dplyr::mutate(Ilmn_TB=stringr::str_sub(IlmnStrand, 1,1),
-                        Source_TB=stringr::str_sub(SourceStrand, 1,1),
-                        Strand_FR=dplyr::case_when(
-                          RefStrand=="+" ~ "F",
-                          RefStrand=="-" ~ "R",
-                          TRUE ~ NA_character_) ) %>%
-          dplyr::mutate(Infinium_Design='I') %>% 
-          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
-                        'Top_Sequence', 'Forward_Sequence', 
-                        'Probe_Type','Infinium_Design', # 'Next_Base', 'Color_Channel',
-                        'Genome_Build', 'Chromosome', 'Coordinate', 
-                        'Strand_FR','Ilmn_TB', 'Source_TB','Strand_CO')
-        
-      } else if (grep("TopGenomicSeq", names(man_tib)) %>% length() == 1) {
-        if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing 27k Methylation Manifest.{RET}"))
-        
-        man_tib <- man_tib %>% 
-          dplyr::rename(Top_Sequence=TopGenomicSeq,
-                        Genome_Build=GenomeBuild) %>%
-          dplyr::mutate(Ilmn_TB=stringr::str_sub(IlmnStrand, 1,1),
-                        Source_TB=stringr::str_sub(SourceStrand, 1,1)) %>%
-          dplyr::mutate(Infinium_Design='I') %>% 
-          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
-                        'Top_Sequence', 'SourceSeq', 
-                        'Probe_Type','Infinium_Design','Next_Base', 'Color_Channel',
-                        'Genome_Build', 'Chromosome', 'Coordinate', 
-                        'Ilmn_TB', 'Source_TB','Strand_CO')
-        
-      } else if (grep("Forward_Sequence", names(man_tib)) %>% length() == 1) {
-        if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr} Normalizing 450k/EPIC Methylation Manifest.{RET}"))
-        
-        man_tib <- man_tib %>% 
-          dplyr::rename(Strand_FR=Strand,Infinium_Design=Infinium_Design_Type) %>%
-                        # Chromosome=CHR, Coordinate=MAPINFO, 
-                        # Strand_FR=Strand) %>%
-          dplyr::select('IlmnID', 'AddressA_ID', 'AlleleA_ProbeSeq', 'AddressB_ID', 'AlleleB_ProbeSeq', 
-                        'Forward_Sequence', 'SourceSeq', 
-                        'Probe_Type','Infinium_Design','Next_Base', 'Color_Channel',
-                        'Genome_Build', 'Chromosome', 'Coordinate', 
-                        'Strand_FR', 'Strand_CO')
-        
-      } else {
-        stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR; Unknown Genome Studio Manifest Type!!!{RET}{RET}"))
-        return(NULL)
-      }
-      
-      man_tib <- man_tib %>%
-        dplyr::mutate(Chromosome=as.character(Chromosome))
-    }
-    
-    if (addSource) {
-      man_tib <- man_tib %>% dplyr::mutate(Man_Source=!!src)
-      ctl_tib <- ctl_tib %>% dplyr::mutate(Man_Source=!!src)
-    }
-    
-    if (is.null(retType)) {
-      ret_dat$man <- man_tib
-      ret_dat$ctl <- ctl_tib
-      ret_cnt <- ret_dat %>% names %>% length()
-    } else if (!is.null(retType) && retType=='man') {
-      ret_dat <- man_tib
-      ret_cnt <- ret_dat %>% base::nrow()
-    } else if (!is.null(retType) && retType=='ctl') {
-      ret_dat <- ctl_tib
-      ret_cnt <- ret_dat %>% base::nrow()
-    } else {
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Warning: Unsupported retType request={retType}. Defaulting to list.{RET}"))
-      ret_dat$man <- man_tib
-      ret_dat$ctl <- ctl_tib
-    }
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_dat
-}
-
-# TBD:: Should be renamed loadManifestSource -> loadManifestSesame
-loadManifestSource = function(file,addSource=FALSE, 
-                              verbose=0,vt=4,tc=1,tt=NULL) {
-  funcTag <- 'loadManifestSource'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading file={file}.{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- system.time({
-    if ( stringr::str_ends(file, '.tsv') || stringr::str_ends(file, '.tsv.gz') ) {
-      ret_tib <- suppressMessages(suppressWarnings(readr::read_tsv(file)))
-      source <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.tsv$')
-    } else if ( stringr::str_ends(file, '.csv') || stringr::str_ends(file, '.csv.gz') ) {
-      ret_tib <- suppressMessages(suppressWarnings(readr::read_csv(file)))
-      source <- base::basename(file) %>% stringr::str_remove('\\.gz$') %>% stringr::str_remove('\\.csv$')
-    } else if ( stringr::str_ends(file, '.rds')) {
-      ret_tib <- suppressMessages(suppressWarnings(readr::read_rds(file)))
-      source <- base::basename(file) %>% stringr::str_remove('\\.rds$')
-    } else {
-      stop("{RET}[{funcTag}]: ERROR: Unsupported manifest format suffix (only csv/csv.gz or rds): file={file}!!!{RET}{RET}")
-    }
-    
-    # Fix Genecode Fields if its Genecode...
-    if ( length( grep('genesUniq', names(ret_tib) ) ) > 0 && 
-         length( grep('distToTSS', names(ret_tib) ) ) > 0)
-      ret_tib <- ret_tib %>% dplyr::mutate(genesUniq=as.character(genesUniq), distToTSS=as.integer(distToTSS) )
-    
-    if (addSource) {
-      ret_tib <- ret_tib %>% dplyr::mutate(Man_Source=!!source)
-    }
-    
-    ret_cnt <- ret_tib %>% base::nrow()
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
-loadAddressSource = function(file, man, fresh=FALSE, save=TRUE, split=FALSE,
-                             verbose=0,vt=4,tc=1,tt=NULL) {
-  funcTag <- 'loadAddressSource'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  ret_cnt <- 0
-  stime <- system.time({
-    tibs <- NULL
-    if (!fresh && file.exists(file)) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading file={file}.{RET}"))
-      ## TBD:: CHeck Type!!!
-      if (stringr::str_ends(file,'.rds')) {
-        tibs <- suppressMessages(suppressWarnings(readr::read_rds(file) ))
-      } else {
-        tibs <- suppressMessages(suppressWarnings(readr::read_csv(file) ))
-      }
-    } else {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building file={file}.{RET}"))
-      
-      if (split) {
-        tibs[['I1']] <- man %>% dplyr::filter(DESIGN=='I') %>% 
-          dplyr::select(Probe_ID,Probe_Type,U,M) %>% 
-          tidyr::gather(Design_Type,Address, -Probe_Type, -Probe_ID) %>% 
-          dplyr::arrange(Address)
-        
-        tibs[['I2']] <- man %>% dplyr::filter(DESIGN=='II') %>% 
-          dplyr::rename(Address=U) %>% dplyr::select(Probe_ID,Probe_Type,Address) %>%
-          dplyr::arrange(Address)
-      } else {
-        tibs <- dplyr::bind_rows(
-          man %>% dplyr::filter(DESIGN=='I') %>% 
-            dplyr::select(Probe_ID,Probe_Type,U,M, col) %>% 
-            tidyr::gather(Design_Type,Address, -Probe_Type, -Probe_ID, -col) %>%
-            dplyr::rename(Man_Col=col) %>% 
-            dplyr::mutate(Design_Type=paste0(Design_Type,'I')) %>%
-            dplyr::select(Probe_ID,Address,Man_Col,Design_Type,Probe_Type),
-          
-          man %>% dplyr::filter(DESIGN=='II') %>% 
-            dplyr::rename(Address=U, Man_Col=col) %>%
-            dplyr::mutate(Design_Type='II') %>%
-            dplyr::select(Probe_ID,Address,Man_Col,Design_Type,Probe_Type)
-        ) %>% dplyr::arrange(Probe_ID)
-      }
-      
-      ret_cnt <- tibs %>% base::nrow()
-      if (save) {
-        if (stringr::str_ends(file,'.rds')) {
-          if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Saving file(RDS)={file}.{RET}"))
-          readr::write_rds(tibs, file, compress='gz')
-        } else {
-          if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Saving file(CSV)={file}.{RET}"))
-          readr::write_csv(tibs, file)
-        }
-      }
-    }
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  tibs
 }
 
 # End of file

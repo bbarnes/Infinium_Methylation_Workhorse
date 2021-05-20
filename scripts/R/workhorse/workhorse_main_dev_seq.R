@@ -271,8 +271,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
   par$local_runType <- 'EWAS'
-  par$local_runType <- 'GRCm10'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'GRCm10'
   
   if (par$local_runType=='EWAS') {
     opt$genBuild <- 'GRCh37'
@@ -514,6 +514,7 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'C32'
     opt$version  <- 'C0'
     opt$version  <- 'P0'
+    opt$version  <- 'P1'
     
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
@@ -1041,12 +1042,14 @@ all_imp_tab <- dplyr::bind_rows(
 all_imp_tab %>% 
   dplyr::arrange(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO) %>%
   dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
-  dplyr::filter(Group_Count>1)
+  dplyr::filter(Group_Count>1) %>%
+  print(n=1000)
 
 all_imp_tab %>% 
   dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
   dplyr::group_by(Group_Count,Mat_Src_Key,Bsp_Din_Scr,Ord_Des) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
+  dplyr::summarise(Count=n(), .groups="drop") %>% 
+  print(n=1000)
 
 # Max Best Extension::
 #   - This requires the template sequence and probe designs
@@ -1061,6 +1064,16 @@ all_imp_tab %>%
 # Max Source (Seq,Bsp)
 # Max U over M
 #
+
+# TBD::
+#  - Validate against Wanding's manifest:: cgn/pos
+#  - Intersect with Chrom HMM/UCSC
+#  - Pick Max Wanding Annotation
+#  - Compare Internal Annotation vs. Wanding Annotation
+#
+
+
+
 
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_imp_tib/bsp_imp_tib).{RET}{RET}"))
@@ -1088,8 +1101,6 @@ if (FALSE) {
   
   
 }
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       4.0 Write improbe input::

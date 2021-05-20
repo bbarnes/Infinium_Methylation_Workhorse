@@ -47,7 +47,8 @@ par$prgmDir <- 'swifthoof'
 par$prgmTag <- paste(par$prgmDir,'main', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
-par$retData     <- FALSE
+par$retData <- FALSE
+par$manDir  <- NULL
 
 # Executables::
 opt$Rscript <- NULL
@@ -56,22 +57,24 @@ opt$Rscript <- NULL
 opt$outDir <- NULL
 opt$datDir <- NULL
 
+# Platform/Method Options::
+opt$manifest <- NULL
+opt$platform <- NULL
+opt$version  <- NULL
+
 # Optional Files::
 opt$subManifest  <- FALSE
-opt$manifestPath <- 'auto'
 opt$auto_sam_csv <- NULL
-
-# Platform/Method Options::
-opt$platform  <- NULL
-opt$manifest  <- NULL
 
 # Run Options::
 opt$fresh        <- FALSE
 opt$buildSubDir  <- FALSE
 opt$auto_detect  <- FALSE
 
-opt$workflow    <- NULL
-opt$manDirName  <- 'core'
+opt$workflow   <- NULL
+opt$manDirPath <- NULL
+opt$manDirName <- 'core'
+opt$man_suffix <- ".manifest.sesame-base.cpg-sorted.csv.gz"
 
 # Output Options::
 opt$load_idat    <- FALSE
@@ -188,11 +191,9 @@ if (args.dat[1]=='RStudio') {
   opt$buildSubDir  <- FALSE
   opt$auto_detect   <- FALSE
   
-  opt$runName    <- NULL
-  opt$platform   <- 'EPIC'
-  opt$manifest   <- 'B4'
-  opt$platform   <- NULL
-  opt$manifest   <- NULL
+  opt$runName  <- NULL
+  opt$platform <- NULL
+  opt$version  <- NULL
   
   par$expChipNum <- NULL
   par$expSampNum <- NULL
@@ -232,8 +233,9 @@ if (args.dat[1]=='RStudio') {
   opt$save_sset <- TRUE
   opt$load_sset <- TRUE
 
-  opt$manDirName  <- 'base'
-  opt$manDirName  <- 'core'
+  opt$manDirPath <- NULL
+  opt$manDirName <- 'base'
+  opt$manDirName <- 'core'
   
   opt$verbose  <- 3
 
@@ -246,10 +248,10 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'DKFZ'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'NA12878'
   par$local_runType <- 'qcMVP2'
   par$local_runType <- "EPIC-8x1-EM-Sample-Prep"
-
+  par$local_runType <- 'NA12878'
+  
   opt$fresh <- TRUE
   
   opt$auto_sam_csv <- 
@@ -275,6 +277,10 @@ if (args.dat[1]=='RStudio') {
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
 
   } else if (par$local_runType=='NA12878') {
+    
+    opt$single   <- TRUE
+    opt$parallel <- FALSE
+    opt$fresh    <- TRUE
     
   } else if (par$local_runType=='qcMVP2') {
     opt$runName  <- 'IBX-Zymogen'
@@ -384,21 +390,21 @@ if (args.dat[1]=='RStudio') {
     make_option(c("-d","--datDir"), type="character", default=opt$datDir, 
                 help="List of idats directory(s), commas seperated [default= %default]", metavar="character"),
 
+    # Platform/Method Parameters::
+    make_option(c("--runName"), type="character", default=opt$runName, 
+                help="Run Name [default= %default]", metavar="character"),
+    make_option(c("--manifest"), type="character", default=opt$manifest,
+                help="Path to manfifest (CSV) otherwise auto-detect [default= %default]", metavar="character"),
+    make_option(c("--platform"), type="character", default=opt$platform, 
+                help="Forced platform [EPIC, 450k, 27k, NZT] otherwise auto-detect [default= %default]", metavar="character"),
+    make_option(c("--version"), type="character", default=opt$version, 
+                help="Forced version [B1, B2, B4, etc.] otherwise auto-detect [default= %default]", metavar="character"),
+    
     # Optional Files::
-    make_option(c("--manifestPath"), type="character", default=opt$manifestPath,
-                help="Path to manfifest (CSV) otherwise use dat [default= %default]", metavar="character"),
     make_option(c("--subManifest"), action="store_true", default=opt$subManifest,
                 help="Boolean variable to use subset manifest instead of subset. [default= %default]", metavar="boolean"),
     make_option(c("--auto_sam_csv"), type="character", default=opt$auto_sam_csv,
                 help="Path to auto detect beta values (CSV) [default= %default]", metavar="character"),
-    
-    # Platform/Method Parameters::
-    make_option(c("--runName"), type="character", default=opt$runName, 
-                help="Run Name [default= %default]", metavar="character"),
-    make_option(c("--platform"), type="character", default=opt$platform, 
-                help="Forced platform [EPIC, 450k, 27k, NZT] otherwise auto-detect [default= %default]", metavar="character"),
-    make_option(c("--manifest"), type="character", default=opt$manifest, 
-                help="Forced manifest [B1, B2, B4] otherwise auto-detect [default= %default]", metavar="character"),
     
     # Run Parameters::
     make_option(c("--fresh"), action="store_true", default=opt$fresh,
@@ -410,8 +416,12 @@ if (args.dat[1]=='RStudio') {
     
     make_option(c("--workflow"), type="character", default=opt$workflow,
                 help="Workflows to run i.e. order of operations comma seperated [ raw,ind,ndi,din, etc. ] [default= %default]", metavar="character"),
+    make_option(c("--manDirPath"), type="character", default=opt$manDirPath,
+                help="Manifest directory path otherwise use default dat/manifest directory [default= %default]", metavar="character"),
     make_option(c("--manDirName"), type="character", default=opt$manDirName,
                 help="Manifest directory name [default= %default]", metavar="character"),
+    make_option(c("--man_suffix"), type="character", default=opt$man_suffix,
+                help="Manifest suffix search name. Default is set to predefined Sesame suffix. [default= %default]", metavar="character"),
     
     # Output Options::
     make_option(c("--load_idat"), action="store_true", default=opt$load_idat,
@@ -657,11 +667,26 @@ if (opt$cluster) {
   
   pTracker <- NULL
   # pTracker <- timeTracker$new(verbose=opt$verbose)
+
+  if (!is.null(opt$manDirPath)) {
+    par$manDir <- opt$manDirPath
+  } else if (!is.null(opt$manDirName)) {
+    par$manDir <- file.path(par$datDir, 'manifest',opt$manDirName)
+  } else {
+    stop(glue::glue("{RET}[{par$prgmTag}]: Both manDirPath and manDirName are NULL!!!{RET}{RET}"))
+  }
+
+  tar_man_tib <- NULL
+  tar_man_tib <- get_manifest_list(
+    file=opt$manifest, dir=par$manDir,
+    platform=opt$platform, version=opt$version,
+    suffix=opt$man_suffix,
+    verbose=opt$verbose, tt=pTracker)
   
-  mans <- NULL
-  opt$manDir <- file.path(par$datDir, 'manifest',opt$manDirName)
-  mans <- getManifestList(path=opt$manifestPath, platform=opt$platform, manifest=opt$manifest, 
-                          dir=opt$manDir, verbose=opt$verbose, tt=pTracker)
+  tar_man_dat <- NULL
+  tar_man_dat <- load_manifest_list(
+    tib = tar_man_tib, field="path",
+    verbose=opt$verbose, tt=pTracker)
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                             Load Auto Detection::
@@ -709,7 +734,7 @@ if (opt$cluster) {
       
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
-                                   man=mans, ref=auto_sam_tib, opts=opt, defs=def,
+                                   man=tar_man_dat, ref=auto_sam_tib, opts=opt, defs=def,
                                    mask=mask_cpg_vec,
                                    
                                    pvals=pval_vec,
@@ -746,7 +771,7 @@ if (opt$cluster) {
       
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
-                                   man=mans, ref=auto_sam_tib, opts=opt, defs=def,
+                                   man=tar_man_dat, ref=auto_sam_tib, opts=opt, defs=def,
                                    mask=mask_cpg_vec,
                                    
                                    pvals=pval_vec,

@@ -221,8 +221,7 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- par$local_runType
     
     opt$workflow    <- "ind"
-    opt$manDirName  <- 'core'
-    
+
     opt$single   <- FALSE
     # opt$parallel <- TRUE
     
@@ -237,8 +236,7 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- par$local_runType
     
     opt$workflow    <- "ind"
-    opt$manDirName  <- 'core'
-    
+
     opt$single   <- FALSE
     # opt$parallel <- TRUE
     
