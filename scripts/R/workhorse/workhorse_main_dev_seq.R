@@ -859,7 +859,7 @@ run$int_seq_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-seq.intersect.t
 
 run$imp_inp_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
 run$imp_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.tsv.gz', sep='.') )
-run$cln_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.clean.tsv.gz', sep='.') )
+run$cln_des_csv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.clean.csv.gz', sep='.') )
 
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Defining Run Time Files.{RET}{RET}"))
@@ -992,63 +992,66 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
 #                 3.4.1 Bind BSMAP & Seq-Match into Table::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib)...{RET}"))
-
-com_des_cols <- c("Address","Ord_Des","Ord_Din")
-com_gen_cols <- c("Imp_Chr","Imp_Pos","Imp_FR","Imp_TB","Imp_CO")
-com_scr_cols <- c("Can_Mis_Scr","Mat_Src_Scr","Org_Mis_Scr","Bsp_Din_Scr")
-com_cgn_cols <- c("Imp_Cgn","Imp_Nxb","Imp_Din") # ,"Bsp_Din_Ref")
-
-imp_col_vec <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols)
-
 # This doesn't work:: yet!!!
-seq_dat_tib <- seq_cgn_tib %>%
-  dplyr::filter(!is.na(Imp_Chr)) %>%
-  dplyr::mutate(Imp_Din="CG", Bsp_Din_Scr=as.integer(8)) %>%
-  dplyr::mutate(Mat_Src_Scr=as.integer(0), Mat_Src_Key="Seq") %>%
-  dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
-
-bsp_dat_tib <- aqp_bsp_tib %>%
-  dplyr::rename(Imp_Din=Bsp_Din_Ref) %>%
-  dplyr::mutate(Mat_Src_Scr=as.integer(1), Mat_Src_Key="Bsp") %>%
-  dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
-
-imp_col_vec2 <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols,"Mat_Src_Key")
-
-all_imp_tab <- NULL
-all_imp_tab <- dplyr::bind_rows(
-  dplyr::select( seq_dat_tib, dplyr::any_of(imp_col_vec2) ),
-  dplyr::select( bsp_dat_tib, dplyr::any_of(imp_col_vec2) ),
-)  %>% 
-  dplyr::mutate(
-    Can_Mis_Scr=dplyr::case_when(
-      is.na(Can_Mis_Scr) ~ 9,
-      TRUE ~ as.double(Can_Mis_Scr)
-    ) %>% as.integer(),
-    Org_Mis_Scr=dplyr::case_when(
-      is.na(Org_Mis_Scr) ~ 9,
-      TRUE ~ as.double(Org_Mis_Scr)
-    ) %>% as.integer(),
-    Bsp_Din_Scr=dplyr::case_when(
-      is.na(Bsp_Din_Scr) ~ 9,
-      TRUE ~ as.double(Bsp_Din_Scr)
-    ) %>% as.integer()
-  ) %>% 
-  dplyr::arrange( dplyr::across( dplyr::all_of(c(com_scr_cols)) ) ) %>%
-  dplyr::distinct()
-
-all_imp_tab %>% 
-  dplyr::arrange(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO) %>%
-  dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
-  dplyr::filter(Group_Count>1) %>%
-  print(n=1000)
-
-all_imp_tab %>% 
-  dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
-  dplyr::group_by(Group_Count,Mat_Src_Key,Bsp_Din_Scr,Ord_Des) %>% 
-  dplyr::summarise(Count=n(), .groups="drop") %>% 
-  print(n=1000)
+if (FALSE) {
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib)...{RET}"))
+  
+  com_des_cols <- c("Address","Ord_Des","Ord_Din")
+  com_gen_cols <- c("Imp_Chr","Imp_Pos","Imp_FR","Imp_TB","Imp_CO")
+  com_scr_cols <- c("Can_Mis_Scr","Mat_Src_Scr","Org_Mis_Scr","Bsp_Din_Scr")
+  com_cgn_cols <- c("Imp_Cgn","Imp_Nxb","Imp_Din") # ,"Bsp_Din_Ref")
+  
+  imp_col_vec <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols)
+  
+  # Sepcifically: The code directly below doesn't work::
+  seq_dat_tib <- seq_cgn_tib %>%
+    dplyr::filter(!is.na(Imp_Chr)) %>%
+    dplyr::mutate(Imp_Din="CG", Bsp_Din_Scr=as.integer(8)) %>%
+    dplyr::mutate(Mat_Src_Scr=as.integer(0), Mat_Src_Key="Seq") %>%
+    dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
+  
+  bsp_dat_tib <- aqp_bsp_tib %>%
+    dplyr::rename(Imp_Din=Bsp_Din_Ref) %>%
+    dplyr::mutate(Mat_Src_Scr=as.integer(1), Mat_Src_Key="Bsp") %>%
+    dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
+  
+  imp_col_vec2 <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols,"Mat_Src_Key")
+  
+  all_imp_tab <- NULL
+  all_imp_tab <- dplyr::bind_rows(
+    dplyr::select( seq_dat_tib, dplyr::any_of(imp_col_vec2) ),
+    dplyr::select( bsp_dat_tib, dplyr::any_of(imp_col_vec2) ),
+  )  %>% 
+    dplyr::mutate(
+      Can_Mis_Scr=dplyr::case_when(
+        is.na(Can_Mis_Scr) ~ 9,
+        TRUE ~ as.double(Can_Mis_Scr)
+      ) %>% as.integer(),
+      Org_Mis_Scr=dplyr::case_when(
+        is.na(Org_Mis_Scr) ~ 9,
+        TRUE ~ as.double(Org_Mis_Scr)
+      ) %>% as.integer(),
+      Bsp_Din_Scr=dplyr::case_when(
+        is.na(Bsp_Din_Scr) ~ 9,
+        TRUE ~ as.double(Bsp_Din_Scr)
+      ) %>% as.integer()
+    ) %>% 
+    dplyr::arrange( dplyr::across( dplyr::all_of(c(com_scr_cols)) ) ) %>%
+    dplyr::distinct()
+  
+  all_imp_tab %>% 
+    dplyr::arrange(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO) %>%
+    dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
+    dplyr::filter(Group_Count>1) %>%
+    print(n=1000)
+  
+  all_imp_tab %>% 
+    dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
+    dplyr::group_by(Group_Count,Mat_Src_Key,Bsp_Din_Scr,Ord_Des) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    print(n=1000)
+}
 
 # Max Best Extension::
 #   - This requires the template sequence and probe designs
@@ -1071,11 +1074,8 @@ all_imp_tab %>%
 #  - Compare Internal Annotation vs. Wanding Annotation
 #
 
-
-
-
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib).{RET}{RET}"))
+# if (opt$verbose>=1)
+#   cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib).{RET}{RET}"))
 
 
 
@@ -1097,8 +1097,6 @@ if (FALSE) {
     dplyr::summarise(Count=n(), .groups="drop") %>% 
     dplyr::arrange(-Count,Sample_Name) %>% 
     print(n=1000)
-  
-  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1108,10 +1106,10 @@ if (FALSE) {
 stamp_vec_org <- stamp_vec
 
 imp_des_tib <- NULL
-stamp_vec <- c(stamp_vec_org, 
+stamp_vec <- c(stamp_vec, 
                run$imp_inp_tsv,
                run$imp_des_tsv,
-               run$cln_des_tsv)
+               run$cln_des_csv)
 if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       4.1 Write improbe input::
@@ -1140,16 +1138,16 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
   
   imp_des_tib <-
     load_improbe_design(
-      file=run$imp_des_tsv, out=run$cln_des_tsv,
+      file=run$imp_des_tsv, out=run$cln_des_csv,
       level=3, add_inf=TRUE,
       verbose=opt$verbose+10, tt=pTracker)
   
 } else {
   
   if (opt$verbose>=1)
-    cat(glue::glue("[{par$prgmTag}]: Loading cln_des_tsv={run$cln_des_tsv}...{RET}"))
+    cat(glue::glue("[{par$prgmTag}]: Loading cln_des_csv={run$cln_des_csv}...{RET}"))
   imp_des_tib <- 
-    suppressMessages(suppressWarnings( readr::read_tsv(run$cln_des_tsv) )) %>%
+    suppressMessages(suppressWarnings( readr::read_csv(run$cln_des_csv) )) %>%
     clean_tibble()
 }
 
@@ -1175,6 +1173,24 @@ if (FALSE) {
 
 }
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       6.0 Annotation Conformation::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+
+  # Load Wanding Annotation
+  # Load A2 Genome Studio Annotation
+  # Compare Ids
+  # Compare Coordinates
+  
+  ses_man_tsv <- "/Users/bretbarnes/Documents/data/CustomContent/LifeEpigentics/manifest/array_HMM_merged.tsv.gz"
+  gss_man_csv <- "/Users/bretbarnes/Documents/data/annotation/mouseDat_fromCluster_old/MouseMethylation-12v1-0_Interim-A2.csv.gz"
+  gss_man_csv <- "/Users/bretbarnes/Documents/data/manifests/methylation/GenomeStudio/MouseMethylation-12v1-0_A2.csv.gz"
+  
+  
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::
