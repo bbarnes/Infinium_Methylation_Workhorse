@@ -26,7 +26,8 @@ if [ -e ${EXE_A} ]; then
 
     INP=/input
     OUT=/output
-    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --datDir=${INP} --outDir=${OUT} $@"
+    WRK=/manDirPath
+    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --datDir=${INP} --outDir=${OUT} --manifestPath=/manDirPath $@"
     
 elif [ -e ${EXE_B} ]; then
     EXE=${EXE_B}

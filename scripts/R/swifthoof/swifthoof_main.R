@@ -669,7 +669,7 @@ if (opt$cluster) {
   # pTracker <- timeTracker$new(verbose=opt$verbose)
 
   par$manDir <- NULL
-  if (!is.null(opt$manDirPath)) {
+  if (!is.null(opt$manDirPath) && length(opt$manDirPath)>0 && dir.exists(opt$manDirPath)) {
     par$manDir <- opt$manDirPath
   } else if (!is.null(opt$manDirName)) {
     par$manDir <- file.path(par$datDir, 'manifest',opt$manDirName)
