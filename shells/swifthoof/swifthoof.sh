@@ -22,12 +22,15 @@ if [ -e ${EXE_A} ]; then
     EXE=${EXE_A}
 
     echo "Docker Run..."
-    echo "EXE="${EXE}
+    echo "EXE=${EXE}"
 
     INP=/input
     OUT=/output
-    WRK=/manDirPath
-    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --datDir=${INP} --outDir=${OUT} --manifestPath=/manDirPath $@"
+    WRK=/tmp
+    
+    # CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --datDir=${INP} --outDir=${OUT} $@"
+    # CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --datDir=${INP} --outDir=${OUT} --manifestPath=/manDirPath $@"
+    CMD="${RSCRIPT} ${EXE} --Rscript ${RSCRIPT} --datDir=${INP} --outDir=${OUT} --manDirPath=${WRK} $@"
     
 elif [ -e ${EXE_B} ]; then
     EXE=${EXE_B}

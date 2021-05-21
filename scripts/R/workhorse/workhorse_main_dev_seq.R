@@ -983,7 +983,7 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     cat(glue::glue("[{par$prgmTag}]: Loading imp_seq_tsv={run$int_seq_tsv}...{RET}"))
   seq_imp_tib <- 
     suppressMessages(suppressWarnings( readr::read_tsv(run$int_seq_tsv) )) %>%
-    clean_file()
+    clean_tibble()
 
 }
 
