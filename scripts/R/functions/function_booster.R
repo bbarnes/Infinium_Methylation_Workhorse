@@ -17,7 +17,7 @@ template_func = function(tib,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     # ret_cnt <- ret_tib %>% base::nrow()
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")

@@ -56,7 +56,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
     return(ret_tib)
   }
 
-  stime <- system.time({
+  stime <- base::system.time({
 
     if (!is.null(pvalDetectMinKey)) pvalDetectMinKey <- pvalDetectMinKey %>% rlang::sym()
     # pvalDetectMinVal <- pvalDetectMinVal %>% rlang::sym()
@@ -374,7 +374,7 @@ mergeCallsFromSS = function(ss, max=0, outName, outDir,
   ret_cnt <- 0
   ret_tib <- NULL
   
-  stime <- system.time({
+  stime <- base::system.time({
     
     if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
     
@@ -476,7 +476,7 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL, mat=NULL, cgn=NULL, s
   
   if (!is.null(minPval)) minPval <- as.double(minPval)
   
-  stime <- system.time({
+  stime <- base::system.time({
     
     idKey_sym <- rlang::sym(idKey)
     
@@ -575,7 +575,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
   impt_mats <- NULL
   pval_mats <- NULL
   
-  stime <- system.time({
+  stime <- base::system.time({
     
     beg_txt <- paste(beta_rds,'begTime.txt', sep='.')
     end_txt <- paste(beta_rds,'endTime.txt', sep='.')
@@ -953,7 +953,7 @@ getSsheetDataTab = function(tib,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     ret_tib <- suppressMessages( suppressWarnings(
       dplyr::inner_join(
@@ -1016,7 +1016,7 @@ getSsheetDescTib = function(tib,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     # Determine Number of Workflows::
     #
@@ -1082,7 +1082,7 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     idx_zero <- 0
     ret_tib <- tibble::tibble(
@@ -1242,7 +1242,7 @@ getSsheetIndexAnnoTib = function(idx,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     ret_tib <- tibble::tibble(
       # Inference and Predictions::

@@ -124,7 +124,7 @@ improbe_design_all = function(tib, ptype, outDir, gen,
       dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island)
     readr::write_tsv(imp_fwd_tib, imp_fwd_path)
     
-    imp_des_tib <- improbe_docker(
+    imp_des_tib <- run_improbe_docker(
       dir=outDir, file=imp_fwd_name, 
       name=gen, image=image, shell=shell, 
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
@@ -214,13 +214,58 @@ improbe_design_all = function(tib, ptype, outDir, gen,
   ret_tib
 }
 
-improbe_docker = function(dir, file, name, image, shell, 
-                          level=0, add_inf=TRUE,
-                          verbose=1,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'improbe_docker'
+run_improbe_docker = function(file, out=NULL, name="unk", image, shell,
+                              suffix='improbe-design',
+                              verbose=1,vt=3,tc=1,tt=NULL,
+                              funcTag = 'run_improbe_docker') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
+  
+  ret_cnt <- 1
+  stime <- base::system.time({
+    
+    out_dir <- out
+    if (is.null(out)) out_dir <- base::dirname(file)
+    if (!dir.exists(out_dir)) dir.create(out_dir, recursive=TRUE)
+    
+    ret_log <- file.path(out_dir, paste(name,suffix,'log', sep='.'))
+    ret_tsv <- file.path(out_dir, paste(name,suffix,'tsv.gz', sep='.'))
+    base_file <- base::basename( file )
+    
+    if (file.exists(ret_log)) unlink(ret_log)
+    if (file.exists(ret_tsv)) unlink(ret_tsv)
+    
+    base::system(glue::glue("touch {ret_log}"))
+    base::system(glue::glue("touch {ret_tsv}"))
+    
+    imp_doc_cmd <- glue::glue("docker run -i --rm ",
+                              "-v {out_dir}:/input -v {out_dir}:/output -w /work ",
+                              "{image} {shell} {base_file} {name}")
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: Running improbe cmd='{imp_doc_cmd}'...{RET}"))
+    ret_cnt <- base::system(imp_doc_cmd)
+    
+    if (ret_cnt != 0) {
+      cat(glue::glue("{RET}[{funcTag}]: ERROR: cmd return={ret_cnt} cmd='{imp_doc_cmd}'!!!{RET}{RET}"))
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  
+  ret_cnt
+}
+
+load_improbe_design = function(file, out=NULL, 
+                               level=0, add_inf=TRUE,
+                               verbose=0,vt=3,tc=1,tt=NULL,
+                               funcTag='load_improbe_design') {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
   if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; level={level}; name={name}...{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; level={level}...{RET}"))
   
   # improbe output original fields::
   #
@@ -300,7 +345,7 @@ improbe_docker = function(dir, file, name, image, shell,
     if (verbose>=4) {
       org_cols %>% length() %>% print()
       print(org_cols)
-
+      
       new_cols %>% length() %>% print()
       print(new_cols)
     }
@@ -312,43 +357,12 @@ improbe_docker = function(dir, file, name, image, shell,
   ret_tib <- NULL
   stime <- system.time({
     
-    ret_log <- 
-      file.path(dir, paste(name,'improbe-designOutput.log', sep='.'))
-    ret_tsv <- 
-      file.path(dir, paste(name,'improbe-designOutput.tsv.gz', sep='.'))
-    
-    if (file.exists(ret_log)) unlink(ret_log)
-    if (file.exists(ret_tsv)) unlink(ret_tsv)
-    
-    system(glue::glue("touch {ret_log}"))
-    system(glue::glue("touch {ret_tsv}"))
-    
-    base_file <- base::basename( run$imp_inp_tsv )
-    
-    # imp_doc_cmd <- glue::glue("docker run -il --rm ",
-    # 
-    # imp_doc_cmd <- glue::glue("docker run -i --rm ",
-    #                           "-v {dir}:/work -v {dir}:/output ",
-    #                           "{image} {shell} {file} {name}")
-    
-    imp_doc_cmd <- glue::glue("docker run -i --rm ",
-                              "-v {dir}:/input -v {dir}:/output -w /work ",
-                              "{image} {shell} {base_file} {name}")
-    
-    
-    if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Running improbe cmd='{imp_doc_cmd}'...{RET}"))
-    system(imp_doc_cmd)
-    if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Done.{RET}{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading designs={file}...{RET}"))
     
     ret_tib <- 
-      suppressMessages(suppressWarnings( readr::read_tsv(ret_tsv) ))
-    
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} Raw improbe data={RET}"))
-      print(ret_tib)
-    }
+      suppressMessages(suppressWarnings( readr::read_tsv(file) ))
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="Raw_Improbe_Data")
 
     # Now subset and rename based on input level::
     #
@@ -384,17 +398,23 @@ improbe_docker = function(dir, file, name, image, shell,
           )
         )
     }
-
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="new")
+    
+    if (!is.null(out)) {
+      safe_write(ret_tib,"csv",out,
+                 funcTag=funcTag,
+                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    }
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="Clean_Improbe_Data")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Modern improbe IO Methods::
@@ -1100,7 +1120,7 @@ desSeq_to_prbs = function(tib,
     
     des_seq_R_C <- 
       des_seq_F_C %>% dplyr::mutate(
-      SR=!SR,CO=CO, DesSeqN=revCmp(DesSeqN) )
+        SR=!SR,CO=CO, DesSeqN=revCmp(DesSeqN) )
     if (verbose>=vt+4) {
       cat(glue::glue("[{funcTag}]:{tabsStr} des_seq_R_C={RET}"))
       print(des_seq_R_C)
@@ -1183,7 +1203,7 @@ desSeq_to_prbs = function(tib,
       }
     }
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-
+    
     # Update Keys::
     if (verbose>=vt) 
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Updating keys and strands.{RET}"))
@@ -1194,7 +1214,7 @@ desSeq_to_prbs = function(tib,
       Seq_ID_Uniq=paste(Seq_ID,paste0(Strand_SR,Strand_CO), sep=del)
     ) %>% dplyr::arrange(Seq_ID_Uniq)
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-
+    
     # OLD Naming Scheme::
     #
     # ret_tib <- ret_tib %>% dplyr::mutate(
@@ -2340,7 +2360,7 @@ INIT_MAP_DI = function() {
   MAP[['CAG']] <- 'V' # NEW-3
   MAP[['CAT']] <- 'H' # NEW-3
   MAP[['CAA']] <- 'M' # NEW-2
-
+  
   MAP[['CCA']] <- 'M'
   MAP[['CCT']] <- 'Y'
   MAP[['CCG']] <- 'S'

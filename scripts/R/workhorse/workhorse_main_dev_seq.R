@@ -859,6 +859,7 @@ run$int_seq_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-seq.intersect.t
 
 run$imp_inp_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
 run$imp_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.tsv.gz', sep='.') )
+run$cln_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.clean.tsv.gz', sep='.') )
 
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Defining Run Time Files.{RET}{RET}"))
@@ -948,7 +949,7 @@ if (FALSE) {
 #         3.4 Intersect Sequences Address and improbe:: U49/M49
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-seq_imp_tib <- NULL
+seq_cgn_tib <- NULL
 stamp_vec <- c(stamp_vec, 
                run$int_u49_tsv,
                run$int_m49_tsv,
@@ -969,19 +970,19 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
                   idxA=1, idxB=1, 
                   verbose=opt$verbose,tt=pTracker)
   
-  seq_imp_tib <- 
+  seq_cgn_tib <- 
     join_seq_intersect(u49=int_u49_tib2, m49=int_m49_tib2, 
                        bed=cgn_bed_tib, org=add_org_tib,
                        verbose=opt$verbose, tt=pTracker)
   
-  safe_write(seq_imp_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
+  safe_write(seq_cgn_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
              verbose=opt$verbose)
   
 } else {
   
   if (opt$verbose>=1)
     cat(glue::glue("[{par$prgmTag}]: Loading imp_seq_tsv={run$int_seq_tsv}...{RET}"))
-  seq_imp_tib <- 
+  seq_cgn_tib <- 
     suppressMessages(suppressWarnings( readr::read_tsv(run$int_seq_tsv) )) %>%
     clean_tibble()
 
@@ -992,7 +993,7 @@ if (opt$fresh || !valid_time_stamp(stamp_vec)) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Row Binding all_imp_tab=(seq_imp_tib/bsp_imp_tib)...{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib)...{RET}"))
 
 com_des_cols <- c("Address","Ord_Des","Ord_Din")
 com_gen_cols <- c("Imp_Chr","Imp_Pos","Imp_FR","Imp_TB","Imp_CO")
@@ -1001,16 +1002,14 @@ com_cgn_cols <- c("Imp_Cgn","Imp_Nxb","Imp_Din") # ,"Bsp_Din_Ref")
 
 imp_col_vec <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols)
 
-seq_cgn_tib <- seq_imp_tib %>%
-  dplyr::filter(is.na(Imp_Chr))
-
-seq_dat_tib <- seq_imp_tib %>%
+# This doesn't work:: yet!!!
+seq_dat_tib <- seq_cgn_tib %>%
   dplyr::filter(!is.na(Imp_Chr)) %>%
   dplyr::mutate(Imp_Din="CG", Bsp_Din_Scr=as.integer(8)) %>%
   dplyr::mutate(Mat_Src_Scr=as.integer(0), Mat_Src_Key="Seq") %>%
   dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
 
-bsp_dat_tib <- bsp_imp_tib %>%
+bsp_dat_tib <- aqp_bsp_tib %>%
   dplyr::rename(Imp_Din=Bsp_Din_Ref) %>%
   dplyr::mutate(Mat_Src_Scr=as.integer(1), Mat_Src_Key="Bsp") %>%
   dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
@@ -1076,7 +1075,7 @@ all_imp_tab %>%
 
 
 if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_imp_tib/bsp_imp_tib).{RET}{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib).{RET}{RET}"))
 
 
 
@@ -1103,25 +1102,57 @@ if (FALSE) {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                       4.0 Write improbe input::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-fwd_des_tib <- aqp_bsp_tib %>% # head(n=10) %>%
-  fas_to_seq(fas = run$gen_ref_fas, file = run$imp_inp_tsv, name = "Aln_Key", 
-             din = "Ord_Din", gen = opt$genBuild, 
-             chr1 = "Bsp_Chr", pos = "Bsp_Pos",
-             # nrec = 1,
-             verbose=opt$verbose+10, tt=pTracker)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     5.0 Run improbe designs:: docker
+#                       4.0 improbe fwd design::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-imp_des_tib <- 
-  improbe_docker(
-    dir=run$desDir, file=run$imp_inp_tsv, 
-    name=opt$runName, image=image_str, shell=image_ssh,
-    level=3, add_inf=TRUE,
-    verbose=opt$verbose, tt=pTracker)
+stamp_vec_org <- stamp_vec
+
+imp_des_tib <- NULL
+stamp_vec <- c(stamp_vec_org, 
+               run$imp_inp_tsv,
+               run$imp_des_tsv,
+               run$cln_des_tsv)
+if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       4.1 Write improbe input::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  fwd_des_tib <- aqp_bsp_tib %>% # head(n=10) %>%
+    fas_to_seq(fas=run$gen_ref_fas, file=run$imp_inp_tsv, name="Aln_Key", 
+               din="Ord_Din", gen=opt$genBuild, 
+               chr1="Bsp_Chr", pos="Bsp_Pos",
+               # nrec = 1,
+               verbose=opt$verbose, tt=pTracker)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     4.1 Run improbe designs:: docker
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  imp_ret_val <- 
+    run_improbe_docker(
+      file=run$imp_inp_tsv, 
+      name=opt$runName, image=image_str, shell=image_ssh,
+      verbose=opt$verbose, tt=pTracker)
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     4.2 Load improbe designs:: filter
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  imp_des_tib <-
+    load_improbe_design(
+      file=run$imp_des_tsv, out=run$cln_des_tsv,
+      level=3, add_inf=TRUE,
+      verbose=opt$verbose+10, tt=pTracker)
+  
+} else {
+  
+  if (opt$verbose>=1)
+    cat(glue::glue("[{par$prgmTag}]: Loading cln_des_tsv={run$cln_des_tsv}...{RET}"))
+  imp_des_tib <- 
+    suppressMessages(suppressWarnings( readr::read_tsv(run$cln_des_tsv) )) %>%
+    clean_tibble()
+}
+
 
 # %>%
 #   dplyr::mutate(Methyl_Allele_TB_Strand=stringr::str_sub(Methyl_Allele_TB_Strand,1,1))

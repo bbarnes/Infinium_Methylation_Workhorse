@@ -23,18 +23,17 @@ RET <- "\n"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 template_func = function(tib,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'template_func'
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='template_func') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     # ret_cnt <- ret_tib %>% base::nrow()
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-    
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -64,7 +63,7 @@ aqp_address_workflow = function(ord,
   ret_cnt <- 0
   ret_tib <- NULL
   ret_dat <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     ord_tib <- NULL
     mat_tib <- NULL
@@ -267,7 +266,7 @@ load_aqp_files = function(file,
   ret_cnt <- 0
   ret_tib <- NULL
   ret_sum <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     if (purrr::is_character(file)) {
       file_vec <- stringr::str_split(file, pattern=",", simplify=TRUE) %>% 
@@ -376,7 +375,7 @@ load_aqp_file = function(file, idx=NULL,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     guess_tib <- guess_aqp_file(file, n_max=n_max,
                                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
@@ -548,7 +547,7 @@ guess_aqp_file = function(file,
   ret_cnt <- 0
   ret_tib <- NULL
   ret_val <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     file_del_str <- guess_file_del(file, n_max=n_max, verbose=verbose,vt=vt+4)
     if (is.null(file_del_str)) {
@@ -612,7 +611,7 @@ mutate_probe_id = function(tib,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     pid_sym <- rlang::sym(pid)
     cgn_sym <- rlang::sym(cgn)
@@ -656,7 +655,7 @@ add_comb = function(tibA, tibB, field,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     ret_tib <- 
       dplyr::inner_join(
@@ -694,7 +693,7 @@ broken_man_to_add = function(tib,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     pid_sym  = rlang::sym(pid)
     des_sym  = rlang::sym(des)
@@ -775,7 +774,7 @@ add_to_man = function(tib, join, runName,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     des_list <- NULL
     des_list <- tib %>% split(.[[des_key]])
@@ -922,7 +921,7 @@ add_to_fas = function(tib, prb_key="Prb_Seq",
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     prb_sym <- rlang::sym(prb_key)
     des_sym <- rlang::sym(des_key)
@@ -1012,7 +1011,7 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     clean <- FALSE
     if (stringr::str_ends(can, '.gz')) {
@@ -1020,7 +1019,7 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1,
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
       
-      cmd_ret <- system(cmd_str)
+      cmd_ret <- base::system(cmd_str)
       if (cmd_ret!=0) {
         stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
                         "cmd={cmd_str}!{RET}{RET}"))
@@ -1076,7 +1075,7 @@ join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     imp_col_vec <- c("Address","Ord_Des","Ord_Din",
                      "Imp_Chr","Imp_Pos","Imp_Cgn",
@@ -1180,7 +1179,7 @@ seq_to_prbs = function(tib, seq,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     cgn_sym <- rlang::sym(cgn)
     chr_sym <- rlang::sym(chr)
@@ -1370,7 +1369,7 @@ bed_to_prbs = function(tib, fas,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     cgn_sym <- rlang::sym(cgn)
     chr_sym <- rlang::sym(chr)
@@ -1566,7 +1565,7 @@ fas_to_seq = function(tib, fas,
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     if (nrec==0) {
       dna_seqs <- 

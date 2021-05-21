@@ -23,18 +23,17 @@ RET <- "\n"
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 template_func = function(tib,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'template_func'
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='template_func') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
     # ret_cnt <- ret_tib %>% base::nrow()
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-    
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
