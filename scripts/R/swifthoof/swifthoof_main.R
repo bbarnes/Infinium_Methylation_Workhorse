@@ -668,6 +668,7 @@ if (opt$cluster) {
   pTracker <- NULL
   # pTracker <- timeTracker$new(verbose=opt$verbose)
 
+  par$manDir <- NULL
   if (!is.null(opt$manDirPath)) {
     par$manDir <- opt$manDirPath
   } else if (!is.null(opt$manDirName)) {
@@ -675,6 +676,8 @@ if (opt$cluster) {
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Both manDirPath and manDirName are NULL!!!{RET}{RET}"))
   }
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Set manifest search directory={par$manDir}.{RET}"))
 
   tar_man_tib <- NULL
   tar_man_tib <- get_manifest_list(
@@ -697,20 +700,35 @@ if (opt$cluster) {
     if (is.null(opt$auto_sam_csv))
       opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
     
-    cat(glue::glue("[{par$prgmTag}]:{TAB} Loading auto_sam_csv={opt$auto_sam_csv}...{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Loading auto_sam_csv={opt$auto_sam_csv}...{RET}"))
     auto_sam_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$auto_sam_csv) ))
-    cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}{RET}"))
+  } else {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Will not Auto-Detect Sample.{RET}{RET}"))
   }
   
-  # TBD::
-  #   - mask pass_perc
-  #   - R2/dB returned by Infinium Design
-  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                    Load Pre-Defined Sesame Mask Probes::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # NOTE:: Pretty sure this is just for EPIC
+  #  TBD:: Should load all pre-defined masked CpGs by manifest and pass that
+  #   in as a list rather than vector and only mask if the manifest matches...
   mask_cpg_vec <- NULL
   mask_cpg_csv <- file.path(par$datDir, 'manifest/mask/sesame-general-mask.cpg.csv.gz')
   if (opt$mask_general) {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Loading mask_cpg_csv={mask_cpg_csv}...{RET}"))
     mask_cpg_vec <- suppressMessages(suppressWarnings( 
       readr::read_csv(mask_cpg_csv) )) %>% dplyr::pull(Probe_ID)
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}{RET}"))
+  } else {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Will not Mask Sample CpGs.{RET}{RET}"))
   }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -734,7 +752,8 @@ if (opt$cluster) {
       
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
-                                   man=tar_man_dat, ref=auto_sam_tib, opts=opt, defs=def,
+                                   man=tar_man_dat, ref=auto_sam_tib, 
+                                   opts=opt, defs=def,
                                    mask=mask_cpg_vec,
                                    
                                    pvals=pval_vec,
@@ -771,7 +790,8 @@ if (opt$cluster) {
       
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
-                                   man=tar_man_dat, ref=auto_sam_tib, opts=opt, defs=def,
+                                   man=tar_man_dat, ref=auto_sam_tib, 
+                                   opts=opt, defs=def,
                                    mask=mask_cpg_vec,
                                    
                                    pvals=pval_vec,

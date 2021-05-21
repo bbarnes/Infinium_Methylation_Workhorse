@@ -223,6 +223,7 @@ program_init = function(name,defs=NULL,
   opt_tib <- dplyr::bind_rows(opts) %>% 
     tidyr::gather("Option", "Value") %>%
     dplyr::distinct()
+  if (opts$verbose>=1) opt_tib %>% base::print(n=base::nrow(opt_tib) )
   
   par_tib <- pars %>%
     unlist(recursive = TRUE) %>%
@@ -918,9 +919,10 @@ print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
   ret_cnt <- 0
   ret_tib <- NULL
   
+  if (!is.null(tib) && !is.na(tib)) ret_cnt <- tib %>% base::nrow()
+  
   if (verbose>=vt) {
     if (!is.null(tib) && !is.na(tib)) {
-      ret_cnt <- tib %>% base::nrow()
       if (!is.null(mssg)) cat(glue::glue("[{funcTag}]:{tabsStr} {mssg}{RET}"))
       if (!is.null(name)) {
         cat(glue::glue("[{funcTag}]:{tabsStr} tibble({name}) row count=[{ret_cnt}]:{RET}"))
