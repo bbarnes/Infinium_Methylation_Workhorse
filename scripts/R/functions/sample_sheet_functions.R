@@ -56,6 +56,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
     return(ret_tib)
   }
 
+  pvalDetectMinKey <- NULL
   stime <- base::system.time({
 
     if (!is.null(pvalDetectMinKey)) pvalDetectMinKey <- pvalDetectMinKey %>% rlang::sym()

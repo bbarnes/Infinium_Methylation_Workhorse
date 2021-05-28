@@ -214,7 +214,6 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NA12878'
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
   
-  
   if (FALSE) {
     
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {

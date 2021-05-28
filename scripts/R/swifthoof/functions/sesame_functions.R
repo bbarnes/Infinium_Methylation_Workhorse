@@ -19,7 +19,7 @@ RET <- "\n"
 #                         Sesame Mutation Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ssetToSummary = function(sset, man, idx, workflow, name, 
+ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
                          outDir=NULL, pre=NULL, ref=NULL, mask=NULL,
                          pvals=NULL, min_pvals=NULL, min_percs=NULL,
                          basic=NULL,
@@ -395,8 +395,10 @@ ssetToSummary = function(sset, man, idx, workflow, name,
     #
     sums_ssh_tib <- tibble::tibble(Method_Key=workflow,Method_Idx=idx)
     
-    if (makek_pred) pred_dat_tib <- ssetToPredictions(
-      sset=sset_dat, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (makek_pred) pred_dat_tib <- 
+      ssetToPredictions(
+        sset=sset_dat, platform=platform,
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                           Make Sample Sheet::

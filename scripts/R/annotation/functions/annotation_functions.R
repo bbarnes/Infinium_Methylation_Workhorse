@@ -187,7 +187,7 @@ manifestToAnnotation = function(tib, ann, gen, csv=NULL, key="Seq_ID",
       cat("\n")
     }
     
-    man_grs <- GRanges(
+    man_grs <- GenomicRanges::GRanges(
       seqnames = Rle(tib$chrom), 
       IRanges(start=tib$chromStart, 
               end=tib$chromEnd, 
@@ -446,6 +446,7 @@ intersectGranges = function(man,ref,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 load_ncbi_gene = function(file,grs=FALSE,
+                          source="NCBI",tissue="All",
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'load_ncbi_gene'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -506,8 +507,9 @@ load_ncbi_gene = function(file,grs=FALSE,
                        name2=dat_tib$name2,
                        name=dat_tib$name,
                        class="GeneBody",
-                       source="NCBI",
-                       source2=NA_character_),
+                       source=source,
+                       tissue=tissue
+        ),
         
         tibble::tibble(chr=dat_tib$chrom,
                        beg=dat_tib$tss_200_beg,
@@ -516,8 +518,9 @@ load_ncbi_gene = function(file,grs=FALSE,
                        name2=dat_tib$name2,
                        name=dat_tib$name,
                        class="TSS200",
-                       source="NCBI",
-                       source2=NA_character_),
+                       source=source,
+                       tissue=tissue
+        ),
         
         tibble::tibble(chr=dat_tib$chrom,
                        beg=dat_tib$tss_1500_beg,
@@ -526,8 +529,9 @@ load_ncbi_gene = function(file,grs=FALSE,
                        name2=dat_tib$name2,
                        name=dat_tib$name,
                        class="TSS1500",
-                       source="NCBI",
-                       source2=NA_character_)
+                       source=source,
+                       tissue=tissue
+        )
       ) %>% 
       dplyr::group_by(class) %>%
       dplyr::mutate(rank=dplyr::row_number(),
@@ -538,14 +542,18 @@ load_ncbi_gene = function(file,grs=FALSE,
     if (grs) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
       ret_tib = 
-        GRanges(
+        GenomicRanges::GRanges(
           seqnames=Rle(ret_tib$chr), 
           strand=Rle(ret_tib$srd),
           
-          name=ret_tib$tran,
-          name2=ret_tib$gene,
+          # name=ret_tib$tran,
+          # name2=ret_tib$gene,
+          name=ret_tib$name,
+          name2=ret_tib$name2,
           class=ret_tib$class,
           source=ret_tib$source,
+          tissue=ret_tib$tissue,
+          rank=ret_tib$rank,
           
           IRanges(start=ret_tib$beg, 
                   end=ret_tib$end, 
@@ -564,6 +572,7 @@ load_ncbi_gene = function(file,grs=FALSE,
 }
 
 load_ucsc_gene = function(file,grs=FALSE,
+                          source="UCSC",tissue="All",
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'load_ucsc_gene'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -619,8 +628,9 @@ load_ucsc_gene = function(file,grs=FALSE,
                        name2=dat_tib$proteinID,
                        name=dat_tib$name,
                        class="GeneBody",
-                       source="UCSC",
-                       source2=NA_character_),
+                       source=source,
+                       tissue=tissue
+        ),
         
         tibble::tibble(chr=dat_tib$chrom,
                        beg=dat_tib$tss_200_beg,
@@ -629,8 +639,9 @@ load_ucsc_gene = function(file,grs=FALSE,
                        name2=dat_tib$proteinID,
                        name=dat_tib$name,
                        class="TSS200",
-                       source="UCSC",
-                       source2=NA_character_),
+                       source=source,
+                       tissue=tissue
+        ),
         
         tibble::tibble(chr=dat_tib$chrom,
                        beg=dat_tib$tss_1500_beg,
@@ -639,8 +650,9 @@ load_ucsc_gene = function(file,grs=FALSE,
                        name2=dat_tib$proteinID,
                        name=dat_tib$name,
                        class="TSS1500",
-                       source="UCSC",
-                       source2=NA_character_)
+                       source=source,
+                       tissue=tissue
+        )
       ) %>% 
       dplyr::group_by(class) %>%
       dplyr::mutate(rank=dplyr::row_number(),
@@ -651,14 +663,16 @@ load_ucsc_gene = function(file,grs=FALSE,
     if (grs) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
       ret_tib = 
-        GRanges(
+        GenomicRanges::GRanges(
           seqnames=Rle(ret_tib$chr), 
           strand=Rle(ret_tib$srd),
           
           name=ret_tib$name,
           name2=ret_tib$name2,
-          Class=ret_tib$class,
+          class=ret_tib$class,
           source=ret_tib$source,
+          tissue=ret_tib$tissue,
+          rank=ret_tib$rank,
           
           IRanges(start=ret_tib$beg, 
                   end=ret_tib$end, 
@@ -678,6 +692,7 @@ load_ucsc_gene = function(file,grs=FALSE,
 }
 
 load_ucsc_cpgs = function(file, grs=FALSE,
+                          source="UCSC",tissue="All",
                           verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'load_ucsc_cpgs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -700,8 +715,9 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      name2=NA_character_,
                      name=dat_tib$name,
                      class="NShelf",
-                     source="UCSC",
-                     source2=NA_character_),
+                     source=source,
+                     tissue=tissue
+      ),
       
       tibble::tibble(chr=dat_tib$chrom,
                      beg=dat_tib$chromStart-2000,
@@ -710,8 +726,9 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      name2=NA_character_,
                      name=dat_tib$name,
                      class="NShore",
-                     source="UCSC",
-                     source2=NA_character_),
+                     source=source,
+                     tissue=tissue
+      ),
       
       tibble::tibble(chr=dat_tib$chrom,
                      beg=dat_tib$chromStart,
@@ -720,8 +737,9 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      name2=NA_character_,
                      name=dat_tib$name,
                      class="Island",
-                     source="UCSC",
-                     source2=NA_character_),
+                     source=source,
+                     tissue=tissue
+      ),
       
       tibble::tibble(chr=dat_tib$chrom,
                      beg=dat_tib$chromEnd,
@@ -730,8 +748,9 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      name2=NA_character_,
                      name=dat_tib$name,
                      class="SShore",
-                     source="UCSC",
-                     source2=NA_character_),
+                     source=source,
+                     tissue=tissue
+      ),
       
       tibble::tibble(chr=dat_tib$chrom,
                      beg=dat_tib$chromEnd+2000,
@@ -740,8 +759,9 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      name2=NA_character_,
                      name=dat_tib$name,
                      class="SShelf",
-                     source="UCSC",
-                     source2=NA_character_)
+                     source=source,
+                     tissue=tissue
+      )
     ) %>% 
       dplyr::group_by(class) %>%
       dplyr::mutate(rank=dplyr::row_number(),
@@ -752,13 +772,16 @@ load_ucsc_cpgs = function(file, grs=FALSE,
     if (grs) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
       ret_tib <-
-        GRanges(
+        GenomicRanges::GRanges(
           seqnames=Rle(ret_tib$chr), 
           strand=Rle(ret_tib$srd),
           
           name=ret_tib$name,
           class=ret_tib$class,
+          name2=NA_character_,
           source=ret_tib$source,
+          tissue=ret_tib$tissue,
+          rank=ret_tib$rank,
           
           IRanges(start=ret_tib$beg, 
                   end=ret_tib$end, 
@@ -834,14 +857,14 @@ loadNcbiGeneGR = function(file,
     
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
     ret_grs$tss_1500 <- 
-      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
-              IRanges(start=dat_tib$tss_1500_beg, end=dat_tib$tss_1500_end, names=dat_tib$name) )
+      GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+                             IRanges(start=dat_tib$tss_1500_beg, end=dat_tib$tss_1500_end, names=dat_tib$name) )
     ret_grs$tss_200 <- 
-      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
-              IRanges(start=dat_tib$tss_200_beg, end=dat_tib$tss_200_end, names=dat_tib$name) )
+      GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+                             IRanges(start=dat_tib$tss_200_beg, end=dat_tib$tss_200_end, names=dat_tib$name) )
     ret_grs$tss_body <- 
-      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
-              IRanges(start=dat_tib$txStart, end=dat_tib$txEnd, names=dat_tib$name) )
+      GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand), # seqinfo=dat_tib$name2,
+                             IRanges(start=dat_tib$txStart, end=dat_tib$txEnd, names=dat_tib$name) )
     
     ret_cnt <- ret_grs %>% names %>% length()
   })
@@ -905,14 +928,14 @@ loadUcscGeneGR = function(file,
     
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
     ret_grs$tss_1500 <- 
-      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand),
-              IRanges(start=dat_tib$tss_1500_beg, end=dat_tib$tss_1500_end, names=dat_tib$name) )
+      GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand),
+                             IRanges(start=dat_tib$tss_1500_beg, end=dat_tib$tss_1500_end, names=dat_tib$name) )
     ret_grs$tss_200 <- 
-      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand),
-              IRanges(start=dat_tib$tss_200_beg, end=dat_tib$tss_200_end, names=dat_tib$name) )
+      GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand),
+                             IRanges(start=dat_tib$tss_200_beg, end=dat_tib$tss_200_end, names=dat_tib$name) )
     ret_grs$tss_body <- 
-      GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand),
-              IRanges(start=dat_tib$txStart, end=dat_tib$txEnd, names=dat_tib$name) )
+      GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), strand=Rle(dat_tib$strand),
+                             IRanges(start=dat_tib$txStart, end=dat_tib$txEnd, names=dat_tib$name) )
     
     ret_cnt <- ret_grs %>% names %>% length()
   })
@@ -939,24 +962,24 @@ loadUcscCpgsGR = function(file,
     
     # Build GRange Data Structures:: CpG Islands
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
-    ret_grs$NShelf <- GRanges(seqnames=Rle(dat_tib$chrom), 
-                              IRanges(start=dat_tib$chromStart-4000, end=dat_tib$chromStart-2000, names=dat_tib$name) )
+    ret_grs$NShelf <- GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), 
+                                             IRanges(start=dat_tib$chromStart-4000, end=dat_tib$chromStart-2000, names=dat_tib$name) )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built North Shelves.{RET}"))
     
-    ret_grs$NShore <- GRanges(seqnames=Rle(dat_tib$chrom), 
-                              IRanges(start=dat_tib$chromStart-2000, end=dat_tib$chromStart, names=dat_tib$name) )
+    ret_grs$NShore <- GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), 
+                                             IRanges(start=dat_tib$chromStart-2000, end=dat_tib$chromStart, names=dat_tib$name) )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built North Shores.{RET}"))
     
-    ret_grs$Island <- GRanges(seqnames=Rle(dat_tib$chrom), 
-                              IRanges(start=dat_tib$chromStart, end=dat_tib$chromEnd, names=dat_tib$name) )
+    ret_grs$Island <- GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), 
+                                             IRanges(start=dat_tib$chromStart, end=dat_tib$chromEnd, names=dat_tib$name) )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built Islands.{RET}"))
     
-    ret_grs$SShore <- GRanges(seqnames=Rle(dat_tib$chrom), 
-                              IRanges(start=dat_tib$chromEnd, end=dat_tib$chromEnd+2000, names=dat_tib$name) )
+    ret_grs$SShore <- GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), 
+                                             IRanges(start=dat_tib$chromEnd, end=dat_tib$chromEnd+2000, names=dat_tib$name) )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built South Shores.{RET}"))
     
-    ret_grs$SShelf <- GRanges(seqnames=Rle(dat_tib$chrom), 
-                              IRanges(start=dat_tib$chromEnd+2000, end=dat_tib$chromEnd+4000, names=dat_tib$name) )
+    ret_grs$SShelf <- GenomicRanges::GRanges(seqnames=Rle(dat_tib$chrom), 
+                                             IRanges(start=dat_tib$chromEnd+2000, end=dat_tib$chromEnd+4000, names=dat_tib$name) )
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Built South Shelves.{RET}"))
     
     ret_cnt <- ret_grs %>% names %>% length()

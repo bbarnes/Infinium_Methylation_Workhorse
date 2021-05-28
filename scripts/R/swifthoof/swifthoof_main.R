@@ -74,6 +74,7 @@ opt$auto_detect  <- FALSE
 opt$workflow   <- NULL
 opt$manDirPath <- NULL
 opt$manDirName <- 'core'
+opt$forcedPlat <- NULL
 opt$man_suffix <- ".manifest.sesame-base.cpg-sorted.csv.gz"
 
 # Output Options::
@@ -282,6 +283,12 @@ if (args.dat[1]=='RStudio') {
     opt$parallel <- FALSE
     opt$fresh    <- TRUE
     
+    # For sub manifest testing::
+    opt$platform   <- "Rand1"
+    opt$version    <- "S20"
+    opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/McMaster10Kselection", opt$platform)
+    opt$forcedPlat <- "EPIC"
+
   } else if (par$local_runType=='qcMVP2') {
     opt$runName  <- 'IBX-Zymogen'
     opt$runName  <- 'IBX-EPIDX'
@@ -420,9 +427,11 @@ if (args.dat[1]=='RStudio') {
                 help="Manifest directory path otherwise use default dat/manifest directory [default= %default]", metavar="character"),
     make_option(c("--manDirName"), type="character", default=opt$manDirName,
                 help="Manifest directory name [default= %default]", metavar="character"),
+    make_option(c("--forcedPlat"), type="character", default=opt$forcedPlat,
+                help="Forced Manifest name to use in Sesame calculations [default= %default]", metavar="character"),
     make_option(c("--man_suffix"), type="character", default=opt$man_suffix,
                 help="Manifest suffix search name. Default is set to predefined Sesame suffix. [default= %default]", metavar="character"),
-    
+
     # Output Options::
     make_option(c("--load_idat"), action="store_true", default=opt$load_idat,
                 help="Boolean variable to load existing IDAT from RDS file [default= %default]", metavar="boolean"),
@@ -754,7 +763,7 @@ if (opt$cluster) {
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
                                    man=tar_man_dat, ref=auto_sam_tib, 
                                    opts=opt, defs=def,
-                                   mask=mask_cpg_vec,
+                                   mask=mask_cpg_vec, platform=opt$forcedPlat,
                                    
                                    pvals=pval_vec,
                                    min_pvals=min_pval_vec,
@@ -792,7 +801,7 @@ if (opt$cluster) {
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
                                    man=tar_man_dat, ref=auto_sam_tib, 
                                    opts=opt, defs=def,
-                                   mask=mask_cpg_vec,
+                                   mask=mask_cpg_vec, platform=opt$forcedPlat,
                                    
                                    pvals=pval_vec,
                                    min_pvals=min_pval_vec,

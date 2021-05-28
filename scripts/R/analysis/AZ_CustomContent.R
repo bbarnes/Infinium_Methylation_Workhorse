@@ -71,8 +71,8 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
-par$prgmDir <- 'workhorse'
-par$prgmTag <- 'workhorse_main_dev_seq'
+par$prgmDir <- 'analysis'
+par$prgmTag <- 'AZ_CustomContent'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 
@@ -273,8 +273,22 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'EWAS'
   par$local_runType <- 'Chicago'
   par$local_runType <- 'GRCm10'
+  par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
   
-  if (par$local_runType=='EWAS') {
+  if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
+    opt$runName  <- par$local_runType
+    
+    opt$workflow    <- "ind"
+
+    opt$datDir <- paste(
+      # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
+      # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',"EPIC-8x1-EM-Sample-Prep.v0"),
+      # file.path(par$topDir, 'scratch/swifthoof_main',opt$runName),
+      # file.path(par$topDir, 'scratch/swifthoof_main',"EPIC-8x1-EM-Sample-Prep.v0"),
+      file.path("/Users/bretbarnes/Documents/data/CustomContent/AstraZeneca_EM_SamplePrep",par$local_runType),
+      sep=',')
+    
+  } else if (par$local_runType=='EWAS') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'EPIC'
     opt$version  <- 'A2'
@@ -798,6 +812,8 @@ if (is.null(opt$ctls)) {
 #                Pre-processing:: Run Time:: Output Directories
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+blds_dir_vec  <- opt$datDir %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+
 run <- NULL
 
 run$manDir <- file.path(opt$outDir, 'man')
@@ -824,655 +840,128 @@ if (!dir.exists(run$annDir)) dir.create(run$annDir, recursive=TRUE)
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Building Output Directories.{RET}{RET}"))
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                Pre-processing:: Run Time:: Intermediate Files
+#                       Load Auto Detect Sample Sheets::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Define Run Time:: Ref Alignment Genome
-run$gen_ref_fas <- 
-  file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
-            paste0(opt$genBuild,".genome.fa.gz"))
+merge_ssh_csv <- file.path(par$topDir, "scratch/merge_builds/EPIC-8x1-EM-Sample-Prep/EPIC/B4/Sample_Class/ind/EPIC-8x1-EM-Sample-Prep_EPIC_B4_ind_AutoSampleSheet.csv.gz")
+merge_ssh_csv <- file.path(par$topDir, "scratch/merge_builds_latest/merge_builds/EPIC-8x1-EM-Sample-Prep/EPIC/B4/Sample_Class/ind/EPIC-8x1-EM-Sample-Prep_EPIC_B4_ind_AutoSampleSheet.csv.gz")
+human_ssh_csv <- file.path(par$topDir, "data/CustomContent/AstraZeneca_EM_SamplePrep/AstraZeneca_30042021_Human_SampleSheet.csv.gz")
 
-# Define Run Time:: SNP IUPAC Genome
-run$gen_snp_fas <- 
-  file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
-            paste0(opt$genBuild,".dbSNP151-genome.fa.gz"))
+merge_ssh_csv <- file.path(par$topDir, "data/CustomContent/AstraZeneca_EM_SamplePrep/merge_builds/ind/EPIC-8x1-EM-Sample-Prep_EPIC_B4_ind_AutoSampleSheet.csv.gz")
 
-# Define Pre-built improbe files
-run$imp_prb_dir <- file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-output/prbs-p49")
-run$imp_u49_tsv <- file.path(run$imp_prb_dir, paste("probe_U49_cgn-table.csv.gz", sep="-") )
-run$imp_m49_tsv <- file.path(run$imp_prb_dir, paste("probe_M49_cgn-table.csv.gz", sep="-") )
-stopifnot(dir.exists(run$imp_prb_dir))
-stopifnot(file.exists(run$imp_u49_tsv))
-stopifnot(file.exists(run$imp_m49_tsv))
+merge_ssh_tib <- readr::read_csv(merge_ssh_csv)
+human_ssh_tib <- readr::read_csv(human_ssh_csv)
 
-# Defined Run Time:: Intermediate Files
-run$aqp_man_csv  <- file.path(run$manDir, paste(opt$runName,"aqp-pass.manifest-sesame.csv.gz", sep="."))
 
-run$aqp_add_csv  <- file.path(run$addDir, paste(opt$runName,"aqp-pass.address.csv.gz", sep="."))
-run$aqp_prb_fas  <- file.path(run$fasDir, paste(opt$runName,"aqp-pass.address.fas.gz",  sep='.'))
-run$aqp_u49_tsv  <- file.path(run$intDir, paste(opt$runName,"aqp-pass.address-u49.tsv.gz", sep='.') )
-run$aqp_m49_tsv  <- file.path(run$intDir, paste(opt$runName,"aqp-pass.address-m49.tsv.gz", sep='.') )
+# Sample_Class
 
-run$aqp_prb_bsp  <- file.path(run$alnDir, paste(opt$runName,"aqp-pass.address.bsp",  sep='.') )
-run$aqp_bsp_tsv  <- file.path(run$alnDir, paste(opt$runName,"aqp-pass.address-bsp.tsv.gz",  sep='.') )
-
-run$int_u49_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-u49.intersect.tsv.gz", sep='.') )
-run$int_m49_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-m49.intersect.tsv.gz", sep='.') )
-run$int_seq_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-seq.intersect.tsv.gz", sep='.') )
-
-run$imp_inp_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
-run$imp_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.tsv.gz', sep='.') )
-run$cln_des_csv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.clean.csv.gz', sep='.') )
-
-run$ann_int_csv  <- file.path(run$annDir, paste(opt$runName, 'cpg-pass.annotation.csv.gz', sep='.') )
-
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Done. Defining Run Time Files.{RET}{RET}"))
-
-par$buildManifest <- FALSE
-
-if (par$buildManifest) {
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                  2.1 Functional Manifest Generation::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+merge_ssh_tib %>% 
+  # dplyr::group_by(Tissue_type,Sample_ID,Concentration,Volume) %>%
+  # dplyr::group_by(build_source,Tissue_type,Sample_ID) %>%
+  # dplyr::group_by(Sample_Class,Sample_Name) %>%
+  dplyr::group_by(Sample_Class) %>%
+  dplyr::summarise(Tot=n(),
+                   Pass_Avg=mean(cg_pass_perc_basic_0, na.rm=TRUE),
+                   Pass_Med=median(cg_pass_perc_basic_0, na.rm=TRUE),
+                   Pass_Std=sd(cg_pass_perc_basic_0, na.rm=TRUE),
+                   
+                   GCT1_Avg=mean(GCT_1, na.rm=TRUE),
+                   GCT1_Med=median(GCT_1, na.rm=TRUE),
+                   GCT1_Std=sd(GCT_1, na.rm=TRUE),
+                   
+                   GCT2_Avg=mean(GCT_2, na.rm=TRUE),
+                   GCT2_Med=median(GCT_2, na.rm=TRUE),
+                   GCT2_Std=sd(GCT_2, na.rm=TRUE),
+                   
+                   .groups="drop"
+                   ) %>%
+  print(n=1000)
   
-  #
-  # TBD:: Critical:: Pass in Ord_Key or Address as main key!!!
-  #   - Testing right now
-  #   - Issue is passing in Ord_Key can create too long (20 char) for improbe
-  #   - Issue is poor uniqueness of keys!!!
-  #
-  
-  par$retData <- FALSE
-  
-  stamp_vec <- c(stamp_vec,run$aqp_add_csv)
-  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
-    aqp_add_tib <- 
-      aqp_address_workflow(
-        ord=opt$ords,
-        mat=opt$mats, aqp=opt$aqps, 
-        bpn=opt$bpns, aqn=opt$aqns,
-        add_csv=run$aqp_add_csv, 
-        man_csv=run$aqp_man_csv,
-        add_fas=run$aqp_prb_fas,
-        u49_tsv=run$aqp_u49_tsv, m49_tsv=run$aqp_m49_tsv,
-        runName=opt$runName, retData=par$retData,
-        verbose=opt$verbose, tt=pTracker)
-  } else {
-    if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Loading aqp_add={run$aqp_add_csv}...{RET}"))
-    aqp_add_tib <- suppressMessages(suppressWarnings( 
-      readr::read_csv(run$aqp_add_csv, guess_max=100000) )) %>%
-      clean_tibble()
-  }
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                    3.2 Align All Probe Sequence:: BSMAP
-  #                  3.3 Join Address and Alignment Data:: BSMAP
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  stamp_vec <- c(stamp_vec, run$aqp_bsp_tsv)
-  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
-    
-    aqp_bsp_tib <- 
-      run_bsmap(
-        exe=opt$bsmap_exe, 
-        fas=run$aqp_prb_fas, 
-        gen=run$gen_ref_fas,
-        bsp=run$aqp_prb_bsp,
-        
-        add=aqp_add_tib,bed=cgn_bed_tib,org=add_org_tib,
-        
-        join_key="Aln_Key",join_type="inner",
-        des_key="Ord_Des", din_key="Ord_Din",
-        sort=TRUE,
-        
-        opt=NULL, lan=NULL, run=TRUE,
-        verbose=opt$verbose,tt=pTracker)
-    
-    safe_write(aqp_bsp_tib,"csv",run$aqp_bsp_tsv, funcTag=par$prgmTag,
-               verbose=opt$verbose, tt=pTracker)
-    
-  } else {
-    if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Loading aqp_bsp_tsv={run$aqp_bsp_tsv}...{RET}"))
-    
-    aqp_bsp_tib <- suppressMessages(suppressWarnings(
-      readr::read_csv(run$aqp_bsp_tsv, guess_max=100000) )) %>%
-      clean_tibble()
-  }
-  
-  if (FALSE) {
-    man_bsp_tib <- aqp_bsp_tib %>% 
-      dplyr::filter(Bsp_Tag=="UM") %>%
-      add_to_man(join = "Ord_Key", runName = opt$runName, 
-                 des_key = "Ord_Des", pid_key = "Aln_Key", 
-                 # rep_key = "Ord_Par_Rep", rep_val = "Ord_Par_Rep", 
-                 # col_key = "Ord_Col", 
-                 # nxb_key = "Bsp_Nxb_Ref", 
-                 verbose = opt$verbose, tt=pTracker)
-  }
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #         3.4 Intersect Sequences Address and improbe:: U49/M49
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  seq_cgn_tib <- NULL
-  stamp_vec <- c(stamp_vec, 
-                 run$int_u49_tsv,
-                 run$int_m49_tsv,
-                 run$int_seq_tsv)
-  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
-    
-    int_u49_tib2 <- 
-      intersect_seq(ref=run$imp_u49_tsv,
-                    can=run$aqp_u49_tsv,
-                    out=run$int_u49_tsv,
-                    idxA=1, idxB=1, 
-                    verbose=opt$verbose,tt=pTracker)
-    
-    int_m49_tib2 <- 
-      intersect_seq(ref=run$imp_m49_tsv,
-                    can=run$aqp_m49_tsv, 
-                    out=run$int_m49_tsv,
-                    idxA=1, idxB=1, 
-                    verbose=opt$verbose,tt=pTracker)
-    
-    seq_cgn_tib <- 
-      join_seq_intersect(u49=int_u49_tib2, m49=int_m49_tib2, 
-                         bed=cgn_bed_tib, org=add_org_tib,
-                         verbose=opt$verbose, tt=pTracker)
-    
-    safe_write(seq_cgn_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
-               verbose=opt$verbose)
-    
-  } else {
-    
-    if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Loading imp_seq_tsv={run$int_seq_tsv}...{RET}"))
-    seq_cgn_tib <- 
-      suppressMessages(suppressWarnings( readr::read_tsv(run$int_seq_tsv) )) %>%
-      clean_tibble()
-    
-  }
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                 3.4.1 Bind BSMAP & Seq-Match into Table::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  # This doesn't work:: yet!!!
-  if (FALSE) {
-    if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib)...{RET}"))
-    
-    com_des_cols <- c("Address","Ord_Des","Ord_Din")
-    com_gen_cols <- c("Imp_Chr","Imp_Pos","Imp_FR","Imp_TB","Imp_CO")
-    com_scr_cols <- c("Can_Mis_Scr","Mat_Src_Scr","Org_Mis_Scr","Bsp_Din_Scr")
-    com_cgn_cols <- c("Imp_Cgn","Imp_Nxb","Imp_Din") # ,"Bsp_Din_Ref")
-    
-    imp_col_vec <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols)
-    
-    # Sepcifically: The code directly below doesn't work::
-    seq_dat_tib <- seq_cgn_tib %>%
-      dplyr::filter(!is.na(Imp_Chr)) %>%
-      dplyr::mutate(Imp_Din="CG", Bsp_Din_Scr=as.integer(8)) %>%
-      dplyr::mutate(Mat_Src_Scr=as.integer(0), Mat_Src_Key="Seq") %>%
-      dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
-    
-    bsp_dat_tib <- aqp_bsp_tib %>%
-      dplyr::rename(Imp_Din=Bsp_Din_Ref) %>%
-      dplyr::mutate(Mat_Src_Scr=as.integer(1), Mat_Src_Key="Bsp") %>%
-      dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
-    
-    imp_col_vec2 <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols,"Mat_Src_Key")
-    
-    all_imp_tab <- NULL
-    all_imp_tab <- dplyr::bind_rows(
-      dplyr::select( seq_dat_tib, dplyr::any_of(imp_col_vec2) ),
-      dplyr::select( bsp_dat_tib, dplyr::any_of(imp_col_vec2) ),
-    )  %>% 
-      dplyr::mutate(
-        Can_Mis_Scr=dplyr::case_when(
-          is.na(Can_Mis_Scr) ~ 9,
-          TRUE ~ as.double(Can_Mis_Scr)
-        ) %>% as.integer(),
-        Org_Mis_Scr=dplyr::case_when(
-          is.na(Org_Mis_Scr) ~ 9,
-          TRUE ~ as.double(Org_Mis_Scr)
-        ) %>% as.integer(),
-        Bsp_Din_Scr=dplyr::case_when(
-          is.na(Bsp_Din_Scr) ~ 9,
-          TRUE ~ as.double(Bsp_Din_Scr)
-        ) %>% as.integer()
-      ) %>% 
-      dplyr::arrange( dplyr::across( dplyr::all_of(c(com_scr_cols)) ) ) %>%
-      dplyr::distinct()
-    
-    all_imp_tab %>% 
-      dplyr::arrange(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO) %>%
-      dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
-      dplyr::filter(Group_Count>1) %>%
-      print(n=1000)
-    
-    all_imp_tab %>% 
-      dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
-      dplyr::group_by(Group_Count,Mat_Src_Key,Bsp_Din_Scr,Ord_Des) %>% 
-      dplyr::summarise(Count=n(), .groups="drop") %>% 
-      print(n=1000)
-  }
-  
-  # Max Best Extension::
-  #   - This requires the template sequence and probe designs
-  #     It can be inferred for BSP alignments, but requires full templates and 
-  #     designs for Seq data. 
-  #   - Question; is there ever a case where a probe matches non-seq matching
-  #     more than seq-matching. Yes; poorly designed probes. This is why we need
-  #     all the template sequences followed by designs.
-  #
-  # Max Canonical CGN
-  #
-  # Max Source (Seq,Bsp)
-  # Max U over M
-  #
-  
-  # TBD::
-  #  - Validate against Wanding's manifest:: cgn/pos
-  #  - Intersect with Chrom HMM/UCSC
-  #  - Pick Max Wanding Annotation
-  #  - Compare Internal Annotation vs. Wanding Annotation
-  #
-  
-  # if (opt$verbose>=1)
-  #   cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib).{RET}{RET}"))
-  
-}
-
+# BISULFITE_CONVERSION_I_2_sig_M_mean_1
 
 if (FALSE) {
-  #
-  # Spare scratch for TruResponse
-  #
+  hum_ss_tib  <- NULL
+  auto_ss_tib <- NULL
   
-  tru_tib <- readr::read_tsv("/Users/bretbarnes/Documents/data/CustomContent/TruReponse/sampleSheets/saliva-barcodes.txt")
-  
-  tru_tib %>% 
-    dplyr::group_by(Sample_Name,Sample_Long,Sample_Day,Sample_Hour,Sample_Prep) %>% 
-    dplyr::summarise(Count=n(), .groups="drop") %>% 
-    dplyr::arrange(-Count,Sample_Name) %>% 
-    print(n=1000)
-  
-  tru_tib %>% 
-    dplyr::group_by(Sample_Name,Sample_Long,Sample_Day,Sample_Prep) %>% 
-    dplyr::summarise(Count=n(), .groups="drop") %>% 
-    dplyr::arrange(-Count,Sample_Name) %>% 
-    print(n=1000)
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                       4.0 improbe fwd design::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# This is just a temporary skip. The code below works.
-#
-par$run_improbe <- FALSE
-if (par$run_improbe) {
-  stamp_vec_org <- stamp_vec
-  
-  imp_des_tib <- NULL
-  stamp_vec <- c(stamp_vec, 
-                 run$imp_inp_tsv,
-                 run$imp_des_tsv,
-                 run$cln_des_csv)
-  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                       4.1 Write improbe input::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  for (curDir in blds_dir_vec) {
     
-    fwd_des_tib <- aqp_bsp_tib %>% # head(n=10) %>%
-      fas_to_seq(fas=run$gen_ref_fas, file=run$imp_inp_tsv, name="Aln_Key", 
-                 din="Ord_Din", gen=opt$genBuild, 
-                 chr1="Bsp_Chr", pos="Bsp_Pos",
-                 # nrec = 1,
-                 verbose=opt$verbose, tt=pTracker)
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                     4.1 Run improbe designs:: docker
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    imp_ret_val <- 
-      run_improbe_docker(
-        file=run$imp_inp_tsv, 
-        name=opt$runName, image=image_str, shell=image_ssh,
-        verbose=opt$verbose, tt=pTracker)
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                     4.2 Load improbe designs:: filter
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    imp_des_tib <-
-      load_improbe_design(
-        file=run$imp_des_tsv, out=run$cln_des_csv,
-        level=3, add_inf=TRUE,
-        verbose=opt$verbose+10, tt=pTracker)
-    
-  } else {
-    
-    if (opt$verbose>=1)
-      cat(glue::glue("[{par$prgmTag}]: Loading cln_des_csv={run$cln_des_csv}...{RET}"))
-    imp_des_tib <- 
-      suppressMessages(suppressWarnings( readr::read_csv(run$cln_des_csv) )) %>%
-      clean_tibble()
-  }
-}
-
-
-# %>%
-#   dplyr::mutate(Methyl_Allele_TB_Strand=stringr::str_sub(Methyl_Allele_TB_Strand,1,1))
-#
-
-# Qucik QC::
-#  imp_des_tib %>% dplyr::filter(Inf_Type != 0) %>% dplyr::distinct(Seq_ID)
-
-
-# All srd probe extraction::
-#  - Seesm to be working, will validate later...
-if (FALSE) {
-  
-  all_srd_prb_tib <- aqp_bsp_tib %>% head(n=10) %>%
-    bed_to_prbs(fas=run$gen_ref_fas, 
-                din="Ord_Din", cgn="Aln_Key",
-                chr="Bsp_Chr", pos="Bsp_Pos",
-                nrec = 1,
-                verbose=opt$verbose+10, tt=pTracker)
-  
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                       6.0 Annotation Conformation::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-#
-# TBD:: Generate a unified annotation tib/grs format for any/all annotation::
-#
-
-par$load_ann <- TRUE
-if (par$load_ann) {
-  
-  # Load Wanding Annotation
-  # Load A2 Genome Studio Annotation
-  # Compare Ids
-  # Compare Coordinates
-  
-  ses_man_tsv <- "/Users/bretbarnes/Documents/data/CustomContent/LifeEpigentics/manifest/array_HMM_merged.tsv.gz"
-  gss_man_csv <- "/Users/bretbarnes/Documents/data/annotation/mouseDat_fromCluster_old/MouseMethylation-12v1-0_Interim-A2.csv.gz"
-  gss_man_csv <- "/Users/bretbarnes/Documents/data/manifests/methylation/GenomeStudio/MouseMethylation-12v1-0_A2.csv.gz"
-  
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                         6.1 Load Manifest:: Sesame
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  ses_man_tib <- 
-    suppressMessages(suppressWarnings( readr::read_tsv(ses_man_tsv) )) %>%
-    mutate(Probe_Type=stringr::str_sub(probeID, 1,2)) %>%
-    dplyr::rename(Chrom=chrm, Cpg_Beg=beg, Cpg_End=end, IlmnID=probeID) %>%
-    dplyr::select(IlmnID,Probe_Type, Chrom, Cpg_Beg, Cpg_End, dplyr::everything())
-  
-  # Some re-organizing::
-  #
-  ses_pos_tib <- ses_man_tib %>% 
-    dplyr::select(IlmnID,Probe_Type,Chrom,Cpg_Beg,Cpg_End) %>% 
-    dplyr::distinct()
-  
-  ses_pos_grs <- 
-    GenomicRanges::GRanges(
-      seqnames=Rle(ses_pos_tib$Chrom), 
-      # strand=Rle(ses_pos_tib$srd),
-      Probe_Type=ses_pos_tib$Probe_Type,
-      
-      IRanges(start=ses_pos_tib$Cpg_Beg, 
-              end=ses_pos_tib$Cpg_End, 
-              names=ses_pos_tib$IlmnID)
-    )
-  
-  ses_ann_tab <- ses_man_tib %>% 
-    dplyr::select(-Probe_Type, -Chrom, -Cpg_Beg, -Cpg_End) %>% 
-    tidyr::pivot_longer(!IlmnID, names_to = "Class", values_to = "Value_Str") %>%
-    dplyr::filter(!stringr::str_starts(Value_Str, "Quies") & Value_Str!=".")
-  
-  # Summary::
-  ses_ann_sum <- ses_ann_tab %>% 
-    # dplyr::filter(!stringr::str_starts(Value_Str, "Quies")) %>% 
-    # dplyr::filter(!stringr::str_starts(Value_Str, "Quies") & Value_Str!=".") %>%
-    # dplyr::group_by(Class,Value_Str) %>% 
-    dplyr::group_by(Value_Str) %>% 
-    dplyr::summarise(Count=n(), .groups="drop") %>% 
-    dplyr::arrange(-Count)
-  ses_ann_sum %>% print(n=base::nrow(ses_ann_sum))
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     6.2 Load Manifest:: Genome Studio A2
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  gss_man_dat <- 
-    loadManifestGenomeStudio(
-      file=gss_man_csv, addSource=TRUE, normalize=TRUE, 
-      verbose=opt$verbose, tt=pTracker)
-  
-  # Compare Ids::
-  ses_mat_tib <- ses_man_tib %>% dplyr::filter( IlmnID %in% gss_man_dat$man$IlmnID)
-  ses_mis_tib <- ses_man_tib %>% dplyr::filter(!IlmnID %in% gss_man_dat$man$IlmnID)
-  
-  ses_mat_sum <- ses_mat_tib %>%
-    dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop")
-  ses_mat_sum %>% print(n=base::nrow(ses_mat_sum))
-  
-  ses_mis_sum <- ses_mis_tib %>%
-    dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop")
-  ses_mis_sum %>% print(n=base::nrow(ses_mis_sum))
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                       6.3 Load Annotation:: NCBI/UCSC
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  ncib_gene_tsv <- "/Users/bretbarnes/Documents/data/annotation/GRCm38/GRCm38.ncbi.RefSeqGenes.tsv.gz"
-  ucsc_gene_tsv <- "/Users/bretbarnes/Documents/data/annotation/GRCm38/GRCm38.ucsc.knownGene.tsv.gz"
-  ucsc_cpgs_tsv <- "/Users/bretbarnes/Documents/data/annotation/GRCm38/GRCm38.ucsc.CpG-Islands.tsv.gz"
-  
-  ncbi_gene_tib <- load_ncbi_gene(file=ncib_gene_tsv, verbose=opt$verbose, tt=pTracker)
-  ucsc_gene_tib <- load_ucsc_gene(file=ucsc_gene_tsv, verbose=opt$verbose, tt=pTracker)
-  ucsc_cpgs_tib <- load_ucsc_cpgs(file=ucsc_cpgs_tsv, verbose=opt$verbose, tt=pTracker)
-  
-  ncbi_gene_grs <- load_ncbi_gene(file=ncib_gene_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
-  ucsc_gene_grs <- load_ucsc_gene(file=ucsc_gene_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
-  ucsc_cpgs_grs <- load_ucsc_cpgs(file=ucsc_cpgs_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
-  
-  ann_int_list <- NULL
-  # NCBI Gene Comparison::
-  #
-  ref_pre_str <- "NCBI_Gene"
-  ann_key_str <- ref_pre_str
-  ref_pre_str <- NULL
-  # ncbi_gene_int_tib <- 
-  ann_int_list[[ann_key_str]] <-
-    intersect_GRS(can=ses_pos_grs, ref=ncbi_gene_grs, 
-                  can_key="IlmnID", ref_prefix=ref_pre_str, 
-                  verbose=opt$verbose, tt=pTracker)
-  
-  ncbi_gene_crs_tib <- 
-    ann_int_list[[ann_key_str]] %>% 
-    dplyr::inner_join(ses_ann_tab, by="IlmnID")
-  
-  ncbi_gene_crs_sum <- ncbi_gene_crs_tib %>% 
-    dplyr::group_by(class,Value_Str) %>% 
-    dplyr::summarise(Count=n(), .groups="drop") %>% 
-    dplyr::arrange(-Count)
-  ncbi_gene_crs_sum %>% print(n=base::nrow(ncbi_gene_crs_sum))
-  
-  # UCSC Gene Comparison::
-  #
-  ref_pre_str <- "UCSC_Gene"
-  ann_key_str <- ref_pre_str
-  ref_pre_str <- NULL
-  # ucsc_gene_int_tib <- 
-  ann_int_list[[ann_key_str]] <-
-    intersect_GRS(can=ses_pos_grs, ref=ucsc_gene_grs, 
-                  can_key="IlmnID", ref_prefix=ref_pre_str, 
-                  verbose=opt$verbose, tt=pTracker)
-  
-  ucsc_gene_crs_tib <- 
-    ann_int_list[[ann_key_str]] %>% 
-    dplyr::inner_join(ses_ann_tab, by="IlmnID")
-  
-  ucsc_gene_crs_sum <- ucsc_gene_crs_tib %>% 
-    dplyr::group_by(class,Value_Str) %>% 
-    dplyr::summarise(Count=n(), .groups="drop") %>% 
-    dplyr::arrange(-Count)
-  ucsc_gene_crs_sum %>% print(n=base::nrow(ucsc_gene_crs_sum))
-  
-  # UCSC Islands Comparison::
-  #
-  ref_pre_str <- "UCSC_Islands"
-  ann_key_str <- ref_pre_str
-  ref_pre_str <- NULL
-  # ucsc_cpgs_int_tib <- 
-  ann_int_list[[ann_key_str]] <-
-    intersect_GRS(can=ses_pos_grs, ref=ucsc_cpgs_grs, 
-                  can_key="IlmnID", ref_prefix=ref_pre_str, 
-                  verbose=opt$verbose, tt=pTracker)
-  
-  ucsc_cpgs_crs_tib <- 
-    ann_int_list[[ann_key_str]] %>% 
-    dplyr::inner_join(ses_ann_tab, by="IlmnID")
-  
-  ucsc_cpgs_crs_sum <- ucsc_cpgs_crs_tib %>% 
-    dplyr::group_by(class,Value_Str) %>% 
-    dplyr::summarise(Count=n(), .groups="drop") %>% 
-    dplyr::arrange(-Count)
-  ucsc_cpgs_crs_sum %>% print(n=base::nrow(ucsc_cpgs_crs_sum))
-  
-  #
-  # TBD: CURRENT: Building genrealzied annotation format
-  #
-  # ncbi_gene_int_tib %>% print(n=2)
-  # ucsc_gene_int_tib %>% print(n=2)
-  # ucsc_cpgs_int_tib %>% print(n=2)
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                       6.4 Load Annotation:: Chrom HMM
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  hmm_cols <- 
-    cols(
-      chr    = col_character(),
-      beg    = col_integer(),
-      end    = col_integer(),
-      class  = col_character(),
-      val1   = col_integer(),
-      val2   = col_character(),
-      val3   = col_integer(),
-      val4   = col_integer(),
-      val5   = col_character()
-    )
-  
-  hmm_path  <- "/Users/bretbarnes/Documents/data/annotation/GRCm9/chrom_hmm/liftOver/mm9ToMm10"
-  hmm_sufix <- "_cStates_HMM.mapped.bed.gz"
-  hmm_files <- list.files(hmm_path, pattern=hmm_sufix, full.names=TRUE)
-  hmm_names <- hmm_files %>% base::basename() %>% stringr::str_remove(hmm_sufix)
-  
-  hmm_list <- NULL
-  for (ii in c(1:length(hmm_files))) {
-    name <- hmm_names[ii]
-    hmm_list[[name]] <- hmm_files[ii]
-  }
-  
-  # lapply(hmm_files, suppressMessages(suppressWarnings(readr::read_tsv)))
-  hmm_dat_list <- lapply(hmm_list, readr::read_tsv, col_names=names(hmm_cols$cols), col_types=hmm_cols)
-  
-  for (samp in base::names(hmm_dat_list)) {
-    if (opt$verbose>0)
-      cat(glue::glue("[{par$prgmTag}]: Sample={samp}...{RET}"))
-    
-    cur_key <- paste(samp,"hmm", sep="_")
-    cur_grp <- paste(cur_key,"class", sep="_")
-    cur_grp_sym <- rlang::sym(cur_grp)
-    cur_name <- paste(opt)
-    
-    cur_tib <- hmm_dat_list[[samp]] %>%
-      dplyr::arrange(chr,beg) %>% 
-      dplyr::group_by(class) %>% 
-      dplyr::mutate(class=stringr::str_replace_all(class, '_','-'), 
-                    Class_Rank=dplyr::row_number(), 
-                    Uniq_Id=paste(class,Class_Rank, sep="_")) %>%
-      dplyr::ungroup()
-    
-    cur_grs <- 
-      GenomicRanges::GRanges(
-        seqnames=Rle(cur_tib$chr),
-        # strand=Rle(ses_pos_tib$srd),
-        # Probe_Type=ses_pos_tib$Probe_Type,
-        name=paste(cur_tib$chr,cur_tib$beg,cur_tib$end, sep='-'),
-        name2=NA_character_,
-        class=cur_tib$class,
-        source="Chrom-HMM",
-        tissue=samp,
-        rank=cur_tib$Class_Rank,
-        
-        IRanges(start=cur_tib$beg,
-                end=cur_tib$end,
-                names=cur_tib$Uniq_Id)
-      )
-    
-    if (opt$verbose>0) {
-      cat(glue::glue("[{par$prgmTag}]: Sample={samp}; cur_grs={RET}"))
-      print(cur_grs)
+    if (!dir.exists(curDir)) {
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Failed to find dir={curDir}, skipping...{RET}") )
+      next
     }
     
-    # Comparison::
-    #
-    ref_pre_str <- cur_key
-    ann_key_str <- cur_key
-    ref_pre_str <- NULL
+    if (!is.null(opt$findSampleSheet) && opt$findSampleSheet) {
+      
+      cur_hm_csv <- file.path(curDir, par$humanSampleSheetName)
+      cat(glue::glue("[{par$prgmTag}]:{TAB}Loading Human Classification; cur_hm_csv={cur_hm_csv}!{RET}") )
+      
+      cur_hm_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_hm_csv) ))
+      cur_hm_len <- cur_hm_tib %>% base::nrow()
+      cat(glue::glue("[{par$prgmTag}]:{TAB}Done. Loading Human Classification; cur_hm_len={cur_hm_len}!{RET}{RET}") )
+      # print(cur_hm_tib)
+      
+      hum_ss_tib <- dplyr::bind_rows(hum_ss_tib,cur_hm_tib)
+    }
     
-    # cur_int_tib <- 
-    ann_int_list[[ann_key_str]] <-
-      intersect_GRS(can=ses_pos_grs, ref=cur_grs,
-                    can_key="IlmnID", ref_prefix=ref_pre_str, 
-                    verbose=opt$verbose, tt=pTracker)
+    suffix='AutoSampleSheet.csv.gz'
     
-    cur_crs_tib <- 
-      ann_int_list[[ann_key_str]] %>% 
-      dplyr::inner_join(ses_ann_tab, by="IlmnID")
+    opt$flagDetectPval   <- FALSE
+    opt$flagSampleDetect <- FALSE
+    opt$flagRefMatch     <- FALSE
     
-    cur_crs_sum <- cur_crs_tib %>% 
-      # dplyr::group_by(!!cur_grp_sym,Value_Str) %>% 
-      dplyr::group_by(class,Value_Str) %>% 
-      dplyr::summarise(Count=n(), .groups="drop") %>% 
-      dplyr::arrange(-Count)
-    cur_crs_sum %>% print(n=base::nrow(cur_crs_sum))
+    opt$pvalDetectMinKey <- NULL
+    opt$pvalDetectMinVal <- NULL
     
-    if (opt$verbose>0)
-      cat(glue::glue("[{par$prgmTag}]: Done. Sample={samp}.{RET}{RET}"))
+    opt$clean_gta <- FALSE
     
-    # break
+    opt$verbose <- 10
+    
+    cur_ss_tib <- NULL
+    cur_ss_tib <- 
+      loadAutoSampleSheets(dir=curDir, 
+                           platform=opt$platform, manifest=opt$version, workflow=opt$workflow,
+                           suffix=suffix,
+                           
+                           addSampleName=opt$addSampleName, 
+                           addPathsCall=opt$addPathsCall, 
+                           addPathsSset=opt$addPathsSset,
+                           
+                           flagDetectPval=opt$flagDetectPval, 
+                           flagSampleDetect=opt$flagSampleDetect, 
+                           flagRefMatch=opt$flagRefMatch,
+                           
+                           pvalDetectMinKey=opt$pvalDetectMinKey, 
+                           pvalDetectMinVal=opt$pvalDetectMinVal,
+                           clean_gta=opt$clean_gta,
+                           verbose=opt$verbose,vt=3,tc=1,tt=pTracker)
+    
+    if (is.null(cur_ss_tib)) {
+      if (opt$verbose>0)
+        cat(glue::glue("[{par$prgmTag}]:{TAB} Failed to find any suffix={suffix} ",
+                       "in dir={curDir}. Skipping...{RET}") )
+      next
+    }
+    
+    cur_ss_tib <- cur_ss_tib %>%
+      dplyr::distinct(Sentrix_Name, .keep_all=TRUE) %>% 
+      dplyr::mutate(build_source=base::basename(curDir))
+    
+    build_str <- base::basename(curDir)
+    
+    auto_ss_tib <- auto_ss_tib %>% dplyr::bind_rows(cur_ss_tib) %>% dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
+    cur_ss_len  <- cur_ss_tib %>% base::nrow()
+    auto_ss_len <- auto_ss_tib %>% base::nrow()
+    
+    cat(glue::glue("[{par$prgmTag}]:{TAB} Raw Auto Sample Sheet Current={cur_ss_len}, Total={auto_ss_len}.{RET}"))
+    # print(cur_ss_tib)
   }
+  auto_ss_len <- auto_ss_tib %>% base::nrow()
+  
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len}.{RET}{RET}"))
+  
 }
-
-if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Binding all annotation...{RET}"))
-
-ann_int_tib <- ann_int_list %>% 
-  dplyr::bind_rows() %>%
-  dplyr::arrange(IlmnID)
-
-ann_int_sum <- ann_int_tib %>% 
-  dplyr::group_by(source,class,tissue) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-ann_int_sum %>% print(n=base::nrow(ann_int_sum))
-
-if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Writing all annotation(CSV)={run$ann_int_csv}...{RET}"))
-readr::write_csv(ann_int_tib, run$ann_int_csv)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::

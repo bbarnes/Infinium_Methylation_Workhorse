@@ -189,7 +189,7 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
 #                    Sesame SSET Prediction Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ssetToPredictions = function(sset, del='_', fresh=FALSE,
+ssetToPredictions = function(sset, del='_', platform=NULL, fresh=FALSE,
                              quality.mask = FALSE, sum.TypeI = FALSE,
                              verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'ssetToPredictions'
@@ -200,8 +200,8 @@ ssetToPredictions = function(sset, del='_', fresh=FALSE,
   ret_tib <- NULL
   stime <- system.time({
     
-    platform <- NULL
-    platform <- sset@platform
+    if (is.null(platform)) platform <- sset@platform
+    
     if (verbose>=vt+1)
       cat(glue::glue("[{funcTag}]:{tabsStr} Using platform={platform} for Inference/Prediction calls.{RET}{RET}"))
     

@@ -47,7 +47,7 @@ template_func = function(tib,
 #                          Genomic Range Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-intersect_GRS = function(can,ref, can_key="unq_can_key", ref_prefix=NULL, # ref_prefix="imp",
+intersect_GRS = function(can,ref, can_key="unq_can_key", ref_prefix=NULL,
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'intersect_GRS'
   tabsStr <- paste0(rep(TAB, tc), collapse='')

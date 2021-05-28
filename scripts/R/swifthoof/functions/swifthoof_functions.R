@@ -23,7 +23,7 @@ RET <- "\n"
 #                       Single Sample Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
-                                mask=NULL,
+                                mask=NULL, platform=NULL,
                                 pvals=NULL, min_pvals=NULL, min_percs=NULL,
                                 workflows=NULL, 
                                 
@@ -151,7 +151,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     open_sum1_ssh <- NULL
     open_sum2_ssh <- NULL
     if (man_map_tib$platform[1]=='EPIC' ||
-        man_map_tib$platform[1]=='HM450') {
+        man_map_tib$platform[1]=='HM450' ||
+        (!is.null(platform) && 
+         (platform=="EPIC" || platform=="HM450") ) ) {
       
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detection p-value for ",
@@ -304,9 +306,9 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       stopifnot(!is.null(cur_sset))
       
       cur_dat_list = ssetToSummary(
-        sset=cur_sset, man=top_man_tib, idx=idx, workflow=cur_workflow,
-        name=out_name, outDir=opts$outDir, pre=cur_dat_list, ref=ref,
-        mask=mask,
+        sset=cur_sset, man=top_man_tib, idx=idx, workflow=cur_workflow, 
+        name=out_name, platform=platform,
+        outDir=opts$outDir, pre=cur_dat_list, ref=ref, mask=mask,
         pvals=pvals, min_pvals=min_pvals, min_percs=min_percs,
         basic=open_beta_tib,
         
