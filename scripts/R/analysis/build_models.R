@@ -58,6 +58,10 @@ par$prgmDir <- 'analysis'
 par$prgmTag <- 'build_models'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
+# TBD:: This variable needs to be properly integrated, its a total hack
+#  currently...
+par$classVar <- NULL
+
 # Directory Parameters::
 opt$outDir    <- NULL
 opt$datDir  <- NULL
@@ -276,11 +280,14 @@ if (args.dat[1]=='RStudio') {
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
     
+    par$classVar <- "detect_version"
+    par$classVar <- "detect_platform"
+    
     opt$datDir <- paste(
       file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
                 # par$platform,par$version,
                 # opt$classVar,
-                "detect_version",
+                par$classVar,
                 opt$workflow),
       sep=',')
     
@@ -503,6 +510,10 @@ exp_sym   <- rlang::sym(exp_var)
 opt$outDir <- file.path(opt$outDir, 
                         # opt$platform, opt$version, 
                         opt$classVar, opt$workflow)
+
+# TBD:: par$classVar is a temporary hack, needs to be integrated properly...
+if (!is.null(par$classVar)) opt$outDir <- file.path(opt$outDir, par$classVar)
+
 if (!dir.exists(opt$outDir))
   dir.create(opt$outDir, recursive=TRUE)
 
@@ -578,13 +589,15 @@ for (betaKey in lociBetaKey_vec) {
       
       # opt$clean <- FALSE
       # opt$clean <- TRUE
-      # opt$verbose <- 4
+      opt$verbose <- 40
       
+      sentrix_name <- "Sentrix_Name"
+      sentrix_name <- "Sentrix_Uniq"
       beta_file_tib <- getCallsMatrixFiles(
         betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=mergeDirs_vec, cgn=NULL, classes=opt$trainClass,
         class_var=class_var, class_idx=class_idx, pval_name=opt$samplePvalName, pval_perc=opt$samplePvalPerc,
         clean=opt$clean,addPval=opt$addPval, 
-        sentrix_name="Sentrix_Name",idKey="Probe_ID", betaName='beta', pvalName='pval', del='.',exp_name=exp_sym,
+        sentrix_name=sentrix_name,idKey="Probe_ID", betaName='beta', pvalName='pval', del='.',exp_name=exp_sym,
         beta_rds=beta_masked_rds, pval_rds=pval_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
         sam_suffix="_AutoSampleSheet.csv.gz", dat_suffix="_MergedDataFiles.tib.csv.gz", 
         verbose=opt$verbose, vt=3,tc=1,tt=cTracker)

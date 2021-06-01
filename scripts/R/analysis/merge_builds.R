@@ -244,6 +244,7 @@ if (args.dat[1]=='RStudio') {
     
     # opt$classVar <- "detect_manifest"
     opt$classVar <- "detect_version"
+    opt$classVar <- "detect_platform"
     
     opt$single   <- FALSE
     # opt$parallel <- TRUE
@@ -691,11 +692,13 @@ if (par$noob_sub) {
   # Quick FIx for noob_sub
   #
   hum_ss_tib <- auto_ss_tib %>% 
-    dplyr::group_by(Sentrix_Name,detect_platform) %>%
+    # dplyr::group_by(Sentrix_Name,detect_platform) %>%
+    dplyr::group_by(Sentrix_Name,!!class_var) %>%
     dplyr::mutate(Sample_Class=dplyr::row_number()) %>%
     dplyr::select(Sentrix_Name,Sample_Class,detect_manifest,detect_platform,detect_version) %>%
     dplyr::ungroup() %>%
-    dplyr::arrange(detect_version)
+    # dplyr::arrange(detect_version)
+    dplyr::arrange(Sample_Class)
   
   # opt$classVar <- "Sample_Class"
   class_var <- rlang::sym("Sample_Class")
@@ -811,7 +814,8 @@ if (!is.null(hum_ss_tib)) {
   if (par$noob_sub) {
     labs_ss_tib <- auto_ss_tib %>% 
       dplyr::left_join(hum_ss_tib, by=c("Sentrix_Name","detect_manifest","detect_platform","detect_version") ) %>% 
-      dplyr::arrange(!!class_var)
+      dplyr::arrange(!!class_var) %>%
+      dplyr::mutate(Sentrix_Uniq=paste(Sentrix_Name,detect_manifest, sep='-'))
   } else {
     labs_ss_tib <- auto_ss_tib %>% 
       dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
@@ -902,6 +906,12 @@ if (file.exists(opt$beg_file) && file.exists(opt$end_file) && file.exists(opt$ca
 #                               Write Outputs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# TBD:: Make all Sentrix_Names actually unique if duplicated; i.e. noob_sub
+#  Solution??? Mutate a new chipName below...
+
+chipName <- "Sentrix_Name"
+if (par$noob_sub) chipName <- "Sentrix_Uniq"
+
 if (!pass_time_check) {
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]: Building from scratch...{RET}"))
@@ -914,7 +924,7 @@ if (!pass_time_check) {
   if (opt$addPathsCall) {
     call_tib <- mergeCallsFromSS(
       ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
-      chipName="Sentrix_Name", pathName="Calls_Path", joinNameA="Probe_ID",
+      chipName=chipName, pathName="Calls_Path", joinNameA="Probe_ID",
       verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
     
     readr::write_csv(call_tib, opt$call_csv)
@@ -924,7 +934,7 @@ if (!pass_time_check) {
   if (opt$addPathsSset) {
     sset_tib <- mergeCallsFromSS(
       ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
-      chipName="Sentrix_Name", pathName="Ssets_Path", 
+      chipName=chipName, pathName="Ssets_Path", 
       joinNameA="Probe_ID", joinNameB="Probe_Design",
       verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
     
@@ -944,54 +954,75 @@ readr::write_csv(labs_ss_tib, opt$labs_csv)
 
 if (par$noob_sub) {
   
-  labs_ss_tib %>% 
-    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
-    dplyr::group_by(detect_version_int) %>%
-    dplyr::arrange(detect_version_int) %>%
-    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
-                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
-                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
-                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
-                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
-                     TotalN=n(),
-                     Min_R2=min(AutoSample_R2_1_Val_1, na.rm=TRUE), 
-                     Max_R2=max(AutoSample_R2_1_Val_1, na.rm=TRUE),
-                     Avg_R2=mean(AutoSample_R2_1_Val_1, na.rm=TRUE), 
-                     Med_R2=median(AutoSample_R2_1_Val_1, na.rm=TRUE),
-                     Std_R2=sd(AutoSample_R2_1_Val_1, na.rm=TRUE),
-                     
-                     Min_dB=min(AutoSample_dB_1_Val_1, na.rm=TRUE), 
-                     Max_dB=max(AutoSample_dB_1_Val_1, na.rm=TRUE),
-                     Avg_dB=mean(AutoSample_dB_1_Val_1, na.rm=TRUE), 
-                     Med_dB=median(AutoSample_dB_1_Val_1, na.rm=TRUE),
-                     Std_dB=sd(AutoSample_dB_1_Val_1, na.rm=TRUE)
-    )
+  # NOTE: The commented code below only looks at Infinium I probe performance::
+  #  TBD:: Probably should still write this out, but for both I/II designs...
+  #
+  # labs_ss_tib %>% 
+  #   dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
+  #   dplyr::group_by(detect_version_int) %>%
+  #   dplyr::arrange(detect_version_int) %>%
+  #   dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+  #                    Max_PV=max(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+  #                    Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+  #                    Med_PV=median(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+  #                    Std_PV=sd(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+  #                    TotalN=n(),
+  #                    Min_R2=min(AutoSample_R2_1_Val_1, na.rm=TRUE), 
+  #                    Max_R2=max(AutoSample_R2_1_Val_1, na.rm=TRUE),
+  #                    Avg_R2=mean(AutoSample_R2_1_Val_1, na.rm=TRUE), 
+  #                    Med_R2=median(AutoSample_R2_1_Val_1, na.rm=TRUE),
+  #                    Std_R2=sd(AutoSample_R2_1_Val_1, na.rm=TRUE),
+  #                    
+  #                    Min_dB=min(AutoSample_dB_1_Val_1, na.rm=TRUE), 
+  #                    Max_dB=max(AutoSample_dB_1_Val_1, na.rm=TRUE),
+  #                    Avg_dB=mean(AutoSample_dB_1_Val_1, na.rm=TRUE), 
+  #                    Med_dB=median(AutoSample_dB_1_Val_1, na.rm=TRUE),
+  #                    Std_dB=sd(AutoSample_dB_1_Val_1, na.rm=TRUE),
+  #                    
+  #                    Min_Age=min(AgeSkinBlood_1, na.rm=TRUE), 
+  #                    Max_Age=max(AgeSkinBlood_1, na.rm=TRUE),
+  #                    Avg_Age=mean(AgeSkinBlood_1, na.rm=TRUE), 
+  #                    Med_Age=median(AgeSkinBlood_1, na.rm=TRUE),
+  #                    Std_Age=sd(AgeSkinBlood_1, na.rm=TRUE),
+  #                    .groups="drop"
+  #   )
+  # 
+  # labs_ss_tib %>% 
+  #   dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
+  #   dplyr::group_by(detect_version_int) %>%
+  #   dplyr::arrange(detect_version_int) %>%
+  #   dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+  #                    Max_PV=max(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+  #                    Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+  #                    Med_PV=median(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+  #                    Std_PV=sd(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+  #                    TotalN=n(),
+  #                    Min_R2=min(AutoSample_R2_1_Val_2, na.rm=TRUE), 
+  #                    Max_R2=max(AutoSample_R2_1_Val_2, na.rm=TRUE),
+  #                    Avg_R2=mean(AutoSample_R2_1_Val_2, na.rm=TRUE), 
+  #                    Med_R2=median(AutoSample_R2_1_Val_2, na.rm=TRUE),
+  #                    Std_R2=sd(AutoSample_R2_1_Val_2, na.rm=TRUE),
+  #                    
+  #                    Min_dB=min(AutoSample_dB_1_Val_2, na.rm=TRUE), 
+  #                    Max_dB=max(AutoSample_dB_1_Val_2, na.rm=TRUE),
+  #                    Avg_dB=mean(AutoSample_dB_1_Val_2, na.rm=TRUE), 
+  #                    Med_dB=median(AutoSample_dB_1_Val_2, na.rm=TRUE),
+  #                    Std_dB=sd(AutoSample_dB_1_Val_2, na.rm=TRUE),
+  #                    
+  #                    Min_Age=min(AgeSkinBlood_2, na.rm=TRUE), 
+  #                    Max_Age=max(AgeSkinBlood_2, na.rm=TRUE),
+  #                    Avg_Age=mean(AgeSkinBlood_2, na.rm=TRUE), 
+  #                    Med_Age=median(AgeSkinBlood_2, na.rm=TRUE),
+  #                    Std_Age=sd(AgeSkinBlood_2, na.rm=TRUE),
+  #                    .groups="drop"
+  #   )
   
-  labs_ss_tib %>% 
-    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
-    dplyr::group_by(detect_version_int) %>%
-    dplyr::arrange(detect_version_int) %>%
-    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
-                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
-                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
-                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
-                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
-                     TotalN=n(),
-                     Min_R2=min(AutoSample_R2_1_Val_2, na.rm=TRUE), 
-                     Max_R2=max(AutoSample_R2_1_Val_2, na.rm=TRUE),
-                     Avg_R2=mean(AutoSample_R2_1_Val_2, na.rm=TRUE), 
-                     Med_R2=median(AutoSample_R2_1_Val_2, na.rm=TRUE),
-                     Std_R2=sd(AutoSample_R2_1_Val_2, na.rm=TRUE),
-                     
-                     Min_dB=min(AutoSample_dB_1_Val_2, na.rm=TRUE), 
-                     Max_dB=max(AutoSample_dB_1_Val_2, na.rm=TRUE),
-                     Avg_dB=mean(AutoSample_dB_1_Val_2, na.rm=TRUE), 
-                     Med_dB=median(AutoSample_dB_1_Val_2, na.rm=TRUE),
-                     Std_dB=sd(AutoSample_dB_1_Val_2, na.rm=TRUE)
-    )
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Write Outputs:: detect_version
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  
-  labs_ss_tib %>% 
+  opt$vers_sum1_csv <- file.path(opt$outDir, paste(par$outName, 'detect_version-summary1.csv.gz', sep='_') )
+  vers_sum1_tib <- labs_ss_tib %>% 
     dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
     dplyr::group_by(detect_version_int) %>%
     dplyr::arrange(detect_version_int) %>%
@@ -1011,10 +1042,20 @@ if (par$noob_sub) {
                      Max_dB=max(AutoSample_dB_Val_1, na.rm=TRUE),
                      Avg_dB=mean(AutoSample_dB_Val_1, na.rm=TRUE), 
                      Med_dB=median(AutoSample_dB_Val_1, na.rm=TRUE),
-                     Std_dB=sd(AutoSample_dB_Val_1, na.rm=TRUE)
-    )
+                     Std_dB=sd(AutoSample_dB_Val_1, na.rm=TRUE),
+                     
+                     Min_Age=min(AgeSkinBlood_1, na.rm=TRUE), 
+                     Max_Age=max(AgeSkinBlood_1, na.rm=TRUE),
+                     Avg_Age=mean(AgeSkinBlood_1, na.rm=TRUE), 
+                     Med_Age=median(AgeSkinBlood_1, na.rm=TRUE),
+                     Std_Age=sd(AgeSkinBlood_1, na.rm=TRUE),
+                     .groups="drop"
+    ) %>% dplyr::mutate_if(is.double, base::round, 4)
+  readr::write_csv(vers_sum1_tib, opt$vers_sum1_csv)
+  vers_sum1_tib %>% print(n=base::nrow(vers_sum1_tib))
   
-  labs_ss_tib %>% 
+  opt$vers_sum2_csv <- file.path(opt$outDir, paste(par$outName, 'detect_version-summary2.csv.gz', sep='_') )
+  vers_sum2_tib <- labs_ss_tib %>% 
     dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
     dplyr::group_by(detect_version_int) %>%
     dplyr::arrange(detect_version_int) %>%
@@ -1034,8 +1075,159 @@ if (par$noob_sub) {
                      Max_dB=max(AutoSample_dB_Val_2, na.rm=TRUE),
                      Avg_dB=mean(AutoSample_dB_Val_2, na.rm=TRUE), 
                      Med_dB=median(AutoSample_dB_Val_2, na.rm=TRUE),
-                     Std_dB=sd(AutoSample_dB_Val_2, na.rm=TRUE)
-    )
+                     Std_dB=sd(AutoSample_dB_Val_2, na.rm=TRUE),
+                     
+                     Min_Age=min(AgeSkinBlood_2, na.rm=TRUE), 
+                     Max_Age=max(AgeSkinBlood_2, na.rm=TRUE),
+                     Avg_Age=mean(AgeSkinBlood_2, na.rm=TRUE), 
+                     Med_Age=median(AgeSkinBlood_2, na.rm=TRUE),
+                     Std_Age=sd(AgeSkinBlood_2, na.rm=TRUE),
+                     .groups="drop"
+    ) %>% dplyr::mutate_if(is.double, base::round, 4)
+  readr::write_csv(vers_sum2_tib, opt$vers_sum2_csv)
+  vers_sum2_tib %>% print(n=base::nrow(vers_sum2_tib))
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Write Outputs:: detect_platform
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opt$plat_sum1_csv <- file.path(opt$outDir, paste(par$outName, 'detect_platform-summary1.csv.gz', sep='_') )
+  plat_sum1_tib <- labs_ss_tib %>% 
+    dplyr::mutate(detect_platform_int=stringr::str_remove(detect_platform, "^Rand") %>% as.integer()) %>%
+    dplyr::group_by(detect_platform_int) %>%
+    dplyr::arrange(detect_platform_int) %>%
+    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     TotalN=n(),
+                     Min_R2=min(AutoSample_R2_Val_1, na.rm=TRUE), 
+                     Max_R2=max(AutoSample_R2_Val_1, na.rm=TRUE),
+                     Avg_R2=mean(AutoSample_R2_Val_1, na.rm=TRUE), 
+                     Med_R2=median(AutoSample_R2_Val_1, na.rm=TRUE),
+                     Std_R2=sd(AutoSample_R2_Val_1, na.rm=TRUE),
+                     
+                     Min_dB=min(AutoSample_dB_Val_1, na.rm=TRUE), 
+                     Max_dB=max(AutoSample_dB_Val_1, na.rm=TRUE),
+                     Avg_dB=mean(AutoSample_dB_Val_1, na.rm=TRUE), 
+                     Med_dB=median(AutoSample_dB_Val_1, na.rm=TRUE),
+                     Std_dB=sd(AutoSample_dB_Val_1, na.rm=TRUE),
+                     
+                     Min_Age=min(AgeSkinBlood_1, na.rm=TRUE), 
+                     Max_Age=max(AgeSkinBlood_1, na.rm=TRUE),
+                     Avg_Age=mean(AgeSkinBlood_1, na.rm=TRUE), 
+                     Med_Age=median(AgeSkinBlood_1, na.rm=TRUE),
+                     Std_Age=sd(AgeSkinBlood_1, na.rm=TRUE),
+                     .groups="drop"
+    ) %>% dplyr::mutate_if(is.double, base::round, 4)
+  readr::write_csv(plat_sum1_tib, opt$plat_sum1_csv)
+  plat_sum1_tib %>% print(n=base::nrow(plat_sum1_tib))
+
+  opt$plat_sum2_csv <- file.path(opt$outDir, paste(par$outName, 'detect_platform-summary2.csv.gz', sep='_') )
+  plat_sum2_tib <- labs_ss_tib %>% 
+    dplyr::mutate(detect_platform_int=stringr::str_remove(detect_platform, "^Rand") %>% as.integer()) %>%
+    dplyr::group_by(detect_platform_int) %>%
+    dplyr::arrange(detect_platform_int) %>%
+    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     TotalN=n(),
+                     Min_R2=min(AutoSample_R2_Val_2, na.rm=TRUE), 
+                     Max_R2=max(AutoSample_R2_Val_2, na.rm=TRUE),
+                     Avg_R2=mean(AutoSample_R2_Val_2, na.rm=TRUE), 
+                     Med_R2=median(AutoSample_R2_Val_2, na.rm=TRUE),
+                     Std_R2=sd(AutoSample_R2_Val_2, na.rm=TRUE),
+                     
+                     Min_dB=min(AutoSample_dB_Val_2, na.rm=TRUE), 
+                     Max_dB=max(AutoSample_dB_Val_2, na.rm=TRUE),
+                     Avg_dB=mean(AutoSample_dB_Val_2, na.rm=TRUE), 
+                     Med_dB=median(AutoSample_dB_Val_2, na.rm=TRUE),
+                     Std_dB=sd(AutoSample_dB_Val_2, na.rm=TRUE),
+                     
+                     Min_Age=min(AgeSkinBlood_2, na.rm=TRUE), 
+                     Max_Age=max(AgeSkinBlood_2, na.rm=TRUE),
+                     Avg_Age=mean(AgeSkinBlood_2, na.rm=TRUE), 
+                     Med_Age=median(AgeSkinBlood_2, na.rm=TRUE),
+                     Std_Age=sd(AgeSkinBlood_2, na.rm=TRUE),
+                     .groups="drop"
+    ) %>% dplyr::mutate_if(is.double, base::round, 4)
+  readr::write_csv(plat_sum2_tib, opt$plat_sum2_csv)
+  plat_sum2_tib %>% print(n=base::nrow(plat_sum2_tib))
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #           Write Outputs:: detect_version & detect_platform
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opt$both_sum1_csv <- file.path(opt$outDir, paste(par$outName, 'detect_both-summary1.csv.gz', sep='_') )
+  both_sum1_tib <- labs_ss_tib %>% 
+    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer(),
+                  detect_platform_int=stringr::str_remove(detect_platform, "^Rand") %>% as.integer()) %>%
+    dplyr::arrange(detect_version_int,detect_platform_int) %>%
+    dplyr::group_by(detect_version_int,detect_platform_int) %>%
+    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     TotalN=n(),
+                     Min_R2=min(AutoSample_R2_Val_1, na.rm=TRUE), 
+                     Max_R2=max(AutoSample_R2_Val_1, na.rm=TRUE),
+                     Avg_R2=mean(AutoSample_R2_Val_1, na.rm=TRUE), 
+                     Med_R2=median(AutoSample_R2_Val_1, na.rm=TRUE),
+                     Std_R2=sd(AutoSample_R2_Val_1, na.rm=TRUE),
+                     
+                     Min_dB=min(AutoSample_dB_Val_1, na.rm=TRUE), 
+                     Max_dB=max(AutoSample_dB_Val_1, na.rm=TRUE),
+                     Avg_dB=mean(AutoSample_dB_Val_1, na.rm=TRUE), 
+                     Med_dB=median(AutoSample_dB_Val_1, na.rm=TRUE),
+                     Std_dB=sd(AutoSample_dB_Val_1, na.rm=TRUE),
+                     
+                     Min_Age=min(AgeSkinBlood_1, na.rm=TRUE), 
+                     Max_Age=max(AgeSkinBlood_1, na.rm=TRUE),
+                     Avg_Age=mean(AgeSkinBlood_1, na.rm=TRUE), 
+                     Med_Age=median(AgeSkinBlood_1, na.rm=TRUE),
+                     Std_Age=sd(AgeSkinBlood_1, na.rm=TRUE),
+                     .groups="drop"
+    ) %>% dplyr::mutate_if(is.double, base::round, 4)
+  readr::write_csv(both_sum1_tib, opt$both_sum1_csv)
+  both_sum1_tib %>% print(n=base::nrow(both_sum1_tib))
+  
+  opt$both_sum2_csv <- file.path(opt$outDir, paste(par$outName, 'detect_both-summary2.csv.gz', sep='_') )
+  both_sum2_tib <- labs_ss_tib %>% 
+    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer(),
+                  detect_platform_int=stringr::str_remove(detect_platform, "^Rand") %>% as.integer()) %>%
+    dplyr::arrange(detect_version_int,detect_platform_int) %>%
+    dplyr::group_by(detect_version_int,detect_platform_int) %>%
+    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     TotalN=n(),
+                     Min_R2=min(AutoSample_R2_Val_2, na.rm=TRUE), 
+                     Max_R2=max(AutoSample_R2_Val_2, na.rm=TRUE),
+                     Avg_R2=mean(AutoSample_R2_Val_2, na.rm=TRUE), 
+                     Med_R2=median(AutoSample_R2_Val_2, na.rm=TRUE),
+                     Std_R2=sd(AutoSample_R2_Val_2, na.rm=TRUE),
+                     
+                     Min_dB=min(AutoSample_dB_Val_2, na.rm=TRUE), 
+                     Max_dB=max(AutoSample_dB_Val_2, na.rm=TRUE),
+                     Avg_dB=mean(AutoSample_dB_Val_2, na.rm=TRUE), 
+                     Med_dB=median(AutoSample_dB_Val_2, na.rm=TRUE),
+                     Std_dB=sd(AutoSample_dB_Val_2, na.rm=TRUE),
+                     
+                     Min_Age=min(AgeSkinBlood_2, na.rm=TRUE), 
+                     Max_Age=max(AgeSkinBlood_2, na.rm=TRUE),
+                     Avg_Age=mean(AgeSkinBlood_2, na.rm=TRUE), 
+                     Med_Age=median(AgeSkinBlood_2, na.rm=TRUE),
+                     Std_Age=sd(AgeSkinBlood_2, na.rm=TRUE),
+                     .groups="drop"
+    ) %>% dplyr::mutate_if(is.double, base::round, 4)
+  readr::write_csv(both_sum2_tib, opt$both_sum2_csv)
+  both_sum2_tib %>% print(n=base::nrow(both_sum2_tib))
   
 }
 
