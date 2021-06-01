@@ -75,6 +75,7 @@ opt$workflow <- NULL
 
 opt$select <- FALSE
 opt$clean_gta <- FALSE
+opt$forceUnq  <- TRUE
 
 # Sample Sheet Parameters::
 opt$addSampleName    <- FALSE
@@ -211,8 +212,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVID'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
-  par$local_runType <- 'NA12878'
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
+  par$local_runType <- 'NA12878'
   
   if (FALSE) {
     
@@ -220,7 +221,7 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- par$local_runType
     
     opt$workflow    <- "ind"
-
+    
     opt$single   <- FALSE
     # opt$parallel <- TRUE
     
@@ -235,12 +236,21 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- par$local_runType
     
     opt$workflow    <- "ind"
-
+    
+    opt$verbose <- 30
+    opt$platform <- NULL
+    opt$version  <- NULL
+    opt$forceUnq <- FALSE
+    
+    # opt$classVar <- "detect_manifest"
+    opt$classVar <- "detect_version"
+    
     opt$single   <- FALSE
     # opt$parallel <- TRUE
     
     opt$datDir <- paste(
-      file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
+      # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
+      file.path(par$topDir, 'scratch/noob-sub'),
       sep=',')
     
   } else if (par$local_runType=='COVID') {
@@ -467,7 +477,9 @@ if (args.dat[1]=='RStudio') {
     
     make_option(c("--clean_gta"), action="store_true", default=opt$clean_gta, 
                 help="Boolean variable to remove Genotyping tails from Sentrix Names (mostly testing stuff) [default= %default]", metavar="boolean"),
-    
+    make_option(c("--forceUnq"), action="store_false", default=opt$forceUnq, 
+                help="Boolean variable to force unique Sentrix Names [default= %default]", metavar="boolean"),
+
     # Parallel/Cluster Parameters::
     make_option(c("--execute"), action="store_true", default=opt$execute, 
                 help="Boolean variable to shell scripts (mostly testing stuff) [default= %default]", metavar="boolean"),
@@ -506,7 +518,8 @@ opt_reqs <- c('outDir','Rscript','verbose','clean',
               'datDir','runName','classVar','workflow',
               'addSampleName','addPathsCall','addPathsSset',
               'flagDetectPval','flagSampleDetect','flagRefMatch',
-              'platform','version','percisionBeta','percisionPval',
+              # 'platform','version',
+              'percisionBeta','percisionPval',
               'execute','single','parallel','cluster')
 
 par$gen_src_dir <- file.path(par$scrDir, 'functions')
@@ -534,33 +547,32 @@ par_tib <- dplyr::bind_rows(par) %>% tidyr::gather("Params", "Value")
 
 pTracker <- timeTracker$new(verbose=opt$verbose)
 
-blds_dir_vec  <- opt$datDir %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+blds_dir_vec  <- opt$datDir %>% 
+  str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
 if (is.null(opt$classVar)) opt$classVar <- 'Source_Sample_Name'
 class_var <- rlang::sym(opt$classVar)
 class_idx <- rlang::sym("Class_Idx")
 
-# opt <- setLaunchExe(opts=opt, pars=par, verbose=opt$verbose, vt=5,tc=0)
-
-cat(glue::glue("[{par$prgmTag}]: Bulding outDir-1={opt$outDir}!{RET}{RET}") )
-
-if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-
-opt$outDir <- file.path(opt$outDir, 
-                        opt$platform, opt$version, 
-                        opt$classVar, opt$workflow)
-
-cat(glue::glue("[{par$prgmTag}]: Bulding outDir-2={opt$outDir}!{RET}{RET}") )
-
-if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
-
-if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Built; OutDir={opt$outDir}!{RET}") )
-
 if (opt$verbose>0) {
   cat(glue::glue("[{par$prgmTag}]: blds_dir_vec={RET}") )
   print(blds_dir_vec)
 }
+
+if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
+
+if (!is.null(opt$platform)) opt$outDir <- file.path(opt$outDir, opt$platform)
+if (!is.null(opt$version))  opt$outDir <- file.path(opt$outDir, opt$version)
+if (!is.null(opt$classVar)) opt$outDir <- file.path(opt$outDir, opt$classVar)
+if (!is.null(opt$workflow)) opt$outDir <- file.path(opt$outDir, opt$workflow)
+
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Bulding outDir={opt$outDir}!{RET}{RET}") )
+
+if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
+
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Built; outDir={opt$outDir}!{RET}{RET}") )
 
 if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
@@ -597,8 +609,8 @@ for (curDir in blds_dir_vec) {
   cur_ss_tib <- NULL
   cur_ss_tib <- 
     loadAutoSampleSheets(dir=curDir, 
-                         platform=opt$platform, manifest=opt$version, workflow=opt$workflow,
-                         suffix=suffix,
+                         platform=opt$platform, manifest=opt$version, 
+                         workflow=opt$workflow, suffix=suffix,
                          
                          addSampleName=opt$addSampleName, 
                          addPathsCall=opt$addPathsCall, 
@@ -620,30 +632,75 @@ for (curDir in blds_dir_vec) {
     next
   }
   
+  if (opt$forceUnq) cur_ss_tib <- cur_ss_tib %>% 
+    dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
+  
   cur_ss_tib <- cur_ss_tib %>%
-    dplyr::distinct(Sentrix_Name, .keep_all=TRUE) %>% 
-    dplyr::mutate(build_source=base::basename(curDir))
+    dplyr::mutate(build_source=base::basename(curDir)) %>%
+    clean_tibble()
+
+  # Join builds::
+  #
+  auto_ss_tib <- auto_ss_tib %>% 
+    dplyr::bind_rows(cur_ss_tib) %>%
+    clean_tibble()
   
-  build_str <- base::basename(curDir)
+  if (opt$forceUnq) auto_ss_tib %>% 
+    dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
   
-  auto_ss_tib <- auto_ss_tib %>% dplyr::bind_rows(cur_ss_tib) %>% dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
   cur_ss_len  <- cur_ss_tib %>% base::nrow()
   auto_ss_len <- auto_ss_tib %>% base::nrow()
   
-  cat(glue::glue("[{par$prgmTag}]:{TAB} Raw Auto Sample Sheet Current={cur_ss_len}, Total={auto_ss_len}.{RET}"))
-  # print(cur_ss_tib)
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB} Raw Auto Sample Sheet ",
+                   "Current={cur_ss_len}, Total={auto_ss_len}.{RET}"))
+  
+  print_tib(cur_ss_tib,par$prgmTag, opt$verbose,vt=10,tc=1, n="cur_ss_tib")
 }
-auto_ss_len <- auto_ss_tib %>% base::nrow()
 
+auto_ss_len <- auto_ss_tib %>% base::nrow()
 if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; Total={auto_ss_len}.{RET}{RET}"))
-# print(auto_ss_tib)
-# auto_ss_tib %>% dplyr::distinct(build_source)
+  cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; ",
+                 "Total={auto_ss_len}.{RET}{RET}"))
 
 auto_ss_sum <- auto_ss_tib %>% 
-  dplyr::group_by(Run_Name,AutoSample_dB_Key_2) %>% 
+  # dplyr::group_by(Run_Name,AutoSample_dB_Key_2) %>% 
+  dplyr::group_by(auto_ss_tib$detect_manifest,AutoSample_dB_Key_2) %>% 
   dplyr::summarise(Count=n(), .groups="drop")
 auto_ss_sum %>% print(n=base::nrow(auto_ss_sum))
+
+
+#
+# Quick fix update calls path for noob_sum::
+#
+par$noob_sub <- TRUE
+if (par$noob_sub) {
+
+  auto_ss_tib <- auto_ss_tib %>% 
+    dplyr::mutate(Calls_Path=stringr::str_replace(SampleSheet_Path, "_AutoSampleSheet.csv.gz", "_ind.call.dat.csv.gz"))
+  
+  # Qucik Validation of Calls Path Update for noob_sum::
+  auto_ss_tib %>% 
+    dplyr::distinct(Calls_Path) %>% head(n=1) %>% 
+    dplyr::pull(Calls_Path) %>% file.exists()
+  auto_ss_tib %>% 
+    dplyr::distinct(Calls_Path) %>% 
+    base::nrow() %>% print()
+  
+  #
+  # Quick FIx for noob_sub
+  #
+  hum_ss_tib <- auto_ss_tib %>% 
+    dplyr::group_by(Sentrix_Name,detect_platform) %>%
+    dplyr::mutate(Sample_Class=dplyr::row_number()) %>%
+    dplyr::select(Sentrix_Name,Sample_Class,detect_manifest,detect_platform,detect_version) %>%
+    dplyr::ungroup() %>%
+    dplyr::arrange(detect_version)
+  
+  # opt$classVar <- "Sample_Class"
+  class_var <- rlang::sym("Sample_Class")
+
+}
 
 
 
@@ -733,26 +790,33 @@ if (FALSE) {
 #                   Load Humman Annotation Sample Sheets::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
-  opt$sampleCsv <- file.path(par$datDir, "ss/AstraZeneca_30042021_Human_SampleSheet.csv.gz")
-}
-
-if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
+if (FALSE) {
+  if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
+    opt$sampleCsv <- file.path(par$datDir, "ss/AstraZeneca_30042021_Human_SampleSheet.csv.gz")
+  }
   
-  stop(glue::glue("[{par$prgmTag}]: Failed to find predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))
-  
-} else {
-  cat(glue::glue("[{par$prgmTag}]: FOUND predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))  
+  if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
+    
+    stop(glue::glue("[{par$prgmTag}]: Failed to find predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))
+    
+  } else {
+    cat(glue::glue("[{par$prgmTag}]: FOUND predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))  
+  }
 }
-
 
 labs_ss_tib <- NULL
-if (! is.null(hum_ss_tib)) {
+if (!is.null(hum_ss_tib)) {
   cat(glue::glue("[{par$prgmTag}]: Adding default class_var='{opt$classVar}'{RET}") )
   
-  labs_ss_tib <- auto_ss_tib %>% 
-    dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
-    dplyr::arrange(!!class_var)
+  if (par$noob_sub) {
+    labs_ss_tib <- auto_ss_tib %>% 
+      dplyr::left_join(hum_ss_tib, by=c("Sentrix_Name","detect_manifest","detect_platform","detect_version") ) %>% 
+      dplyr::arrange(!!class_var)
+  } else {
+    labs_ss_tib <- auto_ss_tib %>% 
+      dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
+      dplyr::arrange(!!class_var)
+  }
   
 } else if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
   
@@ -775,15 +839,23 @@ if (! is.null(hum_ss_tib)) {
   }
 } else {
   # stop(glue::glue("[{par$prgmTag}]: Failed to find humman annotation sample sheet={opt$sampleCsv}!!!{RET}{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
   
-  hum_ss_tib <- auto_ss_tib %>% dplyr::select(Sentrix_Name, !!class_var) %>% dplyr::arrange(!!class_var)
+  hum_ss_tib <- auto_ss_tib %>% 
+    dplyr::select(Sentrix_Name, !!class_var) %>% 
+    dplyr::arrange(!!class_var)
   
   # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
   # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
   #
-  auto_ss_tib <- auto_ss_tib %>% dplyr::select(- !!class_var)
-  labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
+  auto_ss_tib <- auto_ss_tib %>% 
+    dplyr::select(- !!class_var)
+  labs_ss_tib <- auto_ss_tib %>% 
+    dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
+    # dplyr::left_join(hum_ss_tib, by=c("Sentrix_Name",opt$classVar)) %>% 
+    # dplyr::left_join(hum_ss_tib, by=c("Sentrix_Name",!!class_var)) %>% 
+    # dplyr::left_join(hum_ss_tib, by=dplyr::all_of(c("Sentrix_Name",opt$classVar))) %>% 
     dplyr::arrange(!!class_var)
 }
 
@@ -795,13 +867,16 @@ print(labs_ss_tib)
 #                          Import Datasets (Calls)::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-outName <- paste(opt$runName, opt$platform, opt$version, opt$workflow, sep='_')
+par$outName <- opt$runName
+if (!is.null(opt$platform)) par$outName <- paste(par$outName, opt$platform, sep='_')
+if (!is.null(opt$version))  par$outName <- paste(par$outName, opt$version, sep='_')
+if (!is.null(opt$workflow)) par$outName <- paste(par$outName, opt$workflow, sep='_')
 
-opt$beg_file <- file.path(opt$outDir, paste(outName, 'load-beg.txt', sep='_') )
-opt$end_file <- file.path(opt$outDir, paste(outName, 'load-end.txt', sep='_') )
-opt$labs_csv <- file.path(opt$outDir, paste(outName, 'AutoSampleSheet.csv.gz', sep='_') )
-opt$call_csv <- file.path(opt$outDir, paste(outName, 'MergedDataFiles.tib.csv.gz', sep='_') )
-opt$sset_csv <- file.path(opt$outDir, paste(outName, 'MergedSsetFiles.tib.csv.gz', sep='_') )
+opt$beg_file <- file.path(opt$outDir, paste(par$outName, 'load-beg.txt', sep='_') )
+opt$end_file <- file.path(opt$outDir, paste(par$outName, 'load-end.txt', sep='_') )
+opt$labs_csv <- file.path(opt$outDir, paste(par$outName, 'AutoSampleSheet.csv.gz', sep='_') )
+opt$call_csv <- file.path(opt$outDir, paste(par$outName, 'MergedDataFiles.tib.csv.gz', sep='_') )
+opt$sset_csv <- file.path(opt$outDir, paste(par$outName, 'MergedSsetFiles.tib.csv.gz', sep='_') )
 
 if (opt$clean) unlink( list.files(opt$outDir, full.names=TRUE) )
 
@@ -838,7 +913,7 @@ if (!pass_time_check) {
   # Write Merged Call Files Tibble::
   if (opt$addPathsCall) {
     call_tib <- mergeCallsFromSS(
-      ss=labs_ss_tib, max=par$maxTest, outName=outName, outDir=opt$outDir, 
+      ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
       chipName="Sentrix_Name", pathName="Calls_Path", joinNameA="Probe_ID",
       verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
     
@@ -848,7 +923,7 @@ if (!pass_time_check) {
   # Write Merged Sset Files Tibble::
   if (opt$addPathsSset) {
     sset_tib <- mergeCallsFromSS(
-      ss=labs_ss_tib, max=par$maxTest, outName=outName, outDir=opt$outDir, 
+      ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
       chipName="Sentrix_Name", pathName="Ssets_Path", 
       joinNameA="Probe_ID", joinNameB="Probe_Design",
       verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
@@ -866,6 +941,103 @@ if (!pass_time_check) {
 
 # Write Auto Sample Sheet::
 readr::write_csv(labs_ss_tib, opt$labs_csv)
+
+if (par$noob_sub) {
+  
+  labs_ss_tib %>% 
+    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
+    dplyr::group_by(detect_version_int) %>%
+    dplyr::arrange(detect_version_int) %>%
+    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     TotalN=n(),
+                     Min_R2=min(AutoSample_R2_1_Val_1, na.rm=TRUE), 
+                     Max_R2=max(AutoSample_R2_1_Val_1, na.rm=TRUE),
+                     Avg_R2=mean(AutoSample_R2_1_Val_1, na.rm=TRUE), 
+                     Med_R2=median(AutoSample_R2_1_Val_1, na.rm=TRUE),
+                     Std_R2=sd(AutoSample_R2_1_Val_1, na.rm=TRUE),
+                     
+                     Min_dB=min(AutoSample_dB_1_Val_1, na.rm=TRUE), 
+                     Max_dB=max(AutoSample_dB_1_Val_1, na.rm=TRUE),
+                     Avg_dB=mean(AutoSample_dB_1_Val_1, na.rm=TRUE), 
+                     Med_dB=median(AutoSample_dB_1_Val_1, na.rm=TRUE),
+                     Std_dB=sd(AutoSample_dB_1_Val_1, na.rm=TRUE)
+    )
+  
+  labs_ss_tib %>% 
+    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
+    dplyr::group_by(detect_version_int) %>%
+    dplyr::arrange(detect_version_int) %>%
+    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     TotalN=n(),
+                     Min_R2=min(AutoSample_R2_1_Val_2, na.rm=TRUE), 
+                     Max_R2=max(AutoSample_R2_1_Val_2, na.rm=TRUE),
+                     Avg_R2=mean(AutoSample_R2_1_Val_2, na.rm=TRUE), 
+                     Med_R2=median(AutoSample_R2_1_Val_2, na.rm=TRUE),
+                     Std_R2=sd(AutoSample_R2_1_Val_2, na.rm=TRUE),
+                     
+                     Min_dB=min(AutoSample_dB_1_Val_2, na.rm=TRUE), 
+                     Max_dB=max(AutoSample_dB_1_Val_2, na.rm=TRUE),
+                     Avg_dB=mean(AutoSample_dB_1_Val_2, na.rm=TRUE), 
+                     Med_dB=median(AutoSample_dB_1_Val_2, na.rm=TRUE),
+                     Std_dB=sd(AutoSample_dB_1_Val_2, na.rm=TRUE)
+    )
+  
+  
+  labs_ss_tib %>% 
+    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
+    dplyr::group_by(detect_version_int) %>%
+    dplyr::arrange(detect_version_int) %>%
+    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
+                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
+                     TotalN=n(),
+                     Min_R2=min(AutoSample_R2_Val_1, na.rm=TRUE), 
+                     Max_R2=max(AutoSample_R2_Val_1, na.rm=TRUE),
+                     Avg_R2=mean(AutoSample_R2_Val_1, na.rm=TRUE), 
+                     Med_R2=median(AutoSample_R2_Val_1, na.rm=TRUE),
+                     Std_R2=sd(AutoSample_R2_Val_1, na.rm=TRUE),
+                     
+                     Min_dB=min(AutoSample_dB_Val_1, na.rm=TRUE), 
+                     Max_dB=max(AutoSample_dB_Val_1, na.rm=TRUE),
+                     Avg_dB=mean(AutoSample_dB_Val_1, na.rm=TRUE), 
+                     Med_dB=median(AutoSample_dB_Val_1, na.rm=TRUE),
+                     Std_dB=sd(AutoSample_dB_Val_1, na.rm=TRUE)
+    )
+  
+  labs_ss_tib %>% 
+    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
+    dplyr::group_by(detect_version_int) %>%
+    dplyr::arrange(detect_version_int) %>%
+    dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+                     Max_PV=max(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
+                     Med_PV=median(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     Std_PV=sd(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
+                     TotalN=n(),
+                     Min_R2=min(AutoSample_R2_Val_2, na.rm=TRUE), 
+                     Max_R2=max(AutoSample_R2_Val_2, na.rm=TRUE),
+                     Avg_R2=mean(AutoSample_R2_Val_2, na.rm=TRUE), 
+                     Med_R2=median(AutoSample_R2_Val_2, na.rm=TRUE),
+                     Std_R2=sd(AutoSample_R2_Val_2, na.rm=TRUE),
+                     
+                     Min_dB=min(AutoSample_dB_Val_2, na.rm=TRUE), 
+                     Max_dB=max(AutoSample_dB_Val_2, na.rm=TRUE),
+                     Avg_dB=mean(AutoSample_dB_Val_2, na.rm=TRUE), 
+                     Med_dB=median(AutoSample_dB_Val_2, na.rm=TRUE),
+                     Std_dB=sd(AutoSample_dB_Val_2, na.rm=TRUE)
+    )
+  
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                Finished::

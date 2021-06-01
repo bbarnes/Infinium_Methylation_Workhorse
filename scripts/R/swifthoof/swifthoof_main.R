@@ -14,6 +14,9 @@ suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quiet
 # Load Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
+# Load Performance Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("profmem",quietly=TRUE) ))
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -137,6 +140,7 @@ opt$plotMax <- 10000
 opt$plotSub <- 5000
 
 opt$time_org_txt <- NULL
+opt$trackTime    <- FALSE
 
 # verbose Options::
 opt$verbose <- 3
@@ -233,13 +237,13 @@ if (args.dat[1]=='RStudio') {
   
   opt$save_sset <- TRUE
   opt$load_sset <- TRUE
-
+  
   opt$manDirPath <- NULL
   opt$manDirName <- 'base'
   opt$manDirName <- 'core'
   
   opt$verbose  <- 3
-
+  
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'GRCm38'
@@ -271,12 +275,13 @@ if (args.dat[1]=='RStudio') {
   opt$parallel <- FALSE
   
   opt$fresh <- TRUE
-
+  opt$trackTime <- TRUE
+  
   opt$runName  <- par$local_runType
   
   if (FALSE) {
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
-
+    
   } else if (par$local_runType=='NA12878') {
     
     opt$single   <- TRUE
@@ -288,7 +293,7 @@ if (args.dat[1]=='RStudio') {
     opt$version    <- "S20"
     opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/McMaster10Kselection", opt$platform)
     opt$forcedPlat <- "EPIC"
-
+    
   } else if (par$local_runType=='qcMVP2') {
     opt$runName  <- 'IBX-Zymogen'
     opt$runName  <- 'IBX-EPIDX'
@@ -329,7 +334,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$dpi <- 72
   } else if (par$local_runType=='DKFZ') {
-
+    
     opt$dpi <- 72
   } else if (par$local_runType=='CORE') {
     opt$runName  <- 'BETA-8x1-EPIC-Core'
@@ -343,7 +348,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$runName  <- 'EPIC-BETA-8x1-CoreCancer'
     par$expChipNum <- '201502830033'
-
+    
   } else if (par$local_runType=='EXCBR') {
     opt$runName  <- 'Excalibur-Old-1609202'
     par$expChipNum <- '204076530053'
@@ -396,7 +401,7 @@ if (args.dat[1]=='RStudio') {
                 help="Output directory [default= %default]", metavar="character"),
     make_option(c("-d","--datDir"), type="character", default=opt$datDir, 
                 help="List of idats directory(s), commas seperated [default= %default]", metavar="character"),
-
+    
     # Platform/Method Parameters::
     make_option(c("--runName"), type="character", default=opt$runName, 
                 help="Run Name [default= %default]", metavar="character"),
@@ -431,7 +436,7 @@ if (args.dat[1]=='RStudio') {
                 help="Forced Manifest name to use in Sesame calculations [default= %default]", metavar="character"),
     make_option(c("--man_suffix"), type="character", default=opt$man_suffix,
                 help="Manifest suffix search name. Default is set to predefined Sesame suffix. [default= %default]", metavar="character"),
-
+    
     # Output Options::
     make_option(c("--load_idat"), action="store_true", default=opt$load_idat,
                 help="Boolean variable to load existing IDAT from RDS file [default= %default]", metavar="boolean"),
@@ -533,6 +538,9 @@ if (args.dat[1]=='RStudio') {
     
     make_option(c("--time_org_txt"), type="character", default=opt$time_org_txt, 
                 help="Unused variable time_org_txt [default= %default]", metavar="character"),
+    make_option(c("--trackTime"), action="store_true", default=opt$trackTime,
+                help="Boolean variable tack run times [default= %default]", metavar="boolean"),
+    
     # verbose::
     make_option(c("-v", "--verbose"), type="integer", default=opt$verbose, 
                 help="0-5 (5 is very verbose) [default= %default]", metavar="integer")
@@ -676,7 +684,7 @@ if (opt$cluster) {
   
   pTracker <- NULL
   # pTracker <- timeTracker$new(verbose=opt$verbose)
-
+  
   par$manDir <- NULL
   if (!is.null(opt$manDirPath) && length(opt$manDirPath)>0 && dir.exists(opt$manDirPath)) {
     par$manDir <- opt$manDirPath
@@ -687,7 +695,7 @@ if (opt$cluster) {
   }
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]: Set manifest search directory={par$manDir}.{RET}"))
-
+  
   tar_man_tib <- NULL
   tar_man_tib <- get_manifest_list(
     file=opt$manifest, dir=par$manDir,
@@ -751,7 +759,7 @@ if (opt$cluster) {
   if (opt$parallel) {
     par$funcTag <- 'sesamizeSingleSample-Parallel'
     par$retData <- FALSE
-
+    
     if (opt$verbose>0)
       cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; ",
                      "num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
@@ -771,6 +779,7 @@ if (opt$cluster) {
                                    workflows=workflow_vec,
                                    
                                    retData=par$retData,
+                                   trackTime=opt$trackTime,
                                    verbose=opt$verbose, vt=3,tc=1)
       rdat
     }
@@ -797,19 +806,22 @@ if (opt$cluster) {
       }
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
-      rdat <- NULL
-      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
-                                   man=tar_man_dat, ref=auto_sam_tib, 
-                                   opts=opt, defs=def,
-                                   mask=mask_cpg_vec, platform=opt$forcedPlat,
-                                   
-                                   pvals=pval_vec,
-                                   min_pvals=min_pval_vec,
-                                   min_percs=min_perc_vec,
-                                   workflows=workflow_vec,
-                                   
-                                   retData=par$retData,
-                                   verbose=opt$verbose, vt=3,tc=1)
+      # ram_performance <- profmem({
+        rdat <- NULL
+        rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
+                                     man=tar_man_dat, ref=auto_sam_tib, 
+                                     opts=opt, defs=def,
+                                     mask=mask_cpg_vec, platform=opt$forcedPlat,
+                                     
+                                     pvals=pval_vec,
+                                     min_pvals=min_pval_vec,
+                                     min_percs=min_perc_vec,
+                                     workflows=workflow_vec,
+                                     
+                                     retData=par$retData,
+                                     trackTime=opt$trackTime,
+                                     verbose=opt$verbose, vt=3,tc=1)
+      # })
       
       cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
       if (opt$single) break
@@ -825,6 +837,44 @@ if (opt$cluster) {
   
   readr::write_csv(opt_tib, opt_csv)
   readr::write_csv(par_tib, par_csv)
+}
+
+# Example of perfromance memory usage::
+# p <- profmem({
+#   x <- integer(1000)
+#   Y <- matrix(rnorm(n = 10000), nrow = 100)
+# })
+
+# Original Results::
+# 
+# > ram_performance$bytes %>% as.vector() %>% sum(na.rm=TRUE)
+# [1] 5314560760
+# [1] 5240191152
+# [1] 5240610912
+# > ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE)
+# [1] 66544360
+# [1] 66544360
+# [1] 66544360
+# > ram_performance$bytes %>% as.vector() %>% mean(na.rm=TRUE)
+# [1] 50876.52
+# [1] 63505.15
+# [1] 63073.78
+# > ram_performance$bytes %>% as.vector() %>% median(na.rm=TRUE)
+# [1] 472
+# [1] 488
+# [1] 496
+# > which(ram_performance$bytes == ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE))
+# [1] 142435 142437 217300 217302
+# [1] 129530 129532 150371 150373
+# [1] 141992 141994 162828 162830
+
+if (FALSE) {
+  ram_performance$bytes %>% as.vector() %>% sum(na.rm=TRUE)
+  ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE)
+  ram_performance$bytes %>% as.vector() %>% mean(na.rm=TRUE)
+  ram_performance$bytes %>% as.vector() %>% median(na.rm=TRUE)
+  which(ram_performance$bytes == ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE))
+  ram_performance$trace[which(ram_performance$bytes == ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE))]
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

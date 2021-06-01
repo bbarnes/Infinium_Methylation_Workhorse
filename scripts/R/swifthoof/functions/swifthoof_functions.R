@@ -31,9 +31,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
                                 report_vec=c("Requeue","pass_perc","mean"),
                                 
                                 retData=FALSE, retData2=FALSE, non_ref=FALSE, 
+                                trackTime=FALSE,
                                 del='_', 
-                                verbose=0, vt=3,tc=0) {
-  funcTag <- 'sesamizeSingleSample'
+                                verbose=0, vt=3,tc=0,
+                                funcTag='sesamizeSingleSample') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) 
@@ -46,12 +48,21 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
   # Return Values::
   ret_cnt <- 0
   ret_dat <- NULL
+  ret_tib <- NULL
+  
+  ssheet_tib <- NULL
+  dsheet_tab <- NULL
+
+  etime <- NA
+  stime <- NULL
   stime <- system.time({
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Initialize Starting Outputs::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    tTracker <- timeTracker$new()
+    
+    tTracker <- NULL
+    if (trackTime) tTracker <- timeTracker$new()
     out_name <- basename(prefix)
     out_prefix <- file.path(opts$outDir, out_name)
     
@@ -82,6 +93,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr} Writing opts_csv={opts_csv}...{RET}"))
     readr::write_csv(opts_tib, opts_csv)
     
+    opt_ssh_tib <- NULL
     opt_ssh_tib <- tibble::tibble(
       Min_DeltaBeta = opts$minDeltaBeta,
       Sesame_Version=as.character( packageVersion("sesame") )
@@ -93,11 +105,13 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     idat_sigs_csv <- paste(out_prefix, 'idat.sigs.csv.gz', sep=del)
     idat_info_csv <- paste(out_prefix, 'idat.info.csv.gz', sep=del)
+    idat_sigs_tib <- NULL
     idat_sigs_tib <- 
       prefixToIdat(prefix=prefix, load=opts$load_idat, save=opts$save_idat, 
                    csv=idat_sigs_csv, ssh=idat_info_csv,
                    verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
-
+    
+    idat_info_tib <- NULL
     idat_info_tib <- 
       suppressMessages(suppressWarnings( readr::read_csv(idat_info_csv) ))
     
@@ -108,13 +122,16 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     #                     Get Sesame Manifest/Address Tables::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
+    man_map_tib <- NULL
     man_map_tib <- idatToManifestMap(
       tib=idat_sigs_tib, mans=man, sortMax=TRUE,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
+    top_man_tib <- NULL
     top_man_tib <- man[[man_map_tib[1,]$manifest]] %>% 
       dplyr::distinct(Probe_ID, .keep_all=TRUE)
     
+    bead_sum_tib <- NULL
     bead_sum_tib <- getManifestBeadStats(
       dat=idat_sigs_tib, man=top_man_tib, types=btypes, 
       verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
@@ -122,24 +139,25 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     #
     # TBD:: Replace or improve addBeadPoolToSampleSheet()
     #
+    bead_ssh_tib <- NULL
     bead_ssh_tib <- bead_sum_tib %>% 
       tidyr::spread(name, value) %>%
       addBeadPoolToSampleSheet(field="Loci_Count_cg",
                                verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
-
+    
     if (retData) {
-      ret_dat$prefix <- prefix
+      if (!is.null(prefix)) ret_dat$prefix <- prefix
       
-      ret_dat$ossh <- opt_ssh_tib
+      if (!is.null(opt_ssh_tib)) ret_dat$ossh <- opt_ssh_tib
       
-      ret_dat$isig <- idat_sigs_tib
-      ret_dat$issh <- idat_info_tib
+      if (!is.null(idat_sigs_tib)) ret_dat$isig <- idat_sigs_tib
+      if (!is.null(idat_info_tib)) ret_dat$issh <- idat_info_tib
       
-      ret_dat$mmap <- man_map_tib
-      ret_dat$sman <- top_man_tib
+      if (!is.null(man_map_tib)) ret_dat$mmap <- man_map_tib
+      if (!is.null(top_man_tib)) ret_dat$sman <- top_man_tib
       
-      ret_dat$bsum <- bead_sum_tib
-      ret_dat$bssh <- bead_ssh_tib
+      if (!is.null(bead_sum_tib)) ret_dat$bsum <- bead_sum_tib
+      if (!is.null(bead_ssh_tib)) ret_dat$bssh <- bead_ssh_tib
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -158,10 +176,12 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detection p-value for ",
                        "manifest={man_map_tib$platform[1]}.{RET}"))
-
+      
       open_sset_dat <- sesame::openSesame(x=prefix, what = 'sigset')
       open_beta_tib <- sesame::getBetas(sset = open_sset_dat, 
-                                        mask=FALSE, sum.TypeI=FALSE)
+                                        mask=FALSE, sum.TypeI=FALSE) %>%
+        tibble::enframe(name="Probe_ID", value="betas")
+      
       open_sum1_ssh <- 
         ssetToPassPercSsheet(sset=open_sset_dat, man=NULL,
                              min=min_pvals[1], per=min_percs[1],
@@ -175,11 +195,12 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
       if (retData) {
-        ret_dat$open_sset_dat <- open_sset_dat
-        ret_dat$open_beta_tib <- open_beta_tib
-        ret_dat$open_sum1_ssh <- open_sum1_ssh
-        ret_dat$open_sum2_ssh <- open_sum2_ssh
+        if (!is.null(open_sset_dat)) ret_dat$open_sset_dat <- open_sset_dat
+        if (!is.null(open_beta_tib)) ret_dat$open_beta_tib <- open_beta_tib
+        if (!is.null(open_sum1_ssh)) ret_dat$open_sum1_ssh <- open_sum1_ssh
+        if (!is.null(open_sum2_ssh)) ret_dat$open_sum2_ssh <- open_sum2_ssh
       }
+      rm(open_sset_dat)
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -278,7 +299,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}{RET}"))
     }
     
-    org_dat_bool <- TRUE
     cur_dat_list <- NULL
     workflow_cnt <- length(workflows)
     for (idx in seq(1,workflow_cnt)) {
@@ -339,9 +359,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         datIdx=5, non_ref=FALSE, fresh=opts$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
-      if (retData && org_dat_bool) {
-        org_dat_bool <- FALSE
-        ret_dat$org_list <- cur_dat_list
+      if (retData) {
+        if (!is.null(cur_dat_list)) ret_dat$org_list <- cur_dat_list
       }
       
       if (verbose>=vt) {
@@ -357,8 +376,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     }
     
     if (retData) {
-      ret_dat$cur_list <- cur_dat_list
-      # return(ret_dat)
+      if (!is.null(cur_dat_list)) ret_dat$cur_list <- cur_dat_list
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -379,9 +397,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       minNegPval=min_pvals[2], minNegPerc=min_percs[2],
       minDb=opts$minDeltaBeta,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-    
-    # Format Time Table
-    time_tib <- tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                         Write Basic Requeue File::
@@ -408,6 +423,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Outputs.{RET}"))
     
+    # Format Time Table
+    time_tib <- NULL
+    if (!is.null(tTracker)) time_tib <- 
+      tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
+    
     if (!is.null(ssheet_tib)) readr::write_csv(ssheet_tib, ssheet_csv)
     if (!is.null(dsheet_tab)) readr::write_csv(dsheet_tab, dsheet_csv)
     if (!is.null(time_tib))   readr::write_csv(time_tib, times_csv)
@@ -425,17 +445,17 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     ret_cnt <- ssheet_tib %>% base::ncol()
   })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tTracker)) tTracker$addTime(stime,funcTag)
+  if (!is.null(stime)) etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tTracker) && !is.null(stime)) tTracker$addTime(stime,funcTag)
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   if (retData) {
-    ret_dat$req_tib    <- req_tib
-    ret_dat$ssheet_tib <- ssheet_tib
-    ret_dat$dsheet_tab <- dsheet_tab
-    ret_dat$time       <- tTracker$time
+    if (!is.null(req_tib)) ret_dat$req_tib    <- req_tib
+    if (!is.null(ssheet_tib)) ret_dat$ssheet_tib <- ssheet_tib
+    if (!is.null(dsheet_tab)) ret_dat$dsheet_tab <- dsheet_tab
+    if (!is.null(tTracker)) ret_dat$time <- tTracker$time
     return(ret_dat)
   }
   

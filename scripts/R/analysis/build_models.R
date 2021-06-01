@@ -229,8 +229,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GENK'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
-  par$local_runType <- 'NA12878'
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
+  par$local_runType <- 'NA12878'
   
   if (FALSE) {
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
@@ -278,7 +278,10 @@ if (args.dat[1]=='RStudio') {
     
     opt$datDir <- paste(
       file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
-                par$platform,par$version,opt$classVar,opt$workflow),
+                # par$platform,par$version,
+                # opt$classVar,
+                "detect_version",
+                opt$workflow),
       sep=',')
     
     opt$trainClass <- paste('NA12878', sep=',')

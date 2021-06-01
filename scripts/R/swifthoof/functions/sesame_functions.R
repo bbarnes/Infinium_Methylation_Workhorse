@@ -47,8 +47,9 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
                          by="Probe_ID", type="Probe_Type", des="Probe_Design",
                          minDb=0.02, dpi=120, plotFormat="png", datIdx=5,
                          non_ref=FALSE, fresh=FALSE, del='_',
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'ssetToSummary'
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='ssetToSummary') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; workflow={workflow}...{RET}"))
@@ -245,7 +246,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Basic(Open) Comparison...{RET}"))
       
       r2_basic_val <- basic %>% 
-        tibble::enframe(name="Probe_ID", value="betas") %>%
+        # tibble::enframe(name="Probe_ID", value="betas") %>%
         dplyr::inner_join(beta_dat_tib, 
                           by="Probe_ID", suffix=c("_ref","_can")) %>%
         tibble::column_to_rownames(var="Probe_ID") %>% 
@@ -259,7 +260,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Basic(r2)={r2_basic_val}...{RET}"))
       
       dB_basic_val <- basic %>% 
-        tibble::enframe(name="Probe_ID", value="betas") %>%
+        # tibble::enframe(name="Probe_ID", value="betas") %>%
         dplyr::inner_join(beta_dat_tib, 
                           by="Probe_ID", suffix=c("_ref","_can")) %>%
         dplyr::filter(stringr::str_starts(Probe_ID,'cg')) %>% 

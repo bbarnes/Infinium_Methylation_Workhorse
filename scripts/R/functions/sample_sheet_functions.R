@@ -46,6 +46,8 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
   pattern <- paste(pattern,suffix, sep='_')
   
   auto_ss_list <- list.files(dir, pattern=pattern, recursive=TRUE, full.names=TRUE)
+  # print(auto_ss_list)
+  
   auto_ss_cnts <- auto_ss_list %>% length()
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting, SampleSheetCount={auto_ss_cnts}, pattern={pattern} dir={dir}.{RET}"))
@@ -57,6 +59,9 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
   }
 
   pvalDetectMinKey <- NULL
+  
+  etime <- NA
+  stime <- NULL
   stime <- base::system.time({
 
     if (!is.null(pvalDetectMinKey)) pvalDetectMinKey <- pvalDetectMinKey %>% rlang::sym()
@@ -65,7 +70,8 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #  Load Samples::
     ret_tib <- suppressMessages(suppressWarnings(lapply(auto_ss_list, readr::read_csv) )) %>% 
-      dplyr::bind_rows()
+      dplyr::bind_rows() %>%
+      dplyr::mutate(SampleSheet_Path=auto_ss_list)
     
     if (clean_gta) {
       ret_tib <- ret_tib %>% dplyr::mutate(
@@ -76,7 +82,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
     
     auto_ss_tlen <- base::nrow(ret_tib)
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(bPool)={auto_ss_tlen}{RET}"))
-    # print(ret_tib)
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="raw_tib")
     
     if (addSampleName || flagDetectPval || flagSampleDetect || flagRefMatch) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Adding flags...{RET}"))
@@ -92,9 +98,9 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
       if (addSampleName) {
         ret_tib <- ret_tib %>% dplyr::mutate(Auto_Sample_Name=!!dbKey) %>%
           dplyr::select(Auto_Sample_Name, dplyr::everything())
+        ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="general_tib")
       }
-      if (verbose>=vt+4) print(ret_tib)
-      
+
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #  Flag Probe Detected (pval)::
       if (flagDetectPval && !is.null(pvalDetectMinKey) && !is.null(pvalDetectMinVal)) {
@@ -110,6 +116,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
               !!pvalDetectMinKey < !!pvalDetectMinVal ~ FALSE,
               TRUE ~ TRUE)
           )
+        ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="flagged_tib")
       }
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -120,12 +127,13 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
         fail_mt  <- paste0('Failed_r21-db')
         pass_tag <- 'Passed'
         
-        ret_tib <- ret_tib %>% dplyr::mutate(detectedSample=case_when(
-          !!r2Val < r2Min ~ fail_r2,
-          !!dbVal < dbMin ~ fail_db,
-          !!dbKey != !!r2Key ~ fail_mt,
-          TRUE ~ pass_tag)
-        )
+        ret_tib <- ret_tib %>% 
+          dplyr::mutate(detectedSample=case_when(
+            !!r2Val < r2Min ~ fail_r2,
+            !!dbVal < dbMin ~ fail_db,
+            !!dbKey != !!r2Key ~ fail_mt,
+            TRUE ~ pass_tag)
+          )
       }
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -140,8 +148,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
         if (verbose>=vt) 
           cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(filt)={auto_ss_flen}{RET}"))
         
-        # Remove Unidentifiable
-        # if (rmOdd) ret_tib <- ret_tib %>% dplyr::filter(Bead_Pool!='Odd')
+        ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="flagRefMatch")
       }
     }
     
@@ -157,7 +164,8 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       auto_ss_tlen <- base::nrow(ret_tib)
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(calls)={auto_ss_tlen}.{RET}{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(calls)={auto_ss_tlen}.{RET}{RET}"))
     }
     
     if (addPathsSset) {
@@ -170,15 +178,18 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       auto_ss_tlen <- base::nrow(ret_tib)
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(ssets)={auto_ss_tlen}.{RET}{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} SampleSheetNrows(ssets)={auto_ss_tlen}.{RET}{RET}"))
     }
     
-    # dat <- ret_tib
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  
+  if (!is.null(stime)) etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(stime) && !is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+
   ret_tib
 }
 
