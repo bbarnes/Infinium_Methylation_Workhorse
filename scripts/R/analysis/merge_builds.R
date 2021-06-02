@@ -241,6 +241,11 @@ if (args.dat[1]=='RStudio') {
     opt$platform <- NULL
     opt$version  <- NULL
     opt$forceUnq <- FALSE
+
+    par$platform <- NULL
+    par$platform <- "Rand1"
+    par$platform <- "Rand2"
+    par$platform <- "Rand3"
     
     # opt$classVar <- "detect_manifest"
     opt$classVar <- "detect_version"
@@ -251,8 +256,10 @@ if (args.dat[1]=='RStudio') {
     
     opt$datDir <- paste(
       # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
-      file.path(par$topDir, 'scratch/noob-sub'),
+      file.path(par$topDir, 'scratch/noob-sub', par$platform),
       sep=',')
+    
+    if (!is.null(par$platform)) opt$runName <- paste(opt$runName,par$platform, sep='-')
     
   } else if (par$local_runType=='COVID') {
     

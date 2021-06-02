@@ -283,6 +283,13 @@ if (args.dat[1]=='RStudio') {
     par$classVar <- "detect_version"
     par$classVar <- "detect_platform"
     
+    par$platform <- NULL
+    par$platform <- "Rand1"
+    par$platform <- "Rand2"
+    par$platform <- "Rand3"
+    
+    if (!is.null(par$platform)) opt$runName <- paste(opt$runName,par$platform, sep='-')
+
     opt$datDir <- paste(
       file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
                 # par$platform,par$version,
