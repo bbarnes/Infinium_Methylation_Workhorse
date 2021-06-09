@@ -153,8 +153,23 @@ load_manifest_list = function(tib, field="path",
       cur_manifest <- cur_key_tib$manifest
       cur_key <- paste(cur_platform, cur_manifest, sep='-')
       
-      ret_dat[[cur_key]] <- 
-        suppressMessages(suppressWarnings( readr::read_csv(cur_file) )) %>%
+      cur_tib <- 
+        suppressMessages(suppressWarnings( readr::read_csv(cur_file) ))
+      
+      #
+      # Do some renaming::
+      #
+      cur_nam_vec <- cur_tib %>% names()
+
+      # if (which(cur_nam_vec=="COLOR_CHANNEL") %>% length() == 0)
+      if (which(cur_nam_vec=="Color_Channel") %>% length() != 0)
+        cur_tib <- cur_tib %>% dplyr::rename(COLOR_CHANNEL=Color_Channel)
+      
+      if (which(cur_nam_vec=="Probe_Source") %>% length() == 0)
+        cur_tib <- cur_tib %>% dplyr::mutate(Probe_Source=cur_key)
+
+      # Generate Columns that can be calculated::
+      ret_dat[[cur_key]] <- cur_tib %>%
         dplyr::mutate(
           M=as.integer(M),
           U=as.integer(U),
@@ -164,15 +179,31 @@ load_manifest_list = function(tib, field="path",
             stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("[^-_0-9A-Za-z]"), " ")) ), " ","_"),
           # Probe_Type=stringr::str_replace_all( 
           #   stringr::str_squish((stringr::str_replace_all(Probe_Type, regex("\\W+"), " ")) ), " ","_"),
+          DESIGN=dplyr::case_when(
+            !is.na(U) & !is.na(M) ~ 'I',
+            !is.na(U) &  is.na(M) ~ 'II',
+            TRUE ~ NA_character_
+          ),
+          # Probe_Design=dplyr::case_when(
+          #   !is.na(U) & !is.na(M) ~ 1,
+          #   !is.na(U) &  is.na(M) ~ 2,
+          #   TRUE ~ NA_real_
+          # ),
+          Probe_Design=dplyr::case_when(
+            !is.na(U) & !is.na(M) ~ "1",
+            !is.na(U) &  is.na(M) ~ "2",
+            TRUE ~ NA_character_
+          ),
+          COLOR_CHANNEL=dplyr::case_when(
+            Probe_Design=="2" ~ "Both",
+            TRUE ~ COLOR_CHANNEL
+          ),
           col=dplyr::case_when(
             !is.na(COLOR_CHANNEL) & is.na(col) & COLOR_CHANNEL!='Both' ~ COLOR_CHANNEL,
             # Probe_Type=='ct' & is.na(col) ~ 'black',
-            TRUE ~ col),
-          Probe_Design=dplyr::case_when(
-            is.na(M) ~ '2',
-            TRUE ~ '1'
-          )
-        )
+            TRUE ~ col)
+        ) %>% clean_tibble() %>%
+        dplyr::mutate(Probe_Design=as.character(Probe_Design))
       
       print_tag <- glue::glue("{ii}={cur_key}")
       print_tib(ret_dat[[cur_key]],funcTag, verbose,vt+4,tc, n=print_tag)

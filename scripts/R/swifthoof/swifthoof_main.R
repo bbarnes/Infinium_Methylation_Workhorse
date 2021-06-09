@@ -253,9 +253,10 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'DKFZ'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
-  par$local_runType <- 'qcMVP2'
   par$local_runType <- "EPIC-8x1-EM-Sample-Prep"
   par$local_runType <- 'NA12878'
+  par$local_runType <- 'qcMVP2'
+  par$local_runType <- 'Chicago-Ober-Custom'
   
   opt$fresh <- TRUE
   
@@ -280,6 +281,21 @@ if (args.dat[1]=='RStudio') {
   opt$runName  <- par$local_runType
   
   if (FALSE) {
+  } else if (par$local_runType=='Chicago-Ober-Custom') {
+    
+    opt$single   <- TRUE
+    opt$parallel <- FALSE
+    opt$fresh    <- TRUE
+    
+    # For sub manifest testing::
+    opt$platform   <- "Chicago"
+    opt$version    <- "S38"
+    opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
+    
+    opt$auto_sam_csv <- "/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz"
+
+    opt$verbose <- 40
+    
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     
   } else if (par$local_runType=='NA12878') {
@@ -295,11 +311,12 @@ if (args.dat[1]=='RStudio') {
     opt$forcedPlat <- "EPIC"
     
   } else if (par$local_runType=='qcMVP2') {
-    opt$runName  <- 'IBX-Zymogen'
-    opt$runName  <- 'IBX-EPIDX'
     
     opt$runName  <- 'AKE-Zymogen'
     opt$runName  <- 'AKE-EPIDX'
+    
+    opt$runName  <- 'IBX-Zymogen'
+    opt$runName  <- 'IBX-EPIDX'
     
   } else if (par$local_runType=='COVID') {
     par$expChipNum <- '204756130014'
@@ -707,6 +724,57 @@ if (opt$cluster) {
   tar_man_dat <- load_manifest_list(
     tib = tar_man_tib, field="path",
     verbose=opt$verbose, tt=pTracker)
+  
+  # Scratch Space on Manifests::
+  if (FALSE) {
+    tar_man_tibC <- get_manifest_list(
+      file=opt$manifest, dir=file.path(par$datDir, 'manifest',opt$manDirName),
+      suffix=opt$man_suffix,
+      verbose=opt$verbose, tt=pTracker)
+    
+    tar_man_datC <- NULL
+    tar_man_datC <- load_manifest_list(
+      tib = tar_man_tibC, field="path",
+      verbose=opt$verbose, tt=pTracker)
+    
+    # Compare Summaries::  1,081 don't have reference Next_Base/Color_Channel...
+    tar_man_dat$`Chicago-S38` %>% 
+      dplyr::filter(Probe_Type == "cg") %>%
+      dplyr::group_by(Probe_Type,Probe_Design,DESIGN,col,COLOR_CHANNEL) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+    
+    tar_man_datC$`EPIC-B4` %>% 
+      dplyr::group_by(Probe_Type,col,COLOR_CHANNEL) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+    
+    
+    # Build pseudo Chicago with EPIC controls
+    core_man_names_vec <- tar_man_datC$`EPIC-B4` %>% 
+      dplyr::filter(Probe_Type=="NEGATIVE") %>% names()
+    
+    epic_ctl_man_tib <- tar_man_datC$`EPIC-B4` %>% 
+      dplyr::filter(Probe_Type != "cg") %>% 
+      dplyr::filter(Probe_Type != "ch") %>% 
+      dplyr::filter(Probe_Type != "rs") %>%
+      dplyr::select(dplyr::all_of(core_man_names_vec)) %>%
+      clean_tibble()
+    
+    chic_cpg_man_tib <- tar_man_dat$`Chicago-S38` %>% 
+      dplyr::filter(Probe_Type == "cg") %>%
+      dplyr::select(dplyr::all_of(core_man_names_vec)) %>%
+      clean_tibble()
+    
+    chic_out_man_csv <- "/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz"
+    chic_out_man_tib <- dplyr::bind_rows(chic_cpg_man_tib,epic_ctl_man_tib)
+    
+    chic_out_man_tib %>% 
+      dplyr::group_by(Probe_Source,Probe_Type,Probe_Design,DESIGN,COLOR_CHANNEL) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>%
+      print(n=1000)
+    
+    readr::write_csv(chic_out_man_tib, chic_out_man_csv)
+
+  }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                             Load Auto Detection::

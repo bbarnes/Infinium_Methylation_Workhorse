@@ -61,10 +61,11 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 # TBD:: This variable needs to be properly integrated, its a total hack
 #  currently...
 par$classVar <- NULL
+par$joinType <- "left"
 
 # Directory Parameters::
-opt$outDir    <- NULL
-opt$datDir  <- NULL
+opt$outDir <- NULL
+opt$datDir <- NULL
 
 opt$addPval     <- FALSE
 opt$buildDml    <- TRUE
@@ -234,9 +235,50 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
+  par$local_runType <- 'Chicago-Ober-Custom'
   par$local_runType <- 'NA12878'
   
   if (FALSE) {
+    
+  } else if (par$local_runType=='Chicago-Ober-Custom') {
+    opt$runName  <- par$local_runType
+    opt$workflow <- "ind"
+    par$platform <- NULL
+    par$version  <- NULL
+    
+    # opt$parallel <- TRUE
+    opt$single   <- FALSE
+    opt$buildDml <- TRUE
+    opt$buildDbl <- TRUE
+    
+    opt$lociBetaKey <- "betas"
+    opt$lociPvalKey <- "pvals_pOOBAH"
+    
+    opt$classVar <- 'AutoSample_R2_Key_2'
+    par$classVar <- 'AutoSample_R2_Key_2'
+    
+    par$vstr <- ""
+    par$vstr <- "v1"
+    par$vstr <- "v2"
+    opt$runName <- paste(opt$runName,par$vstr, sep="-")
+    
+    opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
+
+    par$platform <- NULL
+    if (!is.null(par$platform)) opt$runName <- paste(opt$runName,par$platform, sep='-')
+    
+    opt$datDir <- paste(
+      file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
+                # par$platform,par$version,
+                # opt$classVar,
+                par$classVar,
+                opt$workflow),
+      sep=',')
+    
+    opt$trainClass <- paste('ChicagoA1','ChicagoA2', sep=',')
+    
+    opt$samplePvalPerc <- 50
+
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     opt$runName  <- par$local_runType
     opt$classVar <- 'Sample_Class'
@@ -248,8 +290,7 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- FALSE
     opt$buildDml <- TRUE
     opt$buildDbl <- TRUE
-    
-    
+
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
     
@@ -271,8 +312,8 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- par$local_runType
     opt$classVar <- 'Sample_Class'
     opt$workflow <- "ind"
-    par$platform <- 'EPIC'
-    par$version  <- 'B4'
+    par$platform <- NULL
+    par$version  <- NULL
     
     opt$single   <- FALSE
     # opt$parallel <- TRUE
@@ -280,13 +321,16 @@ if (args.dat[1]=='RStudio') {
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
     
+    par$joinType <- "inner"
+    
     par$classVar <- "detect_version"
     par$classVar <- "detect_platform"
     
     par$platform <- NULL
-    par$platform <- "Rand1"
-    par$platform <- "Rand2"
     par$platform <- "Rand3"
+    par$platform <- "Rand2"
+    par$platform <- "Rand1"
+    par$platform <- "granular0-1.5"
     
     if (!is.null(par$platform)) opt$runName <- paste(opt$runName,par$platform, sep='-')
 
@@ -486,12 +530,6 @@ if (FALSE) {
   }
 }
 
-#
-#
-# Left off here: Rename Script...
-#
-#
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                     Preprocessing:: General Params
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -514,9 +552,10 @@ class_idx <- rlang::sym("Class_Idx")
 exp_var   <- 'Experiment_Key'
 exp_sym   <- rlang::sym(exp_var)
 
-opt$outDir <- file.path(opt$outDir, 
-                        # opt$platform, opt$version, 
-                        opt$classVar, opt$workflow)
+if (!is.null(opt$platform)) opt$outDir <- file.path(opt$outDir, opt$platform)
+if (!is.null(opt$version))  opt$outDir <- file.path(opt$outDir, opt$version)
+if (!is.null(opt$classVar)) opt$outDir <- file.path(opt$outDir, opt$classVar)
+if (!is.null(opt$workflow)) opt$outDir <- file.path(opt$outDir, opt$workflow)
 
 # TBD:: par$classVar is a temporary hack, needs to be integrated properly...
 if (!is.null(par$classVar)) opt$outDir <- file.path(opt$outDir, par$classVar)
@@ -597,16 +636,32 @@ for (betaKey in lociBetaKey_vec) {
       # opt$clean <- FALSE
       # opt$clean <- TRUE
       opt$verbose <- 40
-      
+
+      # Classes Variable::
+      class_str <- opt$trainClass
       sentrix_name <- "Sentrix_Name"
-      sentrix_name <- "Sentrix_Uniq"
+      
+      if (stringr::str_starts(opt$runName, "NA12878")) {
+        # class_str <- "1,2,3,4,5,6"
+        class_vec <- c(1:44)
+        class_str <- class_vec %>% paste(collapse=",")
+        sentrix_name <- "Sentrix_Uniq"
+
+        tmp_sam_tib <- readr::read_csv("/Users/bretbarnes/Documents/scratch/RStudio/merge_builds/NA12878-granular0-1.5/detect_platform/ind/NA12878-granular0-1.5_ind_AutoSampleSheet.csv.gz")
+      }
+      
       beta_file_tib <- getCallsMatrixFiles(
-        betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, dirs=mergeDirs_vec, cgn=NULL, classes=opt$trainClass,
-        class_var=class_var, class_idx=class_idx, pval_name=opt$samplePvalName, pval_perc=opt$samplePvalPerc,
+        betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, 
+        dirs=mergeDirs_vec, cgn=NULL, classes=class_str,
+        class_var=class_var, class_idx=class_idx, 
+        pval_name=opt$samplePvalName, pval_perc=opt$samplePvalPerc,
         clean=opt$clean,addPval=opt$addPval, 
-        sentrix_name=sentrix_name,idKey="Probe_ID", betaName='beta', pvalName='pval', del='.',exp_name=exp_sym,
-        beta_rds=beta_masked_rds, pval_rds=pval_masked_rds, ss_csv=class_ss_csv, mask_csv=index_masks_csv,
-        sam_suffix="_AutoSampleSheet.csv.gz", dat_suffix="_MergedDataFiles.tib.csv.gz", 
+        sentrix_name=sentrix_name,idKey="Probe_ID", 
+        betaName='beta', pvalName='pval', del='.', exp_name=exp_sym,
+        beta_rds=beta_masked_rds, pval_rds=pval_masked_rds, 
+        ss_csv=class_ss_csv, mask_csv=index_masks_csv,
+        sam_suffix="_AutoSampleSheet.csv.gz", 
+        dat_suffix="_MergedDataFiles.tib.csv.gz", 
         verbose=opt$verbose, vt=3,tc=1,tt=cTracker)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -656,10 +711,19 @@ for (betaKey in lociBetaKey_vec) {
         # Load Manifest base on Sample Sheet
         #   detect_platform = platformUsed
         
+        man_path_csv <- NULL
         man_platform <- sampleSheet_tib %>% dplyr::distinct(platformUsed) %>% head(n=1) %>% dplyr::pull(platformUsed)
         man_version  <- sampleSheet_tib %>% dplyr::distinct(platVersUsed) %>% head(n=1) %>% dplyr::pull(platVersUsed)
         man_pattern  <- paste(paste(man_platform,man_version, sep='-'), 'manifest.sesame-base.cpg-sorted.csv.gz', sep='.')
         man_path_csv <- list.files(file.path(par$datDir, 'manifest/base'), man_pattern, full.names=TRUE) %>% head(n=1)
+        if (length(man_path_csv)==0) {
+          # opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
+          man_path_csv <- list.files(file.path(opt$manDirPath), man_pattern, full.names=TRUE) %>% head(n=1)
+          
+          if (length(man_path_csv)==0) {
+            man_path_csv <- list.files(file.path(par$datDir, 'manifest/base'), pattern = "EPIC", full.names=TRUE) %>% head(n=1)
+          }
+        }
         ses_man_tib  <- suppressMessages(suppressWarnings( readr::read_csv(man_path_csv) ))
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -696,6 +760,12 @@ for (betaKey in lociBetaKey_vec) {
         # NOTE:: Previous Versions Re-assigned Sample_Name to equal Class_Name
         # plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name=Class_Name)
         #  plotSheet_tib %>% dplyr::select(Sample_Name, Class_Name)
+        # If there is only one sample type (i.e. mix of normal people then set 
+        #  Sample_Name to 'Unknown')
+        if (grep("Sample_Name", names(plotSheet_tib)) %>% length() == 0) {
+          # plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name=Class_Name)
+          plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name="Unknown")
+        }
         
         # NOTE:: Once we have both Sample_Name and Class_Name we should split
         #  by Sample_Name and then later by Class_Name... Testing....
@@ -707,13 +777,14 @@ for (betaKey in lociBetaKey_vec) {
         
         for (cIdx in c(1:length(ss_class_keys))) {
           class_key <- ss_class_keys[[cIdx]]
-          
+          ss_plot_tib <- ss_class_list[[class_key]]
+
           r2_raw_pdf  <- file.path(opt$plotDir, paste('r-squared.all-methods.raw',class_key,'pdf', sep='.'))
           r2_norm_pdf <- file.path(opt$plotDir, paste('r-squared.all-methods.normalized',class_key,'pdf', sep='.'))
           
-          ss_plot_tib <- ss_class_list[[class_key]]
-          
-          chip_vec <- ss_plot_tib %>% dplyr::pull(Sentrix_Name)
+          chip_vec <- NULL
+          if (sentrix_name=="Sentrix_Name") chip_vec <- ss_plot_tib %>% dplyr::pull(Sentrix_Name)
+          if (sentrix_name=="Sentrix_Uniq") chip_vec <- ss_plot_tib %>% dplyr::pull(Sentrix_Uniq)
           name_vec <- ss_plot_tib %>% dplyr::pull(Plot_Name)
           
           samp_beta_mat <- beta_masked_mat[, chip_vec]
@@ -730,7 +801,9 @@ for (betaKey in lociBetaKey_vec) {
           P.raw <- cor.mtest(M.raw)
           pdf(r2_raw_pdf)
           title.raw <- glue::glue("{RET}{class_key}: R-Squared (min-r2={cor_min_rnd}, sig={pvalMin}) Raw")
-          corrplot(M.raw, type="upper", order="hclust", p.mat = P.raw, sig.level = pvalMin, insig = "blank", title=title.raw)
+          corrplot(M.raw, type="upper", order="hclust", p.mat = P.raw, 
+                   sig.level = pvalMin, insig = "blank", title=title.raw,
+                   tl.srt=45, tl.cex = 0.5, addrect = 3)
           dev.off()
           
           # Normalized
@@ -738,7 +811,9 @@ for (betaKey in lociBetaKey_vec) {
           P.norm <- cor.mtest(M.norm)
           pdf(r2_norm_pdf)
           title.norm <- glue::glue("{RET}{class_key}: R-Squared (min-r2={cor_min_rnd},sig={pvalMin}) Normalized")
-          corrplot(M.norm, type="upper", order="hclust", p.mat = P.norm, sig.level = pvalMin, insig = "blank", title=title.norm)
+          corrplot(M.norm, type="upper", order="hclust", p.mat = P.norm, 
+                   sig.level = pvalMin, insig = "blank", title=title.norm,
+                   tl.srt=45, tl.cex = 0.5, addrect = 3)
           dev.off()
           
           #
@@ -775,31 +850,65 @@ for (betaKey in lociBetaKey_vec) {
                 red_ss_tibB <- reduceSortedTib(cur_ss_tibB) %>% 
                   dplyr::mutate(Plot_Name=stringr::str_replace(Plot_Name,'^A_', 'B_'))
                 
-                beta_tibA <- beta_masked_mat[ ,red_ss_tibA$Sentrix_Name ] %>% 
-                  as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
-                  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
-                pval_tibA <- pval_select_mat[ ,red_ss_tibA$Sentrix_Name ] %>% 
-                  as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
-                  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                if (sentrix_name=="Sentrix_Uniq") {
+                  beta_tibA <- beta_masked_mat[ ,red_ss_tibA$Sentrix_Uniq ] %>% 
+                    as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
+                    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                  pval_tibA <- pval_select_mat[ ,red_ss_tibA$Sentrix_Uniq ] %>% 
+                    as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
+                    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                  
+                  beta_tibB <- beta_masked_mat[ ,red_ss_tibB$Sentrix_Uniq ] %>% 
+                    as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
+                    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                  pval_tibB <- pval_select_mat[ ,red_ss_tibB$Sentrix_Uniq ] %>% 
+                    as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
+                    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()                  
+                } else {
+                  beta_tibA <- beta_masked_mat[ ,red_ss_tibA$Sentrix_Name ] %>% 
+                    as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
+                    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                  pval_tibA <- pval_select_mat[ ,red_ss_tibA$Sentrix_Name ] %>% 
+                    as.data.frame() %>% purrr::set_names(red_ss_tibA$Plot_Name) %>% 
+                    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                  
+                  beta_tibB <- beta_masked_mat[ ,red_ss_tibB$Sentrix_Name ] %>% 
+                    as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
+                    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                  pval_tibB <- pval_select_mat[ ,red_ss_tibB$Sentrix_Name ] %>% 
+                    as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
+                    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+                }
                 
-                beta_tibB <- beta_masked_mat[ ,red_ss_tibB$Sentrix_Name ] %>% 
-                  as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
-                  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
-                pval_tibB <- pval_select_mat[ ,red_ss_tibB$Sentrix_Name ] %>% 
-                  as.data.frame() %>% purrr::set_names(red_ss_tibB$Plot_Name) %>% 
-                  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
-                
-                beta_plot_tib <- ses_man_tib %>% 
-                  dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% 
-                  dplyr::rename(Design_Type=DESIGN) %>%
-                  dplyr::left_join(beta_tibA, by="Probe_ID") %>% 
-                  dplyr::left_join(beta_tibB, by="Probe_ID")
-                
-                pval_plot_tib <- ses_man_tib %>% 
-                  dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% 
-                  dplyr::rename(Design_Type=DESIGN) %>%
-                  dplyr::left_join(pval_tibA, by="Probe_ID") %>% 
-                  dplyr::left_join(pval_tibB, by="Probe_ID")
+                if (par$joinType=="left") {
+                  beta_plot_tib <- ses_man_tib %>% 
+                    dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% 
+                    dplyr::rename(Design_Type=DESIGN) %>%
+                    dplyr::left_join(beta_tibA, by="Probe_ID") %>% 
+                    dplyr::left_join(beta_tibB, by="Probe_ID")
+                  
+                  pval_plot_tib <- ses_man_tib %>% 
+                    dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% 
+                    dplyr::rename(Design_Type=DESIGN) %>%
+                    dplyr::left_join(pval_tibA, by="Probe_ID") %>% 
+                    dplyr::left_join(pval_tibB, by="Probe_ID")
+                } else if (par$joinType=="inner") {
+                  beta_plot_tib <- ses_man_tib %>% 
+                    dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% 
+                    dplyr::rename(Design_Type=DESIGN) %>%
+                    dplyr::inner_join(beta_tibA, by="Probe_ID") %>% 
+                    dplyr::inner_join(beta_tibB, by="Probe_ID")
+                  
+                  pval_plot_tib <- ses_man_tib %>% 
+                    dplyr::select(Probe_ID,Probe_Type,DESIGN) %>% 
+                    dplyr::rename(Design_Type=DESIGN) %>%
+                    dplyr::inner_join(pval_tibA, by="Probe_ID") %>% 
+                    dplyr::inner_join(pval_tibB, by="Probe_ID")
+                  
+                } else {
+                  cat(glue::glue("[{par$prgmTag}]: ERROR: Unsupported joinType={joinType}!!! Skipping...{RET}{RET}") )
+                  next
+                }
                 
                 gg <- 
                   plotPairsBeta(beta=beta_plot_tib, pval=pval_plot_tib, 
@@ -988,11 +1097,15 @@ for (betaKey in lociBetaKey_vec) {
                           Rep_Name=paste0(Sample_Name,'_Rep',Rep_Num)) %>% 
             dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
         } else {
+          # NOTE:: Using !!class_var now instead of "Sample_Class"
+          #
           picked_sam_vec <- sampleSheet_tib %>% 
             dplyr::filter(Class_Idx==0 | Class_Idx==1) %>% 
-            dplyr::group_by(Sample_Class) %>% 
+            # dplyr::group_by(Sample_Class) %>% 
+            dplyr::group_by(!!class_var) %>% 
             dplyr::mutate(Rep_Num=row_number(), 
-                          Rep_Name=paste0(Sample_Class,'_Rep',Rep_Num)) %>% 
+                          Rep_Name=paste0(!!class_var,'_Rep',Rep_Num)) %>% 
+            #              Rep_Name=paste0(Sample_Class,'_Rep',Rep_Num)) %>% 
             dplyr::pull(Rep_Name) %>% paste('Beta', sep='.')
         }
         

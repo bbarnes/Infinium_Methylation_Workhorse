@@ -148,11 +148,11 @@ get_fileSuffix = function(file,
 #                          Clean Files for docker::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-clean_file = function(file,
-                      verbose=0,vt=3,tc=1,tt=NULL) {
+clean_file = function(file, touch=FALSE,
+                      verbose=0,vt=6,tc=1,tt=NULL) {
   funcTag <- 'clean_file'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Cleaning='{file}'{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -160,13 +160,17 @@ clean_file = function(file,
     
     cmd <- NULL
     if (file.exists(file)) unlink(file)
-    cmd <- glue::glue("touch {file}")
-    if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Running cmd='{cmd}'...{RET}"))
-    base::system(cmd)
-    
-    if (!file.exists(file)) {
-      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: File doesn't exist; file={file}!!!{RET}"))
+    if (touch) {
+      cmd <- glue::glue("touch {file}")
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Running cmd='{cmd}'...{RET}"))
+      base::system(cmd)
+      
+      if (!file.exists(file)) {
+        stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
+                        "File doesn't exist; file={file}!!!{RET}"))
+        return(ret_tib)
+      }
     }
     
     ret_cnt <- 1

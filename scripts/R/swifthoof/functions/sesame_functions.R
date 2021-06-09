@@ -113,9 +113,13 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
       # if (write_sigs) sigs_csv <- clean_file(sigs_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
     
+    # OLD CODE TO BE REMOVED::
+    #  - This was left over from concerns about memory leaks early on...
     # Clear sset to ensure there's no code mistakes
-    sset_dat <- sset
-    sset <- NULL
+    # sset_dat <- sset
+    # sset <- NULL
+    
+    by_sym <- rlang::sym(by)
     
     call_dat_tib <- NULL
     # call_dat_tib <- man %>% dplyr::select(!!by)
@@ -144,7 +148,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
       #
       pval_dat_tib <- NULL
       pval_dat_tib <- ssetToTib(
-        sset=sset_dat, source='pvals', name=pval_key,
+        sset=sset, source='pvals', name=pval_key,
         percision=percision_pval, sort=FALSE,
         save=write_pval, csv=pval_csv,
         by=by, type=type, des=des,
@@ -193,7 +197,6 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
       if (!is.null(mask)) {
         mask_pval_key <- paste('Mask',pval_key, sep='_')
         
-        by_sym <- rlang::sym(by)
         pval_dat_tib <- pval_dat_tib %>% dplyr::filter(! (!!by_sym %in% mask) )
 
         pval_sum_tib <- NULL
@@ -222,7 +225,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
     ret_beta_dat <- NULL
     beta_dat_tib <- NULL
     beta_dat_tib <- ssetToTib(
-      sset=sset_dat, source='betas',
+      sset=sset, source='betas',
       percision=percision_beta, sort=TRUE,
       save=write_beta, csv=beta_csv,
       by=by, type=type, des=des,
@@ -295,7 +298,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
     # Write Updated SSET
     #
     if (write_sset && !is.null(sset_rds) && !file.exists(sset_rds))
-      readr::write_rds(sset_dat, sset_rds, compress="gz")
+      readr::write_rds(sset, sset_rds, compress="gz")
 
     # Write Calls CSV
     #
@@ -311,7 +314,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
     # Write VCF SNPs calls::
     #
     if (write_snps && !is.null(snps_csv))
-      vcf_ret <- safeVCF(sset=sset_dat, vcf=snps_csv,
+      vcf_ret <- safeVCF(sset=sset, vcf=snps_csv,
                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # Run Auto Sample Detection::
@@ -332,8 +335,23 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} auto_min_pval={auto_min_pval}.{RET}"))
       }
       
+      # Simplifying by_sym to only CG#'s::
+      #   TBD:: Should sort by detection p-value...
+      #
+      auto_man_tib <- man %>%
+        dplyr::mutate(!!by_sym := stringr::str_remove(!!by_sym, "_.*$")) %>%
+        dplyr::distinct(!!by_sym, .keep_all=TRUE)
+      ret_cnt <- print_tib(auto_man_tib,funcTag, verbose,vt+4,tc, n="auto_man_tib")
+      
+      ret_cnt <- print_tib(call_dat_tib,funcTag, verbose,vt+4,tc, n="call_dat_tib")
+      auto_dat_tib <- call_dat_tib %>% 
+        dplyr::mutate(!!by_sym := stringr::str_remove(!!by_sym, "_.*$")) %>%
+        dplyr::distinct(!!by_sym, .keep_all=TRUE)
+      ret_cnt <- print_tib(auto_dat_tib,funcTag, verbose,vt+4,tc, n="auto_dat_tib")
+      
       auto_ssh_tib <- autoDetect_Wrapper(
-        can=call_dat_tib, ref=ref, man=man, # mask=mask,
+        # can=call_dat_tib, ref=ref, man=man, # mask=mask,
+        can=auto_dat_tib, ref=ref, man=auto_man_tib, # mask=mask,
         minPval=auto_min_pval, minDelta=minDb,
         dname='Design_Type', pname=type, ptype='cg', jval=by, 
         field=auto_beta_key, pval=auto_negs_key, suffix='beta', del=del,
@@ -341,6 +359,9 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
         plotMatrix=plot_auto, writeMatrix=write_auto,
         dpi=dpi, format=plotFormat, datIdx=datIdx, non.ref=non_ref,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      ret_cnt <- print_tib(auto_ssh_tib,funcTag, verbose,vt+4,tc, n="auto_ssh_tib")
+      
     } else {
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Skipping Sample Auto Detection...{RET}"))
@@ -352,7 +373,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
     
     ret_sigs_dat <- NULL
     sigs_dat_tib <- ssetToTib(
-      sset=sset_dat, man=man, 
+      sset=sset, man=man, 
       source='sigs', name=pval,
       percision=percision_sigs, sort=FALSE, 
       save=write_sigs, csv=sigs_csv, 
@@ -398,7 +419,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
     
     if (makek_pred) pred_dat_tib <- 
       ssetToPredictions(
-        sset=sset_dat, platform=platform,
+        sset=sset, platform=platform,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -417,11 +438,7 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
                     dplyr::contains("_pass_perc_"),
                     dplyr::everything())
     
-    if (verbose>=vt+4) {
-      cat(glue::glue("{RET}"))
-      ret_cnt <- print_tib(data_ssh_tib,funcTag, verbose,vt+4,tc, n="data_ssh_tib")
-      cat(glue::glue("{RET}{RET}"))
-    }
+    ret_cnt <- print_tib(data_ssh_tib,funcTag, verbose,vt+4,tc, n="data_ssh_tib")
     # pvals_pOOBAH
     
     # NOTE:: Need to extract full p-values seperate from the rest of the stats

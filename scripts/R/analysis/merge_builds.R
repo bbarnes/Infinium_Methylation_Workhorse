@@ -53,6 +53,8 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Predefined human sample sheet name::
 par$humanSampleSheetName <- 'humanSampleSheet.csv'
+par$joinType <- "full"
+par$noob_sub <- FALSE
 
 # File Based Parameters::
 opt$inputsCsv <- NULL
@@ -213,10 +215,36 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
+  par$local_runType <- 'Chicago-Ober-Custom'
   par$local_runType <- 'NA12878'
   
   if (FALSE) {
     
+  } else if (par$local_runType=='Chicago-Ober-Custom') {
+    opt$runName  <- par$local_runType
+    
+    opt$workflow    <- "ind"
+    
+    opt$single   <- FALSE
+    # opt$parallel <- TRUE
+    
+    opt$platform <- NULL
+    opt$version  <- NULL
+    opt$forceUnq <- FALSE
+    
+    par$vstr <- ""
+    par$vstr <- "v1"
+    par$vstr <- "v2"
+    
+    opt$classVar <- "AutoSample_R2_Key_2"
+    
+    opt$datDir <- paste(
+      # file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38/swifthoof_main"),
+      file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38",par$vstr,"swifthoof_main"),
+      sep=',')
+    
+    opt$runName <- paste(opt$runName,par$vstr, sep="-")
+
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     opt$runName  <- par$local_runType
     
@@ -241,11 +269,11 @@ if (args.dat[1]=='RStudio') {
     opt$platform <- NULL
     opt$version  <- NULL
     opt$forceUnq <- FALSE
-
-    par$platform <- NULL
-    par$platform <- "Rand1"
-    par$platform <- "Rand2"
+    
     par$platform <- "Rand3"
+    par$platform <- "Rand2"
+    par$platform <- "Rand1"
+    par$platform <- NULL
     
     # opt$classVar <- "detect_manifest"
     opt$classVar <- "detect_version"
@@ -254,12 +282,54 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- FALSE
     # opt$parallel <- TRUE
     
-    opt$datDir <- paste(
-      # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
-      file.path(par$topDir, 'scratch/noob-sub', par$platform),
-      sep=',')
+    par$mixData <- TRUE
+    par$allData <- TRUE
     
-    if (!is.null(par$platform)) opt$runName <- paste(opt$runName,par$platform, sep='-')
+    if (!par$mixData) {
+      opt$datDir <- paste(
+        # file.path(par$topDir, 'scratch/RStudio/swifthoof_main',opt$runName),
+        
+        # Granularity 0:
+        # file.path(par$topDir, 'scratch/noob-sub', par$platform),
+        
+        # Granularity 1:
+        file.path(par$topDir, 'scratch/noob-sub/granular', par$platform),
+        sep=',')
+      
+    } else if (!par$allData) {
+      # For individual data::
+      opt$datDir <- paste(
+        # Granularity 0:
+        # file.path(par$topDir, 'scratch/noob-sub', par$platform),
+        
+        # Granularity 1:
+        file.path(par$topDir, 'scratch/noob-sub/granular', par$platform),
+        sep=',')
+      if (!is.null(par$platform)) opt$runName <- paste(opt$runName,"granular1",par$platform, sep='-')
+    } else {
+      # For all data::
+      opt$datDir <- paste(
+        # Granularity 0:
+        file.path(par$topDir, 'scratch/noob-sub/granular0/Rand1'),
+        file.path(par$topDir, 'scratch/noob-sub/granular0/Rand2'),
+        file.path(par$topDir, 'scratch/noob-sub/granular0/Rand3'),
+        
+        # Granularity 1:
+        file.path(par$topDir, 'scratch/noob-sub/granular/Rand1'),
+        file.path(par$topDir, 'scratch/noob-sub/granular/Rand2'),
+        file.path(par$topDir, 'scratch/noob-sub/granular/Rand3'),
+        file.path(par$topDir, 'scratch/noob-sub/granular/Rand4'),
+        file.path(par$topDir, 'scratch/noob-sub/granular/Rand5'),
+        sep=',')
+      
+      # opt$runName <- paste(opt$runName,"granular0-1", sep='-')
+      # opt$runName <- paste(opt$runName,"granular1.5", sep='-')
+      # opt$runName <- paste(opt$runName,"granular0.3", sep='-')
+      opt$runName <- paste(opt$runName,"granular0-1.5", sep='-')
+      
+      par$joinType <- "inner"
+    }
+    par$noob_sub <- TRUE
     
   } else if (par$local_runType=='COVID') {
     
@@ -487,7 +557,7 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to remove Genotyping tails from Sentrix Names (mostly testing stuff) [default= %default]", metavar="boolean"),
     make_option(c("--forceUnq"), action="store_false", default=opt$forceUnq, 
                 help="Boolean variable to force unique Sentrix Names [default= %default]", metavar="boolean"),
-
+    
     # Parallel/Cluster Parameters::
     make_option(c("--execute"), action="store_true", default=opt$execute, 
                 help="Boolean variable to shell scripts (mostly testing stuff) [default= %default]", metavar="boolean"),
@@ -646,7 +716,7 @@ for (curDir in blds_dir_vec) {
   cur_ss_tib <- cur_ss_tib %>%
     dplyr::mutate(build_source=base::basename(curDir)) %>%
     clean_tibble()
-
+  
   # Join builds::
   #
   auto_ss_tib <- auto_ss_tib %>% 
@@ -673,17 +743,212 @@ if (opt$verbose>0)
 
 auto_ss_sum <- auto_ss_tib %>% 
   # dplyr::group_by(Run_Name,AutoSample_dB_Key_2) %>% 
-  dplyr::group_by(auto_ss_tib$detect_manifest,AutoSample_dB_Key_2) %>% 
+  # dplyr::group_by(auto_ss_tib$detect_manifest,AutoSample_dB_Key_2) %>% 
+  dplyr::group_by(auto_ss_tib$detect_manifest,AutoSample_R2_Key_2) %>% 
   dplyr::summarise(Count=n(), .groups="drop")
 auto_ss_sum %>% print(n=base::nrow(auto_ss_sum))
+
+#
+# Plotting for Chicago::
+#
+if (FALSE) {
+  
+  # AutoSample_dB_Val_1
+  # cg_1_betas_mean_2
+  #
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=cg_1_betas_mean_2, color = AutoSample_dB_Key_2) ) +
+    ggplot2::geom_density()
+  
+  # General Plot:: Betas Normalized
+  ggplot2::ggplot(data=auto_ss_tib, aes(color=AutoSample_dB_Key_2)) +
+    ggplot2::geom_density(aes(x=cg_1_betas_mean_2) ) +
+    ggplot2::geom_density(aes(x=cg_2_betas_mean_2) )
+
+  # General Plot:: Signal Raw
+  ggplot2::ggplot(data=auto_ss_tib , aes(color=AutoSample_dB_Key_2)) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_M_mean_1, color="IRM") ) +
+    ggplot2::geom_density(aes(x=cg_IG_sig_M_mean_1, color="IGM") ) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_U_mean_1, color="IRU") ) +
+    ggplot2::geom_density(aes(x=cg_IG_sig_U_mean_1, color="IGU") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_U_mean_1,  color="U2") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_M_mean_1,  color="M2") )
+  
+  
+  #
+  # THese two plots are the interesting ones::
+  #
+  # General Plot:: Signal Raw
+  ggplot2::ggplot(data=auto_ss_tib , aes(color=AutoSample_dB_Key_2)) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_M_mean_1 + cg_IG_sig_M_mean_1, color="IM") ) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_U_mean_1 + cg_IG_sig_U_mean_1, color="IU") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_U_mean_1,  color="2U") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_M_mean_1,  color="2M") )
+  
+  # General Plot:: Signal IND
+  ggplot2::ggplot(data=auto_ss_tib , aes(color=AutoSample_dB_Key_2)) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_M_mean_2 + cg_IG_sig_M_mean_2, color="IM") ) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_U_mean_2 + cg_IG_sig_U_mean_2, color="IU") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_U_mean_2,  color="2U") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_M_mean_2,  color="2M") )
+  
+  
+  
+  #
+  # Clear difference in values::
+  #
+  auto_ss_tib %>% dplyr::select(
+    cg_1_betas_mean_1,
+    cg_2_betas_mean_1,
+    cg_2_sig_U_mean_1,
+    cg_2_sig_M_mean_1 
+  ) %>% 
+    dplyr::arrange(cg_2_betas_mean_1) %>% as.data.frame()
+  
+  auto_ss_tib %>% dplyr::select(
+    cg_1_betas_mean_2,
+    cg_2_betas_mean_2,
+    cg_2_sig_U_mean_2,
+    cg_2_sig_M_mean_2 
+  ) %>% 
+    dplyr::arrange(cg_2_betas_mean_2) %>% as.data.frame()
+  
+}
+
+#
+# For Chicago max Sentrix Name::
+#
+#  auto_ss_tib %>% dplyr::filter( cg_pvals_pOOBAH_pass_perc_2 == 89.721 ) %>% as.data.frame()
+#   205271030023_R01C02
+#
+#  auto_ss_tib %>% dplyr::filter( cg_pvals_PnegEcdf_pass_perc_2 == 100 ) %>% as.data.frame()
+#   205271030024_R05C02
+#
+if (FALSE) {
+  
+  pre_beta_csv <- '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz'
+  add_beta_csv <- '/Users/bretbarnes/Documents/scratch/swifthoof/Chicago-Ober-Custom/Chicago/S38/swifthoof_main/205271030023_R01C02_Chicago_S38_ind.call.dat.csv.gz'
+  
+  pre_beta_tib <- readr::read_csv(pre_beta_csv)
+  add_beta_tib <- readr::read_csv(add_beta_csv) %>% 
+    dplyr::filter(pvals_pOOBAH<=0.1) %>% 
+    dplyr::mutate(Probe_ID=Probe_ID %>% stringr::str_remove("_.*$")) %>%
+    dplyr::arrange(pvals_pOOBAH) %>%
+    dplyr::distinct(Probe_ID, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID,betas) %>% 
+    dplyr::rename(ChicagoA1=betas)
+  
+  new_auto_dir <- '/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1'
+  new_beta_csv <- file.path(new_auto_dir, 'AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz')
+  if (!dir.exists(new_auto_dir)) dir.create(new_auto_dir, recursive=TRUE)
+  
+  new_beta_tib <- pre_beta_tib %>% 
+    dplyr::full_join(add_beta_tib, by="Probe_ID") %>%
+    dplyr::arrange(Probe_ID)
+  
+  readr::write_csv(new_beta_tib,new_beta_csv)
+  
+}
+
+#
+# Plotting dB/R2 for Chicago::
+#
+if (FALSE) {
+  
+  # X-axis Variable::
+  auto_ss_tib$AutoSample_dB_Val_1
+  auto_ss_tib$AutoSample_dB_Val_2
+  
+  auto_ss_tib$AutoSample_R2_Val_1
+  auto_ss_tib$AutoSample_R2_Val_2
+  
+  # Y-axis Variable::
+  # Point is that the workflow number doesn't matter::
+  auto_ss_tib$cg_pvals_PnegEcdf_pass_perc_1 - auto_ss_tib$cg_pvals_PnegEcdf_pass_perc_1
+  auto_ss_tib$cg_pvals_pOOBAH_pass_perc_1 - auto_ss_tib$cg_pvals_pOOBAH_pass_perc_2
+  
+  #
+  # dB[1] vs. pvals
+  #
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_dB_Val_1, y=cg_pvals_PnegEcdf_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_dB_Val_1, y=cg_pvals_pOOBAH_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  #
+  # r2[1] vs. pvals
+  #
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_R2_Val_1, y=cg_pvals_PnegEcdf_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_R2_Val_1, y=cg_pvals_pOOBAH_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  #
+  # dB[2] vs. pvals
+  #
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_dB_Val_2, y=cg_pvals_PnegEcdf_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_dB_Val_2, y=cg_pvals_pOOBAH_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  #
+  # r2[2] vs. pvals
+  #   r2 < 0.925 & poob > 87.5
+  #   auto_ss_tib %>% dplyr::filter(AutoSample_R2_Val_2<0.925 & cg_pvals_pOOBAH_pass_perc_1>87.5) %>% as.data.frame()
+  #   Sentrix_Name = 205271030024_R05C02
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_R2_Val_2, y=cg_pvals_PnegEcdf_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_R2_Val_2, y=cg_pvals_pOOBAH_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  
+  # Super weird that 205271030024_R05C02 (the second pick above) came out as
+  #   the next best seperate pick::
+  #
+  # pre_beta_csv <- '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz'
+  pre_beta_csv <- '/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz'
+  add_beta_csv <- '/Users/bretbarnes/Documents/scratch/swifthoof/Chicago-Ober-Custom/Chicago/S38/swifthoof_main/205271030024_R05C02_Chicago_S38_ind.call.dat.csv.gz'
+  
+  pre_beta_tib <- readr::read_csv(pre_beta_csv)
+  add_beta_tib <- readr::read_csv(add_beta_csv) %>% 
+    dplyr::filter(pvals_pOOBAH<=0.1) %>% 
+    dplyr::mutate(Probe_ID=Probe_ID %>% stringr::str_remove("_.*$")) %>%
+    dplyr::arrange(pvals_pOOBAH) %>%
+    dplyr::distinct(Probe_ID, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID,betas) %>% 
+    dplyr::rename(ChicagoA2=betas)
+  
+  new_auto_dir <- '/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v2'
+  new_beta_csv <- file.path(new_auto_dir, 'AutoSampleDetection_Chicago-Ober-Custom-v2.csv.gz')
+  if (!dir.exists(new_auto_dir)) dir.create(new_auto_dir, recursive=TRUE)
+  
+  new_beta_tib <- pre_beta_tib %>% 
+    dplyr::full_join(add_beta_tib, by="Probe_ID") %>%
+    dplyr::arrange(Probe_ID)
+  
+  readr::write_csv(new_beta_tib,new_beta_csv)
+  
+}
 
 
 #
 # Quick fix update calls path for noob_sum::
 #
-par$noob_sub <- TRUE
-if (par$noob_sub) {
-
+par$chig_sub <- TRUE
+par$chig_sub <- FALSE
+if (par$noob_sub || par$chig_sub) {
+  
   auto_ss_tib <- auto_ss_tib %>% 
     dplyr::mutate(Calls_Path=stringr::str_replace(SampleSheet_Path, "_AutoSampleSheet.csv.gz", "_ind.call.dat.csv.gz"))
   
@@ -709,7 +974,7 @@ if (par$noob_sub) {
   
   # opt$classVar <- "Sample_Class"
   class_var <- rlang::sym("Sample_Class")
-
+  
 }
 
 
@@ -931,7 +1196,8 @@ if (!pass_time_check) {
   if (opt$addPathsCall) {
     call_tib <- mergeCallsFromSS(
       ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
-      chipName=chipName, pathName="Calls_Path", joinNameA="Probe_ID",
+      chipName=chipName, pathName="Calls_Path", joinNameA="Probe_ID", 
+      joinType = par$joinType,
       verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
     
     readr::write_csv(call_tib, opt$call_csv)
@@ -943,6 +1209,7 @@ if (!pass_time_check) {
       ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
       chipName=chipName, pathName="Ssets_Path", 
       joinNameA="Probe_ID", joinNameB="Probe_Design",
+      joinType = par$joinType,
       verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
     
     readr::write_csv(sset_tib, opt$sset_csv)
@@ -1030,7 +1297,10 @@ if (par$noob_sub) {
   
   opt$vers_sum1_csv <- file.path(opt$outDir, paste(par$outName, 'detect_version-summary1.csv.gz', sep='_') )
   vers_sum1_tib <- labs_ss_tib %>% 
-    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
+    dplyr::mutate(detect_version_int=detect_version %>%
+                    stringr::str_remove("^s") %>%
+                    stringr::str_remove("^S") %>% 
+                    as.double()) %>%
     dplyr::group_by(detect_version_int) %>%
     dplyr::arrange(detect_version_int) %>%
     dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
@@ -1063,7 +1333,10 @@ if (par$noob_sub) {
   
   opt$vers_sum2_csv <- file.path(opt$outDir, paste(par$outName, 'detect_version-summary2.csv.gz', sep='_') )
   vers_sum2_tib <- labs_ss_tib %>% 
-    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer()) %>%
+    dplyr::mutate(detect_version_int=detect_version %>%
+                    stringr::str_remove("^s") %>%
+                    stringr::str_remove("^S") %>% 
+                    as.double()) %>%
     dplyr::group_by(detect_version_int) %>%
     dplyr::arrange(detect_version_int) %>%
     dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
@@ -1130,7 +1403,7 @@ if (par$noob_sub) {
     ) %>% dplyr::mutate_if(is.double, base::round, 4)
   readr::write_csv(plat_sum1_tib, opt$plat_sum1_csv)
   plat_sum1_tib %>% print(n=base::nrow(plat_sum1_tib))
-
+  
   opt$plat_sum2_csv <- file.path(opt$outDir, paste(par$outName, 'detect_platform-summary2.csv.gz', sep='_') )
   plat_sum2_tib <- labs_ss_tib %>% 
     dplyr::mutate(detect_platform_int=stringr::str_remove(detect_platform, "^Rand") %>% as.integer()) %>%
@@ -1170,7 +1443,10 @@ if (par$noob_sub) {
   
   opt$both_sum1_csv <- file.path(opt$outDir, paste(par$outName, 'detect_both-summary1.csv.gz', sep='_') )
   both_sum1_tib <- labs_ss_tib %>% 
-    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer(),
+    dplyr::mutate(detect_version_int=detect_version %>%
+                    stringr::str_remove("^s") %>%
+                    stringr::str_remove("^S") %>% 
+                    as.double(),
                   detect_platform_int=stringr::str_remove(detect_platform, "^Rand") %>% as.integer()) %>%
     dplyr::arrange(detect_version_int,detect_platform_int) %>%
     dplyr::group_by(detect_version_int,detect_platform_int) %>%
@@ -1204,7 +1480,10 @@ if (par$noob_sub) {
   
   opt$both_sum2_csv <- file.path(opt$outDir, paste(par$outName, 'detect_both-summary2.csv.gz', sep='_') )
   both_sum2_tib <- labs_ss_tib %>% 
-    dplyr::mutate(detect_version_int=stringr::str_remove(detect_version, "^s") %>% as.integer(),
+    dplyr::mutate(detect_version_int=detect_version %>%
+                    stringr::str_remove("^s") %>%
+                    stringr::str_remove("^S") %>% 
+                    as.double(),
                   detect_platform_int=stringr::str_remove(detect_platform, "^Rand") %>% as.integer()) %>%
     dplyr::arrange(detect_version_int,detect_platform_int) %>%
     dplyr::group_by(detect_version_int,detect_platform_int) %>%

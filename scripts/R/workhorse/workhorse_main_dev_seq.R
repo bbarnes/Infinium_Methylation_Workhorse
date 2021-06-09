@@ -213,6 +213,8 @@ par$ma2_col <- par_cols$ma2$cols %>% names()
 par$aqp_col <- par_cols$aqp$cols %>% names()
 par$pqc_col <- par_cols$pqc$cols %>% names()
 
+par$buildManifest <- FALSE
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                               Parse Options::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -271,8 +273,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
   par$local_runType <- 'EWAS'
-  par$local_runType <- 'Chicago'
   par$local_runType <- 'GRCm10'
+  par$local_runType <- 'Chicago'
   
   if (par$local_runType=='EWAS') {
     opt$genBuild <- 'GRCh37'
@@ -470,6 +472,8 @@ if (args.dat[1]=='RStudio') {
     opt$aqpn <- paste(1, sep=",")
     
     opt$org_des_tsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz")
+    
+    par$buildManifest <- TRUE
     
   } else if (par$local_runType=='COVIC') {
     opt$genBuild <- 'GRCh36'
@@ -871,8 +875,6 @@ run$ann_int_csv  <- file.path(run$annDir, paste(opt$runName, 'cpg-pass.annotatio
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Defining Run Time Files.{RET}{RET}"))
 
-par$buildManifest <- FALSE
-
 if (par$buildManifest) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                  2.1 Functional Manifest Generation::
@@ -908,6 +910,19 @@ if (par$buildManifest) {
       clean_tibble()
   }
   
+  # Check default manifest::
+  if (FALSE) {
+
+    pre_man_csv <- "/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom.original/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz"
+    pre_man_tib <- readr::read_csv(pre_man_csv) %>%
+      clean_tibble()
+    
+    aqp_man_tib <- readr::read_csv(run$aqp_man_csv) %>% 
+      dplyr::rename(Probe_ID=Ord_Key, U=Address_U, M=Address_M) %>% 
+      clean_tibble()
+    
+  }
+    
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                    3.2 Align All Probe Sequence:: BSMAP
   #                  3.3 Join Address and Alignment Data:: BSMAP
