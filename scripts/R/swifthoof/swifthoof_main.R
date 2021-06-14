@@ -64,6 +64,7 @@ opt$datDir <- NULL
 opt$manifest <- NULL
 opt$platform <- NULL
 opt$version  <- NULL
+opt$percent  <- NULL
 
 # Optional Files::
 opt$subManifest  <- FALSE
@@ -254,9 +255,9 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
   par$local_runType <- "EPIC-8x1-EM-Sample-Prep"
-  par$local_runType <- 'NA12878'
   par$local_runType <- 'qcMVP2'
   par$local_runType <- 'Chicago-Ober-Custom'
+  par$local_runType <- 'NA12878'
   
   opt$fresh <- TRUE
   
@@ -293,7 +294,7 @@ if (args.dat[1]=='RStudio') {
     opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
     
     opt$auto_sam_csv <- "/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz"
-
+    
     opt$verbose <- 40
     
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
@@ -306,8 +307,14 @@ if (args.dat[1]=='RStudio') {
     
     # For sub manifest testing::
     opt$platform   <- "Rand1"
-    opt$version    <- "S20"
-    opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/McMaster10Kselection", opt$platform)
+    opt$version    <- 20
+    opt$percent    <- 10
+    # opt$version    <- "S20"
+    
+    # opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/McMaster10Kselection", opt$platform)
+    # opt$manDirPath <- file.path(par$topDir, "scratch/RStudio/manifest_subset_noob/EPIC-noob-BP4/man", opt$platform)
+    opt$manDirPath <- file.path(par$topDir, "scratch/RStudio/manifest_subset_noob/EPIC-noob-BP4/man")
+    
     opt$forcedPlat <- "EPIC"
     
   } else if (par$local_runType=='qcMVP2') {
@@ -428,6 +435,8 @@ if (args.dat[1]=='RStudio') {
                 help="Forced platform [EPIC, 450k, 27k, NZT] otherwise auto-detect [default= %default]", metavar="character"),
     make_option(c("--version"), type="character", default=opt$version, 
                 help="Forced version [B1, B2, B4, etc.] otherwise auto-detect [default= %default]", metavar="character"),
+    make_option(c("--percent"), type="character", default=opt$percent, 
+                help="Forced percent [B1, B2, B4, etc.] otherwise auto-detect [default= %default]", metavar="character"),
     
     # Optional Files::
     make_option(c("--subManifest"), action="store_true", default=opt$subManifest,
@@ -612,7 +621,8 @@ workflow_vec <- splitStrToVec(opt$workflow)
 # Remove "r/raw" and force "raw" to be first::
 workflow_vec <- c("raw",workflow_vec[!workflow_vec %in% c("r","raw")])
 
-cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #             Select Chips from idats and/or Target Manifest::
@@ -624,13 +634,15 @@ sampleCounts <- chipPrefixes %>% names() %>% length()
 if (is.null(chipPrefixes) || length(chipPrefixes)==0)
   stop(glue::glue("{RET}[{par$prgmTag}]: chipPrefixes is null or length=0!!!{RET}{RET}"))
 
-cat(glue::glue("[{par$prgmTag}]: Found sample counts={sampleCounts}!{RET}{RET}"))
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Found sample counts={sampleCounts}!{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                  Main::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 if (opt$cluster) {
-  cat(glue::glue("[{par$prgmTag}]: Launching Chips in Cluster Mode! isSingle={opt$single}"),"\n", sep='')
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Launching Chips in Cluster Mode! isSingle={opt$single}"),"\n", sep='')
   
   par$lan_exe <- ''
   par$isLinux <- FALSE
@@ -642,16 +654,20 @@ if (opt$cluster) {
   chip_list <- prefixesToChipTib(chipPrefixes) %>% split(.$barcode)
   chip_cnts <- chip_list %>% names() %>% length()
   
-  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Chip counts={chip_cnts}!{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Chip counts={chip_cnts}!{RET}"))
   
   par$shellDir <- file.path(opt$outDir, 'shells')
   if (!dir.exists(par$shellDir)) dir.create(par$shellDir, recursive=TRUE)
-  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; shellDir={par$shellDir}.{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; shellDir={par$shellDir}.{RET}"))
   
   for (chipName in names(chip_list)) { # break }
     runShell <- file.path(par$shellDir, paste0('run_',par$prgmTag,'_',chipName,'.sh'))
     lanShell <- file.path(par$shellDir, paste0('lan_',par$prgmTag,'_',chipName,'.sh'))
-    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; runShell={runShell}.{RET}"))
+    
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; runShell={runShell}.{RET}"))
     
     # Remove Cluster Option
     cmd_bool <- opt %>% bind_rows() %>% gather("Options", "Value") %>% 
@@ -671,7 +687,10 @@ if (opt$cluster) {
       dplyr::pull() %>% paste(collapse=" ")
     
     cmd_full <- paste(opt$Rscript, par$exePath, cmd_bool, cmd_strs,"\n", sep=' ')
-    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Writing cmd_full={cmd_full}.{RET}"))
+    
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Writing cmd_full={cmd_full}.{RET}"))
+    
     # readr::write_file(x=cmd_full, file=runShell)
     readr::write_lines(x=cmd_full, file=runShell)
     Sys.chmod(runShell, mode="0777")
@@ -684,12 +703,14 @@ if (opt$cluster) {
     Sys.chmod(lanShell, mode="0777")
     
     # Launch Script
-    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; Launching chip={chipName}, shell={lanShell}.{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; Launching chip={chipName}, shell={lanShell}.{RET}"))
     system(lanShell)
     
     if (opt$single) break
   }
-  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Done.{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Done.{RET}"))
   
 } else {
   
@@ -697,7 +718,8 @@ if (opt$cluster) {
   #                             Load Manifest(s)::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  cat(glue::glue("[{par$prgmTag}]: Launching Samples in Linear Mode! isSingle={opt$single}"),"\n", sep='')
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Launching Samples in Linear Mode! isSingle={opt$single}"),"\n", sep='')
   
   pTracker <- NULL
   # pTracker <- timeTracker$new(verbose=opt$verbose)
@@ -712,6 +734,11 @@ if (opt$cluster) {
   }
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]: Set manifest search directory={par$manDir}.{RET}"))
+  
+  if (!is.null(opt$version) && !is.null(opt$percent)) {
+    # opt$version <- paste(opt$version, opt$percent, sep='-')
+    opt$version <- paste(opt$version, opt$percent, sep='.')
+  }
   
   tar_man_tib <- NULL
   tar_man_tib <- get_manifest_list(
@@ -746,8 +773,7 @@ if (opt$cluster) {
     tar_man_datC$`EPIC-B4` %>% 
       dplyr::group_by(Probe_Type,col,COLOR_CHANNEL) %>% 
       dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
-    
-    
+
     # Build pseudo Chicago with EPIC controls
     core_man_names_vec <- tar_man_datC$`EPIC-B4` %>% 
       dplyr::filter(Probe_Type=="NEGATIVE") %>% names()
@@ -773,7 +799,7 @@ if (opt$cluster) {
       print(n=1000)
     
     readr::write_csv(chic_out_man_tib, chic_out_man_csv)
-
+    
   }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -851,50 +877,43 @@ if (opt$cluster) {
                                    verbose=opt$verbose, vt=3,tc=1)
       rdat
     }
-    cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   } else {
     par$funcTag <- 'sesamizeSingleSample-Linear'
     
-    cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: samples={sample_cnt}.{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: samples={sample_cnt}.{RET}"))
     
     rdat <- NULL
     for (prefix in prefixe_names) {
-      
-      # Testing code only::
-      #
-      if (FALSE && par$runMode=='RStudio' && !is.null(par$expSampNum)) {
-        prefix <- par$expSampNum
-        opt$single <- TRUE
-        opt$fresh  <- TRUE
-        # opt$fresh  <- FALSE
-        
-        # workflow_vec <- c('raw')
-        # workflow_vec <- c('raw','ind')
-        # opt$make_pred <- FALSE
-      }
-      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
+      if (opt$verbose>0)
+        cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
       # ram_performance <- profmem({
-        rdat <- NULL
-        rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
-                                     man=tar_man_dat, ref=auto_sam_tib, 
-                                     opts=opt, defs=def,
-                                     mask=mask_cpg_vec, platform=opt$forcedPlat,
-                                     
-                                     pvals=pval_vec,
-                                     min_pvals=min_pval_vec,
-                                     min_percs=min_perc_vec,
-                                     workflows=workflow_vec,
-                                     
-                                     retData=par$retData,
-                                     trackTime=opt$trackTime,
-                                     verbose=opt$verbose, vt=3,tc=1)
+      rdat <- NULL
+      rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
+                                   man=tar_man_dat, ref=auto_sam_tib, 
+                                   opts=opt, defs=def,
+                                   mask=mask_cpg_vec, platform=opt$forcedPlat,
+                                   
+                                   pvals=pval_vec,
+                                   min_pvals=min_pval_vec,
+                                   min_percs=min_perc_vec,
+                                   workflows=workflow_vec,
+                                   
+                                   retData=par$retData,
+                                   trackTime=opt$trackTime,
+                                   verbose=opt$verbose, vt=3,tc=1)
       # })
       
-      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+      if (opt$verbose>0)
+        cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+      
       if (opt$single) break
     }
-    cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   }
   
   opt_csv <- file.path(opt$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )
@@ -912,29 +931,6 @@ if (opt$cluster) {
 #   x <- integer(1000)
 #   Y <- matrix(rnorm(n = 10000), nrow = 100)
 # })
-
-# Original Results::
-# 
-# > ram_performance$bytes %>% as.vector() %>% sum(na.rm=TRUE)
-# [1] 5314560760
-# [1] 5240191152
-# [1] 5240610912
-# > ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE)
-# [1] 66544360
-# [1] 66544360
-# [1] 66544360
-# > ram_performance$bytes %>% as.vector() %>% mean(na.rm=TRUE)
-# [1] 50876.52
-# [1] 63505.15
-# [1] 63073.78
-# > ram_performance$bytes %>% as.vector() %>% median(na.rm=TRUE)
-# [1] 472
-# [1] 488
-# [1] 496
-# > which(ram_performance$bytes == ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE))
-# [1] 142435 142437 217300 217302
-# [1] 129530 129532 150371 150373
-# [1] 141992 141994 162828 162830
 
 if (FALSE) {
   ram_performance$bytes %>% as.vector() %>% sum(na.rm=TRUE)

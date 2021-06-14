@@ -146,15 +146,35 @@ load_manifest_list = function(tib, field="path",
       
       cur_key_tib <- cur_file %>% base::basename() %>% 
         stringr::str_remove('\\.manifest.*$') %>% 
-        stringr::str_split(pattern='-', simplify=TRUE) %>% as.data.frame() %>% 
-        purrr::set_names(c('platform', 'manifest'))
+        stringr::str_split(pattern='-', simplify=TRUE) %>% as.data.frame()
       
+      if (verbose>=vt+4)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading cur_key_tib[{ii}]={cur_key_tib}.{RET}"))
+      
+      cur_key_len <- base::ncol(cur_key_tib)
+      if (verbose>=vt+4)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading cur_key_len[{ii}]={cur_key_len}.{RET}"))
+      
+      if (cur_key_len==2) {
+        cur_key_tib <- cur_key_tib %>%
+          purrr::set_names(c('platform', 'manifest')) %>%
+          tibble::as_tibble()
+      } else if (cur_key_len==3) {
+        cur_key_tib <- cur_key_tib %>%
+          purrr::set_names(c('platform', 'manifest', 'percent')) %>%
+          tibble::as_tibble()
+      }
+      ret_cnt <- print_tib(cur_key_tib,funcTag, verbose,vt+4,tc, n="cur_key_tib-2")
+
       cur_platform <- cur_key_tib$platform
-      cur_manifest <- cur_key_tib$manifest
-      cur_key <- paste(cur_platform, cur_manifest, sep='-')
+      cur_version  <- cur_key_tib$manifest
+      if (!is.null(cur_key_tib$percent)) 
+        cur_version <- paste(cur_version, cur_key_tib$percent, sep='-')
+      cur_key <- paste(cur_platform, cur_version, sep='-')
       
       cur_tib <- 
         suppressMessages(suppressWarnings( readr::read_csv(cur_file) ))
+      ret_cnt <- print_tib(cur_tib,funcTag, verbose,vt+4,tc, n="cur_tib")
       
       #
       # Do some renaming::
