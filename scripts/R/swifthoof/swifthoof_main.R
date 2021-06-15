@@ -304,7 +304,7 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- TRUE
     opt$parallel <- FALSE
     opt$fresh    <- TRUE
-    
+
     # For sub manifest testing::
     opt$platform   <- "Rand1"
     opt$version    <- 20

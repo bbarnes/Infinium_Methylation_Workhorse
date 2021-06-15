@@ -310,40 +310,49 @@ if (args.dat[1]=='RStudio') {
     
   } else if (par$local_runType=='NA12878') {
     opt$runName  <- par$local_runType
-    opt$classVar <- 'Sample_Class'
     opt$workflow <- "ind"
     par$platform <- NULL
     par$version  <- NULL
     
-    opt$single   <- FALSE
     # opt$parallel <- TRUE
+    opt$single     <- FALSE
+    opt$plot_pairs <- TRUE
+    opt$plot_pairs <- FALSE
+    
+    opt$buildDml <- TRUE
+    opt$buildDbl <- TRUE
+    opt$buildDml <- FALSE
+    opt$buildDbl <- FALSE
     
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
     
     par$joinType <- "inner"
     
-    par$classVar <- "detect_version"
     par$classVar <- "detect_platform"
+    par$classVar <- "detect_version"
+    opt$classVar <- "Sample_Perc"
     
     par$platform <- NULL
     par$platform <- "Rand3"
     par$platform <- "Rand2"
     par$platform <- "Rand1"
-    par$platform <- "granular0-1.5"
+    par$platform <- "NA12878-granular-3-rand1"
+    par$platform <- "NA12878-granular-3-rand1-2-3"
     
-    if (!is.null(par$platform)) opt$runName <- paste(opt$runName,par$platform, sep='-')
+    # if (!is.null(par$platform)) opt$runName <- paste(opt$runName,par$platform, sep='-')
 
     opt$datDir <- paste(
-      file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
-                # par$platform,par$version,
-                # opt$classVar,
-                par$classVar,
-                opt$workflow),
+      file.path(par$topDir, "scratch/RStudio/merge_builds", par$platform,par$classVar,opt$workflow),
+      # file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
+      #           # par$platform,par$version,
+      #           # opt$classVar,
+      #           par$classVar,
+      #           opt$workflow),
       sep=',')
     
     opt$trainClass <- paste('NA12878', sep=',')
-    
+
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
@@ -558,7 +567,8 @@ if (!is.null(opt$classVar)) opt$outDir <- file.path(opt$outDir, opt$classVar)
 if (!is.null(opt$workflow)) opt$outDir <- file.path(opt$outDir, opt$workflow)
 
 # TBD:: par$classVar is a temporary hack, needs to be integrated properly...
-if (!is.null(par$classVar)) opt$outDir <- file.path(opt$outDir, par$classVar)
+#  This should be done now and removed...
+#  if (!is.null(par$classVar)) opt$outDir <- file.path(opt$outDir, par$classVar)
 
 if (!dir.exists(opt$outDir))
   dir.create(opt$outDir, recursive=TRUE)
@@ -597,6 +607,7 @@ for (betaKey in lociBetaKey_vec) {
       # }
       
       opt$clean <- TRUE
+      opt$single <- TRUE
       
       betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
       pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
@@ -641,14 +652,23 @@ for (betaKey in lociBetaKey_vec) {
       class_str <- opt$trainClass
       sentrix_name <- "Sentrix_Name"
       
-      if (stringr::str_starts(opt$runName, "NA12878")) {
+      if (FALSE && stringr::str_starts(opt$runName, "NA12878")) {
         # class_str <- "1,2,3,4,5,6"
-        class_vec <- c(1:44)
+        # class_vec <- c(1:44)
+        # class_str <- class_vec %>% paste(collapse=",")
+        # sentrix_name <- "Sentrix_Uniq"
+        # tmp_sam_tib <- readr::read_csv("/Users/bretbarnes/Documents/scratch/RStudio/merge_builds/NA12878-granular0-1.5/detect_platform/ind/NA12878-granular0-1.5_ind_AutoSampleSheet.csv.gz")
+        
+        # tmp_sam_tib <- readr::read_csv("/Users/bretbarnes/Documents/scratch/RStudio/merge_builds/NA12878-granular-3-rand1-2/detect_version/ind/NA12878-granular-3-rand1-2_ind_betas.dat.csv.gz")
+        # tmp_sam_tib <- readr::read_csv("/Users/bretbarnes/Documents/scratch/RStudio/merge_builds/NA12878-granular-3-rand1-2/detect_version/ind/NA12878-granular-3-rand1-2_ind_AutoSampleSheet.csv.gz")
+        # class_vec <- tmp_sam_tib %>% dplyr::distinct(detect_version) %>% dplyr::arrange(detect_version) %>% dplyr::pull(detect_version)
+        
+        tmp_sam_tib <- readr::read_csv("/Users/bretbarnes/Documents/scratch/RStudio/merge_builds/NA12878-granular-3-rand1-2/detect_version/ind/NA12878-granular-3-rand1-2_ind_AutoSampleSheet.csv.gz")
+        class_vec <- tmp_sam_tib %>% dplyr::distinct(!!class_var) %>% dplyr::arrange(!!class_var) %>% dplyr::pull(!!class_var)
         class_str <- class_vec %>% paste(collapse=",")
-        sentrix_name <- "Sentrix_Uniq"
-
-        tmp_sam_tib <- readr::read_csv("/Users/bretbarnes/Documents/scratch/RStudio/merge_builds/NA12878-granular0-1.5/detect_platform/ind/NA12878-granular0-1.5_ind_AutoSampleSheet.csv.gz")
+        sentrix_name <- "Sentrix_Name"
       }
+      class_str <- NULL
       
       beta_file_tib <- getCallsMatrixFiles(
         betaKey=betaKey,pvalKey=pvalKey,pvalMin=pvalMin, 
@@ -669,8 +689,12 @@ for (betaKey in lociBetaKey_vec) {
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
       # Now load previous results from file::
-      if (opt$addPval) pval_select_mat <- loadFromFileTib(tib=beta_file_tib, type="Pval")
-      sampleSheet_tib <- loadFromFileTib(tib=beta_file_tib, type="SampleSheet") %>% 
+      if (opt$addPval) pval_select_mat <- 
+        loadFromFileTib(tib=beta_file_tib, type="Pval", 
+                        verbose=opt$verbose,tc=1,tt=pTracker)
+      sampleSheet_tib <- 
+        loadFromFileTib(tib=beta_file_tib, type="SampleSheet",
+                        verbose=opt$verbose,tc=1,tt=pTracker) %>% 
         dplyr::mutate(Experiment_Key=Experiment_Key %>%
                         stringr::str_remove('-Samples') %>% 
                         stringr::str_remove('-EPIC-Core') %>% 
@@ -678,6 +702,24 @@ for (betaKey in lociBetaKey_vec) {
                       platformUsed=detect_platform, 
                       platVersUsed=detect_version)
       
+      # if ("Sample_Per1" %in% base::names(sampleSheet_tib)) {
+      #   sampleSheet_tib <- sampleSheet_tib %>%
+      #     dplyr::mutate()
+      # } else if ("Sample_Per1" %in% base::names(sampleSheet_tib)) {
+      #   
+      # } else {
+      #   
+      # }
+
+      # Fix detect_version (class_var) that have decimal (double) values
+      #   - if double add a zero? Split on dot
+      if (FALSE) {
+        sampleSheet_tib %>% 
+          dplyr::mutate(DV=as.character(detect_version)) %>% 
+          dplyr::select(Sentrix_Name, DV) %>% 
+          as.data.frame()
+      }
+
       index_masks_tib <- loadFromFileTib(tib=beta_file_tib, type="Mask")
       beta_impute_mat <- loadFromFileTib(tib=beta_file_tib, type="Beta")
       beta_masked_mat <- beta_impute_mat
@@ -701,8 +743,6 @@ for (betaKey in lociBetaKey_vec) {
       #  4. Load signal sets
       #  5. Plot signal sets
       #
-      opt$plot_pairs <- FALSE
-      opt$plot_pairs <- TRUE
       if (opt$plot_pairs) {
         sam_pval_name_sym <- rlang::sym(opt$samplePvalName)
         
@@ -910,19 +950,22 @@ for (betaKey in lociBetaKey_vec) {
                   next
                 }
                 
-                gg <- 
-                  plotPairsBeta(beta=beta_plot_tib, pval=pval_plot_tib, 
-                                sample=class_key, nameA=exp_keyA, nameB=exp_keyB,
-                                outDir=opt$plotDir,
-                                probeType='cg', field='Beta', 
-                                field_str=betaKey, detp=pvalKey, minPval=pvalMin,
-                                format='both', verbose=opt$verbose)
+                gg <- plotPairsBeta(
+                  beta=beta_plot_tib, pval=pval_plot_tib, 
+                  sample=class_key, nameA=exp_keyA, nameB=exp_keyB,
+                  outDir=opt$plotDir,
+                  probeType='cg', field='Beta', 
+                  field_str=betaKey, detp=pvalKey, minPval=pvalMin,
+                  format='both', verbose=opt$verbose)
                 
                 cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}{RET}") )
                 
+                if (opt$single) break
               }
             }
+            if (opt$single) break
           }
+          if (opt$single) break
         }
       }
       

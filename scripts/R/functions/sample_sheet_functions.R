@@ -169,13 +169,24 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
     }
     
     if (addPathsSset) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Adding SSETs Paths...{RET}"))
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding SSETs Paths...{RET}"))
       
+      sset_suffix <- 'sigs.dat.csv.gz$'
+      sset_suffix <- 'sigs.csv.gz$'
       ret_tib <- 
         addPathsToSampleSheet(ss=ret_tib, dir=dir, 
-                              platform=platform, manifest=manifest, workflow=workflow,
-                              del='_',field='Ssets_Path', suffix='sigs.dat.csv.gz$', 
+                              platform=platform, manifest=manifest, workflow=NULL,
+                              del='_',field='Ssets_Path', suffix=sset_suffix,
                               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      # NOTE: Previous code with workflow value added::
+      #
+      # ret_tib <- 
+      #   addPathsToSampleSheet(ss=ret_tib, dir=dir, 
+      #                         platform=platform, manifest=manifest, workflow=workflow,
+      #                         del='_',field='Ssets_Path', suffix='sigs.dat.csv.gz$', 
+      #                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       auto_ss_tlen <- base::nrow(ret_tib)
       if (verbose>=vt) 
@@ -404,7 +415,7 @@ mergeCallsFromSS = function(ss, max=0, outName, outDir,
       
       call_tib  <- suppressMessages(suppressWarnings( readr::read_csv(call_path) ))
       
-      if (pathName=='Calls_Path') {
+      if (pathName=='Calls_Path' || is.null(joinNameB)) {
         call_cols <- call_tib %>% dplyr::select(-c(!!joinNameA)) %>% names()
         call_lens <- length(call_cols)
       } else {
@@ -418,7 +429,7 @@ mergeCallsFromSS = function(ss, max=0, outName, outDir,
         cur_col <- call_cols[cIdx]
         # cur_tib <- dplyr::select(call_tib, 1,cur_col)
         
-        if (pathName=='Calls_Path') {
+        if (pathName=='Calls_Path' || is.null(joinNameB)) {
           cur_tib <- dplyr::select(call_tib, !!joinNameA, dplyr::all_of(cur_col) )
           colnames(cur_tib)[2] <- sentrix_name
           if (is.null(data_list[[cur_col]])) {
@@ -490,10 +501,17 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL,
                            mat=NULL, cgn=NULL, ss=NULL, 
                            idKey="Probe_ID", addPval=FALSE, 
                            betaName='beta', pvalName='pval', del='.',
-                           verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'loadCallsMatrix'
+                           verbose=0,vt=3,tc=1,tt=NULL,
+                           funcTag='loadCallsMatrix') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}  betaCSV={betaCSV}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  pvalCSV={pvalCSV}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}    idKey={idKey}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} betaName={betaName}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} pvalName={pvalName}.{RET}{RET}"))
+  }
   
   if (!file.exists(betaCSV)) {
     cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: File does not exist; betaCSV={betaCSV}.{RET}"))
@@ -522,16 +540,21 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL,
     #
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Loading beta (CSV)={betaCSV}.{RET}"))
     beta_tib <- suppressMessages(suppressWarnings( readr::read_csv(betaCSV) ))
+    ret_cnt <- print_tib(beta_tib,funcTag, verbose,vt+4,tc, n="beta_tib-1")
+    
     if (!is.null(cgn)) beta_tib <- beta_tib %>% dplyr::inner_join(cgn, by=idKey)
     # if (!is.null(ss))  beta_tib <- beta_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Name)
-    if (!is.null(ss))  beta_tib <- beta_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Uniq)
-    ret_cnt <- print_tib(beta_tib,funcTag, verbose,vt+4,tc, n="beta_tib")
+    # if (!is.null(ss))  beta_tib <- beta_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Uniq)
+    if (!is.null(ss))  beta_tib <- beta_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Name)
+    ret_cnt <- print_tib(beta_tib,funcTag, verbose,vt+4,tc, n="beta_tib-2")
 
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pval (CSV)={pvalCSV}.{RET}"))
     pval_tib <- suppressMessages(suppressWarnings( readr::read_csv(pvalCSV) ))
+    ret_cnt <- print_tib(pval_tib,funcTag, verbose,vt+4,tc, n="pval_tib-1")
     # if (!is.null(cgn)) pval_tib <- pval_tib %>% dplyr::inner_join(cgn, by=idKey)
-    if (!is.null(ss))  pval_tib <- pval_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Uniq)
-    ret_cnt <- print_tib(pval_tib,funcTag, verbose,vt+4,tc, n="pval_tib")
+    # if (!is.null(ss))  pval_tib <- pval_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Uniq)
+    if (!is.null(ss))  pval_tib <- pval_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Name)
+    ret_cnt <- print_tib(pval_tib,funcTag, verbose,vt+4,tc, n="pval_tib-2")
 
     if (addPval) {
       if (verbose>=vt+1) 
@@ -677,10 +700,9 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
       # pval_perc <- rlang::sym(pval_perc)
       
       trainClass_vec <- NULL
-      if (!is.null(classes)) trainClass_vec <- classes %>% 
-        str_split(pattern=',', simplify=TRUE) %>% as.vector()
-      
       if (!is.null(classes)) {
+        trainClass_vec <- classes %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
+        
         if (verbose>=vt+4) {
           cat(glue::glue("[{funcTag}]:{tabsStr} classes={classes}; trainClass_vec={RET}") )
           print(trainClass_vec)
@@ -720,10 +742,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
 
         if (verbose>=vt+1)
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Filtering Sample CSV; class_var={class_var}...{RET}") )
-        
-        print(classes)
-        print(trainClass_vec)
-        
+
         if (!is.null(classes) && length(trainClass_vec)>0)
           cur_ss_tib <- cur_ss_tib %>% dplyr::filter(!!class_var %in% trainClass_vec)
         print_tib(cur_ss_tib,funcTag, verbose,vt+4,tc, n="cur_ss_tib-2")
@@ -749,14 +768,17 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
         beta_csv <- file.path(base_dir, base::basename(betas_path_tib$Full_Path[1]) )
         pval_csv <- file.path(base_dir, base::basename(pvals_path_tib$Full_Path[1]) )
         
-        if (verbose>=vt+1) {
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} beta_csv={beta_csv}.{RET}") )
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval_csv={pval_csv}.{RET}") )
-        }
-        beta_mat <- loadCallsMatrix(betaCSV=beta_csv, pvalCSV=pval_csv, minPval=pvalMin, mat=beta_mat, 
-                                    cgn=cgn, ss=cur_ss_tib,
-                                    idKey=idKey, addPval=addPval, betaName=betaName, pvalName=pvalName, del='.',
-                                    verbose=verbose, vt=vt,tc=1, tt=tt)
+        # if (verbose>=vt+1) {
+        #   cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} beta_csv={beta_csv}.{RET}") )
+        #   cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} pval_csv={pval_csv}.{RET}") )
+        # }
+        
+        beta_mat <- loadCallsMatrix(
+          betaCSV=beta_csv, pvalCSV=pval_csv, minPval=pvalMin, mat=beta_mat, 
+          cgn=cgn, ss=cur_ss_tib, idKey=idKey, addPval=addPval, 
+          betaName=betaName, pvalName=pvalName, del='.',
+          verbose=verbose, vt=vt,tc=1,tt=tt)
+        
         if (verbose>=vt+4) {
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} beta_mat(n=1)={RET}") )
           beta_mat %>% head(n=2) %>% print()

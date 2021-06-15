@@ -387,12 +387,13 @@ checkModelFiles = function(mod_rds, pattern=".model.rds", fns_pattern='.model-fi
 }
 
 loadFromFileTib = function(tib, type, dir=NULL,
-                           verbose=0,vt=2,tc=1,tt=NULL) {
-  funcTag <- 'loadFromFileTib'
+                           verbose=0,vt=3,tc=1,tt=NULL,
+                           funcTag='loadFromFileTib') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
   
-  data <- NULL
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     sel_tib <- tib %>% dplyr::filter(Type==type) %>% head(n=1)
     
@@ -402,18 +403,26 @@ loadFromFileTib = function(tib, type, dir=NULL,
       stop(glue::glue("{RET}[{funcTag}]: ERROR: File does NOT exist; file={file}!{RET}{RET}"))
     
     if (stringr::str_ends(file, '.rds')) {
-      data <- readr::read_rds(file)
+      ret_tib <- readr::read_rds(file)
     } else if (stringr::str_ends(file, '.csv') || stringr::str_ends(file, '.csv.gz')) {
-      data <- suppressMessages(suppressWarnings( readr::read_csv(file) ))
+      ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(file) ))
     } else {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported file type={file}!{RET}{RET}"))
+    }
+    if (tibble::is_tibble(ret_tib)) {
+      ret_tib <- ret_tib %>% clean_tibble()
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    } else if (base::is.matrix(ret_tib)) {
+      ret_cnt <- base::dim(ret_tib)[1]
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
-  
-  data
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+
+  ret_tib
 }
 
 saveModel = function(name, dir, type='model', 

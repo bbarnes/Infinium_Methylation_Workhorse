@@ -168,6 +168,7 @@ if (args.dat[1]=='RStudio') {
   }
   
   opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
+  opt$outDir <- file.path(par$topDir, 'scratch',"test",par$runMode)
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -298,6 +299,93 @@ cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                  Main::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  percs1 <- splitStrToVec("0,5,10,15,20,30,60,90,100")
+  percs2 <- splitStrToVec("0,5,10,15,20,30,60,90,100")
+  
+  stats_tib <- NULL
+  
+  for (p1 in percs1) {
+    for (p2 in percs2) {
+      perc <- paste(p1,p2, sep=".")
+      
+      rand1 <- "Rand1"
+      perc1 <- perc
+      
+      rand2 <- "Rand2"
+      perc2 <- perc
+      
+      rand3 <- "Rand3"
+      perc3 <- perc
+      
+      file_name1 <- paste0(rand1,"-",perc1,".manifest.sesame-base.cpg-sorted.csv.gz")
+      file_path1 <- file.path(par$topDir, "scratch/RStudio/manifest_subset_noob/EPIC-noob-BP4/man", file_name1)
+      file.exists( file_path1 )
+      data_tib1 <- suppressMessages(suppressWarnings( readr::read_csv(file_path1) ))
+      
+      file_name2 <- paste0(rand2,"-",perc2,".manifest.sesame-base.cpg-sorted.csv.gz")
+      file_path2 <- file.path(par$topDir, "scratch/RStudio/manifest_subset_noob/EPIC-noob-BP4/man", file_name2)
+      file.exists( file_path2 )
+      data_tib2 <- suppressMessages(suppressWarnings( readr::read_csv(file_path2) ))
+      
+      file_name3 <- paste0(rand3,"-",perc3,".manifest.sesame-base.cpg-sorted.csv.gz")
+      file_path3 <- file.path(par$topDir, "scratch/RStudio/manifest_subset_noob/EPIC-noob-BP4/man", file_name3)
+      file.exists( file_path3 )
+      data_tib3 <- suppressMessages(suppressWarnings( readr::read_csv(file_path3) ))
+      
+      data_tot1 <- data_tib1 %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+      data_tot2 <- data_tib2 %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+      data_tot3 <- data_tib3 %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+      
+      data_cnt1 <- data_tib1 %>% dplyr::filter(!Probe_ID %in% data_tib2$Probe_ID) %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+      data_cnt2 <- data_tib1 %>% dplyr::filter(!Probe_ID %in% data_tib3$Probe_ID) %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+      data_cnt3 <- data_tib2 %>% dplyr::filter(!Probe_ID %in% data_tib3$Probe_ID) %>% dplyr::distinct(Probe_ID) %>% base::nrow()
+      
+      cat(glue::glue("Counts ({perc}): cnt1={data_cnt1}, cnt2={data_cnt2}, cnt3={data_cnt3}{RET}{RET}"))
+      
+      uniq_cnt1 <- data_tib1 %>% 
+        dplyr::filter(!Probe_ID %in% data_tib2$Probe_ID) %>% 
+        dplyr::filter(!Probe_ID %in% data_tib3$Probe_ID) %>% 
+        dplyr::distinct(Probe_ID) %>% base::nrow()
+      
+      uniq_cnt2 <- data_tib2 %>% 
+        dplyr::filter(!Probe_ID %in% data_tib1$Probe_ID) %>% 
+        dplyr::filter(!Probe_ID %in% data_tib3$Probe_ID) %>% 
+        dplyr::distinct(Probe_ID) %>% base::nrow()
+      
+      uniq_cnt3 <- data_tib3 %>% 
+        dplyr::filter(!Probe_ID %in% data_tib1$Probe_ID) %>% 
+        dplyr::filter(!Probe_ID %in% data_tib2$Probe_ID) %>% 
+        dplyr::distinct(Probe_ID) %>% base::nrow()
+
+      cur_tib <- tibble::tibble(
+        p1=p1, p2=p2, 
+        unq=base::mean(uniq_cnt1,uniq_cnt2,uniq_cnt3, na.rm=TRUE),
+        tot=base::mean(data_tot1,data_tot2,data_tot3, na.rm=TRUE),
+        dif=tot-unq,
+        per1=base::round(100*uniq_cnt1/data_tot1, digits=3),
+        per2=base::round(100*uniq_cnt2/data_tot2, digits=3),
+        per3=base::round(100*uniq_cnt3/data_tot3, digits=3),
+        
+        unq1=uniq_cnt1,
+        unq2=uniq_cnt2,
+        unq3=uniq_cnt3,
+        
+        tot1=data_tot1,
+        tot2=data_tot2,
+        tot3=data_tot3
+      )
+      
+      stats_tib <- stats_tib %>% dplyr::bind_rows(cur_tib)
+      
+      # break
+    }
+    # break
+  }
+  stats_tib %>% print(n=base::nrow(stats_tib))
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Load Manifest(s)::

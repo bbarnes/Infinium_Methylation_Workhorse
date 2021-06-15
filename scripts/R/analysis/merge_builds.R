@@ -53,7 +53,7 @@ cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Predefined human sample sheet name::
 par$humanSampleSheetName <- 'humanSampleSheet.csv'
-par$joinType <- "full"
+opt$joinType <- "full"
 par$noob_sub <- FALSE
 
 # File Based Parameters::
@@ -276,12 +276,14 @@ if (args.dat[1]=='RStudio') {
     par$platform <- NULL
     
     # opt$classVar <- "detect_manifest"
-    opt$classVar <- "detect_version"
     opt$classVar <- "detect_platform"
+    opt$classVar <- "detect_version"
     
     opt$single   <- FALSE
     # opt$parallel <- TRUE
-    
+    opt$addPathsCall <- TRUE
+    opt$addPathsSset <- FALSE
+
     par$mixData <- TRUE
     par$allData <- TRUE
     
@@ -310,26 +312,34 @@ if (args.dat[1]=='RStudio') {
       # For all data::
       opt$datDir <- paste(
         # Granularity 0:
-        file.path(par$topDir, 'scratch/noob-sub/granular0/Rand1'),
-        file.path(par$topDir, 'scratch/noob-sub/granular0/Rand2'),
-        file.path(par$topDir, 'scratch/noob-sub/granular0/Rand3'),
+        # file.path(par$topDir, 'scratch/noob-sub/granular0/Rand1'),
+        # file.path(par$topDir, 'scratch/noob-sub/granular0/Rand2'),
+        # file.path(par$topDir, 'scratch/noob-sub/granular0/Rand3'),
         
         # Granularity 1:
-        file.path(par$topDir, 'scratch/noob-sub/granular/Rand1'),
-        file.path(par$topDir, 'scratch/noob-sub/granular/Rand2'),
-        file.path(par$topDir, 'scratch/noob-sub/granular/Rand3'),
-        file.path(par$topDir, 'scratch/noob-sub/granular/Rand4'),
-        file.path(par$topDir, 'scratch/noob-sub/granular/Rand5'),
+        # file.path(par$topDir, 'scratch/noob-sub/granular/Rand1'),
+        # file.path(par$topDir, 'scratch/noob-sub/granular/Rand2'),
+        # file.path(par$topDir, 'scratch/noob-sub/granular/Rand3'),
+        # file.path(par$topDir, 'scratch/noob-sub/granular/Rand4'),
+        # file.path(par$topDir, 'scratch/noob-sub/granular/Rand5'),
+        
+        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/0.0/swifthoof_main"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand1"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand2"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand3"),
         sep=',')
       
       # opt$runName <- paste(opt$runName,"granular0-1", sep='-')
       # opt$runName <- paste(opt$runName,"granular1.5", sep='-')
       # opt$runName <- paste(opt$runName,"granular0.3", sep='-')
-      opt$runName <- paste(opt$runName,"granular0-1.5", sep='-')
+      # opt$runName <- paste(opt$runName,"granular0-1.5", sep='-')
+      # opt$runName <- paste(opt$runName,"granular-3.1", sep='-')
+      opt$runName <- paste(opt$runName,"granular-3-rand1-2-3", sep='-')
       
-      par$joinType <- "inner"
+      opt$joinType <- "inner"
     }
     par$noob_sub <- TRUE
+    par$noob_sub <- FALSE
     
   } else if (par$local_runType=='COVID') {
     
@@ -557,6 +567,8 @@ if (args.dat[1]=='RStudio') {
                 help="Boolean variable to remove Genotyping tails from Sentrix Names (mostly testing stuff) [default= %default]", metavar="boolean"),
     make_option(c("--forceUnq"), action="store_false", default=opt$forceUnq, 
                 help="Boolean variable to force unique Sentrix Names [default= %default]", metavar="boolean"),
+    make_option(c("--joinType"), type="character", default=opt$joinType, 
+                help="Data merging join type (full, inner) [default= %default]", metavar="character"),
     
     # Parallel/Cluster Parameters::
     make_option(c("--execute"), action="store_true", default=opt$execute, 
@@ -710,21 +722,12 @@ for (curDir in blds_dir_vec) {
     next
   }
   
-  if (opt$forceUnq) cur_ss_tib <- cur_ss_tib %>% 
-    dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
-  
   cur_ss_tib <- cur_ss_tib %>%
-    dplyr::mutate(build_source=base::basename(curDir)) %>%
-    clean_tibble()
+    dplyr::mutate(build_source=base::basename(curDir)) %>% clean_tibble()
   
   # Join builds::
   #
-  auto_ss_tib <- auto_ss_tib %>% 
-    dplyr::bind_rows(cur_ss_tib) %>%
-    clean_tibble()
-  
-  if (opt$forceUnq) auto_ss_tib %>% 
-    dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
+  auto_ss_tib <- auto_ss_tib %>% dplyr::bind_rows(cur_ss_tib) %>% clean_tibble()
   
   cur_ss_len  <- cur_ss_tib %>% base::nrow()
   auto_ss_len <- auto_ss_tib %>% base::nrow()
@@ -732,9 +735,62 @@ for (curDir in blds_dir_vec) {
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]:{TAB} Raw Auto Sample Sheet ",
                    "Current={cur_ss_len}, Total={auto_ss_len}.{RET}"))
-  
-  print_tib(cur_ss_tib,par$prgmTag, opt$verbose,vt=10,tc=1, n="cur_ss_tib")
 }
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Ensure Sentrix_Name is Unique::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (opt$forceUnq) {
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB} Only keeping unique Setrix_Name rows!{RET}"))
+  
+  auto_ss_tib %>% dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
+} else {
+  tot_sent_cnt <- auto_ss_tib %>% dplyr::pull(Sentrix_Name) %>% length()
+  unq_sent_cnt <- auto_ss_tib %>% dplyr::pull(Sentrix_Name) %>% unique() %>% length()
+  
+  if (tot_sent_cnt != unq_sent_cnt) {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Making Setrix_Name unique!{RET}"))
+    
+    auto_ss_tib <- auto_ss_tib %>%
+      # dplyr::arrange(!!class_var) %>%
+      dplyr::mutate(Sentrix_Name=paste(Sentrix_Name,detect_manifest, sep='-'))
+  }
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   Expand Class Variable if its a Double::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+class_type <- auto_ss_tib %>% 
+  dplyr::select(!!class_var) %>% 
+  purrr::map_chr(pillar::type_sum) %>% 
+  paste(collapse = "_")
+
+if (class_type=="dbl") {
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB} Splitting detect_manifest...{RET}"))
+  
+  auto_ss_tib <- auto_ss_tib %>% 
+    tidyr::separate(detect_manifest, 
+                    into=c("Sample_Rand","Sample_Per1","Sample_Per2"), 
+                    remove=FALSE, convert=TRUE, sep="[.-]") %>% 
+    dplyr::mutate(Sample_Perc=paste0("I",Sample_Per1,"_II",Sample_Per2)) %>%
+    dplyr::select(Sentrix_Name,Sample_Rand,Sample_Perc,Sample_Per1,Sample_Per2,
+                  dplyr::everything())
+  
+  auto_ss_sum <- auto_ss_tib %>% 
+    dplyr::group_by(Sample_Per1,Sample_Per2) %>% 
+    # dplyr::group_by(Sample_Rand,Sample_Per1,Sample_Per2) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  auto_ss_sum %>% print(n=base::nrow(auto_ss_sum))
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Sample Sheet Summary Check::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 auto_ss_len <- auto_ss_tib %>% base::nrow()
 if (opt$verbose>0)
@@ -742,8 +798,6 @@ if (opt$verbose>0)
                  "Total={auto_ss_len}.{RET}{RET}"))
 
 auto_ss_sum <- auto_ss_tib %>% 
-  # dplyr::group_by(Run_Name,AutoSample_dB_Key_2) %>% 
-  # dplyr::group_by(auto_ss_tib$detect_manifest,AutoSample_dB_Key_2) %>% 
   dplyr::group_by(auto_ss_tib$detect_manifest,AutoSample_R2_Key_2) %>% 
   dplyr::summarise(Count=n(), .groups="drop")
 auto_ss_sum %>% print(n=base::nrow(auto_ss_sum))
@@ -773,9 +827,8 @@ if (FALSE) {
     ggplot2::geom_density(aes(x=cg_2_sig_U_mean_1,  color="U2") ) +
     ggplot2::geom_density(aes(x=cg_2_sig_M_mean_1,  color="M2") )
   
-  
   #
-  # THese two plots are the interesting ones::
+  # These two plots are the interesting ones::
   #
   # General Plot:: Signal Raw
   ggplot2::ggplot(data=auto_ss_tib , aes(color=AutoSample_dB_Key_2)) +
@@ -790,9 +843,7 @@ if (FALSE) {
     ggplot2::geom_density(aes(x=cg_IR_sig_U_mean_2 + cg_IG_sig_U_mean_2, color="IU") ) +
     ggplot2::geom_density(aes(x=cg_2_sig_U_mean_2,  color="2U") ) +
     ggplot2::geom_density(aes(x=cg_2_sig_M_mean_2,  color="2M") )
-  
-  
-  
+
   #
   # Clear difference in values::
   #
@@ -941,7 +992,6 @@ if (FALSE) {
   
 }
 
-
 #
 # Quick fix update calls path for noob_sum::
 #
@@ -976,9 +1026,6 @@ if (par$noob_sub || par$chig_sub) {
   class_var <- rlang::sym("Sample_Class")
   
 }
-
-
-
 
 #
 #
@@ -1114,30 +1161,46 @@ if (!is.null(hum_ss_tib)) {
     labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
   }
 } else {
-  # stop(glue::glue("[{par$prgmTag}]: Failed to find humman annotation sample sheet={opt$sampleCsv}!!!{RET}{RET}"))
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
   
-  hum_ss_tib <- auto_ss_tib %>% 
-    dplyr::select(Sentrix_Name, !!class_var) %>% 
-    dplyr::arrange(!!class_var)
+  labs_ss_tib <- auto_ss_tib
   
-  # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
-  # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
-  #
-  auto_ss_tib <- auto_ss_tib %>% 
-    dplyr::select(- !!class_var)
-  labs_ss_tib <- auto_ss_tib %>% 
-    dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
-    # dplyr::left_join(hum_ss_tib, by=c("Sentrix_Name",opt$classVar)) %>% 
-    # dplyr::left_join(hum_ss_tib, by=c("Sentrix_Name",!!class_var)) %>% 
-    # dplyr::left_join(hum_ss_tib, by=dplyr::all_of(c("Sentrix_Name",opt$classVar))) %>% 
-    dplyr::arrange(!!class_var)
+  # This should be unesscary now::
+  if (FALSE) {
+    # stop(glue::glue("[{par$prgmTag}]: Failed to find humman annotation sample sheet={opt$sampleCsv}!!!{RET}{RET}"))
+    
+    # class_type <- auto_ss_tib %>% dplyr::select(Sentrix_Name) %>% purrr::map_chr(pillar::type_sum) %>% paste(collapse = "_")
+    # auto_ss_tib %>% dplyr::mutate(CLASS_STR_TMP=stringr::str_replace(!!class_var,'\\.','-')) %>% dplyr::select(Sentrix_Name,!!class_var,CLASS_STR_TMP) %>% as.data.frame()
+    
+    class_type <- auto_ss_tib %>% 
+      dplyr::select(!!class_var) %>% 
+      purrr::map_chr(pillar::type_sum) %>% 
+      paste(collapse = "_")
+    if (class_type=="dbl") {
+      
+    }
+    
+    hum_ss_tib <- auto_ss_tib %>% 
+      dplyr::select(Sentrix_Name, !!class_var) %>% 
+      dplyr::arrange(!!class_var)
+    
+    # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
+    # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+    #
+    auto_ss_tib <- auto_ss_tib %>% dplyr::select(- !!class_var)
+    labs_ss_tib <- auto_ss_tib %>% 
+      dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
+      dplyr::arrange(!!class_var)
+    
+  }
 }
 
 labs_ss_len <- labs_ss_tib %>% base::nrow()
-cat(glue::glue("[{par$prgmTag}]: Done. Joining Human Classification and Auto Sample Sheets; Total={labs_ss_len}.{RET}{RET}"))
-print(labs_ss_tib)
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Done. Joining Human Classification ",
+                 "and Auto Sample Sheets; Total={labs_ss_len}.{RET}{RET}"))
+print_tib(labs_ss_tib,par$prgmTag, opt$verbose,vt=10,tc=1, n="labs_ss_tib")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Import Datasets (Calls)::
@@ -1182,7 +1245,8 @@ if (file.exists(opt$beg_file) && file.exists(opt$end_file) && file.exists(opt$ca
 #  Solution??? Mutate a new chipName below...
 
 chipName <- "Sentrix_Name"
-if (par$noob_sub) chipName <- "Sentrix_Uniq"
+# Don't think we need this below anymore::
+# if (par$noob_sub) chipName <- "Sentrix_Uniq"
 
 if (!pass_time_check) {
   if (opt$verbose>0)
@@ -1197,19 +1261,21 @@ if (!pass_time_check) {
     call_tib <- mergeCallsFromSS(
       ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
       chipName=chipName, pathName="Calls_Path", joinNameA="Probe_ID", 
-      joinType = par$joinType,
+      joinType = opt$joinType,
       verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
     
     readr::write_csv(call_tib, opt$call_csv)
   }
   
-  # Write Merged Sset Files Tibble::
+  # Write Merged Sset Files Tibble:: 
   if (opt$addPathsSset) {
     sset_tib <- mergeCallsFromSS(
-      ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
+      ss=head(labs_ss_tib,n=20), max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
+      # ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
       chipName=chipName, pathName="Ssets_Path", 
-      joinNameA="Probe_ID", joinNameB="Probe_Design",
-      joinType = par$joinType,
+      joinNameA="Address", joinNameB=NULL,
+      # joinNameA="Probe_ID", joinNameB="Probe_Design",
+      joinType = opt$joinType,
       verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
     
     readr::write_csv(sset_tib, opt$sset_csv)
@@ -1218,12 +1284,17 @@ if (!pass_time_check) {
   cmd <- paste('touch',opt$end_file, sep=' ')
   system(cmd)
   
-  cat(glue::glue("[{par$prgmTag}]: Done. Building from scratch.{RET}{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Done. Building from scratch.{RET}{RET}"))
 } else {
-  cat(glue::glue("[{par$prgmTag}]: Build Already Up to Date.{RET}{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Build Already Up to Date.{RET}{RET}"))
 }
 
 # Write Auto Sample Sheet::
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Writing labs_csv={opt$labs_csv}.{RET}{RET}"))
+
 readr::write_csv(labs_ss_tib, opt$labs_csv)
 
 if (par$noob_sub) {
