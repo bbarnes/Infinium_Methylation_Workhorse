@@ -316,8 +316,9 @@ if (args.dat[1]=='RStudio') {
     
     # opt$parallel <- TRUE
     opt$single     <- FALSE
-    opt$plot_pairs <- TRUE
+    opt$single     <- TRUE
     opt$plot_pairs <- FALSE
+    opt$plot_pairs <- TRUE
     
     opt$buildDml <- TRUE
     opt$buildDbl <- TRUE
@@ -607,8 +608,7 @@ for (betaKey in lociBetaKey_vec) {
       # }
       
       opt$clean <- TRUE
-      opt$single <- TRUE
-      
+
       betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
       pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
       dirName <- paste(betaStr,pvalStr, sep='_')

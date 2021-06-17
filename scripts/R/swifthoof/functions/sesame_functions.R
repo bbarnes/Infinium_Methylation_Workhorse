@@ -121,7 +121,6 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
     
     by_sym <- rlang::sym(by)
     
-    call_dat_tib <- NULL
     # call_dat_tib <- man %>% dplyr::select(!!by)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -232,6 +231,9 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     if (ret_beta) ret_beta_dat$beta_dat <- beta_dat_tib
     
+    call_dat_tib <- dplyr::left_join(call_dat_tib,beta_dat_tib, by=by)
+    sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(beta_sum_tib)
+    
     beta_sum_tib <- ssetTibToSummary(
       tib=beta_dat_tib,man=man,
       percision=percision_beta,
@@ -291,31 +293,6 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
       }
     }
     if (ret_beta || ret_bsum) ret_dat$beta <- ret_beta_dat
-
-    call_dat_tib <- dplyr::left_join(call_dat_tib,beta_dat_tib, by=by)
-    sums_dat_tib <- sums_dat_tib %>% dplyr::bind_rows(beta_sum_tib)
-
-    # Write Updated SSET
-    #
-    if (write_sset && !is.null(sset_rds) && !file.exists(sset_rds))
-      readr::write_rds(sset, sset_rds, compress="gz")
-
-    # Write Calls CSV
-    #
-    if (write_call && !is.null(call_csv))
-      readr::write_csv(call_dat_tib, call_csv)
-
-    call_sum_tib <- NULL
-    call_sum_tib <-
-      callToPassPerc(file=call_csv, key="pvals_pOOBAH",
-                     name=NULL, idx=NULL, min=min_pvals[1], type='cg',
-                     verbose=verbose+10,vt=vt+1,tc=tc+1,tt=tt)
-
-    # Write VCF SNPs calls::
-    #
-    if (write_snps && !is.null(snps_csv))
-      vcf_ret <- safeVCF(sset=sset, vcf=snps_csv,
-                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # Run Auto Sample Detection::
     #
@@ -342,15 +319,14 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
         dplyr::mutate(!!by_sym := stringr::str_remove(!!by_sym, "_.*$")) %>%
         dplyr::distinct(!!by_sym, .keep_all=TRUE)
       ret_cnt <- print_tib(auto_man_tib,funcTag, verbose,vt+4,tc, n="auto_man_tib")
-      
       ret_cnt <- print_tib(call_dat_tib,funcTag, verbose,vt+4,tc, n="call_dat_tib")
+      
       auto_dat_tib <- call_dat_tib %>% 
         dplyr::mutate(!!by_sym := stringr::str_remove(!!by_sym, "_.*$")) %>%
         dplyr::distinct(!!by_sym, .keep_all=TRUE)
       ret_cnt <- print_tib(auto_dat_tib,funcTag, verbose,vt+4,tc, n="auto_dat_tib")
       
       auto_ssh_tib <- autoDetect_Wrapper(
-        # can=call_dat_tib, ref=ref, man=man, # mask=mask,
         can=auto_dat_tib, ref=ref, man=auto_man_tib, # mask=mask,
         minPval=auto_min_pval, minDelta=minDb,
         dname='Design_Type', pname=type, ptype='cg', jval=by, 
@@ -360,12 +336,50 @@ ssetToSummary = function(sset, man, idx, workflow, name, platform=NULL,
         dpi=dpi, format=plotFormat, datIdx=datIdx, non.ref=non_ref,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
+      #
+      # Add dB against best auto detect::
+      #
+      # auto_sam_tib %>% dplyr::select(dplyr::all_of(c("Probe_ID", rdat$ssheet_tib$AutoSample_dB_1_Key_1)))
+      #
+      dB_ref_tib <- ref %>% dplyr::select(dplyr::all_of(c("Probe_ID", auto_ssh_tib$AutoSample_dB_1_Key))) %>%
+        purrr::set_names(c("Probe_ID","ref_beta")) %>%
+        dplyr::inner_join(auto_dat_tib, by="Probe_ID") %>%
+        dplyr::mutate(dB_ref=ref_beta-betas) %>%
+        dplyr::select(Probe_ID, dB_ref)
+        # dplyr::mutate(dB_ref=abs(ref_beta-betas))
+      ret_cnt <- print_tib(dB_ref_tib,funcTag, verbose,vt-4,tc, n="dB_ref_tib")
+
+      call_dat_tib <- call_dat_tib %>% dplyr::left_join(dB_ref_tib, by="Probe_ID")
+      ret_cnt <- print_tib(call_dat_tib,funcTag, verbose,vt-4,tc, n="call_dat_tib")
+      
       ret_cnt <- print_tib(auto_ssh_tib,funcTag, verbose,vt+4,tc, n="auto_ssh_tib")
       
     } else {
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Skipping Sample Auto Detection...{RET}"))
     }
+    
+    # Write Updated SSET
+    #
+    if (write_sset && !is.null(sset_rds) && !file.exists(sset_rds))
+      readr::write_rds(sset, sset_rds, compress="gz")
+    
+    # Write Calls CSV
+    #
+    if (write_call && !is.null(call_csv))
+      readr::write_csv(call_dat_tib, call_csv)
+    
+    call_sum_tib <- NULL
+    call_sum_tib <-
+      callToPassPerc(file=call_csv, key="pvals_pOOBAH",
+                     name=NULL, idx=NULL, min=min_pvals[1], type='cg',
+                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    # Write VCF SNPs calls::
+    #
+    if (write_snps && !is.null(snps_csv))
+      vcf_ret <- safeVCF(sset=sset, vcf=snps_csv,
+                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                            Set/Summarize:: Sigs

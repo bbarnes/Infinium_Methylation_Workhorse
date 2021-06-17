@@ -57,13 +57,13 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
       cat(glue::glue("{RET}[{funcTag}]:{tabsStr} Warning: Failed to find auto sample sheets!{RET}{RET}"))
     return(ret_tib)
   }
-
+  
   pvalDetectMinKey <- NULL
   
   etime <- NA
   stime <- NULL
   stime <- base::system.time({
-
+    
     if (!is.null(pvalDetectMinKey)) pvalDetectMinKey <- pvalDetectMinKey %>% rlang::sym()
     # pvalDetectMinVal <- pvalDetectMinVal %>% rlang::sym()
     
@@ -100,7 +100,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
           dplyr::select(Auto_Sample_Name, dplyr::everything())
         ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="general_tib")
       }
-
+      
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #  Flag Probe Detected (pval)::
       if (flagDetectPval && !is.null(pvalDetectMinKey) && !is.null(pvalDetectMinVal)) {
@@ -155,13 +155,16 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #  Add Paths::
     if (addPathsCall) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Adding Calls Paths...{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding Calls Paths...{RET}"))
       
+      call_suffix <- 'call.dat.csv.gz$'
       ret_tib <- 
-        addPathsToSampleSheet(ss=ret_tib, dir=dir, 
-                              platform=platform, manifest=manifest, workflow=workflow,
-                              del='_',field='Calls_Path', suffix='call.dat.csv.gz$',
-                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        add_paths_to_sampleSheet(
+          tib=ret_tib, dir=dir, 
+          platform=platform, manifest=manifest, workflow=workflow,
+          del='_',field='Calls_Path', suffix=call_suffix,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       auto_ss_tlen <- base::nrow(ret_tib)
       if (verbose>=vt) 
@@ -172,21 +175,22 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Adding SSETs Paths...{RET}"))
       
-      sset_suffix <- 'sigs.dat.csv.gz$'
-      sset_suffix <- 'sigs.csv.gz$'
-      ret_tib <- 
-        addPathsToSampleSheet(ss=ret_tib, dir=dir, 
-                              platform=platform, manifest=manifest, workflow=NULL,
-                              del='_',field='Ssets_Path', suffix=sset_suffix,
-                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      # Below is just for the original raw version
+      sset_suffix   <- 'sigs.csv.gz$'
+      sset_workflow <- NULL
       
-      # NOTE: Previous code with workflow value added::
-      #
-      # ret_tib <- 
-      #   addPathsToSampleSheet(ss=ret_tib, dir=dir, 
-      #                         platform=platform, manifest=manifest, workflow=workflow,
-      #                         del='_',field='Ssets_Path', suffix='sigs.dat.csv.gz$', 
-      #                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      # Default for 
+      if (!is.null(workflow)) {
+        sset_suffix   <- 'sigs.dat.csv.gz$'
+        sset_workflow <- workflow
+      }
+      
+      ret_tib <- 
+        add_paths_to_sampleSheet(
+          tib=ret_tib, dir=dir, 
+          platform=platform, manifest=manifest, workflow=sset_workflow,
+          del='_',field='Ssets_Path', suffix=sset_suffix,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       auto_ss_tlen <- base::nrow(ret_tib)
       if (verbose>=vt) 
@@ -200,7 +204,7 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-
+  
   ret_tib
 }
 
@@ -239,48 +243,59 @@ getUniqueFields = function(ss, keys, verbose=0,vt=1,tc=1) {
   uniq_exp_keys
 }
 
-addPathsToSampleSheet = function(ss, dir, 
-                                 platform=NULL, manifest=NULL, workflow=NULL,
-                                 field, suffix, del='.',
-                                 verbose=0,vt=4,tc=1,tt=NULL) {
-  funcTag <- 'addPathsToSampleSheet'
+add_paths_to_sampleSheet = function(tib, dir, 
+                                    platform=NULL, manifest=NULL, workflow=NULL,
+                                    field, suffix, del='.',
+                                    verbose=0,vt=3,tc=1,tt=NULL,
+                                    funcTag='add_paths_to_sampleSheet') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; suffix={suffix}.{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}    dir={dir}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  field={field}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} suffix={suffix}.{RET}"))
+  }
   
-  pattern <- NULL
-  if (!is.null(platform)) pattern <- paste(pattern,platform, sep=del)
-  if (!is.null(manifest)) pattern <- paste(pattern,manifest, sep=del)
-  if (!is.null(workflow)) pattern <- paste(pattern,workflow, sep=del)
-  pattern <- paste(pattern,suffix, sep='.')
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    pattern <- NULL
+    if (!is.null(platform)) pattern <- paste(pattern,platform, sep=del)
+    if (!is.null(manifest)) pattern <- paste(pattern,manifest, sep=del)
+    if (!is.null(workflow)) pattern <- paste(pattern,workflow, sep=del)
+    pattern <- paste(pattern,suffix, sep='.')
+    
+    file_vec <- NULL
+    file_vec <- list.files(dir, pattern=pattern, recursive=TRUE, full.names=TRUE)
+    file_cnts <- length(file_vec)
+    if (file_cnts==0) file_vec <- NULL
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Found; pattern={pattern}, file_cnts={file_cnts}.{RET}"))
+    
+    ret_tib <- tibble::tibble(
+      Sentrix_Name=basename(file_vec) %>% 
+        stringr::str_replace('^([^_]+_[^_]+)_.*$', '\\$1') %>%
+        stringr::str_remove_all('\\\\'),
+      !!field := file_vec)
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    
+    ret_tib <- ret_tib %>%
+      dplyr::distinct(Sentrix_Name, .keep_all=TRUE) %>% 
+      dplyr::inner_join(tib, by="Sentrix_Name")
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  file_list <- NULL
-  file_list <- list.files(dir, pattern=pattern, recursive=TRUE, full.names=TRUE)
-  file_cnts <- length(file_list)
-  if (file_cnts==0) file_list <- NULL
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Found; pattern={pattern}, file_cnts={file_cnts}.{RET}"))
-  
-  ss_path_tibs <- tibble::tibble(Sentrix_Name=basename(file_list) %>% 
-                                   stringr::str_replace('^([^_]+_[^_]+)_.*$', '\\$1') %>%
-                                   stringr::str_remove_all('\\\\'),
-                                 !!field := file_list)
-  ss_path_cnts <- ss_path_tibs %>% base::nrow()
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Found; ss_path_cnts={ss_path_cnts}.{RET}"))
-  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ss_path_tibs={RET}"))
-  if (verbose>=vt+4) print(ss_path_tibs)
-  if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} ss={RET}"))
-  if (verbose>=vt+4) print(ss)
-  
-  tib <- ss_path_tibs %>%
-    dplyr::distinct(Sentrix_Name, .keep_all=TRUE) %>% 
-    dplyr::inner_join(ss, by="Sentrix_Name")
-  
-  tib_len <- tib %>% base::nrow()
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; tib_len={tib_len}.{RET}{RET}"))
-  
-  tib
+  ret_tib
 }
 
+# TBD:: This should be replaced by manifest look up and not estimation...
 addBeadPoolToSampleSheet = function(ss, field, 
                                     verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'addBeadPoolToSampleSheet'
@@ -383,30 +398,34 @@ formatSS_COVID = function(csv, skip=0, addID,
 #                        Merge Calls Files Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-mergeCallsFromSS = function(ss, max=0, outName, outDir,
+mergeCallsFromSS = function(ss, max=0, pre=NULL, outName, outDir,
                             chipName='Sentrix_Name', pathName='Calls_Path', 
                             joinNameA="Probe_ID", joinNameB="Probe_Design",
                             joinType="full",
-                            verbose=0,vt=2,tc=1,tt=NULL) {
-  funcTag <- 'mergeCallsFromSS'
+                            verbose=0,vt=2,tc=1,tt=NULL,
+                            funcTag='mergeCallsFromSS') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; chipName={chipName}, pathName={pathName}, joinName={joinNameA}.{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; chipName={chipName}, pathName={pathName}, joinName={joinNameA}.{RET}"))
   
   file_list <- base::list()
   data_list <- base::list()
   
   ret_cnt <- 0
   ret_tib <- NULL
-  
+  pre_tib <- NULL
   stime <- base::system.time({
     
-    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    ss_cnt <- print_tib(ss,funcTag,verbose,vt+4, n="ss")
     
-    ss_cnt <- ss %>% base::nrow()
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    if (!is.null(pre)) pre_tib <- dplyr::select(pre,!!joinNameA)
+    if (!is.null(pre_tib)) print_tib(pre_tib,funcTag,verbose,vt+4, n="pre_tib")
+    
     for (ssIdx in c(1:ss_cnt)) {
-      sentrix_name <- ss[[chipName]][ssIdx]
-      call_path    <- ss[[pathName]][ssIdx]
-      
+      sentrix_name <- dplyr::pull(ss,!!rlang::sym(chipName))[ssIdx]
+      call_path    <- dplyr::pull(ss,!!rlang::sym(pathName))[ssIdx]
+
       ss_perc = round(100*ssIdx/ss_cnt, 3)
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading {pathName}; ",
@@ -414,6 +433,7 @@ mergeCallsFromSS = function(ss, max=0, outName, outDir,
                        "sentrix_name={sentrix_name}; path={call_path}.{RET}"))
       
       call_tib  <- suppressMessages(suppressWarnings( readr::read_csv(call_path) ))
+      print_tib(call_tib,funcTag,verbose,vt+4, n="call_tib")
       
       if (pathName=='Calls_Path' || is.null(joinNameB)) {
         call_cols <- call_tib %>% dplyr::select(-c(!!joinNameA)) %>% names()
@@ -422,16 +442,23 @@ mergeCallsFromSS = function(ss, max=0, outName, outDir,
         call_cols <- call_tib %>% dplyr::select(-c(!!joinNameA,!!joinNameB)) %>% names()
         call_lens <- length(call_cols)
       }
-      # print(call_cols)
-      # print(call_tib)
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} call_lens={call_lens}, call_cols={RET}"))
+        call_cols %>% head() %>% print()
+      }
       
       for (cIdx in (1:call_lens)) {
         cur_col <- call_cols[cIdx]
         # cur_tib <- dplyr::select(call_tib, 1,cur_col)
         
+        if (is.null(data_list[[cur_col]]) && !is.null(pre_tib)) {
+          data_list[[cur_col]] <- pre_tib
+        }
+        
         if (pathName=='Calls_Path' || is.null(joinNameB)) {
           cur_tib <- dplyr::select(call_tib, !!joinNameA, dplyr::all_of(cur_col) )
           colnames(cur_tib)[2] <- sentrix_name
+          
           if (is.null(data_list[[cur_col]])) {
             data_list[[cur_col]] <- cur_tib
           } else {
@@ -464,6 +491,7 @@ mergeCallsFromSS = function(ss, max=0, outName, outDir,
             }
           }
         }
+        print_tib(data_list[[cur_col]],funcTag,verbose,vt+4, n=glue::glue("data_list-{cur_col}"))
       }
       
       if (!is.null(max) && max>0 && ssIdx>=max) break
@@ -547,7 +575,7 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL,
     # if (!is.null(ss))  beta_tib <- beta_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Uniq)
     if (!is.null(ss))  beta_tib <- beta_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Name)
     ret_cnt <- print_tib(beta_tib,funcTag, verbose,vt+4,tc, n="beta_tib-2")
-
+    
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} Loading pval (CSV)={pvalCSV}.{RET}"))
     pval_tib <- suppressMessages(suppressWarnings( readr::read_csv(pvalCSV) ))
     ret_cnt <- print_tib(pval_tib,funcTag, verbose,vt+4,tc, n="pval_tib-1")
@@ -555,7 +583,7 @@ loadCallsMatrix = function(betaCSV, pvalCSV, minPval=NULL,
     # if (!is.null(ss))  pval_tib <- pval_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Uniq)
     if (!is.null(ss))  pval_tib <- pval_tib %>% dplyr::select(!!idKey_sym, ss$Sentrix_Name)
     ret_cnt <- print_tib(pval_tib,funcTag, verbose,vt+4,tc, n="pval_tib-2")
-
+    
     if (addPval) {
       if (verbose>=vt+1) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Will combine pvals with beta values...{RET}"))
@@ -728,7 +756,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
           stop(glue::glue("{RET}[{funcTag}]: ERROR: cur_fn_csv={cur_fn_csv} does not exist!!!{RET}") )
           return(NULL)
         }
-
+        
         # Load and filter::
         if (verbose>=vt+1)
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading Sample CSV; cur_ss_csv={cur_ss_csv}...{RET}") )
@@ -739,19 +767,19 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
         if (!is.null(pval_name) && !is.null(pval_perc)) cur_ss_tib <- 
           cur_ss_tib %>% dplyr::filter(!!pval_name > !!pval_perc)
         print_tib(cur_ss_tib,funcTag, verbose,vt+4,tc, n="cur_ss_tib-1")
-
+        
         if (verbose>=vt+1)
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Filtering Sample CSV; class_var={class_var}...{RET}") )
-
+        
         if (!is.null(classes) && length(trainClass_vec)>0)
           cur_ss_tib <- cur_ss_tib %>% dplyr::filter(!!class_var %in% trainClass_vec)
         print_tib(cur_ss_tib,funcTag, verbose,vt+4,tc, n="cur_ss_tib-2")
-
+        
         if (verbose>=vt+1)
           cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading call_table={cur_fn_csv}...{RET}") )
         calls_path_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_fn_csv) ))
         print_tib(calls_path_tib,funcTag, verbose,vt+4,tc, n="calls_path_tib")
-
+        
         betas_path_tib <- calls_path_tib %>% dplyr::filter(Method %in% c(betaKey))
         pvals_path_tib <- calls_path_tib %>% dplyr::filter(Method %in% c(pvalKey))
         
@@ -788,7 +816,7 @@ getCallsMatrixFiles = function(betaKey,pvalKey,pvalMin, dirs, cgn=NULL, classes=
         
         if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Finished loading; outName={outName}.{RET}") )
         print_tib(labs_tib,funcTag, verbose,vt+4,tc, n="labs_tib")
-
+        
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                      Sort Sample Sheet by class_var::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1019,7 +1047,7 @@ getSsheetDataTab = function(tib,
           Variable=stringr::str_replace_all(
             stringr::str_squish((stringr::str_replace_all(Variable, regex("\\W+"), " ")) ), " ", "_") )
     )
-
+    
     if (verbose>=vt+3) {
       cat(glue::glue("[{funcTag}]:{tabsStr} ret_tib={RET}"))
       ret_tib %>% print()
@@ -1216,7 +1244,7 @@ getSsheetCoreAnnoTib = function(minOobPval,minOobPerc,
       # Open Sesame Basic Calling:: idx=0
       #
       cg_total_cnt_basic_0 = glue::glue("Only EPIC; Total cg loci using EPIC openSesame() for method index {idx_zero}. ",
-                                          "See Bioconductor Package ‘sesame’ openSesame(sset)."),
+                                        "See Bioconductor Package ‘sesame’ openSesame(sset)."),
       cg_pass_count_basic_0 = glue::glue("Only EPIC; Cout of recalculated cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
                                          "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset) and openSesame(sset)."),
       cg_pass_cnt_basic_0  = glue::glue("Only EPIC; Cout of cg loci with pOOBAH detection p-value <= {minOobPval} for method index {idx_zero}. ",
@@ -1436,7 +1464,7 @@ getSsheetIndexAnnoTib = function(idx,
         glue::glue("Percent rs loci with pOOBAH detection p-value < {minOobPval} for method index {idx}, ",
                    "calculated directly from the calls file. ",
                    "See Bioconductor Package ‘sesame’ sesame::pOOBAH(sset)."),
-
+      
       # Detection P-values:: pOOBAH:: NEW
       #
       cg_1_pvals_pOOBAH_pass_perc = glue::glue("Percent cg Infinium I loci with pOOBAH detection p-value < {minOobPval} for method index {idx}. ",

@@ -66,7 +66,6 @@ opt$datDir  <- NULL
 # Run Parameters::
 opt$runName   <- NULL
 opt$sampleCsv <- NULL
-opt$manifest  <- NULL
 opt$findSampleSheet <- FALSE
 
 # Class Parameters::
@@ -245,7 +244,7 @@ if (args.dat[1]=='RStudio') {
       sep=',')
     
     opt$runName <- paste(opt$runName,par$vstr, sep="-")
-    
+
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     opt$runName  <- par$local_runType
     
@@ -264,8 +263,7 @@ if (args.dat[1]=='RStudio') {
   } else if (par$local_runType=='NA12878') {
     opt$runName  <- par$local_runType
     
-    opt$manifest <- file.path(par$datDir, "manifest/core/EPIC-B4.manifest.sesame-base.cpg-sorted.csv.gz")
-    opt$workflow <- "ind"
+    opt$workflow    <- "ind"
     
     opt$verbose <- 30
     opt$platform <- NULL
@@ -284,8 +282,8 @@ if (args.dat[1]=='RStudio') {
     opt$single   <- FALSE
     # opt$parallel <- TRUE
     opt$addPathsCall <- TRUE
-    opt$addPathsSset <- TRUE
-    
+    opt$addPathsSset <- FALSE
+
     par$mixData <- TRUE
     par$allData <- TRUE
     
@@ -331,34 +329,20 @@ if (args.dat[1]=='RStudio') {
         # file.path(par$topDir, "scratch/noob-sub/granular2/Rand3"),
         
         # Rand 1-3 all data:: 0.0, 10.5, 5.10, 20.20, 60.60, 100.100
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/0.0"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/10.5"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/5.10"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/20.20"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/60.60"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/100.100"),
-        # 
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/0.0"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/10.5"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/5.10"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/20.20"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/60.60"),
-        # file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/100.100"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/0.0"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/10.5"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/5.10"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/20.20"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/60.60"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand1/100.100"),
         
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand4/0.0"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand4/10.5"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand4/5.10"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand4/20.20"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand4/60.60"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand4/100.100"),
-        
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand5/0.0"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand5/10.5"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand5/5.10"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand5/20.20"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand5/60.60"),
-        file.path(par$topDir, "scratch/noob-sub/granular2/Rand5/100.100"),
-        
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/0.0"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/10.5"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/5.10"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/20.20"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/60.60"),
+        file.path(par$topDir, "scratch/noob-sub/granular2/Rand2/100.100"),
+
         sep=',')
       
       # opt$runName <- paste(opt$runName,"granular0-1", sep='-')
@@ -556,8 +540,6 @@ if (args.dat[1]=='RStudio') {
                 help="Run Name [default= %default]", metavar="character"),
     make_option(c("--sampleCsv"), type="character", default=opt$sampleCsv, 
                 help="Human provide sample sheet labeling [default= %default]", metavar="character"),
-    make_option(c("--manifest"), type="character", default=opt$manifest, 
-                help="Human provide manifest [default= %default]", metavar="character"),
     make_option(c("--select"), action="store_true", default=opt$select, 
                 help="Boolean variable to only select samples from provided sample sheet [default= %default]", metavar="boolean"),
     
@@ -696,15 +678,12 @@ if (!is.null(opt$classVar)) opt$outDir <- file.path(opt$outDir, opt$classVar)
 if (!is.null(opt$workflow)) opt$outDir <- file.path(opt$outDir, opt$workflow)
 
 if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Bulding outDir={opt$outDir}!{RET}") )
+  cat(glue::glue("[{par$prgmTag}]: Bulding outDir={opt$outDir}!{RET}{RET}") )
+
 if (!dir.exists(opt$outDir)) dir.create(opt$outDir, recursive=TRUE)
+
 if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Built; outDir={opt$outDir}!{RET}{RET}") )
-
-
-if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Loading source manifest={opt$manifest}...{RET}") )
-src_man_tib <- suppressMessages(suppressWarnings( readr::read_csv(opt$manifest)))
 
 if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
@@ -842,11 +821,11 @@ if (FALSE) {
   #                           Geneknowme Update::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  opt$vers_sum1_csv <- file.path(opt$outDir, paste(par$outName, 'detect_Inf-Percent-summary1.csv.gz', sep='_') )
+  opt$vers_sum1_csv <- file.path(opt$outDir, paste(par$outName, 'detect_version-summary1.csv.gz', sep='_') )
   vers_sum1_tib <- auto_ss_tib %>% 
-    # dplyr::mutate(detect_version_int=Sample_Per1_Str) %>%
-    dplyr::group_by(Sample_Per1,Sample_Per2) %>%
-    dplyr::arrange(Sample_Per1,Sample_Per2) %>%
+    dplyr::mutate(detect_version_int=Sample_Per1_Str) %>%
+    dplyr::group_by(detect_version_int) %>%
+    dplyr::arrange(detect_version_int) %>%
     dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
                      Max_PV=max(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE),
                      Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_1, na.rm=TRUE), 
@@ -872,14 +851,14 @@ if (FALSE) {
                      Std_Age=sd(AgeSkinBlood_1, na.rm=TRUE),
                      .groups="drop"
     ) %>% dplyr::mutate_if(is.double, base::round, 4)
-  vers_sum1_tib %>% print(n=base::nrow(vers_sum1_tib))
   readr::write_csv(vers_sum1_tib, opt$vers_sum1_csv)
+  vers_sum1_tib %>% print(n=base::nrow(vers_sum1_tib))
   
-  opt$vers_sum2_csv <- file.path(opt$outDir, paste(par$outName, 'detect_Inf-Percent-summary2.csv.gz', sep='_') )
+  opt$vers_sum2_csv <- file.path(opt$outDir, paste(par$outName, 'detect_version-summary2.csv.gz', sep='_') )
   vers_sum2_tib <- auto_ss_tib %>% 
-    # dplyr::mutate(detect_version_int=Sample_Per1_Str) %>%
-    dplyr::group_by(Sample_Per1,Sample_Per2) %>%
-    dplyr::arrange(Sample_Per1,Sample_Per2) %>%
+    dplyr::mutate(detect_version_int=Sample_Per1_Str) %>%
+    dplyr::group_by(detect_version_int) %>%
+    dplyr::arrange(detect_version_int) %>%
     dplyr::summarise(Min_PV=min(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
                      Max_PV=max(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE),
                      Avg_PV=mean(cg_pvals_pOOBAH_pass_perc_2, na.rm=TRUE), 
@@ -905,17 +884,14 @@ if (FALSE) {
                      Std_Age=sd(AgeSkinBlood_2, na.rm=TRUE),
                      .groups="drop"
     ) %>% dplyr::mutate_if(is.double, base::round, 4)
-  vers_sum2_tib %>% print(n=base::nrow(vers_sum2_tib))
   readr::write_csv(vers_sum2_tib, opt$vers_sum2_csv)
-  
-  
-  age_dif_tib <- labs_ss_tib %>% dplyr::mutate(AgeSkinBlod_Dif=AgeSkinBlood_1-AgeSkinBlood_2) 
-  gg <- ggplot2::ggplot(data=age_dif_tib, aes(Sample_Per1, group=AgeSkinBlod_Dif)) +
-    ggplot2::geom_boxplot() + 
-    ggplot2::facet_grid(cols = vars(Sample_Per2)) + ggtitle("Infinium II Bins")
+  vers_sum2_tib %>% print(n=base::nrow(vers_sum2_tib))
   
   
   
+  
+  
+
   auto_ss_len <- auto_ss_tib %>% base::nrow()
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]: Done. Raw Auto Sample Sheet; ",
@@ -927,13 +903,13 @@ if (FALSE) {
   plot_tib <- auto_ss_tib %>% dplyr::arrange(Sample_Per1,Sample_Per2)
   
   # Violin::
-  # Sample_Per1_Str
-  # Sample_Per2_Str
+  Sample_Per1_Str
+  Sample_Per2_Str
   
   # ggplot2::ggplot(data=plot_tib, aes(cg_calls_pass_perc_1, AgeSkinBlood_2)) +
   #   ggplot2::geom_violin() + 
   #   ggplot2::facet_grid(cols = vars(Sample_Per2_Str), rows=vars(Sample_Per1_Str))
-  
+
   ggplot2::ggplot(data=plot_tib, aes(Sample_Per1, AgeSkinBlood_2)) +
     ggplot2::geom_violin() + 
     ggplot2::facet_grid(cols = vars(Sample_Per2))
@@ -941,7 +917,7 @@ if (FALSE) {
   ggplot2::ggplot(data=plot_tib, aes(Sample_Per2, AgeSkinBlood_2)) +
     ggplot2::geom_violin() + 
     ggplot2::facet_grid(cols = vars(Sample_Per1))
-  
+
   # Heatmap::
   ggplot(data = plot_tib, aes(x=Sample_Per1_Str, y=Sample_Per2_Str, fill=AgeSkinBlood_2)) + 
     geom_tile()
@@ -1050,7 +1026,7 @@ if (FALSE) {
     ggplot2::geom_boxplot() + 
     ggplot2::facet_grid(cols = vars(Sample_Per1))
   
-  
+
   #
   # Density Plots:: AgeSkinBlood_2
   #
@@ -1062,16 +1038,16 @@ if (FALSE) {
     ggplot2::geom_density(alpha=0.3, aes(fill=Sample_Per2)) +
     ggplot2::facet_grid(cols = vars(Sample_Per1))
   
+
   
-  
-  
+    
   #  ggplot2::facet_grid(rows = vars(Sample_Per1), cols = vars(Sample_Per2))
   
   ggplot2::ggplot(data=plot_tib, aes(cg_calls_pass_perc_1, AgeSkinBlood_2, color=Sample_Per1)) +
     ggplot2::geom_point() +
     ggplot2::geom_density_2d() +
     ggplot2::facet_grid(cols=vars(Sample_Per2))
-  
+
   ggplot2::ggplot(data=plot_tib, aes(cg_calls_pass_perc_1, AgeSkinBlood_2, color=Sample_Per2)) +
     ggplot2::geom_point() +
     ggplot2::geom_density_2d() +
@@ -1124,6 +1100,196 @@ if (FALSE) {
 }
 
 #
+# Plotting for Chicago::
+#
+if (FALSE) {
+  
+  # AutoSample_dB_Val_1
+  # cg_1_betas_mean_2
+  #
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=cg_1_betas_mean_2, color = AutoSample_dB_Key_2) ) +
+    ggplot2::geom_density()
+  
+  # General Plot:: Betas Normalized
+  ggplot2::ggplot(data=auto_ss_tib, aes(color=AutoSample_dB_Key_2)) +
+    ggplot2::geom_density(aes(x=cg_1_betas_mean_2) ) +
+    ggplot2::geom_density(aes(x=cg_2_betas_mean_2) )
+
+  # General Plot:: Signal Raw
+  ggplot2::ggplot(data=auto_ss_tib , aes(color=AutoSample_dB_Key_2)) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_M_mean_1, color="IRM") ) +
+    ggplot2::geom_density(aes(x=cg_IG_sig_M_mean_1, color="IGM") ) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_U_mean_1, color="IRU") ) +
+    ggplot2::geom_density(aes(x=cg_IG_sig_U_mean_1, color="IGU") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_U_mean_1,  color="U2") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_M_mean_1,  color="M2") )
+  
+  #
+  # These two plots are the interesting ones::
+  #
+  # General Plot:: Signal Raw
+  ggplot2::ggplot(data=auto_ss_tib , aes(color=AutoSample_dB_Key_2)) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_M_mean_1 + cg_IG_sig_M_mean_1, color="IM") ) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_U_mean_1 + cg_IG_sig_U_mean_1, color="IU") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_U_mean_1,  color="2U") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_M_mean_1,  color="2M") )
+  
+  # General Plot:: Signal IND
+  ggplot2::ggplot(data=auto_ss_tib , aes(color=AutoSample_dB_Key_2)) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_M_mean_2 + cg_IG_sig_M_mean_2, color="IM") ) +
+    ggplot2::geom_density(aes(x=cg_IR_sig_U_mean_2 + cg_IG_sig_U_mean_2, color="IU") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_U_mean_2,  color="2U") ) +
+    ggplot2::geom_density(aes(x=cg_2_sig_M_mean_2,  color="2M") )
+
+  #
+  # Clear difference in values::
+  #
+  auto_ss_tib %>% dplyr::select(
+    cg_1_betas_mean_1,
+    cg_2_betas_mean_1,
+    cg_2_sig_U_mean_1,
+    cg_2_sig_M_mean_1 
+  ) %>% 
+    dplyr::arrange(cg_2_betas_mean_1) %>% as.data.frame()
+  
+  auto_ss_tib %>% dplyr::select(
+    cg_1_betas_mean_2,
+    cg_2_betas_mean_2,
+    cg_2_sig_U_mean_2,
+    cg_2_sig_M_mean_2 
+  ) %>% 
+    dplyr::arrange(cg_2_betas_mean_2) %>% as.data.frame()
+  
+}
+
+#
+# For Chicago max Sentrix Name::
+#
+#  auto_ss_tib %>% dplyr::filter( cg_pvals_pOOBAH_pass_perc_2 == 89.721 ) %>% as.data.frame()
+#   205271030023_R01C02
+#
+#  auto_ss_tib %>% dplyr::filter( cg_pvals_PnegEcdf_pass_perc_2 == 100 ) %>% as.data.frame()
+#   205271030024_R05C02
+#
+if (FALSE) {
+  
+  pre_beta_csv <- '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz'
+  add_beta_csv <- '/Users/bretbarnes/Documents/scratch/swifthoof/Chicago-Ober-Custom/Chicago/S38/swifthoof_main/205271030023_R01C02_Chicago_S38_ind.call.dat.csv.gz'
+  
+  pre_beta_tib <- readr::read_csv(pre_beta_csv)
+  add_beta_tib <- readr::read_csv(add_beta_csv) %>% 
+    dplyr::filter(pvals_pOOBAH<=0.1) %>% 
+    dplyr::mutate(Probe_ID=Probe_ID %>% stringr::str_remove("_.*$")) %>%
+    dplyr::arrange(pvals_pOOBAH) %>%
+    dplyr::distinct(Probe_ID, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID,betas) %>% 
+    dplyr::rename(ChicagoA1=betas)
+  
+  new_auto_dir <- '/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1'
+  new_beta_csv <- file.path(new_auto_dir, 'AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz')
+  if (!dir.exists(new_auto_dir)) dir.create(new_auto_dir, recursive=TRUE)
+  
+  new_beta_tib <- pre_beta_tib %>% 
+    dplyr::full_join(add_beta_tib, by="Probe_ID") %>%
+    dplyr::arrange(Probe_ID)
+  
+  readr::write_csv(new_beta_tib,new_beta_csv)
+  
+}
+
+#
+# Plotting dB/R2 for Chicago::
+#
+if (FALSE) {
+  
+  # X-axis Variable::
+  auto_ss_tib$AutoSample_dB_Val_1
+  auto_ss_tib$AutoSample_dB_Val_2
+  
+  auto_ss_tib$AutoSample_R2_Val_1
+  auto_ss_tib$AutoSample_R2_Val_2
+  
+  # Y-axis Variable::
+  # Point is that the workflow number doesn't matter::
+  auto_ss_tib$cg_pvals_PnegEcdf_pass_perc_1 - auto_ss_tib$cg_pvals_PnegEcdf_pass_perc_1
+  auto_ss_tib$cg_pvals_pOOBAH_pass_perc_1 - auto_ss_tib$cg_pvals_pOOBAH_pass_perc_2
+  
+  #
+  # dB[1] vs. pvals
+  #
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_dB_Val_1, y=cg_pvals_PnegEcdf_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_dB_Val_1, y=cg_pvals_pOOBAH_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  #
+  # r2[1] vs. pvals
+  #
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_R2_Val_1, y=cg_pvals_PnegEcdf_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_R2_Val_1, y=cg_pvals_pOOBAH_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  #
+  # dB[2] vs. pvals
+  #
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_dB_Val_2, y=cg_pvals_PnegEcdf_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_dB_Val_2, y=cg_pvals_pOOBAH_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  #
+  # r2[2] vs. pvals
+  #   r2 < 0.925 & poob > 87.5
+  #   auto_ss_tib %>% dplyr::filter(AutoSample_R2_Val_2<0.925 & cg_pvals_pOOBAH_pass_perc_1>87.5) %>% as.data.frame()
+  #   Sentrix_Name = 205271030024_R05C02
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_R2_Val_2, y=cg_pvals_PnegEcdf_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  ggplot2::ggplot(data=auto_ss_tib, aes(x=AutoSample_R2_Val_2, y=cg_pvals_pOOBAH_pass_perc_1)) +
+    ggplot2::geom_point() +
+    ggplot2::geom_density_2d()
+  
+  
+  # Super weird that 205271030024_R05C02 (the second pick above) came out as
+  #   the next best seperate pick::
+  #
+  # pre_beta_csv <- '/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz'
+  pre_beta_csv <- '/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz'
+  add_beta_csv <- '/Users/bretbarnes/Documents/scratch/swifthoof/Chicago-Ober-Custom/Chicago/S38/swifthoof_main/205271030024_R05C02_Chicago_S38_ind.call.dat.csv.gz'
+  
+  pre_beta_tib <- readr::read_csv(pre_beta_csv)
+  add_beta_tib <- readr::read_csv(add_beta_csv) %>% 
+    dplyr::filter(pvals_pOOBAH<=0.1) %>% 
+    dplyr::mutate(Probe_ID=Probe_ID %>% stringr::str_remove("_.*$")) %>%
+    dplyr::arrange(pvals_pOOBAH) %>%
+    dplyr::distinct(Probe_ID, .keep_all=TRUE) %>%
+    dplyr::select(Probe_ID,betas) %>% 
+    dplyr::rename(ChicagoA2=betas)
+  
+  new_auto_dir <- '/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v2'
+  new_beta_csv <- file.path(new_auto_dir, 'AutoSampleDetection_Chicago-Ober-Custom-v2.csv.gz')
+  if (!dir.exists(new_auto_dir)) dir.create(new_auto_dir, recursive=TRUE)
+  
+  new_beta_tib <- pre_beta_tib %>% 
+    dplyr::full_join(add_beta_tib, by="Probe_ID") %>%
+    dplyr::arrange(Probe_ID)
+  
+  readr::write_csv(new_beta_tib,new_beta_csv)
+  
+}
+
+#
 # Quick fix update calls path for noob_sum::
 #
 par$chig_sub <- TRUE
@@ -1156,6 +1322,105 @@ if (par$noob_sub || par$chig_sub) {
   # opt$classVar <- "Sample_Class"
   class_var <- rlang::sym("Sample_Class")
   
+}
+
+#
+#
+# Quick fix for NA12878
+#
+#
+if (FALSE) {
+  hum_ss_tib <- auto_ss_tib %>% 
+    dplyr::select(Sentrix_Name) %>% 
+    dplyr::mutate(Sample_Class="NA12878")
+}
+
+# TBD:: This code needs to be moved else where, its basically a simple way to 
+#  to add new auto detect samples to the default auto detection dataset in github
+#
+if (FALSE) {
+  
+  pre_beta_csv <- "/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz"
+  add_beta_csv <- "/Users/bretbarnes/Documents/scratch/RStudio/swifthoof_main/NA12878/200348350023_R08C01_EPIC_B4_ind.call.dat.csv.gz"
+  new_beta_csv <- "/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.new.csv.gz"
+  
+  pre_beta_tib <- readr::read_csv(pre_beta_csv)
+  add_beta_tib <- readr::read_csv(add_beta_csv)
+  
+  new_beta_tib <- pre_beta_tib %>% 
+    dplyr::left_join(
+      dplyr::select(add_beta_tib, Probe_ID,betas) %>% dplyr::rename(NA12878=betas),
+      by="Probe_ID") %>% 
+    dplyr::select(Probe_ID:T99BZ,NA12878, dplyr::everything())
+  
+  readr::write_csv(new_beta_tib,new_beta_csv)
+  
+}
+
+if (FALSE) {
+  
+  ast_dir  <- "/Users/bretbarnes/Documents/data/CustomContent/AstraZeneca_EM_SamplePrep"
+  ast1_csv <- file.path(ast_dir, "20201007_AstraZenecaManifest_formatted.csv.gz")
+  ast2_csv <- file.path(ast_dir, "20201007_AstraZenecaManifest_6326_BN_SampleSheet.csv.gz")
+  
+  ast1_tib <- readr::read_csv(ast1_csv) %>% clean_tibble()
+  ast2_tib <- readr::read_csv(ast2_csv) %>% clean_tibble()
+  
+  ast_out_csv <- file.path(ast_dir, "AstraZeneca_20201007_Human_SampleSheet.csv.gz")
+  ast_out_csv <- file.path(ast_dir, "AstraZeneca_30042021_Human_SampleSheet.csv.gz")
+  ast_out_tib <- ast1_tib %>% 
+    dplyr::inner_join(ast2_tib, by=c("GSL_ID"="Sample_Name")) %>% 
+    dplyr::select(Sentrix_ID,Sentrix_Position,Sample_Class,Tissue_type,Sample_ID,Concentration,Volume) %>% 
+    dplyr::rename(Sample_Type=Tissue_type,
+                  Sample_Name=Sample_ID) %>%
+    dplyr::mutate(Sample_Name=Sample_Name %>%
+                    stringr::str_remove("\\s.*$") %>% 
+                    stringr::str_remove("_.*$"), 
+                  Sample_Class=Sample_Class %>%
+                    stringr::str_replace("unconverted DNA","BS") %>% 
+                    stringr::str_replace("EM converted DNA", "EM"),
+                  Sample_Prep=Sample_Class,
+                  Sample_Type=Sample_Type %>%
+                    stringr::str_replace("Fresh","FF") %>%
+                    stringr::str_replace("FFPE","PE"),
+                  Sample_Class=paste(Sample_Prep,Sample_Type, sep="-")
+    )
+  
+  ast_sum_tib <- ast_out_tib %>% 
+    # dplyr::group_by(Sample_Prep,Sample_Type,Sample_Name) %>% 
+    dplyr::group_by(Sample_Class,Sample_Name) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  ast_sum_tib %>% print(n=base::nrow(ast_sum_tib))
+  
+  readr::write_csv(ast_out_tib,ast_out_csv)
+  
+  # Processed data::
+  new_ss_csv <- "/Users/bretbarnes/Documents/scratch/merge_builds/EPIC-8x1-EM-Sample-Prep/EPIC/B4/Sample_Class/ind/EPIC-8x1-EM-Sample-Prep_EPIC_B4_ind_AutoSampleSheet.csv.gz"
+  new_ss_tib <- readr::read_csv(new_ss_csv)
+  new_ss_tib %>% dplyr::select(Sample_Class:Volume) %>% as.data.frame()
+  
+  
+  new_ss_csv <- "/Users/bretbarnes/Documents/scratch/merge_builds/EPIC-8x1-EM-Sample-Prep.v0/EPIC/B4/Sample_Class/ind/EPIC-8x1-EM-Sample-Prep.v0_EPIC_B4_ind_AutoSampleSheet.csv.gz"
+  new_ss_tib <- readr::read_csv(new_ss_csv)
+  new_ss_tib %>% dplyr::select(Sample_Class:Volume) %>% as.data.frame()
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   Load Humman Annotation Sample Sheets::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
+    opt$sampleCsv <- file.path(par$datDir, "ss/AstraZeneca_30042021_Human_SampleSheet.csv.gz")
+  }
+  
+  if (is.null(opt$sampleCsv) || !file.exists(opt$sampleCsv)) {
+    
+    stop(glue::glue("[{par$prgmTag}]: Failed to find predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))
+    
+  } else {
+    cat(glue::glue("[{par$prgmTag}]: FOUND predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}"))  
+  }
 }
 
 labs_ss_tib <- NULL
@@ -1197,6 +1462,35 @@ if (!is.null(hum_ss_tib)) {
     cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
   
   labs_ss_tib <- auto_ss_tib
+  
+  # This should be unesscary now::
+  if (FALSE) {
+    # stop(glue::glue("[{par$prgmTag}]: Failed to find humman annotation sample sheet={opt$sampleCsv}!!!{RET}{RET}"))
+    
+    # class_type <- auto_ss_tib %>% dplyr::select(Sentrix_Name) %>% purrr::map_chr(pillar::type_sum) %>% paste(collapse = "_")
+    # auto_ss_tib %>% dplyr::mutate(CLASS_STR_TMP=stringr::str_replace(!!class_var,'\\.','-')) %>% dplyr::select(Sentrix_Name,!!class_var,CLASS_STR_TMP) %>% as.data.frame()
+    
+    class_type <- auto_ss_tib %>% 
+      dplyr::select(!!class_var) %>% 
+      purrr::map_chr(pillar::type_sum) %>% 
+      paste(collapse = "_")
+    if (class_type=="dbl") {
+      
+    }
+    
+    hum_ss_tib <- auto_ss_tib %>% 
+      dplyr::select(Sentrix_Name, !!class_var) %>% 
+      dplyr::arrange(!!class_var)
+    
+    # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
+    # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+    #
+    auto_ss_tib <- auto_ss_tib %>% dplyr::select(- !!class_var)
+    labs_ss_tib <- auto_ss_tib %>% 
+      dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
+      dplyr::arrange(!!class_var)
+    
+  }
 }
 
 labs_ss_len <- labs_ss_tib %>% base::nrow()
@@ -1204,11 +1498,6 @@ if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Done. Joining Human Classification ",
                  "and Auto Sample Sheets; Total={labs_ss_len}.{RET}{RET}"))
 print_tib(labs_ss_tib,par$prgmTag, opt$verbose,vt=10,tc=1, n="labs_ss_tib")
-
-# Write Auto Sample Sheet::
-if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Writing labs_csv={opt$labs_csv}.{RET}{RET}"))
-readr::write_csv(labs_ss_tib, opt$labs_csv)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Import Datasets (Calls)::
@@ -1249,7 +1538,13 @@ if (file.exists(opt$beg_file) && file.exists(opt$end_file) && file.exists(opt$ca
 #                               Write Outputs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# TBD:: Make all Sentrix_Names actually unique if duplicated; i.e. noob_sub
+#  Solution??? Mutate a new chipName below...
+
 chipName <- "Sentrix_Name"
+# Don't think we need this below anymore::
+# if (par$noob_sub) chipName <- "Sentrix_Uniq"
+
 if (!pass_time_check) {
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]: Building from scratch...{RET}"))
@@ -1259,69 +1554,28 @@ if (!pass_time_check) {
   system(cmd)
   
   # Write Merged Call Files Tibble::
-  call_file_tib <- NULL
   if (opt$addPathsCall) {
-    call_file_tib <- mergeCallsFromSS(
-      ss=labs_ss_tib, max=par$maxTest,
-      outName=par$outName, outDir=opt$outDir, 
-      chipName=chipName, pathName="Calls_Path", 
-      joinNameA="Probe_ID", joinNameB=NULL,
+    call_tib <- mergeCallsFromSS(
+      ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
+      chipName=chipName, pathName="Calls_Path", joinNameA="Probe_ID", 
       joinType = opt$joinType,
       verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
     
-    safe_write(call_file_tib,"csv",opt$call_csv,verbose=opt$verbose,tt=pTracker)
+    readr::write_csv(call_tib, opt$call_csv)
   }
   
-
   # Write Merged Sset Files Tibble:: 
-  grns_tib <- NULL
-  reds_tib <- NULL
-  sset_file_tib <- NULL
   if (opt$addPathsSset) {
-    # New method for suffix = 'ind.sigs.dat.csv.gz'
-    sset_file_tib <- mergeCallsFromSS(
-      ss=labs_ss_tib, max=par$maxTest, pre=NULL,
-      outName=par$outName, outDir=opt$outDir,
+    sset_tib <- mergeCallsFromSS(
+      ss=head(labs_ss_tib,n=20), max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
+      # ss=labs_ss_tib, max=par$maxTest, outName=par$outName, outDir=opt$outDir, 
       chipName=chipName, pathName="Ssets_Path", 
-      joinNameA="Probe_ID", joinNameB="Probe_Design",
-      joinType = opt$joinType,
-      verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
-    
-    safe_write(sset_file_tib,"csv",opt$sset_csv,verbose=opt$verbose,tt=pTracker)
-  }
-  
-  # Only need this for suffix = 'idat.sigs.csv.gz'
-  if (FALSE) {
-    beta_tib <- NULL
-    address_tib <- NULL
-    if (!is.null(src_man_tib)) {
-      beta_tib <- loadFromFileTib(
-        tib=call_file_tib, type="betas", key="Method",
-        verbose=opt$verbose, tt=pTracker)
-      
-      address_tib <- src_man_tib %>%
-        dplyr::filter(Probe_ID %in% beta_tib$Probe_ID) %>% 
-        dplyr::select(Probe_Design,M,U) %>% tidyr::gather(Probe_Type, Address, -Probe_Design) %>% 
-        dplyr::filter(!is.na(Address)) %>% 
-        dplyr::arrange(Address) %>%
-        clean_tibble()
-    }
-    
-    # Old method for suffix = 'idat.sigs.csv.gz'
-    sset_file_tib <- mergeCallsFromSS(
-      ss=labs_ss_tib, max=par$maxTest, pre=address_tib,
-      outName=par$outName, outDir=opt$outDir,
-      chipName=chipName, pathName="Ssets_Path",
       joinNameA="Address", joinNameB=NULL,
+      # joinNameA="Probe_ID", joinNameB="Probe_Design",
       joinType = opt$joinType,
-      verbose=opt$verbose, vt=1, tc=1, tt=pTracker)
+      verbose=opt$verbose+10, vt=1, tc=1, tt=pTracker)
     
-    grns_tib <- loadFromFileTib(
-      tib=sset_file_tib, type="Raw_Grn_sig", key="Method",
-      verbose=opt$verbose, tt=pTracker)
-    reds_tib <- loadFromFileTib(
-      tib=sset_file_tib, type="Raw_Red_sig", key="Method",
-      verbose=opt$verbose, tt=pTracker)
+    readr::write_csv(sset_tib, opt$sset_csv)
   }
   
   cmd <- paste('touch',opt$end_file, sep=' ')
@@ -1334,114 +1588,11 @@ if (!pass_time_check) {
     cat(glue::glue("[{par$prgmTag}]: Build Already Up to Date.{RET}{RET}"))
 }
 
-if (FALSE) {
-  labs_tib <- labs_ss_tib %>% 
-    dplyr::select(Sentrix_Name, dplyr::starts_with("Sample")) %>% 
-    dplyr::select(-dplyr::ends_with("Path"))
-  
-  beta_tib <- NULL
-  sigU_tib <- NULL
-  sigM_tib <- NULL
-  
-  beta_tib <- loadFromFileTib(
-    tib=call_file_tib, type="betas", key="Method",
-    verbose=opt$verbose, tt=pTracker)
-  dBrf_tib <- loadFromFileTib(
-    tib=call_file_tib, type="dB_ref", key="Method",
-    verbose=opt$verbose, tt=pTracker)
-  
-  sigU_tib <- loadFromFileTib(
-    tib=sset_file_tib, type="sig_U", key="Method",
-    verbose=opt$verbose, tt=pTracker)
-  sigM_tib <- loadFromFileTib(
-    tib=sset_file_tib, type="sig_M", key="Method",
-    verbose=opt$verbose, tt=pTracker)
-  
-  
-  beta_tab <- beta_tib %>% 
-    # dplyr::select(-Probe_ID) %>% 
-    tidyr::gather(Sentrix_Name, beta, -Probe_ID) %>%
-    dplyr::inner_join(labs_tib, by="Sentrix_Name")
+# Write Auto Sample Sheet::
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Writing labs_csv={opt$labs_csv}.{RET}{RET}"))
 
-  dBrf_tab <- dBrf_tib %>% 
-    # dplyr::select(-Probe_ID) %>% 
-    tidyr::gather(Sentrix_Name, dB, -Probe_ID) %>%
-    dplyr::inner_join(labs_tib, by="Sentrix_Name")
-  
-  #
-  # CORRECT PLOTTING BELOW FOR BOXPLOT::
-  #
-  ggplot2::ggplot(data=dBrf_tab, aes(Sample_Perc,log(dB))) +
-    ggplot2::geom_boxplot()
-
-  ggplot2::ggplot(data=dBrf_tab, aes(factor(Sample_Per1),log(dB))) +
-    ggplot2::geom_boxplot()
-  
-  ggplot2::ggplot(data=dBrf_tab, aes(factor(Sample_Per2),log(dB))) +
-    ggplot2::geom_boxplot()
-  
-  #
-  # These are similar to what worked before...
-  #
-  ggplot2::ggplot(data=beta_tab) +
-    ggplot2::geom_boxplot(aes(factor(Sample_Per1), beta)) +
-    ggplot2::facet_grid(cols = vars(Sample_Per2))
-    
-  ggplot2::ggplot(data=beta_tab) +
-    ggplot2::geom_boxplot(aes(factor(Sample_Per2), beta)) +
-    ggplot2::facet_grid(cols = vars(Sample_Per1))
-  
-  
-  ggplot2::ggplot(data=beta_tab, aes(x=beta, color=factor(Sample_Perc))) +
-    ggplot2::geom_density()
-  ggplot2::ggplot(data=beta_tab, aes(x=beta, color=factor(Sample_Per1_Str))) +
-    ggplot2::geom_density()
-  ggplot2::ggplot(data=beta_tab, aes(x=beta, color=factor(Sample_Per2_Str))) +
-    ggplot2::geom_density()
-  ggplot2::ggplot(data=beta_tab, aes(x=beta, color=factor(Sample_Rand))) +
-    ggplot2::geom_density()
-  
-  # ggplot2::ggplot(data=beta_plot_tab, aes(x=beta, color=Sample_Perc, group=Sample_Rand)) +
-  #   ggplot2::geom_density() +
-  #   ggplot2::facet_grid(rows = vars(Sample_Per1_Str), cols = vars(Sample_Per2_Str))
-  
-  sigs_tab <- dplyr::inner_join(
-    sigU_tib %>% tidyr::gather(Sentrix_Name, sigU, -Probe_ID, -Probe_Design),
-    sigM_tib %>% tidyr::gather(Sentrix_Name, sigM, -Probe_ID, -Probe_Design),
-    by=c("Sentrix_Name","Probe_ID","Probe_Design")
-  ) %>%
-    dplyr::inner_join(labs_tib, by="Sentrix_Name")
-
-  ggplot2::ggplot(data=sigs_tab) +
-    ggplot2::geom_density(aes(x=sigU, color=factor(Sample_Perc))) +
-    ggplot2::geom_density(aes(x=sigM, color=factor(Sample_Perc)))
-  
-  ggplot2::ggplot(data=sigs_tab, aes(x=sigU, y=sigM, color=factor(Sample_Per1_Str))) +
-    # ggplot2::geom_point() +
-    ggplot2::geom_density_2d()
-
-  
-  
-  # Only need this for suffix = 'idat.sigs.csv.gz'
-  if (FALSE) {
-    grns_plot_tab <- grns_tib %>% 
-      tidyr::gather(Sentrix_Name, Grn, -Address) %>%
-      dplyr::inner_join(address_tib, by="Address") %>%
-      dplyr::inner_join(labs_tib, by="Sentrix_Name")
-    
-    ggplot2::ggplot(data=grns_plot_tab, aes(x=Grn, color=Probe_Type, group=Probe_Design)) +
-      ggplot2::geom_density()
-    
-    ggplot2::ggplot(data=grns_plot_tab, aes(x=Grn, color=Sample_Perc, group=Sentrix_Name)) +
-      ggplot2::geom_density()
-    
-    ggplot2::ggplot(data=grns_plot_tab, aes(x=Grn, color=Sentrix_Name, group=Sample_Perc)) +
-      ggplot2::geom_density()
-  }
-}
-
-
-
+readr::write_csv(labs_ss_tib, opt$labs_csv)
 
 if (par$noob_sub) {
   

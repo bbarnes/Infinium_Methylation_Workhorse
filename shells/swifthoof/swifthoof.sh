@@ -63,17 +63,6 @@ echo ""
 ${CMD}
 
 echo "done."
-
-exit
-
-${RSCRIPT} ${EXE} \
-    --Rscript ${RSCRIPT} \
-    -i ${INP} -o ${OUT} \
-    --workflows="i,ind" \
-    --writeCalls \
-    --writeSsheet
-
-
     
 #    --minNegPval=0.02 \
 #    --minOobPval=0.1 \

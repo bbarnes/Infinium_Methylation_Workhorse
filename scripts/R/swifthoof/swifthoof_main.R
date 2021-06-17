@@ -890,6 +890,7 @@ if (opt$cluster) {
       if (opt$verbose>0)
         cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
+      opt$verbose <- 40
       # ram_performance <- profmem({
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
@@ -939,6 +940,19 @@ if (FALSE) {
   ram_performance$bytes %>% as.vector() %>% median(na.rm=TRUE)
   which(ram_performance$bytes == ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE))
   ram_performance$trace[which(ram_performance$bytes == ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE))]
+  
+  #
+  # Metric for Reference Sample Comparison::
+  #
+  rdat$cur_list$call_dat %>% 
+    dplyr::summarise(raw_avg=mean(abs(raw_dB_ref), na.rm=TRUE), 
+                     ind_avg=mean(abs(ind_dB_ref), na.rm=TRUE), 
+                     raw_med=median(abs(raw_dB_ref), na.rm=TRUE), 
+                     ind_med=median(abs(ind_dB_ref), na.rm=TRUE), 
+                     raw_sd=sd(abs(raw_dB_ref), na.rm=TRUE), 
+                     ind_sd=sd(abs(ind_dB_ref), na.rm=TRUE)
+    )
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

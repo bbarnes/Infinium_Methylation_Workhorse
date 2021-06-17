@@ -883,8 +883,8 @@ ssetToTib = function(sset, source, name=NULL, man=NULL, mask=NULL,
                      percision=-1, sort=FALSE, 
                      fresh=FALSE, save=FALSE, csv=NULL, del='_',
                      by="Probe_ID", type="Probe_Type", des="Probe_Design", 
-                     verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'ssetToTib'
+                     verbose=0,vt=3,tc=1,tt=NULL,
+                     funcTag='ssetToTib') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -950,11 +950,13 @@ ssetToTib = function(sset, source, name=NULL, man=NULL, mask=NULL,
     if (sort) ret_tib <- dplyr::arrange(ret_tib, !!by_sym)
     
     if (save && !is.null(csv)) {
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
-      csv_dir <- base::dirname(csv)
-      if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      readr::write_csv(ret_tib, csv)
+      safe_write(x=ret_tib,type="csv",file=csv,funcTag=funcTag,
+                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      # if (verbose>=vt) 
+      #   cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
+      # csv_dir <- base::dirname(csv)
+      # if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      # readr::write_csv(ret_tib, csv)
     }
     
     ret_cnt <- ret_tib %>% base::nrow()

@@ -149,10 +149,12 @@ if (args.dat[1]=='RStudio') {
     # For sub manifest testing::
     opt$platform   <- "EPIC"
     opt$version    <- "B4"
-    
+
+    # opt$per2 <- "0,5,10,15,20,30,60,90,100"
+
     opt$rand <- 5
-    opt$per1 <- "0,5,10,15,20,30,60,90,100"
-    opt$per2 <- "0,5,10,15,20,30,60,90,100"
+    opt$per1 <- "0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100"
+    opt$per2 <- "0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100"
     opt$type <- "cg"
     
     opt$manifest <- 
@@ -167,8 +169,8 @@ if (args.dat[1]=='RStudio') {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
   
-  opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
   opt$outDir <- file.path(par$topDir, 'scratch',"test",par$runMode)
+  opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
   
 } else {
   par$runMode    <- 'CommandLine'

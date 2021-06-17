@@ -386,21 +386,39 @@ checkModelFiles = function(mod_rds, pattern=".model.rds", fns_pattern='.model-fi
   file_tib
 }
 
-loadFromFileTib = function(tib, type, dir=NULL,
+loadFromFileTib = function(tib, type, key="Type", dir=NULL,
                            verbose=0,vt=3,tc=1,tt=NULL,
                            funcTag='loadFromFileTib') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} type={type}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  key={key}.{RET}"))
+    if (!is.null(dir))
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  dir={dir}.{RET}"))
+    print_tib(tib, funcTag,verbose,n="input_tib")
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
-    sel_tib <- tib %>% dplyr::filter(Type==type) %>% head(n=1)
+    key_sym <- rlang::sym(key)
     
-    file <- file.path(sel_tib$Dir[1], sel_tib$File_Name[1])
-    if (!is.null(dir)) file <- file.path(dir, sel_tib$File_Name[1])
-    if (!file.exists(file))
+    sel_tib <- NULL
+    sel_tib <- tib %>% dplyr::filter((!!key_sym)==type) %>% head(n=1)
+    print_tib(sel_tib, funcTag,verbose,n="sel_tib")
+
+    if ("Full_Path" %in% names(sel_tib)) {
+      file <- sel_tib$Full_Path
+    } else {
+      # TBD: This needs to be updated to remove column name assumptions...
+      file <- file.path(sel_tib$Dir[1], sel_tib$File_Name[1])
+      if (!is.null(dir)) file <- file.path(dir, sel_tib$File_Name[1])
+    }
+    if (!file.exists(file)) {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: File does NOT exist; file={file}!{RET}{RET}"))
+      return(ret_tib)
+    }
     
     if (stringr::str_ends(file, '.rds')) {
       ret_tib <- readr::read_rds(file)
@@ -408,6 +426,7 @@ loadFromFileTib = function(tib, type, dir=NULL,
       ret_tib <- suppressMessages(suppressWarnings( readr::read_csv(file) ))
     } else {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported file type={file}!{RET}{RET}"))
+      return(ret_tib)
     }
     if (tibble::is_tibble(ret_tib)) {
       ret_tib <- ret_tib %>% clean_tibble()
