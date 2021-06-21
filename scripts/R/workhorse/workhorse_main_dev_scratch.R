@@ -999,62 +999,6 @@ if (par$buildManifest) {
   }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                       4.0 improbe fwd design::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  if (par$run_improbe) {
-    stamp_vec_org <- stamp_vec
-    
-    imp_des_tib <- NULL
-    stamp_vec <- c(stamp_vec, 
-                   run$imp_inp_tsv,
-                   run$imp_des_tsv,
-                   run$cln_des_csv)
-    
-    if (opt$fresh || !valid_time_stamp(stamp_vec)) {
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                       4.1 Write improbe input::
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      fwd_des_tib <- aqp_bsp_tib %>% # head(n=10) %>%
-        fas_to_seq(fas=run$gen_ref_fas, file=run$imp_inp_tsv, name="Aln_Key", 
-                   din="Ord_Din", gen=opt$genBuild, 
-                   chr1="Bsp_Chr", pos="Bsp_Pos",
-                   # nrec = 1,
-                   verbose=opt$verbose, tt=pTracker)
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                     4.1 Run improbe designs:: docker
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      imp_ret_val <- 
-        run_improbe_docker(
-          file=run$imp_inp_tsv, 
-          name=opt$runName, image=image_str, shell=image_ssh,
-          verbose=opt$verbose, tt=pTracker)
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                     4.2 Load improbe designs:: filter
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      imp_des_tib <-
-        load_improbe_design(
-          file=run$imp_des_tsv, out=run$cln_des_csv,
-          level=3, add_inf=TRUE,
-          verbose=opt$verbose+10, tt=pTracker)
-      
-    } else {
-      
-      if (opt$verbose>=1)
-        cat(glue::glue("[{par$prgmTag}]: Loading cln_des_csv={run$cln_des_csv}...{RET}"))
-      imp_des_tib <- 
-        suppressMessages(suppressWarnings( readr::read_csv(run$cln_des_csv) )) %>%
-        clean_tibble()
-    }
-    
-  }
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #         3.4 Intersect Sequences Address and improbe:: U49/M49
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
@@ -1106,9 +1050,6 @@ if (par$buildManifest) {
     dplyr::filter(Imp_Cgn != Org_Cgn)
   
 }
-
-
-
 
 if (FALSE) {
   
@@ -1177,7 +1118,75 @@ if (FALSE) {
       aqp_add_tib,seq_cgn_tib,
       by=c("Ord_Des","Ord_Din","Address","Aln_P49"="Aln_Prb")
     )
-
+    
+    #
+    #
+    #
+    
+    aqp_add_sum_tab <- tibble::tibble(
+      Add_Tot_Cnt=aqp_add_tib %>% base::nrow(),
+      Ord_Key_Cnt=aqp_add_tib %>% dplyr::distinct(Ord_Key) %>% base::nrow(),
+      Aln_Key_Cnt=aqp_add_tib %>% dplyr::distinct(Aln_Key) %>% base::nrow(),
+      Aln_Prb_Cnt=aqp_add_tib %>% dplyr::distinct(Aln_Prb) %>% base::nrow(),
+      Ord_Prb_Cnt=aqp_add_tib %>% dplyr::distinct(Ord_Prb) %>% base::nrow(),
+      
+      Ord_Key_Dif=Add_Tot_Cnt-Ord_Key_Cnt,
+      Aln_Key_Dif=Add_Tot_Cnt-Aln_Key_Cnt,
+      Aln_Prb_Dif=Add_Tot_Cnt-Aln_Prb_Cnt,
+      Ord_Prb_Dif=Add_Tot_Cnt-Ord_Prb_Cnt,
+      
+      Ord_Key_Per=round(100*Ord_Key_Cnt/Add_Tot_Cnt, 3),
+      Aln_Key_Per=round(100*Aln_Key_Cnt/Add_Tot_Cnt, 3),
+      Aln_Prb_Per=round(100*Aln_Prb_Cnt/Add_Tot_Cnt, 3),
+      Ord_Prb_Per=round(100*Ord_Prb_Cnt/Add_Tot_Cnt, 3)
+      
+    )
+    aqp_add_sum_tab %>% print()
+    
+    unq_cgn_tib %>% 
+      dplyr::distinct(Imp_Cgn,Aln_Prb,Can_Src, .keep_all=TRUE)
+    
+    unq_cgn_tib %>% 
+      dplyr::distinct(Imp_Cgn,Can_Src, .keep_all=TRUE)
+    
+    unq_cgn_tib %>% 
+      dplyr::distinct(Imp_Cgn,Aln_Prb, .keep_all=TRUE)
+    
+    #
+    # Unique Probe Comparison::
+    #
+    unq_cgn_tib %>% 
+      dplyr::distinct(Aln_Prb, .keep_all=TRUE) %>% base::nrow()
+    
+    aqp_add_tib %>%
+      dplyr::distinct(Aln_Prb, .keep_all=TRUE) %>% base::nrow()
+    
+    aqp_add_tib %>%
+      dplyr::distinct(Ord_Prb, .keep_all=TRUE) %>% base::nrow()
+    
+    #
+    # Unique Probe Comparison::
+    #
+    unq_cgn_tib %>% 
+      dplyr::distinct(Aln_Key,Aln_Prb, .keep_all=TRUE) %>% base::nrow()
+    
+    aqp_add_tib %>%
+      dplyr::distinct(Aln_Key,Aln_Prb, .keep_all=TRUE) %>% base::nrow()
+    
+    aqp_add_tib %>%
+      dplyr::distinct(Aln_Key,Ord_Prb, .keep_all=TRUE) %>% base::nrow()
+    
+    
+    
+    
+    
+    
+    
+    cnt_unq_tib <- unq_cgn_tib %>% dplyr::add_count(Imp_Cgn, name="Imp_Cnt")
+    
+    
+    cnt_cgn_tib %>% dplyr::filter(!is.na(Can_Src))
+    cnt_cgn_tib %>% dplyr::filter(Dup_Cnt==1)
   }
   
   # Below is actually not what we want; we want the canonical hits to be 
@@ -1238,7 +1247,66 @@ if (FALSE) {
   
   
 
-
+  # This doesn't work:: yet!!!
+  if (FALSE) {
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib)...{RET}"))
+    
+    com_des_cols <- c("Address","Ord_Des","Ord_Din")
+    com_gen_cols <- c("Imp_Chr","Imp_Pos","Imp_FR","Imp_TB","Imp_CO")
+    com_scr_cols <- c("Can_Mis_Scr","Mat_Src_Scr","Org_Mis_Scr","Bsp_Din_Scr")
+    com_cgn_cols <- c("Imp_Cgn","Imp_Nxb","Imp_Din") # ,"Bsp_Din_Ref")
+    
+    imp_col_vec <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols)
+    
+    # Sepcifically: The code directly below doesn't work::
+    seq_dat_tib <- seq_cgn_tib %>%
+      dplyr::filter(!is.na(Imp_Chr)) %>%
+      dplyr::mutate(Imp_Din="CG", Bsp_Din_Scr=as.integer(8)) %>%
+      dplyr::mutate(Mat_Src_Scr=as.integer(0), Mat_Src_Key="Seq") %>%
+      dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
+    
+    bsp_dat_tib <- aqp_bsp_tib %>%
+      dplyr::rename(Imp_Din=Bsp_Din_Ref) %>%
+      dplyr::mutate(Mat_Src_Scr=as.integer(1), Mat_Src_Key="Bsp") %>%
+      dplyr::select(dplyr::any_of(imp_col_vec),"Mat_Src_Key")
+    
+    imp_col_vec2 <- c(com_des_cols,com_gen_cols,com_scr_cols,com_cgn_cols,"Mat_Src_Key")
+    
+    all_imp_tab <- NULL
+    all_imp_tab <- dplyr::bind_rows(
+      dplyr::select( seq_dat_tib, dplyr::any_of(imp_col_vec2) ),
+      dplyr::select( bsp_dat_tib, dplyr::any_of(imp_col_vec2) ),
+    )  %>% 
+      dplyr::mutate(
+        Can_Mis_Scr=dplyr::case_when(
+          is.na(Can_Mis_Scr) ~ 9,
+          TRUE ~ as.double(Can_Mis_Scr)
+        ) %>% as.integer(),
+        Org_Mis_Scr=dplyr::case_when(
+          is.na(Org_Mis_Scr) ~ 9,
+          TRUE ~ as.double(Org_Mis_Scr)
+        ) %>% as.integer(),
+        Bsp_Din_Scr=dplyr::case_when(
+          is.na(Bsp_Din_Scr) ~ 9,
+          TRUE ~ as.double(Bsp_Din_Scr)
+        ) %>% as.integer()
+      ) %>% 
+      dplyr::arrange( dplyr::across( dplyr::all_of(c(com_scr_cols)) ) ) %>%
+      dplyr::distinct()
+    
+    all_imp_tab %>% 
+      dplyr::arrange(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO) %>%
+      dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
+      dplyr::filter(Group_Count>1) %>%
+      print(n=1000)
+    
+    all_imp_tab %>% 
+      dplyr::add_count(Address,Ord_Des,Ord_Din,Imp_Chr,Imp_Pos,Imp_FR,Imp_TB,Imp_CO, name="Group_Count") %>% 
+      dplyr::group_by(Group_Count,Mat_Src_Key,Bsp_Din_Scr,Ord_Des) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% 
+      print(n=1000)
+  }
   
   # Max Best Extension::
   #   - This requires the template sequence and probe designs
@@ -1394,10 +1462,68 @@ if (FALSE) {
     print(n=1000)
 }
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       4.0 improbe fwd design::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 #
-# improbe matching testing code below::
+# TBD:: Need to ensure Seq_ID is < 20 characters before running improbe::
+#   - convert leters into binary style: TC = 2
 #
-if (FALSE) {
+
+
+# This is just a temporary skip. The code below works.
+#
+if (par$run_improbe) {
+  stamp_vec_org <- stamp_vec
+  
+  imp_des_tib <- NULL
+  stamp_vec <- c(stamp_vec, 
+                 run$imp_inp_tsv,
+                 run$imp_des_tsv,
+                 run$cln_des_csv)
+  
+  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                       4.1 Write improbe input::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    fwd_des_tib <- aqp_bsp_tib %>% # head(n=10) %>%
+      fas_to_seq(fas=run$gen_ref_fas, file=run$imp_inp_tsv, name="Aln_Key", 
+                 din="Ord_Din", gen=opt$genBuild, 
+                 chr1="Bsp_Chr", pos="Bsp_Pos",
+                 # nrec = 1,
+                 verbose=opt$verbose, tt=pTracker)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     4.1 Run improbe designs:: docker
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    imp_ret_val <- 
+      run_improbe_docker(
+        file=run$imp_inp_tsv, 
+        name=opt$runName, image=image_str, shell=image_ssh,
+        verbose=opt$verbose, tt=pTracker)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     4.2 Load improbe designs:: filter
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    imp_des_tib <-
+      load_improbe_design(
+        file=run$imp_des_tsv, out=run$cln_des_csv,
+        level=3, add_inf=TRUE,
+        verbose=opt$verbose+10, tt=pTracker)
+    
+  } else {
+    
+    if (opt$verbose>=1)
+      cat(glue::glue("[{par$prgmTag}]: Loading cln_des_csv={run$cln_des_csv}...{RET}"))
+    imp_des_tib <- 
+      suppressMessages(suppressWarnings( readr::read_csv(run$cln_des_csv) )) %>%
+      clean_tibble()
+  }
+  
   
   if (FALSE) {
     

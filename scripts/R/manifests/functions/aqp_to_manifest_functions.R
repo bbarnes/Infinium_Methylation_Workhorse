@@ -82,7 +82,7 @@ aqp_address_workflow = function(ord,
       BiocGenerics::as.vector()
     
     if (retData) ret_dat$ord <- ord_tib
-    
+
     if (!is.null(mat)) {
       if (is.null(aqp)) {
         stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
@@ -114,7 +114,8 @@ aqp_address_workflow = function(ord,
         BiocGenerics::as.vector()
       aqp_len <- length(aqp_vec)
       aqn_vec <- c(1:aqp_len)
-      if (!is.null(aqn)) aqn_vec <- stringr::str_split(aqn, pattern=",", simplify=TRUE) %>% 
+      if (!is.null(aqn)) aqn_vec <- 
+        stringr::str_split(aqn, pattern=",", simplify=TRUE) %>% 
         BiocGenerics::as.vector()
       
       if (aqp_len>1 && aqp_len != mat_len) {
@@ -187,6 +188,14 @@ aqp_address_workflow = function(ord,
         dplyr::distinct(Address, .keep_all=TRUE)
       ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_pas-decode")
     }
+    #
+    # Add Artifical Address, Decode_Status
+    #
+    if (!"Address" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
+      dplyr::mutate(Address=dplyr::row_number())
+    if (!"Decode_Status" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
+      dplyr::mutate(Decode_Status=as.integer(0))
+    
     ret_tib <- ret_tib %>%
       dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
       dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep") %>%
@@ -226,11 +235,23 @@ aqp_address_workflow = function(ord,
     
     # Write Outputs::
     if (!is.null(add_fas)) {
+      # Set Look Up Keys::
+      if ("Address" %in% names(ret_tib)) {
+        add_key <- "Address"
+      } else if ("Ord_Key" %in% names(ret_tib)) {
+        add_key <- "Ord_Key"
+      } else if ("Ord_Prb_U" %in% names(ret_tib)) {
+        add_key <- "Ord_Prb_U"
+      } else {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR Failed to find valid add_key!!!{RET}{RET}"))
+        return(NULL)
+      }
+      
       # Write Fasta Output::
       ret_tib <- ret_tib %>%
         add_to_fas(
           # prb_key="Ord_Prb", add_key="Ord_Key", 
-          prb_key="Ord_Prb", add_key="Address", 
+          prb_key="Ord_Prb", add_key=add_key, 
           des_key="Ord_Des", din_key="Ord_Din",
           prb_fas=add_fas, dat_csv=add_csv,
           u49_tsv=u49_tsv, m49_tsv=m49_tsv,
@@ -258,8 +279,9 @@ aqp_address_workflow = function(ord,
 }
 
 load_aqp_files = function(file,
-                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'load_aqp_files'
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='load_aqp_files') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -294,8 +316,9 @@ load_aqp_files = function(file,
 
 load_aqp_file = function(file, idx=NULL,
                          n_max=100, guess=1000,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'load_aqp_file'
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='load_aqp_file') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   # Saftey Check for Empty Files::
@@ -538,8 +561,9 @@ guess_aqp_file = function(file,
                           fields=c("Assay_Design_Id","Plate","address_names","Address"), 
                           cols=NULL,
                           n_max=100, # guess=100000,
-                          verbose=0,vt=6,tc=1,tt=NULL) {
-  funcTag <- 'load_aqp_files'
+                          verbose=0,vt=6,tc=1,tt=NULL,
+                          funcTag='guess_aqp_file') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -678,90 +702,6 @@ add_comb = function(tibA, tibB, field,
   ret_tib
 }
 
-broken_man_to_add = function(tib, 
-                             # pid, des, din, inf,
-                             # addA, prbA, 
-                             # addB, prbB,
-                             pid="IlmnID", des="Man_Des", din="Man_Din", inf="Man_Inf",
-                             addA="AddressA_ID", prbA="AlleleA_ProbeSeq",
-                             addB="AddressB_ID", prbB="AlleleB_ProbeSeq",
-                             del="_",
-                             verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'broken_man_to_add'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- base::system.time({
-    
-    pid_sym  = rlang::sym(pid)
-    des_sym  = rlang::sym(des)
-    din_sym  = rlang::sym(din)
-    inf_sym  = rlang::sym(inf)
-    
-    addA_sym = rlang::sym(addA)
-    prbA_sym = rlang::sym(prbA)
-    
-    addB_sym = rlang::sym(addB)
-    prbB_sym = rlang::sym(prbB)
-    
-    inf_list <- tib %>%
-      dplyr::mutate(
-        Man_Din=stringr::str_sub(!!pid_sym, 1,2),
-        Man_Des=dplyr::case_when(
-          is.na(!!addA_sym) | is.na(!!prbA_sym) ~ NA_real_,
-          is.na(!!addB_sym) | is.na(!!prbB_sym) ~ 2,
-          !is.na(!!addA_sym) & ! is.na(!!prbA_sym) &
-            !is.na(!!addB_sym) & ! is.na(!!prbB_sym) ~ 1,
-          TRUE ~ NA_real_) %>% as.integer()
-      ) %>% split(.[["Man_Des"]])
-    print(inf_list)
-    
-    ret_tib <- dplyr::bind_rows(
-      inf_list[["1"]] %>% 
-        # dplyr::mutate(!!des_sym:=as.character("U")) %>%
-        dplyr::mutate(Man_Des=as.character("U")) %>%
-        dplyr::rename(Man_Add=!!addA_sym,
-                      Man_Prb=!!prbA_sym,
-                      Man_PID=!!pid_sym) %>%
-        dplyr::select(Man_Add,!!des,!!din_sym,!!inf,Man_Prb,Man_PID),
-      
-      inf_list[["1"]] %>% 
-        # dplyr::mutate(!!des_sym:=as.character("M")) %>%
-        dplyr::mutate(Man_Des=as.character("M")) %>%
-        dplyr::rename(Man_Add=!!addB_sym,
-                      Man_Prb=!!prbB_sym,
-                      Man_PID=!!pid_sym) %>%
-        dplyr::select(Man_Add,!!des,!!din_sym,!!inf,Man_Prb,Man_PID),
-      
-      inf_list[["2"]] %>% 
-        # dplyr::mutate(!!des_sym:=as.character("2")) %>%
-        dplyr::mutate(Man_Des=as.character("2")) %>%
-        dplyr::rename(Man_Add=!!addA_sym,
-                      Man_Prb=!!prbA_sym,
-                      Man_PID=!!pid_sym) %>%
-        dplyr::select(Man_Add,!!des,!!din_sym,!!inf,Man_Prb,Man_PID)
-      # dplyr::select(Man_Add,!!des,Man_Din,!!inf,Man_Prb,Man_PID)
-    ) %>% dplyr::arrange(Man_Add)
-    print(ret_tib)
-    
-    ret_tib <- ret_tib %>%
-      clean_tibble(verbose=verbose,tt=tt)
-    
-    # ret_cnt <- ret_tib %>% base::nrow()
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-    
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
 add_to_man = function(tib, join, runName,
                       des_key="Ord_Des", pid_key="Ord_Key",
                       rep_key=NULL, rep_val=NULL,
@@ -779,6 +719,10 @@ add_to_man = function(tib, join, runName,
     des_list <- NULL
     des_list <- tib %>% split(.[[des_key]])
     des_cnt  <- des_list %>% names() %>% length()
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} des_list[{des_key}]={RET}"))
+      print(des_list)
+    }
     
     # Build Infinium I::
     ret1_tib <- NULL
@@ -788,14 +732,15 @@ add_to_man = function(tib, join, runName,
         dplyr::select(des_list[["M"]], -dplyr::all_of(des_key)), 
         by=dplyr::all_of(join),
         suffix=c("_U","_M")
-      ) %>% 
-        # TBD:: We should allow these "singletons" to pass, but under
-        #  a different classification...
-        #
-        dplyr::filter(!is.na(Address_U) & !is.na(Address_M))
-      
-      ret1_cnt <- print_tib(ret1_tib,funcTag, verbose,vt+4,tc, n="InfI")
+      ) %>% dplyr::mutate(Infinium_Design=as.integer(1))
+      # TBD:: We should allow these "singletons" to pass, but under
+      #  a different classification...
+      #
+      if ("Address_U" %in% names(ret1_tib) && 
+          "Address_M" %in% names(ret1_tib)) ret1_tib <- ret1_tib %>% 
+            dplyr::filter(!is.na(Address_U) & !is.na(Address_M))
     }
+    ret1_cnt <- print_tib(ret1_tib,funcTag, verbose,vt+4,tc, n="InfI")
     
     # Build Infinium II::
     ret2_tib <- NULL
@@ -804,18 +749,18 @@ add_to_man = function(tib, join, runName,
         dplyr::select(des_list[["2"]],  dplyr::all_of(join)),
         dplyr::select(des_list[["2"]], -dplyr::all_of(join)) %>% 
           purrr::set_names(paste(names(.),"U", sep="_"))
-      )
+      ) %>% dplyr::mutate(Infinium_Design=as.integer(2))
       ret2_cnt <- print_tib(ret2_tib,funcTag, verbose,vt+4,tc, n="InfII")
     }
     
     # Bind Infinium I/II into single manifest::
     ret_tib <- dplyr::bind_rows(ret1_tib, ret2_tib) %>%
       dplyr::mutate(
-        Infinium_Design=dplyr::case_when(
-          is.na(Address_M) ~ 2,
-          !is.na(Address_M) ~ 1,
-          TRUE ~ NA_real_
-        ) %>% as.integer(),
+        # Infinium_Design=dplyr::case_when(
+        #   is.na(Address_M) ~ 2,
+        #   !is.na(Address_M) ~ 1,
+        #   TRUE ~ NA_real_
+        # ) %>% as.integer(),
         Infinium_Design_Type=dplyr::case_when(
           Infinium_Design==1 ~ 'I',
           Infinium_Design==2 ~ 'II',

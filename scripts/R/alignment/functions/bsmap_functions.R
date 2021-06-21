@@ -53,8 +53,9 @@ run_bsmap = function(exe, fas, gen, bsp,
                      sort=TRUE,
                      
                      opt=NULL, lan=NULL, run=FALSE,
-                     verbose=0,vt=2,tc=1,tt=NULL) {
-  funcTag <- 'run_bsmap'
+                     verbose=0,vt=2,tc=1,tt=NULL,
+                     funcTag='run_bsmap') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting; bsp={bsp}.{RET}"))
@@ -125,8 +126,9 @@ run_bsmap = function(exe, fas, gen, bsp,
 }
 
 load_bsmap = function(bsp, sort=FALSE,
-                      verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'load_bsmap'
+                      verbose=0,vt=3,tc=1,tt=NULL,
+                      funcTag='load_bsmap') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -178,8 +180,9 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
                       join_key, join_type="inner", 
                       prb_des_key="Ord_Des", prb_din_key="Ord_Din",
                       fields=NULL, sort=FALSE,
-                      verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'join_bsmap'
+                      verbose=0,vt=3,tc=1,tt=NULL,
+                      funcTag='join_bsmap') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}",
