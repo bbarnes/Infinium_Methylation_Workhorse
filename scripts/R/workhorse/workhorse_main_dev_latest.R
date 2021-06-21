@@ -283,6 +283,7 @@ if (args.dat[1]=='RStudio') {
     opt$platform <- 'EWAS'
     opt$version  <- 'A1'
     opt$version  <- 'A2'
+    opt$version  <- 'A3'
     opt$Species  <- "Human"
     
     opt$idat   <- NULL
@@ -627,8 +628,7 @@ if (args.dat[1]=='RStudio') {
   opt$runName <- paste(par$local_runType,opt$platform,opt$version,opt$genBuild, sep='-')
   
   # opt$fresh <- TRUE
-  opt$fresh <- FALSE
-  
+  opt$fresh   <- FALSE
   opt$verbose <- 10
   opt$verbose <- 3
   
@@ -798,8 +798,8 @@ stamp_vec <- c(stamp_vec,opt$time_org_txt)
 #                    Pre-processing:: Parse List Options
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# pTracker <- timeTracker$new()
-pTracker <- timeTracker$new(verbose=opt$verbose)
+pTracker <- timeTracker$new()
+# pTracker <- timeTracker$new(verbose=opt$verbose)
 
 image_key <- "bbarnesimdocker/im_workhorse:Infinium_Methylation_Workhorse_Centos"
 image_ver <- "v.1.15"
@@ -888,6 +888,7 @@ run$imp_inp_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-inputs.tsv
 run$imp_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-designOutput.tsv.gz', sep='.') )
 run$cln_des_csv  <- file.path(run$desDir, paste(opt$runName, 'improbe-designOutput.clean.tsv.gz', sep='.') )
 
+# TBD:: This needs to be changed in the docker image to replace the lines above!
 # run$imp_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.tsv.gz', sep='.') )
 # run$cln_des_csv  <- file.path(run$desDir, paste(opt$runName, 'improbe-design.clean.csv.gz', sep='.') )
 
@@ -901,16 +902,9 @@ if (par$buildManifest) {
   #                  2.1 Functional Manifest Generation::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  #
-  # TBD:: Critical:: Pass in Ord_Key or Address as main key!!!
-  #   - Testing right now
-  #   - Issue is passing in Ord_Key can create too long (20 char) for improbe
-  #   - Issue is poor uniqueness of keys!!!
-  #
-  
   par$retData <- TRUE
   par$retData <- FALSE
-  opt$verbose <- 10
+  # opt$verbose <- 10
   
   stamp_vec <- c(stamp_vec,run$aqp_add_csv)
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
@@ -937,19 +931,6 @@ if (par$buildManifest) {
   aqp_add_sum <- aqp_add_tib %>% 
     dplyr::group_by(Aqp_Idx,Ord_Des,Ord_Din) %>% 
     dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
-
-  # Check default manifest::
-  if (FALSE) {
-
-    pre_man_csv <- "/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom.original/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz"
-    pre_man_tib <- readr::read_csv(pre_man_csv) %>%
-      clean_tibble()
-    
-    aqp_man_tib <- readr::read_csv(run$aqp_man_csv) %>% 
-      dplyr::rename(Probe_ID=Ord_Key, U=Address_U, M=Address_M) %>% 
-      clean_tibble()
-    
-  }
     
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                    3.2 Align All Probe Sequence:: BSMAP
@@ -986,17 +967,8 @@ if (par$buildManifest) {
       readr::read_csv(run$aqp_bsp_tsv, guess_max=100000) )) %>%
       clean_tibble()
   }
-  
-  if (FALSE) {
-    man_bsp_tib <- aqp_bsp_tib %>% 
-      dplyr::filter(Bsp_Tag=="UM") %>%
-      add_to_man(join = "Ord_Key", runName = opt$runName, 
-                 des_key = "Ord_Des", pid_key = "Aln_Key", 
-                 # rep_key = "Ord_Par_Rep", rep_val = "Ord_Par_Rep", 
-                 # col_key = "Ord_Col", 
-                 # nxb_key = "Bsp_Nxb_Ref", 
-                 verbose = opt$verbose, tt=pTracker)
-  }
+  # Good summary metric::
+  # aqp_bsp_tib %>% dplyr::select(ends_with("_Scr"),Bsp_Din_Ref,Ord_Des) %>% dplyr::group_by_all() %>% dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       4.0 improbe fwd design::
@@ -1041,7 +1013,7 @@ if (par$buildManifest) {
         load_improbe_design(
           file=run$imp_des_tsv, out=run$cln_des_csv,
           level=3, add_inf=TRUE,
-          verbose=opt$verbose+10, tt=pTracker)
+          verbose=opt$verbose, tt=pTracker)
       
     } else {
       
@@ -1097,271 +1069,294 @@ if (par$buildManifest) {
     
   }
   
-  # Quick Seq Validation:: this should be zero...
-  org_mis_cgn_tib <- seq_cgn_tib %>% head() %>% 
-    dplyr::mutate(Org_Cgn = Address %>% 
-                    stringr::str_remove("^cg") %>% 
-                    stringr::str_remove("-.*$") %>% 
-                    stringr::str_remove("-.*$") %>% as.integer()) %>% 
-    dplyr::filter(Imp_Cgn != Org_Cgn)
-  
 }
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                 3.4.1 aqp_add_tib with seq/unq_cgn_tib::
+#                           Add Canonical Order::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# TBD:: Next join add & unq_cgn_tib 
+# TBD:: Next join previous two
+#
+# Need to load canonical cgn assignments::
+#
+if (!is.null(opt$ord_des_csv)) can_cgn_tib <- 
+  suppressMessages(suppressWarnings( readr::read_csv(opt$ord_des_csv) )) %>%
+  purrr::set_names(c("Can_Cgn","Can_Top","Can_Src")) %>%
+  dplyr::mutate(Can_Cgn=as.integer(Can_Cgn), Can_Scr=1) %>%
+  clean_tibble()
+
+add_cgn_inn <- dplyr::inner_join(
+  aqp_add_tib,seq_cgn_tib,
+  by=c("Ord_Des","Ord_Din","Address","Aln_P49"="Aln_Prb")
+) %>% 
+  dplyr::left_join(can_cgn_tib, by=c("Imp_Cgn"="Can_Cgn")) %>% 
+  dplyr::mutate(Ord_Cgn=Ord_Key %>% 
+                  stringr::str_remove("^[a-zA-Z][a-zA-Z]") %>% 
+                  stringr::str_remove("-.*$") %>% 
+                  stringr::str_remove("_.*$") %>% 
+                  as.integer()) %>%
+  dplyr::mutate(Can_Scr=tidyr::replace_na(Can_Scr, 0))
+
+add_seq_cgn_ant <- dplyr::anti_join(
+  aqp_add_tib,seq_cgn_tib,
+  by=c("Ord_Des","Ord_Din","Address","Aln_P49"="Aln_Prb")
+)
+
+#
+#
+# Determine Optimal Sorting::
+#
+#
+add_cgn_inn1 <- add_cgn_inn %>%
+  dplyr::arrange(Can_Scr,-Imp_Hit_hg37) %>%
+  dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>% 
+  dplyr::mutate(
+    Mat_Cgn=dplyr::case_when(
+      Imp_Cgn==Ord_Cgn ~ 0,
+      TRUE ~ 1) %>% as.integer()
+  )
+add_cgn_sum1 <- add_cgn_inn1 %>%
+  # dplyr::group_by(Mat_Cgn,Aqp_Idx,Ord_Des,Ord_Din) %>%
+  dplyr::group_by(Mat_Cgn) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+add_cgn_sum1 %>% print(n=base::nrow(add_cgn_sum1))
+
+add_cgn_inn2 <- add_cgn_inn %>%
+  dplyr::arrange(Can_Scr,Imp_Hit_hg37) %>%
+  dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>% 
+  dplyr::mutate(
+    Mat_Cgn=dplyr::case_when(
+      Imp_Cgn==Ord_Cgn ~ 0,
+      TRUE ~ 1) %>% as.integer()
+  )
+add_cgn_sum2 <- add_cgn_inn2 %>%
+  # dplyr::group_by(Mat_Cgn,Aqp_Idx,Ord_Des,Ord_Din) %>%
+  dplyr::group_by(Mat_Cgn) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+add_cgn_sum2 %>% print(n=base::nrow(add_cgn_sum2))
+
+add_cgn_inn3 <- add_cgn_inn %>%
+  dplyr::arrange(-Can_Scr,Imp_Hit_hg37) %>%
+  dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>% 
+  dplyr::mutate(
+    Mat_Cgn=dplyr::case_when(
+      Imp_Cgn==Ord_Cgn ~ 0,
+      TRUE ~ 1) %>% as.integer()
+  )
+add_cgn_sum3 <- add_cgn_inn3 %>%
+  # dplyr::group_by(Mat_Cgn,Aqp_Idx,Ord_Des,Ord_Din) %>%
+  dplyr::group_by(Mat_Cgn) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+add_cgn_sum3 %>% print(n=base::nrow(add_cgn_sum3))
+
+add_cgn_inn4 <- add_cgn_inn %>%
+  dplyr::arrange(-Can_Scr,-Imp_Hit_hg37) %>%
+  dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>% 
+  dplyr::mutate(
+    Mat_Cgn=dplyr::case_when(
+      Imp_Cgn==Ord_Cgn ~ 0,
+      TRUE ~ 1) %>% as.integer()
+  )
+add_cgn_sum4 <- add_cgn_inn4 %>%
+  # dplyr::group_by(Mat_Cgn,Aqp_Idx,Ord_Des,Ord_Din) %>%
+  dplyr::group_by(Mat_Cgn) %>%
+  dplyr::summarise(Count=n(), .groups="drop")
+add_cgn_sum4 %>% print(n=base::nrow(add_cgn_sum4))
+
+
+#
+# CONCLUSION::
+#   BEST=   dplyr::arrange(-Can_Scr,-Imp_Hit_hg37)
+#
+
+#
+# Directly below are next steps.
+# After that is code to delete if the above works...
+#
+
+#
+# *** TBD:: Next filter bsp by extension ***
+# TBD:: Next join add & bsp alignments with TB/CO
+#
+
+if (FALSE) {
+  # A tibble: 1,141,866 x 89
+  add_cgn_inn4 %>% dplyr::inner_join(aqp_bsp_tib, by=c("Aln_Prb"))
+  
+  # A tibble: 1,033,006 x 88
+  add_cgn_inn4 %>% dplyr::inner_join(aqp_bsp_tib, by=c("Address","Aln_Prb"))
+  
+  # A tibble: 1,033,006 x 86
+  add_cgn_inn4 %>% dplyr::inner_join(aqp_bsp_tib, by=c("Address","Ord_Des","Ord_Din","Aln_Prb"))
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   3.4.2 aqp_add_tib with aqp_bsp_tib::
+#                        Add Sesame pos comparison::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# BSP Success summary:: Not technically needed yet...
+#
+aqp_bsp_sum <- aqp_bsp_tib %>% 
+  dplyr::group_by(Address,Ord_Des,Ord_Din,Ord_Prb) %>%
+  dplyr::summarise(Bsp_Din_Scr_Min=min(Bsp_Din_Scr, na.rm=TRUE),
+                   Bsp_Din_Scr_Avg=mean(Bsp_Din_Scr, na.rm=TRUE),
+                   Bsp_Din_Scr_Med=median(Bsp_Din_Scr, na.rm=TRUE),
+                   Bsp_Din_Scr_Max=max(Bsp_Din_Scr, na.rm=TRUE),
+                   Bsp_Din_Scr_Cnt=n(),
+                   .groups="drop"
+  )
+
+#
+# The question is the ordering of joining add_cgn_inn4, imp_des_tib and aqp_bsp_tib
+#  or just aqp_bsp_sum
+
+#
+# Seriers of Joins::
+#
+add_cgn_imp_inn4 <- 
+  dplyr::inner_join(add_cgn_inn4,imp_des_tib,
+                    by=c("Aln_Key"="Seq_ID",
+                         "Imp_TB"="Strand_TB",
+                         "Imp_CO"="Strand_CO")
+  )
+
+add_cgn_imp_bsp_inn4 <- dplyr::inner_join(
+  add_cgn_imp_inn4 %>% head(n=10), 
+  aqp_bsp_tib %>% dplyr::select(Address,Ord_Des,Ord_Din,
+                                Aln_Key,Ord_Prb, dplyr::starts_with("Bsp_")),
+  by=c("Address","Ord_Des","Ord_Din","Aln_Key","Ord_Prb")
+)
+
+add_cgn_imp_bsp_inn4 <- dplyr::left_join(
+  add_cgn_imp_inn4, # %>% head(n=100), 
+  aqp_bsp_tib %>% dplyr::select(Address,Ord_Des,Ord_Din,
+                                Aln_Key,Ord_Prb, dplyr::starts_with("Bsp_")),
+  by=c("Address","Ord_Des","Ord_Din","Aln_Key","Ord_Prb",
+       "Chromosome"="Bsp_Chr","Coordinate"="Bsp_Pos")
+)
+
+#
+# All Working Up to HERE!!!!
+#
 
 
 
+
+
+
+
+
+#
+# Below is scratch code for 3.4.2
+#
 if (FALSE) {
   
   #
+  # Load Sesame equivlent and compare coordinates and names by sequence
   #
-  # TBD:: Next filter bsp by extension
-  # TBD:: Next join add & bsp alignments with TB/CO
-  # TBD:: Next join add & unq_cgn_tib 
-  # TBD:: Next join previous two
-  #
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                 3.4.1 Bind BSMAP & Seq-Match into Table::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  # This runs out of memory::
-  #
-  # bsp_cgn_inn_tib <- aqp_bsp_tib %>% 
-  #   dplyr::inner_join(seq_cgn_tib, 
-  #                     by=c("Ord_Key"="Address","Ord_Des","Ord_Din"),
-  #                     suffix=c("bsp","cgn"))
+  par$sesBuild <- NULL
+  if (opt$genBuild=="GRCh37") par$sesBuild <- "hg19"
+  if (opt$genBuild=="GRCh38") par$sesBuild <- "hg18"
+  ses_man_grs <- sesameData::sesameDataGet(paste("EPIC",par$sesBuild,"manifest", sep='.'))
+  ses_man_tib <- ses_man_grs %>% as.data.frame() %>% 
+    tibble::rownames_to_column(var="Ses_Cgn") %>%
+    tibble::as_tibble()
   
   #
-  # Need to load canonical cgn assignments::
+  # Compare aqp_bsp_tib vs. ses_man_tib
   #
-  if (!is.null(opt$ord_des_csv)) can_cgn_tib <- 
-    suppressMessages(suppressWarnings( readr::read_csv(opt$ord_des_csv) )) %>%
-    purrr::set_names(c("Can_Cgn","Can_Top","Can_Src")) %>%
-    dplyr::mutate(Can_Cgn=as.integer(Can_Cgn), Can_Scr=1) %>%
-    clean_tibble()
+  ses_pos_col <- c("Ses_Cgn", "seqnames", "start", "end", "probeBeg", "probeEnd", "strand", 
+                   "designType", "probeType")
+  ses_pos_colA <- c(ses_pos_col,"ProbeSeq_A")
+  ses_pos_colB <- c(ses_pos_col,"ProbeSeq_B")
   
-  # We should make unique basis on original aqp_add_tib...
-  unq_cgn_tib <- seq_cgn_tib %>%
-    dplyr::filter(Aln_Prb %in% aqp_add_tib$Aln_P49) %>%
-    dplyr::distinct(Imp_Cgn,Aln_Prb,Imp_TB,Imp_CO,Ord_Des,Ord_Din, .keep_all = TRUE) %>%
-    dplyr::select(Imp_Cgn,Ord_Des,Ord_Din,Imp_TB,Imp_CO,Aln_Prb, dplyr::everything()) %>%
-    dplyr::mutate(Imp_Cgn=as.integer(Imp_Cgn)) %>%
-    dplyr::arrange(Imp_Cgn) %>%
-    clean_tibble() %>% 
-    dplyr::left_join(can_cgn_tib, by=c("Imp_Cgn"="Can_Cgn"))
+  ses_pos_tab <- dplyr::bind_rows(
+    ses_man_tib %>% 
+      dplyr::filter(designType=="I") %>%
+      dplyr::select(dplyr::all_of(ses_pos_colA)) %>% 
+      dplyr::rename(Ord_Prb=ProbeSeq_A) %>%
+      dplyr::mutate(Ord_Prb=stringr::str_to_upper(Ord_Prb),
+                    Ord_Des="U") %>%
+      tibble::as_tibble(),
+    ses_man_tib %>% 
+      dplyr::filter(designType=="I") %>%
+      dplyr::select(dplyr::all_of(ses_pos_colB)) %>% 
+      dplyr::rename(Ord_Prb=ProbeSeq_B) %>%
+      dplyr::mutate(Ord_Prb=stringr::str_to_upper(Ord_Prb),
+                    Ord_Des="M") %>%
+      tibble::as_tibble(),
+    ses_man_tib %>% 
+      dplyr::filter(designType=="II") %>%
+      dplyr::select(dplyr::all_of(ses_pos_colA)) %>% 
+      dplyr::rename(Ord_Prb=ProbeSeq_A) %>%
+      dplyr::mutate(Ord_Prb=stringr::str_to_upper(Ord_Prb),
+                    Ord_Des="2") %>%
+      tibble::as_tibble()
+  ) %>% 
+    dplyr::rename(Ord_Din=probeType) %>%
+    clean_tibble() %>%
+    dplyr::select(Ses_Cgn,Ord_Des,Ord_Din,Ord_Prb, dplyr::everything())
   
-  cnt_cgn_tib <- unq_cgn_tib %>% 
-    dplyr::distinct(Imp_Cgn,Aln_Prb,Can_Src) %>% 
-    dplyr::add_count(Imp_Cgn,Aln_Prb,Can_Src, name="Dup_Cnt")
+  aqp_bsp_tib %>% 
+    dplyr::inner_join(ses_pos_tab, by=c("Ord_Prb","Ord_Des","Ord_Din")) %>%
+    dplyr::mutate(Pos_Dif=Bsp_Pos-start) %>% 
+    dplyr::filter(Pos_Dif!=0) %>% 
+    dplyr::filter(Bsp_Tag!="UM") %>%
+    dplyr::group_by(Ord_Des,Ord_Din,
+                    # Aqp_Idx,
+                    Bsp_Nxb_Bsc,
+                    Bsp_Din_Bsc,
+                    # CG_F1,CG_R1,
+                    Bsp_Tag) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>%
+    print(n=1000)
   
-  if (FALSE) {
-    # seq_cgn_tib %>% dplyr::distinct(Aln_Prb) %>% base::nrow()
-    # unq_cgn_tib %>% dplyr::distinct(Aln_Prb) %>% base::nrow()
-    # aqp_add_tib %>% dplyr::distinct(Aln_Prb) %>% base::nrow()
-    # 
-    # seq_cgn_tib %>% dplyr::distinct(Address,Aln_Prb) %>% base::nrow()
-    # unq_cgn_tib %>% dplyr::distinct(Address,Aln_Prb) %>% base::nrow()
-    # aqp_add_tib %>% dplyr::distinct(Address,Aln_Prb) %>% base::nrow()
-    # 
-    # seq_cgn_tib %>% dplyr::distinct(Address,Ord_Des,Ord_Din,Aln_Prb) %>% base::nrow()
-    # unq_cgn_tib %>% dplyr::distinct(Address,Ord_Des,Ord_Din,Aln_Prb) %>% base::nrow()
-    # aqp_add_tib %>% dplyr::distinct(Address,Ord_Des,Ord_Din,Aln_Prb) %>% base::nrow()
-
-    # Start with unique cgn 
-    add_unq_cgn_inn <- dplyr::inner_join(
-      aqp_add_tib,unq_cgn_tib,
-      by=c("Ord_Des","Ord_Din","Address","Aln_P49"="Aln_Prb")
-    )
-    
-    add_seq_cgn_inn <- dplyr::inner_join(
-      aqp_add_tib,seq_cgn_tib,
-      by=c("Ord_Des","Ord_Din","Address","Aln_P49"="Aln_Prb")
-    )
-
-  }
+  # Probe Order Sequence match to check position:: BSP vs. Sesame::
+  ses_bsp_mat_tib <- aqp_bsp_tib %>% 
+    dplyr::select(Ord_Key,Ord_Des,Ord_Din,Ord_Prb,Bsp_Chr,Bsp_Pos,Bsp_Tag,Aqp_Idx) %>%
+    dplyr::inner_join(ses_pos_tab, by=c("Ord_Prb","Ord_Des","Ord_Din"))
   
-  # Below is actually not what we want; we want the canonical hits to be 
-  #  reported first!!!
-  #
-  # Use Imp_Cnt to select historic probes first...
-  # TBD:: Set Imp_Hit_XXNN to target genome if available...
-  #
-  # unq_cgn_tib <- seq_cgn_tib %>% 
-  #   dplyr::filter(Aln_Prb %in% aqp_add_tib$Aln_P49) %>%
-  #   dplyr::arrange(-Imp_Hit_hg38) %>%
-  #   dplyr::mutate(Imp_Cgn=as.integer(Imp_Cgn)) %>%
-  #   dplyr::distinct(Imp_Cgn,Aln_Prb,Imp_TB,Imp_CO,Ord_Des,Ord_Din,Imp_Hit_hg38) %>%
-  #   dplyr::select(Imp_Cgn,Ord_Des,Ord_Din,Imp_TB,Imp_CO,Aln_Prb,Imp_Hit_hg38) %>%
-  #   dplyr::arrange(Imp_Cgn) %>%
-  #   clean_tibble()
+  ses_bsp_mis_tib <- ses_bsp_mat_tib %>% 
+    dplyr::mutate(Pos_Dif=Bsp_Pos-start) %>% 
+    dplyr::filter(Pos_Dif!=0) %>% 
+    dplyr::select(Ord_Key,Ses_Cgn,Ord_Des,Ord_Din,Bsp_Tag,Aqp_Idx,Ord_Prb,Pos_Dif,Bsp_Chr,seqnames)
+  ses_bsp_mis_sum <- ses_bsp_mis_tib %>% 
+    dplyr::group_by(Ord_Des,Ord_Din,Bsp_Tag,Aqp_Idx) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  ses_bsp_mis_sum %>% print(n=base::nrow(ses_bsp_mis_sum))
   
-  # The Ord_Cgn should be renamed and moved above...
-  #  Aln_Seq below is not the same Aln_P49 its for actual alignment not 
-  #  seuqence exact matching for the cgn database...
-  unq_bsp_tib <- aqp_bsp_tib %>% 
-    dplyr::mutate(Ord_Cgn=Cgn_Id %>% stringr::str_remove("^cg") %>% as.integer()) %>% 
-    dplyr::distinct(Ord_Cgn,Ord_Des,Ord_Din,Aln_Prb) %>%
-    dplyr::select(Ord_Cgn,Ord_Des,Ord_Din,Aln_Prb) %>%
-    dplyr::arrange(Ord_Cgn) %>%
-    clean_tibble()
-  
-  # This is unique with Aln_P49
-  unq_add_tib <- aqp_add_tib %>% 
-    dplyr::mutate(Ord_Cgn=Ord_Key %>% 
-                    stringr::str_remove("^[a-zA-Z][a-zA-Z]") %>% 
-                    stringr::str_remove("-.*$") %>% 
-                    stringr::str_remove("_.*$") %>% 
-                    as.integer()) %>% 
-    dplyr::distinct(Ord_Cgn,Ord_Des,Ord_Din,Aln_P49) %>%
-    dplyr::select(Ord_Cgn,Ord_Des,Ord_Din,Aln_P49) %>%
-    dplyr::rename(Aln_Prb=Aln_P49) %>%
-    dplyr::arrange(Ord_Cgn) %>%
-    clean_tibble()
+  # Missing Probes???
+  aqp_bsp_tib %>% 
+    dplyr::select(Ord_Key,Ord_Des,Ord_Din,Ord_Prb,Bsp_Chr,Bsp_Pos,Aqp_Idx) %>%
+    dplyr::anti_join(ses_pos_tab, by=c("Ord_Prb","Ord_Des","Ord_Din")) %>% 
+    dplyr::add_count(Ord_Prb, name="Aln_Cnt") %>%
+    dplyr::group_by(Aqp_Idx,Aln_Cnt,Ord_Des,Ord_Din) %>%
+    dplyr::summarise(Count=n(), .groups="drop") %>% print(n=10000)
   
   #
-  # Mapping Order::
-  #  1. unq_cgn_tib with historic names
-  #
-  unq_cgn_tib %>% 
-    dplyr::arrange(Can_Scr) %>%
-    dplyr::distinct(Imp_Cgn,Ord_Des,Ord_Din,Imp_TB,Imp_CO, .keep_all=TRUE)
-    dplyr::distinct(Imp_Cgn,Aln_Prb, .keep_all=TRUE)
-  # dplyr::distinct(Imp_Cgn,Ord_Des,Ord_Din,Imp_TB,Imp_CO,Aln_Prb, .keep_all=TRUE)
-  # dplyr::inner_join(unq_add_tib, by=c("Ord_Cgn"="Imp_Cgn","Aln_Prb") )
-
-  # Strict Join to remove obvious overlaps::
-  strict_aqp_cgn_inn <- dplyr::inner_join(
-    unq_add_tib,unq_cgn_tib, by=c("Ord_Cgn"="Imp_Cgn","Aln_Prb")
-  )
-
-
-  
-  
-
-
-  
-  # Max Best Extension::
-  #   - This requires the template sequence and probe designs
-  #     It can be inferred for BSP alignments, but requires full templates and 
-  #     designs for Seq data. 
-  #   - Question; is there ever a case where a probe matches non-seq matching
-  #     more than seq-matching. Yes; poorly designed probes. This is why we need
-  #     all the template sequences followed by designs.
-  #
-  # Max Canonical CGN
-  #
-  # Max Source (Seq,Bsp)
-  # Max U over M
+  # Compare seq_cgn_tib vs. ses_man_tib
   #
   
-  # TBD::
-  #  - Validate against Wanding's manifest:: cgn/pos
-  #  - Intersect with Chrom HMM/UCSC
-  #  - Pick Max Wanding Annotation
-  #  - Compare Internal Annotation vs. Wanding Annotation
-  #
   
-  # if (opt$verbose>=1)
-  #   cat(glue::glue("[{par$prgmTag}]: Done. Row Binding all_imp_tab=(seq_cgn_tib/aqp_bsp_tib).{RET}{RET}"))
+  aqp_bsp_tib %>% dplyr::filter(Ord_Key %in% seq_cgn_tib$Address) %>%
+    dplyr::select(Bsp_Seq,Aln_Prb)
   
+  
+  aqp_bsp_tib %>% dplyr::filter(!Bsp_Seq %in% seq_cgn_tib$Aln_Prb)
+  aqp_bsp_tib %>% dplyr::filter(!Aln_Prb %in% seq_cgn_tib$Aln_Prb)
+  
+  aqp_bsp_tib %>% dplyr::select(Ord_Des:Aln_Key) %>% dplyr::arrange(Aln_Prb)
+  seq_cgn_tib %>% dplyr::select(Address:Aln_Prb)
 }
 
-#
-# Load Sesame equivlent and compare coordinates and names by sequence
-#
-par$sesBuild <- NULL
-if (opt$genBuild=="GRCh37") par$sesBuild <- "hg19"
-if (opt$genBuild=="GRCh38") par$sesBuild <- "hg18"
-ses_man_grs <- sesameData::sesameDataGet(paste("EPIC",par$sesBuild,"manifest", sep='.'))
-ses_man_tib <- ses_man_grs %>% as.data.frame() %>% 
-  tibble::rownames_to_column(var="Ses_Cgn") %>%
-  tibble::as_tibble()
-
-#
-# Compare aqp_bsp_tib vs. ses_man_tib
-#
-ses_pos_col <- c("Ses_Cgn", "seqnames", "start", "end", "probeBeg", "probeEnd", "strand", 
-                 "designType", "probeType")
-ses_pos_colA <- c(ses_pos_col,"ProbeSeq_A")
-ses_pos_colB <- c(ses_pos_col,"ProbeSeq_B")
-
-ses_pos_tab <- dplyr::bind_rows(
-  ses_man_tib %>% 
-    dplyr::filter(designType=="I") %>%
-    dplyr::select(dplyr::all_of(ses_pos_colA)) %>% 
-    dplyr::rename(Ord_Prb=ProbeSeq_A) %>%
-    dplyr::mutate(Ord_Prb=stringr::str_to_upper(Ord_Prb),
-                  Ord_Des="U") %>%
-    tibble::as_tibble(),
-  ses_man_tib %>% 
-    dplyr::filter(designType=="I") %>%
-    dplyr::select(dplyr::all_of(ses_pos_colB)) %>% 
-    dplyr::rename(Ord_Prb=ProbeSeq_B) %>%
-    dplyr::mutate(Ord_Prb=stringr::str_to_upper(Ord_Prb),
-                  Ord_Des="M") %>%
-    tibble::as_tibble(),
-  ses_man_tib %>% 
-    dplyr::filter(designType=="II") %>%
-    dplyr::select(dplyr::all_of(ses_pos_colA)) %>% 
-    dplyr::rename(Ord_Prb=ProbeSeq_A) %>%
-    dplyr::mutate(Ord_Prb=stringr::str_to_upper(Ord_Prb),
-                  Ord_Des="2") %>%
-    tibble::as_tibble()
-) %>% 
-  dplyr::rename(Ord_Din=probeType) %>%
-  clean_tibble() %>%
-  dplyr::select(Ses_Cgn,Ord_Des,Ord_Din,Ord_Prb, dplyr::everything())
-
-aqp_bsp_tib %>% 
-  dplyr::inner_join(ses_pos_tab, by=c("Ord_Prb","Ord_Des","Ord_Din")) %>%
-  dplyr::mutate(Pos_Dif=Bsp_Pos-start) %>% 
-  dplyr::filter(Pos_Dif!=0) %>% 
-  dplyr::filter(Bsp_Tag!="UM") %>%
-  dplyr::group_by(Ord_Des,Ord_Din,
-                  # Aqp_Idx,
-                  Bsp_Nxb_Bsc,
-                  Bsp_Din_Bsc,
-                  # CG_F1,CG_R1,
-                  Bsp_Tag) %>% 
-  dplyr::summarise(Count=n(), .groups="drop") %>%
-  print(n=1000)
-
-# Probe Order Sequence match to check position:: BSP vs. Sesame::
-ses_bsp_mat_tib <- aqp_bsp_tib %>% 
-  dplyr::select(Ord_Key,Ord_Des,Ord_Din,Ord_Prb,Bsp_Chr,Bsp_Pos,Bsp_Tag,Aqp_Idx) %>%
-  dplyr::inner_join(ses_pos_tab, by=c("Ord_Prb","Ord_Des","Ord_Din"))
-
-ses_bsp_mis_tib <- ses_bsp_mat_tib %>% 
-  dplyr::mutate(Pos_Dif=Bsp_Pos-start) %>% 
-  dplyr::filter(Pos_Dif!=0) %>% 
-  dplyr::select(Ord_Key,Ses_Cgn,Ord_Des,Ord_Din,Bsp_Tag,Aqp_Idx,Ord_Prb,Pos_Dif,Bsp_Chr,seqnames)
-ses_bsp_mis_sum <- ses_bsp_mis_tib %>% 
-  dplyr::group_by(Ord_Des,Ord_Din,Bsp_Tag,Aqp_Idx) %>% 
-  dplyr::summarise(Count=n(), .groups="drop")
-ses_bsp_mis_sum %>% print(n=base::nrow(ses_bsp_mis_sum))
-
-# Missing Probes???
-aqp_bsp_tib %>% 
-  dplyr::select(Ord_Key,Ord_Des,Ord_Din,Ord_Prb,Bsp_Chr,Bsp_Pos,Aqp_Idx) %>%
-  dplyr::anti_join(ses_pos_tab, by=c("Ord_Prb","Ord_Des","Ord_Din")) %>% 
-  dplyr::add_count(Ord_Prb, name="Aln_Cnt") %>%
-  dplyr::group_by(Aqp_Idx,Aln_Cnt,Ord_Des,Ord_Din) %>%
-  dplyr::summarise(Count=n(), .groups="drop") %>% print(n=10000)
-
-#
-# Compare seq_cgn_tib vs. ses_man_tib
-#
-
-
-aqp_bsp_tib %>% dplyr::filter(Ord_Key %in% seq_cgn_tib$Address) %>%
-  dplyr::select(Bsp_Seq,Aln_Prb)
-
-
-aqp_bsp_tib %>% dplyr::filter(!Bsp_Seq %in% seq_cgn_tib$Aln_Prb)
-aqp_bsp_tib %>% dplyr::filter(!Aln_Prb %in% seq_cgn_tib$Aln_Prb)
-
-aqp_bsp_tib %>% dplyr::select(Ord_Des:Aln_Key) %>% dplyr::arrange(Aln_Prb)
-seq_cgn_tib %>% dplyr::select(Address:Aln_Prb)
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                 3.4.3 Bind BSMAP & Seq-Match into Table::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 
 #

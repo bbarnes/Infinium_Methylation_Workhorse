@@ -196,6 +196,14 @@ aqp_address_workflow = function(ord,
     if (!"Decode_Status" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
       dplyr::mutate(Decode_Status=as.integer(0))
     
+    # Add Order Predicted CGN::
+    ret_tib <- ret_tib %>%
+      dplyr::mutate(Ord_Cgn=Ord_Key %>% 
+                      stringr::str_remove("^[a-zA-Z][a-zA-Z]") %>% 
+                      stringr::str_remove("-.*$") %>% 
+                      stringr::str_remove("_.*$") %>% 
+                      as.integer())
+
     ret_tib <- ret_tib %>%
       dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
       dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep") %>%
