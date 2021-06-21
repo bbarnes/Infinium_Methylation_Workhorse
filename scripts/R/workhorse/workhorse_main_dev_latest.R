@@ -1199,51 +1199,97 @@ if (FALSE) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 #
-# BSP Success summary:: Not technically needed yet...
+# BSP Success summary:: Not technically needed, should be moved to run_bsmap()
+#   
 #
-aqp_bsp_sum <- aqp_bsp_tib %>% 
-  dplyr::group_by(Address,Ord_Des,Ord_Din,Ord_Prb) %>%
-  dplyr::summarise(Bsp_Din_Scr_Min=min(Bsp_Din_Scr, na.rm=TRUE),
-                   Bsp_Din_Scr_Avg=mean(Bsp_Din_Scr, na.rm=TRUE),
-                   Bsp_Din_Scr_Med=median(Bsp_Din_Scr, na.rm=TRUE),
-                   Bsp_Din_Scr_Max=max(Bsp_Din_Scr, na.rm=TRUE),
-                   Bsp_Din_Scr_Cnt=n(),
-                   .groups="drop"
-  )
-
+# aqp_bsp_sum <- aqp_bsp_tib %>% 
+#   dplyr::group_by(Address,Ord_Des,Ord_Din,Ord_Prb) %>%
+#   dplyr::summarise(Bsp_Din_Scr_Min=min(Bsp_Din_Scr, na.rm=TRUE),
+#                    Bsp_Din_Scr_Avg=mean(Bsp_Din_Scr, na.rm=TRUE),
+#                    Bsp_Din_Scr_Med=median(Bsp_Din_Scr, na.rm=TRUE),
+#                    Bsp_Din_Scr_Max=max(Bsp_Din_Scr, na.rm=TRUE),
+#                    Bsp_Din_Scr_Cnt=n(),
+#                    .groups="drop"
+#   )
 #
-# The question is the ordering of joining add_cgn_inn4, imp_des_tib and aqp_bsp_tib
-#  or just aqp_bsp_sum
 
 #
 # Seriers of Joins::
 #
-add_cgn_imp_inn4 <- 
+
+add_cgn_imp_bsp_inn <- 
   dplyr::inner_join(add_cgn_inn4,imp_des_tib,
                     by=c("Aln_Key"="Seq_ID",
                          "Imp_TB"="Strand_TB",
                          "Imp_CO"="Strand_CO")
+  ) %>% 
+  dplyr::left_join(
+    aqp_bsp_tib %>% dplyr::select(Address,Ord_Des,Ord_Din,
+                                  Aln_Key,Ord_Prb, dplyr::starts_with("Bsp_")),
+    by=c("Address","Ord_Des","Ord_Din","Aln_Key","Ord_Prb",
+         "Chromosome"="Bsp_Chr","Coordinate"="Bsp_Pos")
   )
 
-add_cgn_imp_bsp_inn4 <- dplyr::inner_join(
-  add_cgn_imp_inn4 %>% head(n=10), 
-  aqp_bsp_tib %>% dplyr::select(Address,Ord_Des,Ord_Din,
-                                Aln_Key,Ord_Prb, dplyr::starts_with("Bsp_")),
-  by=c("Address","Ord_Des","Ord_Din","Aln_Key","Ord_Prb")
-)
-
-add_cgn_imp_bsp_inn4 <- dplyr::left_join(
-  add_cgn_imp_inn4, # %>% head(n=100), 
-  aqp_bsp_tib %>% dplyr::select(Address,Ord_Des,Ord_Din,
-                                Aln_Key,Ord_Prb, dplyr::starts_with("Bsp_")),
-  by=c("Address","Ord_Des","Ord_Din","Aln_Key","Ord_Prb",
-       "Chromosome"="Bsp_Chr","Coordinate"="Bsp_Pos")
-)
+#
+# Seriers of Joins:: Step by Step
+#
+# 
+# add_cgn_imp_inn4 <- 
+#   dplyr::inner_join(add_cgn_inn4,imp_des_tib,
+#                     by=c("Aln_Key"="Seq_ID",
+#                          "Imp_TB"="Strand_TB",
+#                          "Imp_CO"="Strand_CO")
+#   )
+# 
+# add_cgn_imp_bsp_inn4 <- dplyr::left_join(
+#   add_cgn_imp_inn4, # %>% head(n=100), 
+#   aqp_bsp_tib %>% dplyr::select(Address,Ord_Des,Ord_Din,
+#                                 Aln_Key,Ord_Prb, dplyr::starts_with("Bsp_")),
+#   by=c("Address","Ord_Des","Ord_Din","Aln_Key","Ord_Prb",
+#        "Chromosome"="Bsp_Chr","Coordinate"="Bsp_Pos")
+# )
 
 #
 # All Working Up to HERE!!!!
 #
 
+#
+# These three numbers below demonstrate uniqueness across the board::
+#
+um_cnt1 <- add_cgn_imp_bsp_inn %>%
+  dplyr::filter(Bsp_Tag=="UM") %>% base::nrow()
+
+um_cnt2 <- add_cgn_imp_bsp_inn %>%
+  dplyr::filter(Bsp_Tag=="UM") %>%
+  dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb,Chromosome,Coordinate) %>% 
+  base::nrow()
+
+um_cnt3 <- add_cgn_imp_bsp_inn %>%
+  dplyr::filter(Bsp_Tag=="UM") %>%
+  dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb) %>% base::nrow()
+
+#
+# Here are the Multi Unique Probes::
+#
+ma_cnt1 <- add_cgn_imp_bsp_inn %>%
+  dplyr::filter(Bsp_Tag!="UM") %>%
+  dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb) %>% base::nrow()
+
+cat(glue::glue("[{par$prgmTag}]: um_cnt={um_cnt1}={um_cnt2}={um_cnt3}, ",
+               "ma_cnt={ma_cnt1}.{RET}{RET}"))
+
+#
+# Now Filter/Summarize::
+#
+# add_cgn_imp_bsp_inn %>%
+#   dplyr::group_by(Address,Ord_Des,Ord_Din,Ord_Prb) %>%
+#   dplyr::summarise(Bsp_Din_Scr_Min=min(Bsp_Din_Scr, na.rm=TRUE),
+#                    Bsp_Din_Scr_Avg=mean(Bsp_Din_Scr, na.rm=TRUE),
+#                    Bsp_Din_Scr_Med=median(Bsp_Din_Scr, na.rm=TRUE),
+#                    Bsp_Din_Scr_Max=max(Bsp_Din_Scr, na.rm=TRUE),
+#                    Bsp_Din_Scr_Cnt=n(),
+#                    .groups="drop"
+#   )
 
 
 
