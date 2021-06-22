@@ -245,6 +245,9 @@ if (args.dat[1]=='RStudio') {
   
   opt$verbose  <- 3
   
+  par$local_runType <- 'VA-MVP-Akesogen_Batch3'
+  par$local_runType <- 'VA-MVP-IBX_Batch3'
+  
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'GRCm38'

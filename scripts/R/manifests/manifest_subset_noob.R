@@ -21,6 +21,13 @@ suppressWarnings(suppressPackageStartupMessages( base::require("profmem",quietly
 #                              Global Params::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# ses_mm10_man_tib <- sesameData::sesameDataGet("MM285.mm10.manifest") %>% 
+#   as.data.frame() %>% 
+#   tibble::as_tibble()
+# 
+# ses_mm10_man_csv <- "/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/manifest/sesame_src/MM285.mm10.manifest.csv.gz"
+# readr::write_csv(ses_mm10_man_tib, ses_mm10_man_csv)
+
 doParallel::registerDoParallel()
 num_cores   <- detectCores()
 num_workers <- getDoParWorkers()

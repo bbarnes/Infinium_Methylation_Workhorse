@@ -218,6 +218,7 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
   par$local_runType <- 'Chicago-Ober-Custom'
   par$local_runType <- 'NA12878'
+  par$local_runType <- 'qcMVP2'
   
   if (FALSE) {
     
@@ -457,6 +458,34 @@ if (args.dat[1]=='RStudio') {
     opt$datDir  <- paste(
       file.path(par$topDir,'scratch/merge_builds/LEGX/S1/Sample_Name',opt$runName),
       sep=',')
+    
+  } else if (par$local_runType=='qcMVP2') {
+    # "/Users/bretbarnes/Documents/data/VA_MVP/docker-v.1.11/"
+    
+    opt$sampleCsv <- file.path(par$topDir, "data/sampleSheets/VA-Controls/Batch3/VA-Controls-Batch3.sampleSheet.csv")
+    
+    opt$manifest <- file.path(par$datDir, "manifest/core/EPIC-B4.manifest.sesame-base.cpg-sorted.csv.gz")
+    opt$workflow <- "ind"
+    
+    opt$classVar <- 'AutoSample_dB_Key'
+    opt$classVar <- 'AutoSample_dB_Key_1'
+    
+    opt$platform <- 'EPIC'
+    opt$version  <- 'B4'
+    
+    # opt$datDir <- 
+    #   do.call(paste, c(as.list(list.files(par$datSrc, full.names = TRUE)), sep=","))
+    
+    opt$datDir <- paste(
+      file.path(par$topDir, "scratch/swifthoof/VA-MVP-Akesogen_Batch3/swifthoof_main"),
+      file.path(par$topDir, "scratch/swifthoof/VA-MVP-IBX_Batch3/swifthoof_main"),
+      sep=","
+    )
+    
+    opt$runName  <- paste(par$local_runType, sep='_')
+    
+    opt$addPathsCall <- TRUE
+    opt$addPathsSset <- FALSE
     
   } else if (par$local_runType=='qcMVP') {
     # "/Users/bretbarnes/Documents/data/VA_MVP/docker-v.1.11/"
@@ -787,7 +816,7 @@ if (opt$forceUnq) {
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]:{TAB} Only keeping unique Setrix_Name rows!{RET}"))
   
-  auto_ss_tib %>% dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
+  auto_ss_tib <- auto_ss_tib %>% dplyr::distinct(Sentrix_Name, .keep_all=TRUE)
 } else {
   tot_sent_cnt <- auto_ss_tib %>% dplyr::pull(Sentrix_Name) %>% length()
   unq_sent_cnt <- auto_ss_tib %>% dplyr::pull(Sentrix_Name) %>% unique() %>% length()

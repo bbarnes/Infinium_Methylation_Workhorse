@@ -46,6 +46,7 @@ template_func = function(tib,
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                ORD/MAT/AQP/Manifest File Workflows:: Generation
+#                         AQP Address Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 aqp_address_workflow = function(ord, 
@@ -273,6 +274,13 @@ aqp_address_workflow = function(ord,
     }
     if (retData) ret_dat$add <- ret_tib
     
+    # Overall Summary::
+    if (verbose>=vt+4) {
+      aqp_add_sum <- aqp_add_tib %>% 
+        dplyr::group_by(Aqp_Idx,Ord_Des,Ord_Din) %>%
+        dplyr::summarise(Count=n(), .groups="drop")
+      aqp_add_sum %>% print(n=base::nrow(aqp_add_sum))
+    }
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret-fin")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -628,6 +636,245 @@ guess_aqp_file = function(file,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         CGN Mapping Workflow Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+
+cgn_mapping_workflow = function(tib,idxA=1,idxB=1,
+                                imp_u49_tsv,aqp_u49_tsv,int_u49_tsv,
+                                imp_m49_tsv,aqp_m49_tsv,int_m49_tsv,
+                                int_seq_tsv,
+                                ord_des_csv=NULL,bed=NULL,org=NULL,
+                                verbose=0,vt=3,tc=1,tt=NULL,
+                                funcTag='cgn_mapping_workflow') {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    
+    
+    # int_u49_tib2 <- 
+    #   intersect_seq(ref=run$imp_u49_tsv,
+    #                 can=run$aqp_u49_tsv,
+    #                 out=run$int_u49_tsv,
+    #                 idxA=1, idxB=1, 
+    #                 verbose=opt$verbose,tt=pTracker)
+    # 
+    # int_m49_tib2 <- 
+    #   intersect_seq(ref=run$imp_m49_tsv,
+    #                 can=run$aqp_m49_tsv, 
+    #                 out=run$int_m49_tsv,
+    #                 idxA=1, idxB=1, 
+    #                 verbose=opt$verbose,tt=pTracker)
+    # 
+    # seq_cgn_tib <- 
+    #   join_seq_intersect(u49=int_u49_tib2, m49=int_m49_tib2, 
+    #                      bed=cgn_bed_tib, org=add_org_tib,
+    #                      verbose=opt$verbose, tt=pTracker)
+    # 
+    # safe_write(seq_cgn_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
+    #            verbose=opt$verbose)
+    
+    # can_cgn_tib <- NULL
+    # if (!is.null(par$local_runType) && par$local_runType != "Chicago") {
+    #   if (!is.null(opt$ord_des_csv)) can_cgn_tib <- 
+    #       suppressMessages(suppressWarnings( readr::read_csv(opt$ord_des_csv) )) %>%
+    #       purrr::set_names(c("Can_Cgn","Can_Top","Can_Src")) %>%
+    #       dplyr::mutate(Can_Cgn=as.integer(Can_Cgn), Can_Scr=1) %>%
+    #       clean_tibble()
+    # }
+    # dplyr::left_join(seq_cgn_tib,can_cgn_tib, by=c("Imp_Cgn"="Can_Cgn"))
+    
+    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+intersect_seq = function(ref, can, out, idxA=1, idxB=1,
+                         verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'intersect_seq'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  int_seq_cols <-
+    cols(
+      Imp_Seq  = col_character(),
+      Imp_Nuc  = col_character(),
+      
+      Imp_SrdI = col_integer(),
+      Imp_Srd3 = col_character(),
+      
+      Imp_Key  = col_character(),
+      Imp_Scr  = col_character(),
+      
+      Imp_Cnt  = col_integer(),
+      aln_key  = col_character()
+    )
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    clean <- FALSE
+    if (stringr::str_ends(can, '.gz')) {
+      cmd_str <- glue::glue("gzip -f -k -d {can}")
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
+      
+      cmd_ret <- base::system(cmd_str)
+      if (cmd_ret!=0) {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
+                        "cmd={cmd_str}!{RET}{RET}"))
+        return(ret_tib)
+      }
+      can <- stringr::str_remove(can, ".gz$")
+      clean <- TRUE
+    }
+    
+    cmd_str = glue::glue("gzip -dc {ref} | join -t $'\t' -1{idxA} -2{idxB} - {can} | gzip -c - > {out}")
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
+    cmd_ret <- system(cmd_str)
+    
+    if (clean && !stringr::str_ends(can, '.gz')) {
+      cmd_str <- glue::glue("rm {can}")
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
+      
+      cmd_ret <- system(cmd_str)
+      if (cmd_ret!=0) {
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
+                        "cmd={cmd_str}!{RET}{RET}"))
+        return(ret_tib)
+      }
+      can <- paste(can,'gz', sep='.')
+    }
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: Loading intersection output={out}...{RET}"))
+    
+    ret_tib <- suppressMessages(suppressWarnings( 
+      readr::read_tsv(out, col_names=names(int_seq_cols$cols), col_types=int_seq_cols) )) %>%
+      utils::type.convert() %>% 
+      dplyr::mutate(across(where(is.factor), as.character) )
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
+                              verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'join_seq_intersect'
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    imp_col_vec <- c("Address","Ord_Des","Ord_Din",
+                     "Imp_Chr","Imp_Pos","Imp_Cgn",
+                     "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
+                     "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
+    
+    ret_tib <- 
+      dplyr::bind_rows(u49,m49) %>%
+      dplyr::select(-Imp_SrdI,-Imp_Scr) %>% 
+      dplyr::mutate(Imp_Key=stringr::str_split(Imp_Key, pattern=",") ) %>% 
+      tidyr::unnest(Imp_Key)
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib1")
+
+    ret_tib <- ret_tib %>%
+      tidyr::separate(
+        Imp_Key, 
+        into=c("Imp_Cgn","Imp_Hit_hg38","Imp_Hit_hg37", "Imp_Hit_hg36", "Imp_Hit_mm10"), 
+        sep="_", remove=TRUE)
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib2")
+    
+    ret_tib <- ret_tib %>%
+      tidyr::separate(
+        aln_key, 
+        into=c("Address", "Ord_Des", "Ord_Din"), 
+        sep="_") %>%
+      dplyr::rename(Aln_Prb=Imp_Seq, Aln_Nuc=Imp_Nuc)
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib3")
+    
+    ret_tib <- ret_tib %>%
+      tidyr::separate(Imp_Srd3, into=c("Imp_TB","Imp_CO", "Imp_Nxb"),
+                      sep=c(1,2)) %>%
+      dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn, 
+                    Imp_TB, Imp_CO, Imp_Nxb, Aln_Prb, Aln_Nuc, 
+                    dplyr::everything()) %>%
+      clean_tibble()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib4")
+
+    if (!is.null(bed)) {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding cgn bed...{RET}"))
+      
+      ret_tib <- bed %>%
+        dplyr::right_join(ret_tib,by=c("Imp_Cgn")) %>%
+        dplyr::mutate(
+          Imp_FR=dplyr::case_when(
+            Imp_Top_Srd=="+" & Imp_TB=="T" ~ "F",
+            Imp_Top_Srd=="-" & Imp_TB=="T" ~ "R",
+            Imp_Top_Srd=="+" & Imp_TB=="B" ~ "R",
+            Imp_Top_Srd=="-" & Imp_TB=="B" ~ "F",
+            TRUE ~ NA_character_
+          )
+        )
+    }
+    
+    if (!is.null(org)) {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding org bed...{RET}"))
+      
+      ret_tib <- ret_tib %>%
+        dplyr::left_join(
+          org, 
+          by=c("Aln_Prb"="Org_49P",
+               "Ord_Des"="Org_Des",
+               "Imp_Chr"="Org_Chr",
+               "Imp_Pos"="Org_Pos",
+               "Imp_FR"="Org_FR",
+               "Imp_TB"="Org_TB",
+               "Imp_CO"="Org_CO")
+        )
+    }
+    
+    ret_tib <- ret_tib  %>%
+      dplyr::select(dplyr::any_of(imp_col_vec),dplyr::everything()) %>%
+      clean_tibble()
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_fin")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Manifest Mutation Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -746,7 +993,7 @@ add_to_man = function(tib, join, runName,
       #
       if ("Address_U" %in% names(ret1_tib) && 
           "Address_M" %in% names(ret1_tib)) ret1_tib <- ret1_tib %>% 
-            dplyr::filter(!is.na(Address_U) & !is.na(Address_M))
+          dplyr::filter(!is.na(Address_U) & !is.na(Address_M))
     }
     ret1_cnt <- print_tib(ret1_tib,funcTag, verbose,vt+4,tc, n="InfI")
     
@@ -931,180 +1178,6 @@ add_to_fas = function(tib, prb_key="Prb_Seq",
                funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
-intersect_seq = function(ref, can, out, idxA=1, idxB=1,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'intersect_seq'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
-  int_seq_cols <-
-    cols(
-      Imp_Seq  = col_character(),
-      Imp_Nuc  = col_character(),
-      
-      Imp_SrdI = col_integer(),
-      Imp_Srd3 = col_character(),
-      
-      Imp_Key  = col_character(),
-      Imp_Scr  = col_character(),
-      
-      Imp_Cnt  = col_integer(),
-      aln_key  = col_character()
-    )
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- base::system.time({
-    
-    clean <- FALSE
-    if (stringr::str_ends(can, '.gz')) {
-      cmd_str <- glue::glue("gzip -f -k -d {can}")
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
-      
-      cmd_ret <- base::system(cmd_str)
-      if (cmd_ret!=0) {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
-                        "cmd={cmd_str}!{RET}{RET}"))
-        return(ret_tib)
-      }
-      can <- stringr::str_remove(can, ".gz$")
-      clean <- TRUE
-    }
-    
-    cmd_str = glue::glue("gzip -dc {ref} | join -t $'\t' -1{idxA} -2{idxB} - {can} | gzip -c - > {out}")
-    if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
-    cmd_ret <- system(cmd_str)
-    
-    if (clean && !stringr::str_ends(can, '.gz')) {
-      cmd_str <- glue::glue("rm {can}")
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
-      
-      cmd_ret <- system(cmd_str)
-      if (cmd_ret!=0) {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
-                        "cmd={cmd_str}!{RET}{RET}"))
-        return(ret_tib)
-      }
-      can <- paste(can,'gz', sep='.')
-    }
-    
-    if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Loading intersection output={out}...{RET}"))
-    
-    ret_tib <- suppressMessages(suppressWarnings( 
-      readr::read_tsv(out, col_names=names(int_seq_cols$cols), col_types=int_seq_cols) )) %>%
-      utils::type.convert() %>% 
-      dplyr::mutate(across(where(is.factor), as.character) )
-    
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
-join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
-                              verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'join_seq_intersect'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- base::system.time({
-    
-    imp_col_vec <- c("Address","Ord_Des","Ord_Din",
-                     "Imp_Chr","Imp_Pos","Imp_Cgn",
-                     "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
-                     "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
-    
-    ret_tib <- 
-      dplyr::bind_rows(u49,m49) %>%
-      dplyr::select(-Imp_SrdI,-Imp_Scr) %>% 
-      dplyr::mutate(Imp_Key=stringr::str_split(Imp_Key, pattern=",") ) %>% 
-      tidyr::unnest(Imp_Key)
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib1")
-
-    ret_tib <- ret_tib %>%
-      tidyr::separate(
-        Imp_Key, 
-        into=c("Imp_Cgn","Imp_Hit_hg38","Imp_Hit_hg37", "Imp_Hit_hg36", "Imp_Hit_mm10"), 
-        sep="_", remove=TRUE)
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib2")
-    
-    ret_tib <- ret_tib %>%
-      tidyr::separate(
-        aln_key, 
-        into=c("Address", "Ord_Des", "Ord_Din"), 
-        sep="_") %>%
-      dplyr::rename(Aln_Prb=Imp_Seq, Aln_Nuc=Imp_Nuc)
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib3")
-    
-    ret_tib <- ret_tib %>%
-      tidyr::separate(Imp_Srd3, into=c("Imp_TB","Imp_CO", "Imp_Nxb"),
-                      sep=c(1,2)) %>%
-      dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn, 
-                    Imp_TB, Imp_CO, Imp_Nxb, Aln_Prb, Aln_Nuc, 
-                    dplyr::everything()) %>%
-      clean_tibble()
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib4")
-
-    if (!is.null(bed)) {
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Adding cgn bed...{RET}"))
-      
-      ret_tib <- bed %>%
-        dplyr::right_join(ret_tib,by=c("Imp_Cgn")) %>%
-        dplyr::mutate(
-          Imp_FR=dplyr::case_when(
-            Imp_Top_Srd=="+" & Imp_TB=="T" ~ "F",
-            Imp_Top_Srd=="-" & Imp_TB=="T" ~ "R",
-            Imp_Top_Srd=="+" & Imp_TB=="B" ~ "R",
-            Imp_Top_Srd=="-" & Imp_TB=="B" ~ "F",
-            TRUE ~ NA_character_
-          )
-        )
-    }
-    
-    if (!is.null(org)) {
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Adding org bed...{RET}"))
-      
-      ret_tib <- ret_tib %>%
-        dplyr::left_join(
-          org, 
-          by=c("Aln_Prb"="Org_49P",
-               "Ord_Des"="Org_Des",
-               "Imp_Chr"="Org_Chr",
-               "Imp_Pos"="Org_Pos",
-               "Imp_FR"="Org_FR",
-               "Imp_TB"="Org_TB",
-               "Imp_CO"="Org_CO")
-        )
-    }
-    
-    ret_tib <- ret_tib  %>%
-      dplyr::select(dplyr::any_of(imp_col_vec),dplyr::everything()) %>%
-      clean_tibble()
-    
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_fin")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
