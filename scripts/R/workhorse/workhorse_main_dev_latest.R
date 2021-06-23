@@ -53,6 +53,7 @@ num_workers <- getDoParWorkers()
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Define Default Params and Options::
@@ -282,9 +283,6 @@ if (args.dat[1]=='RStudio') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'EWAS'
     opt$version  <- 'A1'
-    opt$version  <- 'A2'
-    opt$version  <- 'A3'
-    opt$version  <- 'A4'
     opt$Species  <- "Human"
     
     opt$idat   <- NULL
@@ -910,6 +908,7 @@ if (par$buildManifest) {
   par$retData <- FALSE
   # opt$verbose <- 10
   
+  aqp_add_tib <- NULL
   stamp_vec <- c(stamp_vec,run$aqp_add_csv)
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     aqp_add_tib <- 
@@ -924,7 +923,7 @@ if (par$buildManifest) {
         runName=opt$runName, retData=par$retData,
         verbose=opt$verbose, tt=pTracker)
   } else {
-    if (opt$verbose>=1)
+    if (opt$verbose>0)
       cat(glue::glue("[{par$prgmTag}]: Loading aqp_add={run$aqp_add_csv}...{RET}"))
     aqp_add_tib <- suppressMessages(suppressWarnings( 
       readr::read_csv(run$aqp_add_csv, guess_max=100000) )) %>%
@@ -941,38 +940,26 @@ if (par$buildManifest) {
                  run$int_u49_tsv,
                  run$int_m49_tsv,
                  run$int_seq_tsv)
+  
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
-    int_u49_tib2 <- 
-      intersect_seq(ref=run$imp_u49_tsv,
-                    can=run$aqp_u49_tsv,
-                    out=run$int_u49_tsv,
-                    idxA=1, idxB=1, 
-                    verbose=opt$verbose,tt=pTracker)
-    
-    int_m49_tib2 <- 
-      intersect_seq(ref=run$imp_m49_tsv,
-                    can=run$aqp_m49_tsv, 
-                    out=run$int_m49_tsv,
-                    idxA=1, idxB=1, 
-                    verbose=opt$verbose,tt=pTracker)
-    
-    seq_cgn_tib <- 
-      join_seq_intersect(u49=int_u49_tib2, m49=int_m49_tib2, 
-                         bed=cgn_bed_tib, org=add_org_tib,
-                         verbose=opt$verbose, tt=pTracker)
-    
+    seq_cgn_tib <- cgn_mapping_workflow(
+      ref_u49=run$imp_u49_tsv,can_u49=run$aqp_u49_tsv,out_u49=run$int_u49_tsv,
+      ref_m49=run$imp_m49_tsv,can_m49=run$aqp_m49_tsv,out_m49=run$int_m49_tsv,
+      idxA=1, idxB=1,
+      ord=opt$ord_des_csv,
+      verbose=opt$verbose,tt=pTracker
+    )
+
+    # TBD:: The writing function should be moved to cgn_mapping_workflow()
     safe_write(seq_cgn_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
                verbose=opt$verbose)
-    
   } else {
-    
-    if (opt$verbose>=1)
+    if (opt$verbose>0)
       cat(glue::glue("[{par$prgmTag}]: Loading imp_seq_tsv={run$int_seq_tsv}...{RET}"))
     seq_cgn_tib <- 
       suppressMessages(suppressWarnings( readr::read_tsv(run$int_seq_tsv) )) %>%
       clean_tibble()
-    
   }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -980,100 +967,66 @@ if (par$buildManifest) {
   #                  3.3 Join Address and Alignment Data:: BSMAP
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
+  aqp_bsp_tib <- NULL
   stamp_vec <- c(stamp_vec, run$aqp_bsp_tsv)
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
     aqp_bsp_tib <- 
       run_bsmap(
-        exe=opt$bsmap_exe, 
-        fas=run$aqp_prb_fas, 
-        gen=run$gen_ref_fas,
-        bsp=run$aqp_prb_bsp,
-        
+        exe=opt$bsmap_exe,fas=run$aqp_prb_fas, 
+        gen=run$gen_ref_fas,bsp=run$aqp_prb_bsp,
         add=aqp_add_tib,bed=cgn_bed_tib,org=add_org_tib,
-        
         join_key="Aln_Key",join_type="inner",
         des_key="Ord_Des", din_key="Ord_Din",
-        sort=TRUE,
-        
-        opt=NULL, lan=NULL, run=TRUE,
+        sort=TRUE,opt=NULL,lan=NULL,run=TRUE,
         verbose=opt$verbose,tt=pTracker)
     
+    # TBD:: The writing function should be moved to run_bsmap()
     safe_write(aqp_bsp_tib,"csv",run$aqp_bsp_tsv, funcTag=par$prgmTag,
                verbose=opt$verbose, tt=pTracker)
-    
   } else {
-    if (opt$verbose>=1)
+    if (opt$verbose>0)
       cat(glue::glue("[{par$prgmTag}]: Loading aqp_bsp_tsv={run$aqp_bsp_tsv}...{RET}"))
     
     aqp_bsp_tib <- suppressMessages(suppressWarnings(
       readr::read_csv(run$aqp_bsp_tsv, guess_max=100000) )) %>%
       clean_tibble()
   }
-  # Good summary metric::
-  # aqp_bsp_tib %>% dplyr::select(ends_with("_Scr"),Bsp_Din_Ref,Ord_Des) %>% dplyr::group_by_all() %>% dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
-  
+
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       4.0 improbe fwd design::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  if (par$run_improbe) {
-    stamp_vec_org <- stamp_vec
-    
-    imp_des_tib <- NULL
-    stamp_vec <- c(stamp_vec, 
-                   run$imp_inp_tsv,
-                   run$imp_des_tsv,
-                   run$cln_des_csv)
-    
-    if (opt$fresh || !valid_time_stamp(stamp_vec)) {
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                       4.1 Write improbe input::
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      fwd_des_tib <- aqp_bsp_tib %>% # head(n=10) %>%
-        fas_to_seq(fas=run$gen_ref_fas, file=run$imp_inp_tsv, name="Aln_Key", 
-                   din="Ord_Din", gen=opt$genBuild, 
-                   chr1="Bsp_Chr", pos="Bsp_Pos",
-                   # nrec = 1,
-                   verbose=opt$verbose, tt=pTracker)
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                     4.1 Run improbe designs:: docker
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      imp_ret_val <- 
-        run_improbe_docker(
-          file=run$imp_inp_tsv, 
-          name=opt$runName, image=image_str, shell=image_ssh,
-          verbose=opt$verbose, tt=pTracker)
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                     4.2 Load improbe designs:: filter
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      imp_des_tib <-
-        load_improbe_design(
-          file=run$imp_des_tsv, out=run$cln_des_csv,
-          level=3, add_inf=TRUE,
-          verbose=opt$verbose, tt=pTracker)
-      
-    } else {
-      
-      if (opt$verbose>=1)
-        cat(glue::glue("[{par$prgmTag}]: Loading cln_des_csv={run$cln_des_csv}...{RET}"))
-      imp_des_tib <- 
-        suppressMessages(suppressWarnings( readr::read_csv(run$cln_des_csv) )) %>%
-        clean_tibble()
-    }
-  }
+  imp_des_tib <- NULL
+  stamp_vec <- c(stamp_vec, 
+                 run$imp_inp_tsv,
+                 run$imp_des_tsv,
+                 run$cln_des_csv)
   
+  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+    
+    imp_des_tib <- imp_designs_workflow(
+      tib=aqp_bsp_tib,fas=run$gen_ref_fas,
+      imp=run$imp_inp_tsv,gen=opt$genBuild,
+      des=run$imp_des_tsv,out=run$cln_des_csv,
+      
+      name=opt$runName,image=image_str,shell=image_ssh,
+      verbose=opt$verbose, tt=pTracker)
+
+  } else {
+    
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]: Loading cln_des_csv={run$cln_des_csv}...{RET}"))
+    imp_des_tib <- 
+      suppressMessages(suppressWarnings( readr::read_csv(run$cln_des_csv) )) %>%
+      clean_tibble()
+  }
 }
 
 # NOTE: Now we have four core tables::
 #  Address:   aqp_add_tib  => aqp_address_workflow()
 #  CG Number: seq_cgn_tib  => cgn_mapping_workflow()
-#  Alignment: aqp_bsp_tib  => bsp_aligns_workflow()
+#  Alignment: aqp_bsp_tib  => run_bspmap()
 #  Design:    imp_des_tib  => imp_designs_workflow()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

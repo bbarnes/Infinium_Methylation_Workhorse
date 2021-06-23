@@ -26,6 +26,7 @@ suppressWarnings(suppressPackageStartupMessages(require("ROCR")) )
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # TBD:: Re-order modules
 #

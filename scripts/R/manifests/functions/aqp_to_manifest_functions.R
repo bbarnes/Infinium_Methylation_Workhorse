@@ -17,6 +17,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::
@@ -639,56 +640,64 @@ guess_aqp_file = function(file,
 #                         CGN Mapping Workflow Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-
-cgn_mapping_workflow = function(tib,idxA=1,idxB=1,
-                                imp_u49_tsv,aqp_u49_tsv,int_u49_tsv,
-                                imp_m49_tsv,aqp_m49_tsv,int_m49_tsv,
+cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
+                                ref_m49,can_m49,out_m49,
                                 int_seq_tsv,
-                                ord_des_csv=NULL,bed=NULL,org=NULL,
+                                idxA=1,idxB=1,
+                                ord=NULL,bed=NULL,org=NULL,
                                 verbose=0,vt=3,tc=1,tt=NULL,
                                 funcTag='cgn_mapping_workflow') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} ref_u49={ref_u49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} can_u49={can_u49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} out_u49={out_u49}.{RET}"))
+    cat("\n")
+    cat(glue::glue("[{funcTag}]:{tabsStr} ref_m49={ref_m49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} can_m49={can_m49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} out_m49={out_m49}.{RET}"))
+    cat("\n")
+    cat(glue::glue("[{funcTag}]:{tabsStr}    idxA={idxA}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}    idxB={idxB}.{RET}"))
+    cat("\n")
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
     
-    
-    
-    # int_u49_tib2 <- 
-    #   intersect_seq(ref=run$imp_u49_tsv,
-    #                 can=run$aqp_u49_tsv,
-    #                 out=run$int_u49_tsv,
-    #                 idxA=1, idxB=1, 
-    #                 verbose=opt$verbose,tt=pTracker)
-    # 
-    # int_m49_tib2 <- 
-    #   intersect_seq(ref=run$imp_m49_tsv,
-    #                 can=run$aqp_m49_tsv, 
-    #                 out=run$int_m49_tsv,
-    #                 idxA=1, idxB=1, 
-    #                 verbose=opt$verbose,tt=pTracker)
-    # 
-    # seq_cgn_tib <- 
-    #   join_seq_intersect(u49=int_u49_tib2, m49=int_m49_tib2, 
-    #                      bed=cgn_bed_tib, org=add_org_tib,
-    #                      verbose=opt$verbose, tt=pTracker)
-    # 
-    # safe_write(seq_cgn_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
-    #            verbose=opt$verbose)
-    
-    # can_cgn_tib <- NULL
-    # if (!is.null(par$local_runType) && par$local_runType != "Chicago") {
-    #   if (!is.null(opt$ord_des_csv)) can_cgn_tib <- 
-    #       suppressMessages(suppressWarnings( readr::read_csv(opt$ord_des_csv) )) %>%
-    #       purrr::set_names(c("Can_Cgn","Can_Top","Can_Src")) %>%
-    #       dplyr::mutate(Can_Cgn=as.integer(Can_Cgn), Can_Scr=1) %>%
-    #       clean_tibble()
-    # }
-    # dplyr::left_join(seq_cgn_tib,can_cgn_tib, by=c("Imp_Cgn"="Can_Cgn"))
-    
-    # ret_cnt <- ret_tib %>% base::nrow()
+    u49_tib <- intersect_seq(ref=ref_u49,can=can_u49,out=out_u49,
+                             idxA=idxA,idxB=idxB,
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    u49_cnt <- print_tib(u49_tib,funcTag, verbose,vt+4,tc, n="u49_tib")
+
+    m49_tib <- intersect_seq(ref=ref_m49,can=can_m49,out=out_m49,
+                             idxA=idxA,idxB=idxB,
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    m49_cnt <- print_tib(m49_tib,funcTag, verbose,vt+4,tc, n="m49_tib")
+
+    ret_tib <- join_seq_intersect(u49=u49_tib, m49=m49_tib, 
+                                  bed=bed, org=org,
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib-0")
+
+    if (!is.null(ord) && file.exists(ord)) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading order CSV={ord}.{RET}"))
+      
+      ord_tib <- suppressMessages(suppressWarnings( readr::read_csv(ord) )) %>%
+        purrr::set_names(c("Can_Cgn","Can_Top","Can_Src")) %>%
+        dplyr::mutate(Can_Cgn=as.integer(Can_Cgn), Can_Scr=1,
+                      Can_Scr=tidyr::replace_na(Can_Scr, 0)) %>%
+        clean_tibble()
+      ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n="ord_tib")
+      
+      ret_tib <- ret_tib %>% 
+        dplyr::left_join(ord_tib, by=c("Imp_Cgn"="Can_Cgn"))
+    }
+
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)

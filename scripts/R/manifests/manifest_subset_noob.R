@@ -35,6 +35,7 @@ num_workers <- getDoParWorkers()
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # mm10_man_grs = sesameDataGet('MM285.mm10.manifest')
 # mm10_man_tib <- mm10_man_grs %>% as.data.frame() %>% rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()

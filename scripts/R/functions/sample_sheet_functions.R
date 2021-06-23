@@ -19,6 +19,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        Sample Sheet I/O Methods::

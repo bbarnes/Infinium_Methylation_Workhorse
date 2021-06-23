@@ -4,6 +4,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::

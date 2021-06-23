@@ -17,193 +17,53 @@ RET <- "\n"
 BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        Genomic Substring Methods::
+#                           IMP Designs Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-parse_design_seq = function(pos, chr, off=60, len=122,
-                            verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'parse_design_seq'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting, pos={pos}, len={len}...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- system.time({
-    
-    chr_len <- chr %>% length()
-    cat(glue::glue("[{funcTag}]:{tabsStr} chr_len={chr_len}.{RET}"))
-    
-    ret_tib <- Biostrings::subseq(chr, start=pos, width=len) %>% 
-      as.character() # %>% addBrac()
-    
-    ret_cnt <- ret_tib %>% length()
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                          Docker improbe Methods::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-addSeq48U = function(tib, field,
-                     sidx=2, plen=50,
-                     verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'addSeq48U'
+imp_designs_workflow = function(tib,fas,imp,gen,des,out,
+                                name,image,shell="run_improbe.sh",
+                                verbose=0,vt=3,tc=1,tt=NULL,
+                                funcTag='imp_designs_workflow') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
-    idx1 <- sidx
-    len1 <- plen - 1
-    idx2 <- sidx + 1
-    len2 <- plen
+  stime <- base::system.time({
     
-    field_sym <- rlang::sym(field)
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                       1.0 Write improbe input::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    ret_tib <- tib %>% dplyr::mutate(
-      Seq_48U_1=stringr::str_sub(!!field_sym, idx1,len1) %>% 
-        stringr::str_to_upper() %>% 
-        stringr::str_replace_all('R', 'A') %>% 
-        stringr::str_replace_all('Y', 'T'),
-      
-      Seq_48U_2=stringr::str_sub(!!field_sym, idx2,len2) %>% 
-        stringr::str_to_upper() %>% 
-        stringr::str_replace_all('R', 'A') %>% 
-        stringr::str_replace_all('Y', 'T'),
-    )
+    fwd_tib <- tib %>%
+      fas_to_seq(fas=fas, file=imp, name="Aln_Key", 
+                 din="Ord_Din", gen=gen, 
+                 chr1="Bsp_Chr", pos="Bsp_Pos",
+                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
-    ret_cnt <- ret_tib %>% base::nrow()
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
-improbe_design_all = function(tib, ptype, outDir, gen,
-                              image, shell,
-                              seqKey="IUPAC_Sequence",strsSR="FR",reduce_imp=TRUE,
-                              sidx=2, plen=50,
-                              parse_din=FALSE, del='_',
-                              parallel=TRUE,
-                              verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'improbe_design_all'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; ptype={ptype}...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- system.time({
-    idx1 <- sidx
-    len1 <- plen - 1
-    idx2 <- sidx + 1
-    len2 <- plen
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     1.1 Run improbe designs:: docker
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    ret_val <- 
+      run_improbe_docker(
+        file=imp, 
+        name=name, image=image, shell=shell,
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
-    imp_fwd_name <- paste(ptype,gen,"improbe_fwd-seq.tsv.gz", sep=del)
-    imp_fwd_path <- file.path(outDir, imp_fwd_name)
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     1.2 Load improbe designs:: filter
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    # These are NOT used...
-    # imp_des_name <- paste(ptype,gen,"improbe-designOutput.tsv.gz", sep=del)
-    # imp_des_path <- file.path(outDir, imp_des_name)
+    ret_tib <-
+      load_improbe_design(
+        file=des, out=out,
+        level=3, add_inf=TRUE,
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
-    imp_fwd_tib <- tib %>% 
-      dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island)
-    readr::write_tsv(imp_fwd_tib, imp_fwd_path)
     
-    imp_des_tib <- run_improbe_docker(
-      dir=outDir, file=imp_fwd_name, 
-      name=gen, image=image, shell=shell, 
-      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-      dplyr::mutate(
-        Seq_48U_1=stringr::str_sub(UnMethyl_Probe_Sequence, idx1,len1) %>% 
-          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
-          stringr::str_replace_all('Y', 'T'),
-        
-        Seq_48U_2=stringr::str_sub(UnMethyl_Probe_Sequence, idx2,len2) %>% 
-          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
-          stringr::str_replace_all('Y', 'T'),
-        
-        Chromosome=as.character(Chromosome),
-        Strand_SR=Methyl_Allele_FR_Strand,
-        Strand_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
-        Strand_CO=Methyl_Allele_CO_Strand,
-        Probe_Score_Min=pmin(Methyl_Final_Score,UnMethyl_Final_Score),
-        Underlying_CpG_Count=as.integer(Methyl_Underlying_CpG_Count),
-        Underlying_CpG_Min_Dist=as.integer(Methyl_Underlying_CpG_Min_Dist)
-      )
-    
-    if (parse_din) imp_des_tib <- imp_des_tib %>%
-      tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
-    
-    #
-    # TBD:: Add better reduced returned value...
-    #
-    if (reduce_imp) {
-      imp_des_tib <- imp_des_tib %>%
-        dplyr::select(
-          Seq_ID,Forward_Sequence,Genome_Build,Chromosome,Coordinate,Top_Sequence,
-          Strand_SR,Strand_TB,Strand_CO,Probe_Score_Min,
-          Underlying_CpG_Count,Underlying_CpG_Min_Dist,
-          Methyl_Probe_Sequence,UnMethyl_Probe_Sequence,Seq_48U_1,Seq_48U_2)
-    }
-    
-    if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} tib={RET}"))
-      print(tib)
-    }
-    
-    # Build de-novo IUPAC designs
-    #
-    iup_des_tib <- desSeq_to_prbs(
-      tib=tib,
-      ids_key="Seq_ID",seqKey=seqKey,prbKey="Probe_Type",
-      strsSR=strsSR, parallel=parallel,
-      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
-      dplyr::mutate(
-        
-        Seq_48U_1=stringr::str_sub(PRB1_U_MAT, idx1,len1) %>% 
-          stringr::str_to_upper() %>% 
-          stringr::str_replace_all('R', 'A') %>% 
-          stringr::str_replace_all('Y', 'T'),
-        
-        Seq_48U_2=stringr::str_sub(PRB1_U_MAT, idx2,len2) %>% 
-          stringr::str_to_upper() %>% 
-          stringr::str_replace_all('R', 'A') %>% 
-          stringr::str_replace_all('Y', 'T'),
-      )
-    
-    if (parse_din) iup_des_tib <- iup_des_tib %>%
-      tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
-    
-    if (TRUE) {
-      if (!reduce_imp) imp_des_tib <- imp_des_tib %>% 
-          dplyr::rename(Probe_Type_IMP=Probe_Type)
-      
-      ret_tib <- dplyr::inner_join(
-        imp_des_tib, iup_des_tib,
-        by=c("Seq_ID", "Strand_SR", "Strand_CO",
-             "Seq_48U_1", "Seq_48U_2"),
-        suffix=c("_IMP", "_IUP")
-      )
-      ret_cnt <- ret_tib %>% base::nrow()
-    } else {
-      ret_tib$imp <- imp_des_tib
-      ret_tib$iup <- iup_des_tib
-    }
+    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -417,12 +277,214 @@ load_improbe_design = function(file, out=NULL,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Genomic Substring Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+parse_design_seq = function(pos, chr, off=60, len=122,
+                            verbose=0,vt=3,tc=1,tt=NULL,
+                            funcTag='parse_design_seq') {
+
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting, pos={pos}, len={len}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    chr_len <- chr %>% length()
+    cat(glue::glue("[{funcTag}]:{tabsStr} chr_len={chr_len}.{RET}"))
+    
+    ret_tib <- Biostrings::subseq(chr, start=pos, width=len) %>% 
+      as.character() # %>% addBrac()
+    
+    ret_cnt <- ret_tib %>% length()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Docker improbe Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+addSeq48U = function(tib, field,
+                     sidx=2, plen=50,
+                     verbose=0,vt=3,tc=1,tt=NULL,
+                     funcTag='addSeq48U') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
+    
+    field_sym <- rlang::sym(field)
+    
+    ret_tib <- tib %>% dplyr::mutate(
+      Seq_48U_1=stringr::str_sub(!!field_sym, idx1,len1) %>% 
+        stringr::str_to_upper() %>% 
+        stringr::str_replace_all('R', 'A') %>% 
+        stringr::str_replace_all('Y', 'T'),
+      
+      Seq_48U_2=stringr::str_sub(!!field_sym, idx2,len2) %>% 
+        stringr::str_to_upper() %>% 
+        stringr::str_replace_all('R', 'A') %>% 
+        stringr::str_replace_all('Y', 'T'),
+    )
+    
+    ret_cnt <- ret_tib %>% base::nrow()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+improbe_design_all = function(tib, ptype, outDir, gen,
+                              image, shell,
+                              seqKey="IUPAC_Sequence",strsSR="FR",reduce_imp=TRUE,
+                              sidx=2, plen=50,
+                              parse_din=FALSE, del='_',
+                              parallel=TRUE,
+                              verbose=0,vt=3,tc=1,tt=NULL,
+                              funcTag='improbe_design_all') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; ptype={ptype}...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    idx1 <- sidx
+    len1 <- plen - 1
+    idx2 <- sidx + 1
+    len2 <- plen
+    
+    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+    
+    imp_fwd_name <- paste(ptype,gen,"improbe_fwd-seq.tsv.gz", sep=del)
+    imp_fwd_path <- file.path(outDir, imp_fwd_name)
+    
+    # These are NOT used...
+    # imp_des_name <- paste(ptype,gen,"improbe-designOutput.tsv.gz", sep=del)
+    # imp_des_path <- file.path(outDir, imp_des_name)
+    
+    imp_fwd_tib <- tib %>% 
+      dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island)
+    readr::write_tsv(imp_fwd_tib, imp_fwd_path)
+    
+    imp_des_tib <- run_improbe_docker(
+      dir=outDir, file=imp_fwd_name, 
+      name=gen, image=image, shell=shell, 
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+      dplyr::mutate(
+        Seq_48U_1=stringr::str_sub(UnMethyl_Probe_Sequence, idx1,len1) %>% 
+          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_replace_all('Y', 'T'),
+        
+        Seq_48U_2=stringr::str_sub(UnMethyl_Probe_Sequence, idx2,len2) %>% 
+          stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_replace_all('Y', 'T'),
+        
+        Chromosome=as.character(Chromosome),
+        Strand_SR=Methyl_Allele_FR_Strand,
+        Strand_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
+        Strand_CO=Methyl_Allele_CO_Strand,
+        Probe_Score_Min=pmin(Methyl_Final_Score,UnMethyl_Final_Score),
+        Underlying_CpG_Count=as.integer(Methyl_Underlying_CpG_Count),
+        Underlying_CpG_Min_Dist=as.integer(Methyl_Underlying_CpG_Min_Dist)
+      )
+    
+    if (parse_din) imp_des_tib <- imp_des_tib %>%
+      tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
+    
+    #
+    # TBD:: Add better reduced returned value...
+    #
+    if (reduce_imp) {
+      imp_des_tib <- imp_des_tib %>%
+        dplyr::select(
+          Seq_ID,Forward_Sequence,Genome_Build,Chromosome,Coordinate,Top_Sequence,
+          Strand_SR,Strand_TB,Strand_CO,Probe_Score_Min,
+          Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+          Methyl_Probe_Sequence,UnMethyl_Probe_Sequence,Seq_48U_1,Seq_48U_2)
+    }
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} tib={RET}"))
+      print(tib)
+    }
+    
+    # Build de-novo IUPAC designs
+    #
+    iup_des_tib <- desSeq_to_prbs(
+      tib=tib,
+      ids_key="Seq_ID",seqKey=seqKey,prbKey="Probe_Type",
+      strsSR=strsSR, parallel=parallel,
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+      dplyr::mutate(
+        
+        Seq_48U_1=stringr::str_sub(PRB1_U_MAT, idx1,len1) %>% 
+          stringr::str_to_upper() %>% 
+          stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_replace_all('Y', 'T'),
+        
+        Seq_48U_2=stringr::str_sub(PRB1_U_MAT, idx2,len2) %>% 
+          stringr::str_to_upper() %>% 
+          stringr::str_replace_all('R', 'A') %>% 
+          stringr::str_replace_all('Y', 'T'),
+      )
+    
+    if (parse_din) iup_des_tib <- iup_des_tib %>%
+      tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
+    
+    if (TRUE) {
+      if (!reduce_imp) imp_des_tib <- imp_des_tib %>% 
+          dplyr::rename(Probe_Type_IMP=Probe_Type)
+      
+      ret_tib <- dplyr::inner_join(
+        imp_des_tib, iup_des_tib,
+        by=c("Seq_ID", "Strand_SR", "Strand_CO",
+             "Seq_48U_1", "Seq_48U_2"),
+        suffix=c("_IMP", "_IUP")
+      )
+      ret_cnt <- ret_tib %>% base::nrow()
+    } else {
+      ret_tib$imp <- imp_des_tib
+      ret_tib$iup <- iup_des_tib
+    }
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Modern improbe IO Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 isTibIMP = function(tib,
-                    verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'isTibIMP'
+                    verbose=0,vt=3,tc=1,tt=NULL,
+                    funcTag='isTibIMP') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))

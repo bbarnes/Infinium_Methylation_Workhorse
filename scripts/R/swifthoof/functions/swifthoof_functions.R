@@ -18,6 +18,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quie
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Single Sample Workflow::

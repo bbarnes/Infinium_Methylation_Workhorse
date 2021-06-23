@@ -14,6 +14,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quie
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Sesame Mutation Methods::

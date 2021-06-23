@@ -13,6 +13,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::

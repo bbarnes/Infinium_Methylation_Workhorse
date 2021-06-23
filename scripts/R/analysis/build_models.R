@@ -36,6 +36,7 @@ num_workers <- getDoParWorkers()
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Define Default Params and Options::
