@@ -1801,6 +1801,278 @@ if (FALSE) {
   
 }
 
+
+
+
+
+
+
+
+#
+# TBD:: Generate a unified annotation tib/grs format for any/all annotation::
+#
+
+# add_cgn_imp_bsp_man %>% mutate(Probe_Type=paste0(Ord_Din,))
+
+if (par$load_ann) {
+  
+  # Load Wanding Annotation
+  # Load A2 Genome Studio Annotation
+  # Compare Ids
+  # Compare Coordinates
+  
+  ses_man_tsv <- "/Users/bretbarnes/Documents/data/CustomContent/LifeEpigentics/manifest/array_HMM_merged.tsv.gz"
+  gss_man_csv <- "/Users/bretbarnes/Documents/data/annotation/mouseDat_fromCluster_old/MouseMethylation-12v1-0_Interim-A2.csv.gz"
+  gss_man_csv <- "/Users/bretbarnes/Documents/data/manifests/methylation/GenomeStudio/MouseMethylation-12v1-0_A2.csv.gz"
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                         6.1 Load Manifest:: Sesame
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  ses_man_tib <- 
+    suppressMessages(suppressWarnings( readr::read_tsv(ses_man_tsv) )) %>%
+    mutate(Probe_Type=stringr::str_sub(probeID, 1,2)) %>%
+    dplyr::rename(Chrom=chrm, Cpg_Beg=beg, Cpg_End=end, IlmnID=probeID) %>%
+    dplyr::select(IlmnID,Probe_Type, Chrom, Cpg_Beg, Cpg_End, dplyr::everything())
+  
+  # Some re-organizing::
+  #
+  ses_pos_tib <- ses_man_tib %>% 
+    dplyr::select(IlmnID,Probe_Type,Chrom,Cpg_Beg,Cpg_End) %>% 
+    dplyr::distinct()
+  
+  ses_pos_grs <- 
+    GenomicRanges::GRanges(
+      seqnames=Rle(ses_pos_tib$Chrom), 
+      # strand=Rle(ses_pos_tib$srd),
+      Probe_Type=ses_pos_tib$Probe_Type,
+      
+      IRanges(start=ses_pos_tib$Cpg_Beg, 
+              end=ses_pos_tib$Cpg_End, 
+              names=ses_pos_tib$IlmnID)
+    )
+  
+  ses_ann_tab <- ses_man_tib %>% 
+    dplyr::select(-Probe_Type, -Chrom, -Cpg_Beg, -Cpg_End) %>% 
+    tidyr::pivot_longer(!IlmnID, names_to = "Class", values_to = "Value_Str") %>%
+    dplyr::filter(!stringr::str_starts(Value_Str, "Quies") & Value_Str!=".")
+  
+  # Summary::
+  ses_ann_sum <- ses_ann_tab %>% 
+    # dplyr::filter(!stringr::str_starts(Value_Str, "Quies")) %>% 
+    # dplyr::filter(!stringr::str_starts(Value_Str, "Quies") & Value_Str!=".") %>%
+    # dplyr::group_by(Class,Value_Str) %>% 
+    dplyr::group_by(Value_Str) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count)
+  ses_ann_sum %>% print(n=base::nrow(ses_ann_sum))
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     6.2 Load Manifest:: Genome Studio A2
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  gss_man_dat <- 
+    loadManifestGenomeStudio(
+      file=gss_man_csv, addSource=TRUE, normalize=TRUE, 
+      verbose=opt$verbose, tt=pTracker)
+  
+  # Compare Ids::
+  ses_mat_tib <- ses_man_tib %>% dplyr::filter( IlmnID %in% gss_man_dat$man$IlmnID)
+  ses_mis_tib <- ses_man_tib %>% dplyr::filter(!IlmnID %in% gss_man_dat$man$IlmnID)
+  
+  ses_mat_sum <- ses_mat_tib %>%
+    dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop")
+  ses_mat_sum %>% print(n=base::nrow(ses_mat_sum))
+  
+  ses_mis_sum <- ses_mis_tib %>%
+    dplyr::group_by(Probe_Type) %>% dplyr::summarise(Count=n(), .groups="drop")
+  ses_mis_sum %>% print(n=base::nrow(ses_mis_sum))
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       6.3 Load Annotation:: NCBI/UCSC
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  ncib_gene_tsv <- "/Users/bretbarnes/Documents/data/annotation/GRCm38/GRCm38.ncbi.RefSeqGenes.tsv.gz"
+  ucsc_gene_tsv <- "/Users/bretbarnes/Documents/data/annotation/GRCm38/GRCm38.ucsc.knownGene.tsv.gz"
+  ucsc_cpgs_tsv <- "/Users/bretbarnes/Documents/data/annotation/GRCm38/GRCm38.ucsc.CpG-Islands.tsv.gz"
+  
+  ncbi_gene_tib <- load_ncbi_gene(file=ncib_gene_tsv, verbose=opt$verbose, tt=pTracker)
+  ucsc_gene_tib <- load_ucsc_gene(file=ucsc_gene_tsv, verbose=opt$verbose, tt=pTracker)
+  ucsc_cpgs_tib <- load_ucsc_cpgs(file=ucsc_cpgs_tsv, verbose=opt$verbose, tt=pTracker)
+  
+  ncbi_gene_grs <- load_ncbi_gene(file=ncib_gene_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
+  ucsc_gene_grs <- load_ucsc_gene(file=ucsc_gene_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
+  ucsc_cpgs_grs <- load_ucsc_cpgs(file=ucsc_cpgs_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
+  
+  ann_int_list <- NULL
+  # NCBI Gene Comparison::
+  #
+  ref_pre_str <- "NCBI_Gene"
+  ann_key_str <- ref_pre_str
+  ref_pre_str <- NULL
+  # ncbi_gene_int_tib <- 
+  ann_int_list[[ann_key_str]] <-
+    intersect_GRS(can=ses_pos_grs, ref=ncbi_gene_grs, 
+                  can_key="IlmnID", ref_prefix=ref_pre_str, 
+                  verbose=opt$verbose, tt=pTracker)
+  
+  ncbi_gene_crs_tib <- 
+    ann_int_list[[ann_key_str]] %>% 
+    dplyr::inner_join(ses_ann_tab, by="IlmnID")
+  
+  ncbi_gene_crs_sum <- ncbi_gene_crs_tib %>% 
+    dplyr::group_by(class,Value_Str) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count)
+  ncbi_gene_crs_sum %>% print(n=base::nrow(ncbi_gene_crs_sum))
+  
+  # UCSC Gene Comparison::
+  #
+  ref_pre_str <- "UCSC_Gene"
+  ann_key_str <- ref_pre_str
+  ref_pre_str <- NULL
+  # ucsc_gene_int_tib <- 
+  ann_int_list[[ann_key_str]] <-
+    intersect_GRS(can=ses_pos_grs, ref=ucsc_gene_grs, 
+                  can_key="IlmnID", ref_prefix=ref_pre_str, 
+                  verbose=opt$verbose, tt=pTracker)
+  
+  ucsc_gene_crs_tib <- 
+    ann_int_list[[ann_key_str]] %>% 
+    dplyr::inner_join(ses_ann_tab, by="IlmnID")
+  
+  ucsc_gene_crs_sum <- ucsc_gene_crs_tib %>% 
+    dplyr::group_by(class,Value_Str) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count)
+  ucsc_gene_crs_sum %>% print(n=base::nrow(ucsc_gene_crs_sum))
+  
+  # UCSC Islands Comparison::
+  #
+  ref_pre_str <- "UCSC_Islands"
+  ann_key_str <- ref_pre_str
+  ref_pre_str <- NULL
+  # ucsc_cpgs_int_tib <- 
+  ann_int_list[[ann_key_str]] <-
+    intersect_GRS(can=ses_pos_grs, ref=ucsc_cpgs_grs, 
+                  can_key="IlmnID", ref_prefix=ref_pre_str, 
+                  verbose=opt$verbose, tt=pTracker)
+  
+  ucsc_cpgs_crs_tib <- 
+    ann_int_list[[ann_key_str]] %>% 
+    dplyr::inner_join(ses_ann_tab, by="IlmnID")
+  
+  ucsc_cpgs_crs_sum <- ucsc_cpgs_crs_tib %>% 
+    dplyr::group_by(class,Value_Str) %>% 
+    dplyr::summarise(Count=n(), .groups="drop") %>% 
+    dplyr::arrange(-Count)
+  ucsc_cpgs_crs_sum %>% print(n=base::nrow(ucsc_cpgs_crs_sum))
+  
+  #
+  # TBD: CURRENT: Building genrealzied annotation format
+  #
+  # ncbi_gene_int_tib %>% print(n=2)
+  # ucsc_gene_int_tib %>% print(n=2)
+  # ucsc_cpgs_int_tib %>% print(n=2)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       6.4 Load Annotation:: Chrom HMM
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  hmm_cols <- 
+    cols(
+      chr    = col_character(),
+      beg    = col_integer(),
+      end    = col_integer(),
+      class  = col_character(),
+      val1   = col_integer(),
+      val2   = col_character(),
+      val3   = col_integer(),
+      val4   = col_integer(),
+      val5   = col_character()
+    )
+  
+  hmm_path  <- "/Users/bretbarnes/Documents/data/annotation/GRCm9/chrom_hmm/liftOver/mm9ToMm10"
+  hmm_sufix <- "_cStates_HMM.mapped.bed.gz"
+  hmm_files <- list.files(hmm_path, pattern=hmm_sufix, full.names=TRUE)
+  hmm_names <- hmm_files %>% base::basename() %>% stringr::str_remove(hmm_sufix)
+  
+  hmm_list <- NULL
+  for (ii in c(1:length(hmm_files))) {
+    name <- hmm_names[ii]
+    hmm_list[[name]] <- hmm_files[ii]
+  }
+  
+  # lapply(hmm_files, suppressMessages(suppressWarnings(readr::read_tsv)))
+  hmm_dat_list <- lapply(hmm_list, readr::read_tsv, col_names=names(hmm_cols$cols), col_types=hmm_cols)
+  
+  for (samp in base::names(hmm_dat_list)) {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]: Sample={samp}...{RET}"))
+    
+    cur_key <- paste(samp,"hmm", sep="_")
+    cur_grp <- paste(cur_key,"class", sep="_")
+    cur_grp_sym <- rlang::sym(cur_grp)
+    cur_name <- paste(opt)
+    
+    cur_tib <- hmm_dat_list[[samp]] %>%
+      dplyr::arrange(chr,beg) %>% 
+      dplyr::group_by(class) %>% 
+      dplyr::mutate(class=stringr::str_replace_all(class, '_','-'), 
+                    Class_Rank=dplyr::row_number(), 
+                    Uniq_Id=paste(class,Class_Rank, sep="_")) %>%
+      dplyr::ungroup()
+    
+    cur_grs <- 
+      GenomicRanges::GRanges(
+        seqnames=Rle(cur_tib$chr),
+        # strand=Rle(ses_pos_tib$srd),
+        # Probe_Type=ses_pos_tib$Probe_Type,
+        name=paste(cur_tib$chr,cur_tib$beg,cur_tib$end, sep='-'),
+        name2=NA_character_,
+        class=cur_tib$class,
+        source="Chrom-HMM",
+        tissue=samp,
+        rank=cur_tib$Class_Rank,
+        
+        IRanges(start=cur_tib$beg,
+                end=cur_tib$end,
+                names=cur_tib$Uniq_Id)
+      )
+    
+    if (opt$verbose>0) {
+      cat(glue::glue("[{par$prgmTag}]: Sample={samp}; cur_grs={RET}"))
+      print(cur_grs)
+    }
+    
+    # Comparison::
+    #
+    ref_pre_str <- cur_key
+    ann_key_str <- cur_key
+    ref_pre_str <- NULL
+    
+    # cur_int_tib <- 
+    ann_int_list[[ann_key_str]] <-
+      intersect_GRS(can=ses_pos_grs, ref=cur_grs,
+                    can_key="IlmnID", ref_prefix=ref_pre_str, 
+                    verbose=opt$verbose, tt=pTracker)
+    
+    cur_crs_tib <- 
+      ann_int_list[[ann_key_str]] %>% 
+      dplyr::inner_join(ses_ann_tab, by="IlmnID")
+    
+    cur_crs_sum <- cur_crs_tib %>% 
+      # dplyr::group_by(!!cur_grp_sym,Value_Str) %>% 
+      dplyr::group_by(class,Value_Str) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% 
+      dplyr::arrange(-Count)
+    cur_crs_sum %>% print(n=base::nrow(cur_crs_sum))
+    
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]: Done. Sample={samp}.{RET}{RET}"))
+    
+    # break
+  }
+}
+
 if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Binding all annotation...{RET}"))
 

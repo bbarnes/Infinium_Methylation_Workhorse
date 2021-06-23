@@ -695,7 +695,8 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
       ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n="ord_tib")
       
       ret_tib <- ret_tib %>% 
-        dplyr::left_join(ord_tib, by=c("Imp_Cgn"="Can_Cgn"))
+        dplyr::left_join(ord_tib, by=c("Imp_Cgn"="Can_Cgn")) %>%
+        dplyr::mutate(Can_Scr=tidyr::replace_na(Can_Scr, 0))
     }
 
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
@@ -1397,8 +1398,9 @@ bed_to_prbs = function(tib, fas,
                        ups_len=60, seq_len=122, nrec=0,
                        iupac=NULL, add_flank=FALSE,
                        del="_", 
-                       verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'bed_to_prbs'
+                       verbose=0,vt=3,tc=1,tt=NULL,
+                       funcTag='bed_to_prbs') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -1593,8 +1595,9 @@ fas_to_seq = function(tib, fas,
                       iupac=NULL,
                       ref_col="Ref",alt_col="Alt",iup_col="Iupac",
                       add_flank=FALSE,del="_", 
-                      verbose=0,vt=4,tc=1,tt=NULL) {
-  funcTag <- 'fas_to_seq'
+                      verbose=0,vt=4,tc=1,tt=NULL,
+                      funcTag='fas_to_seq') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   

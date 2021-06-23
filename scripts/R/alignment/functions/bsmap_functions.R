@@ -107,9 +107,9 @@ run_bsmap = function(exe, fas, gen, bsp,
         ret_tib <-
           join_bsmap(
             add=add, bed=bed, org=org, file=ret_tsv,
-            join_key=join_key,join_type="inner",
+            join_key=join_key,join_type=join_type,
             prb_des_key=des_key,prb_din_key=din_key,
-            sort=TRUE,
+            sort=sort,
             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         
         ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
@@ -528,5 +528,47 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
   
   ret_tib
 }
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          BSMAP Conversion Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# This isn't ready yet, but it is another way to validate CG#'s via coordinate
+#   alignment with: 
+#   BED File: /Users/bretbarnes/Documents/data/improbe/scratch/cgnDB/dbSNP_Core4/design-input/GRCh37.cgn.bed.gz
+#
+if (FALSE) {
+
+  bsmap_to_bed = function(tib,bed,
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='bsmap_to_bed') {
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- base::system.time({
+      
+      
+      
+      safe_write(bed_tib,"tsv",bed,funcTag=funcTag,
+                 vt=vt+1,tc=tc+1,tt=tt)
+      
+      
+      # ret_cnt <- ret_tib %>% base::nrow()
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                     "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    ret_tib
+  }
+}
+
+
 
 # End of file
