@@ -276,8 +276,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
   par$local_runType <- 'GRCm10'
-  par$local_runType <- 'Chicago'
   par$local_runType <- 'EWAS'
+  par$local_runType <- 'Chicago'
   
   if (par$local_runType=='EWAS') {
     opt$genBuild <- 'GRCh37'
@@ -944,6 +944,8 @@ if (par$buildManifest) {
   
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
+    if (par$local_runType=="Chicago") opt$ord_des_csv <- NULL
+    
     seq_cgn_tib <- cgn_mapping_workflow(
       ref_u49=run$imp_u49_tsv,can_u49=run$aqp_u49_tsv,out_u49=run$int_u49_tsv,
       ref_m49=run$imp_m49_tsv,can_m49=run$aqp_m49_tsv,out_m49=run$int_m49_tsv,
@@ -1068,6 +1070,8 @@ if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: add_cgn_ant_cnt={add_cgn_ant_cnt}. ",
                  "Should be zero.{RET}"))
 
+# TBD: Add check for Canonical data (Can_Scr)
+#
 # Determine Optimal Sorting::
 #
 if (!is.null(add_cgn_inn)) {

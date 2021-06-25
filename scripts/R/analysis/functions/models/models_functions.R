@@ -56,10 +56,10 @@ predictModelWrapper = function(cur_mod,
   cur_sam_tib <- NULL
   cur_sum_tib <- NULL
   stime <- system.time({
-
+    
     modStr <- modKey
     if (!is.null(modLab) && length(modLab)!=0) modStr <- paste(modStr,modLab, sep='-')
-
+    
     betaStr <- betaKey %>% stringr::str_replace_all('_', '-')
     pvalStr <- paste(pvalKey %>% stringr::str_replace_all('_', '-'), pvalMin, sep='-')
     dirName <- paste(betaStr,pvalStr,modStr, sep='_')
@@ -161,7 +161,7 @@ predictModelWrapper = function(cur_mod,
         try_str <- paste('cleanup',par$prgmTag, sep='-')
         cur_pred <- NULL
       })
-
+      
     } else {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported modName={modName}!!!{RET}{RET}"))
     }
@@ -183,7 +183,9 @@ predictModelWrapper = function(cur_mod,
       if (is.null(modLab) || length(modLab)==0) modLab <- NA
       
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]: ann_tib={RET}"))
-      ann_tib <- tibble::tibble( betaTest=betaKey, pvalTest=pvalKey, pvalMinTest=pvalMin, model=modKey, lambda=modLab, fCount=fet_cnt )
+      ann_tib <- tibble::tibble(betaTest=betaKey, pvalTest=pvalKey, 
+                                pvalMinTest=pvalMin, model=modKey, 
+                                lambda=modLab, fCount=fet_cnt )
       if (!is.null(ann)) ann_tib <- dplyr::bind_cols(ann, ann_tib)
       if (verbose>=vt+4) print(ann_tib)
       
@@ -269,7 +271,7 @@ impute_matrix_mean <- function(mat, verbose=0,vt=3,tc=1,tt=NULL) {
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; elapsed={etime}.{RET}{RET}"))
-
+  
   mat
 }
 
@@ -278,11 +280,11 @@ impute_matrix_mean <- function(mat, verbose=0,vt=3,tc=1,tt=NULL) {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 checkModelFiles = function(mod_rds, pattern=".model.rds", fns_pattern='.model-files.csv.gz', cvs_pattern=".crossValidation-files.csv.gz",
-                      verbose=0,vt=2,tc=1,tt=NULL) {
+                           verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'checkModelFiles'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Checking mod_rds={mod_rds}...{RET}"))
-
+  
   file_tib <- NULL
   
   # Gather all files::
@@ -408,7 +410,7 @@ loadFromFileTib = function(tib, type, key="Type", dir=NULL,
     sel_tib <- NULL
     sel_tib <- tib %>% dplyr::filter((!!key_sym)==type) %>% head(n=1)
     print_tib(sel_tib, funcTag,verbose,n="sel_tib")
-
+    
     if ("Full_Path" %in% names(sel_tib)) {
       file <- sel_tib$Full_Path
     } else {
@@ -441,7 +443,7 @@ loadFromFileTib = function(tib, type, key="Type", dir=NULL,
   if (verbose>=vt) 
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-
+  
   ret_tib
 }
 
@@ -461,7 +463,7 @@ saveModel = function(name, dir, type='model',
     par_csv <- paste(name, paste(type,'params',sep='-'), 'csv.gz', sep='.')
     mss_csv <- paste(name, paste(type,'MethodSheet',sep='-'), 'csv.gz', sep='.')
     fns_csv <- paste(name, paste(type,'files',sep='-'), 'csv.gz', sep='.')
-
+    
     call_csv <- paste(name, paste(type,'calls',sep='-'), 'csv.gz', sep='.')
     sums_csv <- paste(name, paste(type,'calls-summary',sep='-'), 'csv.gz', sep='.')
     
@@ -500,7 +502,7 @@ saveModel = function(name, dir, type='model',
       readr::write_csv(sums, file.path(dir,sums_csv) )
       file_tib <- file_tib %>% tibble::add_row( Type="Summary",File_Name=sums_csv, Dir=dir )
     }
-
+    
     if (!is.null(ms)) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Saving {type} Method Sheet={mss_csv}...{RET}") )
       readr::write_csv(ms, file.path(dir,mss_csv) )
@@ -528,15 +530,15 @@ saveModel = function(name, dir, type='model',
 
 # grp_ss_tib <- addCrossTrainGroups(ss=sampleSheet_tib, class=class_var, verbose=10)
 addCrossTrainGroups = function(ss, class, min=18,
-                                verbose=0,vt=2,tc=1,tt=NULL) {
+                               verbose=0,vt=2,tc=1,tt=NULL) {
   funcTag <- 'addCrossTrainGroups'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; min={min}.{RET}"))
-
+  
   # Determine the Sample Partition (2 or 3 based on minimum Sample Class Count)
   class_sum_ss <- ss %>% 
     dplyr::group_by(!!class) %>% 
-    dplyr::summarise(Class_Count=n()) %>% 
+    dplyr::summarise(Class_Count=n(), .groups="drop") %>% 
     dplyr::ungroup() %>%
     dplyr::arrange(Class_Count) %>%
     purrr::set_names(c('Class_Name', 'Class_Count'))
@@ -549,7 +551,7 @@ addCrossTrainGroups = function(ss, class, min=18,
   if (min_class_cnt<min) {
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will do two-fold cross valudation min_class_cnt={min_class_cnt} < {min}.{RET}"))
     mod_idx <- 2
-
+    
   } else {
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Will do three-fold cross valudation min_class_cnt={min_class_cnt} >= {min}.{RET}"))
     mod_idx <- 3
@@ -572,12 +574,12 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
   funcTag <- 'glmnetRforestWrapper'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; seed={seed}.{RET}"))
-
+  
   file_tib  <- tibble::tibble()
   stime <- system.time({
     cgns_cnt  <- cgns %>% base::nrow()
     alpha_vec <- c(alpha_min, alpha_max, seq(alpha_min, alpha_max, alpha_inc) ) %>% unique() %>% sort()
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                        Build Cross Validation Sets::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -603,11 +605,12 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
     } else {
       # return(FALSE)
     }
-
+    
     verbose <- verbose + 20
     parallel <- FALSE
     if (parallel && cgns_cnt <= cgnMax) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Parallel Processing; cgns_cnt={cgns_cnt}...{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Parallel Processing; cgns_cnt={cgns_cnt}...{RET}"))
       
       file_tib <- foreach (alpha_val=alpha_vec, .combine = rbind) %dopar% {
         alpha_dbl <- as.double( alpha_val )
@@ -622,11 +625,12 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
         #                        Train Glmnet:: Elastic Net
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         if (cgns_cnt <= cgnMax) {
-          files_glm_tib <- trainGlmnet(alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_1se_tib, class_idx=class_idx, seed=seed,
-                                       dir=alpha_dir,retFiles=TRUE, pars=pars,
-                                       crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
-                                       cross_perc_min=cross_perc_min,
-                                       verbose=verbose,vt=3,tc=tc+1,tt=tt)
+          files_glm_tib <- trainGlmnet(
+            alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_1se_tib, class_idx=class_idx, seed=seed,
+            dir=alpha_dir,retFiles=TRUE, pars=pars,
+            crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
+            cross_perc_min=cross_perc_min,
+            verbose=verbose,vt=3,tc=tc+1,tt=tt)
           file_tib <- file_tib %>% dplyr::bind_rows(files_glm_tib)
           
           glm_cgn_tib <- loadFromFileTib(tib=files_glm_tib, type="Features", verbose=verbose,vt=4,tc=tc+1,tt=tt)
@@ -639,11 +643,12 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         cgn_min_cnt <- cgn_min_tib %>% base::nrow()
         if (cgn_min_cnt > cgnMin) {
-          files_min_tib <- trainRandomForest(alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_min_tib, class_idx, seed=seed,
-                                             dir=alpha_dir,retFiles=TRUE,lambda="lambda-min", pars=pars,
-                                             crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
-                                             cross_perc_min=cross_perc_min,
-                                             verbose=verbose,vt=3,tc=tc+1,tt=tt)
+          files_min_tib <- trainRandomForest(
+            alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_min_tib, class_idx, seed=seed,
+            dir=alpha_dir,retFiles=TRUE,lambda="lambda-min", pars=pars,
+            crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
+            cross_perc_min=cross_perc_min,
+            verbose=verbose,vt=3,tc=tc+1,tt=tt)
           file_tib <- file_tib %>% dplyr::bind_rows(files_min_tib)
         }
         
@@ -652,11 +657,12 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         cgn_1se_cnt <- cgn_1se_tib %>% base::nrow()
         if (cgn_1se_cnt > cgnMin) {
-          files_1se_tib <- trainRandomForest(alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_1se_tib, class_idx, seed=seed,
-                                             dir=alpha_dir,retFiles=TRUE,lambda="lambda-1se", pars=pars,
-                                             crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
-                                             cross_perc_min=cross_perc_min,
-                                             verbose=verbose,vt=3,tc=tc+1,tt=tt)
+          files_1se_tib <- trainRandomForest(
+            alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_1se_tib, class_idx, seed=seed,
+            dir=alpha_dir,retFiles=TRUE,lambda="lambda-1se", pars=pars,
+            crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
+            cross_perc_min=cross_perc_min,
+            verbose=verbose,vt=3,tc=tc+1,tt=tt)
           file_tib <- file_tib %>% dplyr::bind_rows(files_1se_tib)
         }
         
@@ -681,13 +687,14 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
         #                        Train Glmnet:: Elastic Net
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         if (cgns_cnt <= cgnMax) {
-          files_glm_tib <- trainGlmnet(alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_1se_tib, class_idx=class_idx, seed=seed,
-                                       dir=alpha_dir,retFiles=TRUE, pars=pars,
-                                       crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
-                                       cross_perc_min=cross_perc_min,
-                                       verbose=verbose,vt=3,tc=tc+1,tt=tt)
+          files_glm_tib <- trainGlmnet(
+            alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_1se_tib, class_idx=class_idx, seed=seed,
+            dir=alpha_dir,retFiles=TRUE, pars=pars,
+            crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
+            cross_perc_min=cross_perc_min,
+            verbose=verbose,vt=3,tc=tc+1,tt=tt)
           file_tib <- file_tib %>% dplyr::bind_rows(files_glm_tib)
-
+          
           glm_cgn_tib <- loadFromFileTib(tib=files_glm_tib, type="Features", verbose=verbose,vt=4,tc=tc+1,tt=tt)
           cgn_min_tib <- glm_cgn_tib %>% dplyr::filter(lambda.min!=0)
           cgn_1se_tib <- glm_cgn_tib %>% dplyr::filter(lambda.1se!=0)
@@ -699,11 +706,12 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         cgn_min_cnt <- cgn_min_tib %>% base::nrow()
         if (cgn_min_cnt > cgnMin) {
-          files_min_tib <- trainRandomForest(alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_min_tib, class_idx, seed=seed,
-                                             dir=alpha_dir,retFiles=TRUE,lambda="lambda-min", pars=pars,
-                                             crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
-                                             cross_perc_min=cross_perc_min,
-                                             verbose=verbose,vt=3,tc=tc+1,tt=tt)
+          files_min_tib <- trainRandomForest(
+            alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_min_tib, class_idx, seed=seed,
+            dir=alpha_dir,retFiles=TRUE,lambda="lambda-min", pars=pars,
+            crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
+            cross_perc_min=cross_perc_min,
+            verbose=verbose,vt=3,tc=tc+1,tt=tt)
           file_tib <- file_tib %>% dplyr::bind_rows(files_min_tib)
         }
         
@@ -712,11 +720,12 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         cgn_1se_cnt <- cgn_1se_tib %>% base::nrow()
         if (cgn_1se_cnt > cgnMin) {
-          files_1se_tib <- trainRandomForest(alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_1se_tib, class_idx, seed=seed,
-                                             dir=alpha_dir,retFiles=TRUE,lambda="lambda-1se", pars=pars,
-                                             crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
-                                             cross_perc_min=cross_perc_min,
-                                             verbose=verbose,vt=3,tc=tc+1,tt=tt)
+          files_1se_tib <- trainRandomForest(
+            alpha=alpha_dbl, data=beta, ss=ss, cgns=cgn_1se_tib, class_idx, seed=seed,
+            dir=alpha_dir,retFiles=TRUE,lambda="lambda-1se", pars=pars,
+            crossTrain=TRUE,tests_ss=tests_samp_tib,train_ss=train_samp_tib,
+            cross_perc_min=cross_perc_min,
+            verbose=verbose,vt=3,tc=tc+1,tt=tt)
           file_tib <- file_tib %>% dplyr::bind_rows(files_1se_tib)
         }
         
@@ -737,7 +746,6 @@ glmnetRforestWrapper = function(beta, ss, cgns, pars,
 #                          Cross Training Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-
 crossTrain = function(name, alpha, data, ss_train, ss_tests, 
                       class_idx, seed=NULL,
                       type.measure="class", family="binomial", parallel=TRUE,
@@ -745,11 +753,23 @@ crossTrain = function(name, alpha, data, ss_train, ss_tests,
                       dir=NULL,lambda=NULL,
                       modName="glmnet",lambda_vec=c("lambda.min","lambda.1se"),
                       
-                      verbose=0,vt=2,tc=1,tt=NULL) {
-  funcTag <- 'crossTrain'
+                      verbose=0,vt=2,tc=1,tt=NULL,
+                      funcTag='crossTrain') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
-
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}         name={name}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}        alpha={alpha}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}    class_idx={class_idx}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} type.measure={type.measure}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       family={family}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}      modName={modName}.{RET}"))
+    if (!is.null(seed))
+      cat(glue::glue("[{funcTag}]:{tabsStr}         seed={seed}.{RET}"))
+    cat("\n")
+  }
+  
   cross_min_perc <- NULL
   cross_call_tib <- NULL
   cross_sums_tib <- NULL
@@ -764,17 +784,36 @@ crossTrain = function(name, alpha, data, ss_train, ss_tests,
     
     grps <- ss_train %>% names()
     for (grp in grps) {
-      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Cross Group={grp}.{RET}"))
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cross Group={grp}.{RET}"))
       
       cur_group <- paste(name,"-Part",grp, sep='')
       
       train_sam_tib = ss_train[[grp]]
       train_lab_idx = train_sam_tib %>% dplyr::pull(!!class_idx) %>% as.vector()
       train_dat_mat = data[ train_sam_tib$Sentrix_Name, ]
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} train_sam_tib={RET}"))
+        print(train_sam_tib, n=2)
+        cat(glue::glue("[{funcTag}]:{tabsStr} unique(train_lab_idx)={RET}"))
+        unique(train_lab_idx) %>% print()
+        cat(glue::glue("[{funcTag}]:{tabsStr} dim(train_dat_mat)={RET}"))
+        dim(train_dat_mat) %>% print()
+        # head(train_dat_mat) %>% print()
+      }
       
       tests_sam_tib = ss_tests[[grp]]
       tests_lab_idx = tests_sam_tib %>% dplyr::pull(!!class_idx) %>% as.vector()
       tests_dat_mat = data[ tests_sam_tib$Sentrix_Name, ]
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} tests_sam_tib={RET}"))
+        print(tests_sam_tib, n=2)
+        cat(glue::glue("[{funcTag}]:{tabsStr} unique(tests_lab_idx)={RET}"))
+        unique(tests_lab_idx) %>% print()
+        cat(glue::glue("[{funcTag}]:{tabsStr} dim(tests_dat_mat)={RET}"))
+        dim(tests_dat_mat) %>% print()
+        # head(tests_dat_mat) %>% print()
+      }
       
       # trainGlmnet(alpha=alpha, data=train_dat_mat, labs=train_sam_tib, cgns=cgns, testData=tests_dat_mat, testLabs=tests_sam_tib, seed=seed, type.measure=type.measure, family=family, parallel=parallel, outName=name, dir=dir, lambda=lambda)
       
@@ -789,27 +828,44 @@ crossTrain = function(name, alpha, data, ss_train, ss_tests,
         cur_call_tib <- predToCalls(pred=cur_pred, labs=tests_lab_idx, pred_lab="Pred_Class",
                                     verbose=verbose,vt=4,tc=tc+1,tt=tt)
       } else if (modName=='rforest') {
-
+        
         data_df  <- cbind(train_dat_mat, train_lab_idx) %>% as.data.frame()
         df_ncols <- data_df %>% base::ncol()
         colnames(data_df)[df_ncols] <- 'Species'
         data_df$Species <- factor(data_df$Species)
         
-        cur_mod = randomForest(Species ~ ., data=data_df, ntree=df_ncols-1, importance=TRUE)
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} dim(data_df(modName={modName}, ",
+                         "df_ncols={df_ncols}))={RET}"))
+          dim(data_df) %>% print()
+        }
         
-        cur_pred = predRandomForest(mod=cur_mod, data=tests_dat_mat, labs=tests_lab_idx, 
-                              name=cur_group, # lambda="lambda.1se", type=type.measure,
-                              verbose=verbose,vt=4,tc=tc+1,tt=tt) %>% dplyr::mutate(CrossGroup=cur_group)
+        cur_mod = randomForest(Species ~ ., data=data_df, 
+                               ntree=df_ncols-1, importance=TRUE)
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr} cur_mod(modName={modName}, ",
+                         "df_ncols={df_ncols})={RET}"))
+          print(cur_mod)
+        }
         
-        cur_call_tib <- predToCalls(pred=cur_pred, labs=tests_lab_idx, pred_lab="Pred_Class",
-                                    verbose=verbose,vt=4,tc=tc+1,tt=tt)
+        cur_pred = predRandomForest(
+          mod=cur_mod, data=tests_dat_mat, labs=tests_lab_idx, 
+          name=cur_group, # lambda="lambda.1se", type=type.measure,
+          verbose=verbose,vt=4,tc=tc+1,tt=tt) %>% 
+          dplyr::mutate(CrossGroup=cur_group)
+        
+        cur_call_tib <- predToCalls(
+          pred=cur_pred, labs=tests_lab_idx, pred_lab="Pred_Class",
+          verbose=verbose,vt=4,tc=tc+1,tt=tt)
         
       } else {
         stop(glue::glue("{RET}[{funcTag}]: ERROR: Unsupported modName={modName}!!!{RET}{RET}"))
       }
       
-      cur_sum_tib <- callToSumTib(call=cur_call_tib, name_lab=cur_group, true_lab="True_Class",call_lab="Call",
-                                  verbose=verbose,vt=4,tc=tc+1,tt=tt)
+      cur_sum_tib <- callToSumTib(
+        call=cur_call_tib, name_lab=cur_group, 
+        true_lab="True_Class",call_lab="Call",
+        verbose=verbose,vt=4,tc=tc+1,tt=tt)
       
       cross_call_tib <- cross_call_tib %>% dplyr::bind_rows(cur_call_tib)
       cross_sums_tib <- cross_sums_tib %>% dplyr::bind_rows(cur_sum_tib)
@@ -817,28 +873,37 @@ crossTrain = function(name, alpha, data, ss_train, ss_tests,
     
     # Build Cross Valdation Sample Sheet::
     cross_samp_tib <- dplyr::bind_cols(
-      cross_sums_tib %>% tidyr::unite(Key, CrossGroup,True_Class,Call, sep='_') %>% 
-        dplyr::select(Key, Group_Perc) %>% tidyr::spread(Key, Group_Perc) %>% purrr::set_names(paste(names(.),'Perc', sep='_')),
-      cross_sums_tib %>% tidyr::unite(Key, CrossGroup,True_Class,Call, sep='_') %>% 
-        dplyr::select(Key, Total_Count) %>% tidyr::spread(Key, Total_Count) %>% purrr::set_names(paste(names(.),'Total_Count', sep='_'))
+      cross_sums_tib %>% 
+        tidyr::unite(Key, CrossGroup,True_Class,Call, sep='_') %>% 
+        dplyr::select(Key, Group_Perc) %>% 
+        tidyr::spread(Key, Group_Perc) %>% 
+        purrr::set_names(paste(names(.),'Perc', sep='_')),
+      cross_sums_tib %>% 
+        tidyr::unite(Key, CrossGroup,True_Class,Call, sep='_') %>% 
+        dplyr::select(Key, Total_Count) %>% 
+        tidyr::spread(Key, Total_Count) %>% 
+        purrr::set_names(paste(names(.),'Total_Count', sep='_'))
     )
     
     # Write all Cross Valudation::
     cross_file_tib <- tibble::tibble()
     if (!is.null(dir)) {
-      cross_file_tib <- saveModel(name=name, dir=dir, type='crossValidation',
-                                  ms=cross_samp_tib, call=cross_call_tib, sums=cross_sums_tib,
-                                  method=modName, alpha=alpha,
-                                  verbose=verbose,vt=4,tc=tc+1,tt=tt)
+      cross_file_tib <- saveModel(
+        name=name, dir=dir, type='crossValidation',
+        ms=cross_samp_tib, call=cross_call_tib, sums=cross_sums_tib,
+        method=modName, alpha=alpha,
+        verbose=verbose,vt=4,tc=tc+1,tt=tt)
     }
     
     # cross_min_perc <- cross_sums_tib %>% dplyr::filter(Call=='TP') %>% 
     #   dplyr::summarise(Min_Perc=min(Group_Perc)) %>% dplyr::pull(Min_Perc) %>% as.double()
     # if (is.null(cross_min_perc)) cross_min_perc <- 0.0
     # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Cross Validation Min={cross_min_perc}.{RET}{RET}"))
-
+    
     cross_file_cnt <- base::nrow(cross_file_tib)
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Cross Validation File Count={cross_file_cnt}.{RET}{RET}"))
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Cross Validation File ",
+                     "Count={cross_file_cnt}.{RET}{RET}"))
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -873,7 +938,7 @@ trainGlmnet = function(alpha, data, ss, cgns=NULL, class_idx, seed=NULL,
     labs_idx_cnt <- labs_idx_vec %>% unique() %>% length()
     if (labs_idx_cnt>2) family <- "multinomial"
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} labs_idx_cnt={labs_idx_cnt}, family={family}.{RET}"))
-
+    
     if (is.null(outName) ) {
       outName <- paste(modName, sep='-')
       if (!is.null(alpha)) outName <- paste(outName,alpha, sep='-')
@@ -899,7 +964,8 @@ trainGlmnet = function(alpha, data, ss, cgns=NULL, class_idx, seed=NULL,
       cross_min_perc <- 0.0
       cross_min_perc <- loadFromFileTib(tib=cross_file_tib, type="Summary", verbose=verbose,vt=4,tc=tc+1,tt=tt) %>%
         dplyr::filter(Call=='TP') %>%
-        dplyr::summarise(Min_Perc=min(Group_Perc)) %>% dplyr::pull(Min_Perc) %>% as.double()
+        dplyr::summarise(Min_Perc=min(Group_Perc), .groups="drop") %>% 
+        dplyr::pull(Min_Perc) %>% as.double()
       if (is.null(cross_min_perc)) cross_min_perc <- 0.0
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Cross Validation Min={cross_min_perc} > cross_perc_min???{RET}{RET}"))
     }
@@ -916,7 +982,7 @@ trainGlmnet = function(alpha, data, ss, cgns=NULL, class_idx, seed=NULL,
       if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Class Size={labs_idx_cnt} Pair.{RET}") )
       cgns <- glmnetModToCoef2(mod, verbose=verbose, vt=vt+1, tc=tc+1)
     }
-
+    
     # Update Parameters::
     pars <- pars %>% tibble::add_row( Option="featureSize", Value=as.character( base::ncol(data) ), Type="Original" )
     for (lam_key in lambda_vec) {
@@ -926,7 +992,7 @@ trainGlmnet = function(alpha, data, ss, cgns=NULL, class_idx, seed=NULL,
     }
     pars <- pars %>% tibble::add_row( Option="model", Value=modName, Type="train" )
     if (!is.null(alpha)) pars <- pars %>% tibble::add_row( Option="alpha", Value=as.character(alpha), Type="train" )
-
+    
     # Save Model::
     if (!is.null(dir)) {
       if (!is.null(cross_min_perc) && cross_min_perc < cross_perc_min) {
@@ -971,7 +1037,7 @@ trainRandomForest = function(alpha=NULL, data, ss, cgns, class_idx, seed=NULL,
     
     labs_idx_vec <- ss %>% dplyr::pull(!!class_idx) %>% as.vector()
     labs_idx_cnt <- labs_idx_vec %>% unique() %>% length()
-
+    
     if (is.null(outName) ) {
       outName <- paste(modName, sep='-')
       if (!is.null(alpha)) outName <- paste(outName,alpha, sep='-')
@@ -992,22 +1058,23 @@ trainRandomForest = function(alpha=NULL, data, ss, cgns, class_idx, seed=NULL,
         dir=dir, modName=modName, 
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
-        # name=outName, alpha=alpha, data=data, ss_train=train_ss, ss_tests=tests_ss,
-        # class_idx=class_idx, seed=seed,
-        # type.measure=type.measure, family=family, parallel=TRUE,
-        # dir=dir,lambda=lambda_vec[2],
-        # modName=modName,lambda_vec=lambda_vec,
-        # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      # name=outName, alpha=alpha, data=data, ss_train=train_ss, ss_tests=tests_ss,
+      # class_idx=class_idx, seed=seed,
+      # type.measure=type.measure, family=family, parallel=TRUE,
+      # dir=dir,lambda=lambda_vec[2],
+      # modName=modName,lambda_vec=lambda_vec,
+      # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       cross_min_perc <- NULL
       cross_min_perc <- 0.0
       cross_min_perc <- loadFromFileTib(tib=cross_file_tib, type="Summary", verbose=verbose,vt=4,tc=tc+1,tt=tt) %>%
         dplyr::filter(Call=='TP') %>%
-        dplyr::summarise(Min_Perc=min(Group_Perc)) %>% dplyr::pull(Min_Perc) %>% as.double()
+        dplyr::summarise(Min_Perc=min(Group_Perc), .groups="drop") %>% 
+        dplyr::pull(Min_Perc) %>% as.double()
       if (is.null(cross_min_perc)) cross_min_perc <- 0.0
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Cross Validation Min={cross_min_perc} > cross_perc_min???{RET}{RET}"))
     }
-
+    
     # Convert Training::
     data_df  <- cbind(data, labs_idx_vec) %>% as.data.frame()
     df_ncols <- data_df %>% base::ncol()
@@ -1040,7 +1107,7 @@ trainRandomForest = function(alpha=NULL, data, ss, cgns, class_idx, seed=NULL,
     pars <- pars %>% tibble::add_row( Option="model", Value=modName, Type="train" )
     if (!is.null(alpha)) pars <- pars %>% tibble::add_row( Option="alpha", Value=as.character(alpha), Type="train" )
     if (!is.null(lambda)) pars <- pars %>% tibble::add_row( Option="lambda", Value=lambda, Type="train" )
-
+    
     # Save Model::
     if (!is.null(dir)) {
       if (!is.null(cross_min_perc) && cross_min_perc < cross_perc_min) {
@@ -1142,7 +1209,7 @@ predGlmnet = function(mod, data, labs, name, lambda="lambda.1se", type='class',
     labs_tot_cnt <- labs %>% length()
     labs_idx_cnt <- unique(labs) %>% length()
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} labs_tot_cnt={labs_tot_cnt}; labs_idx_cnt={labs_idx_cnt}.{RET}"))
-
+    
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} mod={RET}"))
     if (verbose>=vt+4) print(mod)
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} dim(data)={RET}"))
@@ -1150,7 +1217,7 @@ predGlmnet = function(mod, data, labs, name, lambda="lambda.1se", type='class',
     
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} predict(mod,data)={RET}"))
     if (verbose>=vt+4) predict(object=mod, newx=data) %>% print()
-
+    
     if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} predict(mod,data, s={lambda}, type={type})={RET}"))
     if (verbose>=vt+4) predict(object=mod, newx=data, s=lambda, type=type) %>% print()
     
@@ -1195,7 +1262,7 @@ predRandomForest = function(mod, data, labs, name,
     pred_class_tib <- predict(mod, newdata=data, reshape=T, type="class") %>% 
       tibble::enframe(name="Sentrix_Name", value="Pred_Class_Raw") %>% 
       dplyr::mutate(Pred_Class_Raw=as.character(Pred_Class_Raw))
-
+    
     if (labs_idx_cnt>2) {
       tib <- pred_prob_mat %>% as.data.frame() %>%
         tibble::as_tibble(rownames='ample') %>% 
@@ -1323,8 +1390,10 @@ callToSumTib = function(call, name_lab, true_lab="True_Class",call_lab="Call",
   call_lab <- call_lab %>% as.character() %>% rlang::sym()
   
   sum_tib <- dplyr::left_join(
-    dplyr::group_by(call, !!true_lab,!!call_lab) %>% dplyr::summarise(Group_Count=n()),
-    dplyr::group_by(call, !!true_lab) %>% dplyr::summarise(Total_Count=n()),
+    dplyr::group_by(call, !!true_lab,!!call_lab) %>% 
+      dplyr::summarise(Group_Count=n(), .groups="drop"),
+    dplyr::group_by(call, !!true_lab) %>% 
+      dplyr::summarise(Total_Count=n(), .groups="drop"),
     by=true_str) %>%
     dplyr::mutate(Group_Perc=round(100*Group_Count/Total_Count, 3)) %>%
     dplyr::ungroup()
@@ -1370,7 +1439,7 @@ makeX_glmnet_imputeNA=function(train, test=NULL, na.impute=FALSE,
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
   df=train
-
+  
   istest=!is.null(test)
   ntr=base::nrow(train)
   if(istest){

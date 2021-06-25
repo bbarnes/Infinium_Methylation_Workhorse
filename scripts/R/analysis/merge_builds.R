@@ -217,9 +217,9 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
-  par$local_runType <- 'Chicago-Ober-Custom'
   par$local_runType <- 'NA12878'
   par$local_runType <- 'qcMVP2'
+  par$local_runType <- 'Chicago-Ober-Custom'
   
   if (FALSE) {
     
@@ -227,6 +227,8 @@ if (args.dat[1]=='RStudio') {
     opt$runName  <- par$local_runType
     
     opt$workflow    <- "ind"
+    opt$workflow    <- "nd"
+    opt$workflow    <- "raw"
     
     opt$single   <- FALSE
     # opt$parallel <- TRUE
@@ -238,15 +240,29 @@ if (args.dat[1]=='RStudio') {
     par$vstr <- ""
     par$vstr <- "v1"
     par$vstr <- "v2"
+    par$vstr <- "v3"
     
-    opt$classVar <- "AutoSample_R2_Key_2"
-    
+    opt$classVar <- "AutoSample_R2_Key_3"
+    opt$classVar <- "Sample_Class"
+
+    opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets/Chicago_Custom_36.sampleSheet.csv.gz")
+        
     opt$datDir <- paste(
       # file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38/swifthoof_main"),
       file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38",par$vstr,"swifthoof_main"),
       sep=',')
     
     opt$runName <- paste(opt$runName,par$vstr, sep="-")
+    
+    # TBD:: Build extended Chicago Auto Sample Sheet
+    #
+    #   Sentrix_Name        cg_calls_pass_perc_1 cg_pvals_PnegEcdf_pass_perc_1 cg_pvals_PnegEcdf_pass_perc_2 Sample_Class
+    # 1 205271030023_R01C02                 89.7                          99.7                          99.7 Asthma7YrNeg
+    # 5 205271030024_R06C01                 89.3                          99.9                          99.9 Asthma7YrPos
+    #
+    # opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+    # auto_sam_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$auto_sam_csv) ))
+
     
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     opt$runName  <- par$local_runType
@@ -1235,11 +1251,6 @@ if (opt$verbose>0)
                  "and Auto Sample Sheets; Total={labs_ss_len}.{RET}{RET}"))
 print_tib(labs_ss_tib,par$prgmTag, opt$verbose,vt=10,tc=1, n="labs_ss_tib")
 
-# Write Auto Sample Sheet::
-if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Writing labs_csv={opt$labs_csv}.{RET}{RET}"))
-readr::write_csv(labs_ss_tib, opt$labs_csv)
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Import Datasets (Calls)::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1288,6 +1299,11 @@ if (!pass_time_check) {
   cmd <- paste('touch',opt$beg_file, sep=' ')
   system(cmd)
   
+  # Write Auto Sample Sheet::
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Writing labs_csv={opt$labs_csv}.{RET}{RET}"))
+  readr::write_csv(labs_ss_tib, opt$labs_csv)
+  
   # Write Merged Call Files Tibble::
   call_file_tib <- NULL
   if (opt$addPathsCall) {
@@ -1302,7 +1318,6 @@ if (!pass_time_check) {
     safe_write(call_file_tib,"csv",opt$call_csv,verbose=opt$verbose,tt=pTracker)
   }
   
-
   # Write Merged Sset Files Tibble:: 
   grns_tib <- NULL
   reds_tib <- NULL

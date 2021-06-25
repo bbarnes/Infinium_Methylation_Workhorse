@@ -205,6 +205,7 @@ if (args.dat[1]=='RStudio') {
   
   opt$seeds <- "13,17,42,43,57,61,69"
   opt$seeds <- "13,42"
+  opt$seeds <- "13,42,43"
   
   opt$featuresCsv <- NULL
   opt$featuresDml <- NULL
@@ -236,31 +237,40 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
-  par$local_runType <- 'Chicago-Ober-Custom'
   par$local_runType <- 'NA12878'
+  par$local_runType <- 'Chicago-Ober-Custom'
   
   if (FALSE) {
     
   } else if (par$local_runType=='Chicago-Ober-Custom') {
     opt$runName  <- par$local_runType
+    opt$workflow <- "nd"
+    opt$workflow <- "raw"
     opt$workflow <- "ind"
+    
     par$platform <- NULL
     par$version  <- NULL
     
     # opt$parallel <- TRUE
+    opt$single   <- TRUE
     opt$single   <- FALSE
-    opt$buildDml <- TRUE
-    opt$buildDbl <- TRUE
     
+    opt$buildDml    <- TRUE
+    opt$buildDbl    <- TRUE
+    opt$plot_pairs  <- TRUE
+    opt$buildModels <- TRUE
+
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
     
     opt$classVar <- 'AutoSample_R2_Key_2'
-    par$classVar <- 'AutoSample_R2_Key_2'
+    opt$classVar <- 'AutoSample_R2_Key_3'
+    opt$classVar <- 'Sample_Class'
     
     par$vstr <- ""
     par$vstr <- "v1"
     par$vstr <- "v2"
+    par$vstr <- "v3"
     opt$runName <- paste(opt$runName,par$vstr, sep="-")
     
     opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
@@ -272,11 +282,12 @@ if (args.dat[1]=='RStudio') {
       file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
                 # par$platform,par$version,
                 # opt$classVar,
-                par$classVar,
+                opt$classVar,
                 opt$workflow),
       sep=',')
     
-    opt$trainClass <- paste('ChicagoA1','ChicagoA2', sep=',')
+    # opt$trainClass <- paste('ChicagoA1','ChicagoA2', sep=',')
+    opt$trainClass <- paste('Asthma7YrNeg','Asthma7YrPos', sep=',')
     
     opt$samplePvalPerc <- 50
 
@@ -545,7 +556,8 @@ if (FALSE) {
 #                     Preprocessing:: General Params
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-pTracker <- timeTracker$new(verbose=opt$verbose)
+# pTracker <- timeTracker$new(verbose=opt$verbose)
+pTracker <- timeTracker$new()
 
 mergeDirs_vec   <- opt$datDir %>% str_split(pattern=',', simplify=TRUE) %>% as.vector()
 
@@ -560,7 +572,9 @@ seed_vec <- stringr::str_split(opt$seeds, pattern=',', simplify=TRUE) %>% as.vec
 
 class_var <- rlang::sym(opt$classVar)
 class_idx <- rlang::sym("Class_Idx")
+
 exp_var   <- 'Experiment_Key'
+# exp_var   <- opt$classVar
 exp_sym   <- rlang::sym(exp_var)
 
 if (!is.null(opt$platform)) opt$outDir <- file.path(opt$outDir, opt$platform)
@@ -726,8 +740,10 @@ for (betaKey in lociBetaKey_vec) {
       beta_masked_mat <- beta_impute_mat
       
       # Rebuild NA beta matrix for DML/dBL calculations::
-      pval_na_idx_vec <- index_masks_tib %>% dplyr::arrange(idx) %>% dplyr::distinct(idx) %>% dplyr::pull(idx) %>% as.vector()
-      if (!is.null(pval_na_idx_vec) && length(pval_na_idx_vec)!=0) beta_masked_mat[ pval_na_idx_vec ] <- NA
+      pval_na_idx_vec <- index_masks_tib %>% dplyr::arrange(idx) %>% 
+        dplyr::distinct(idx) %>% dplyr::pull(idx) %>% as.vector()
+      if (!is.null(pval_na_idx_vec) && length(pval_na_idx_vec)!=0) 
+        beta_masked_mat[ pval_na_idx_vec ] <- NA
       
       labs_idx_vec <- sampleSheet_tib %>% dplyr::pull(!!class_idx) %>% as.vector()
       
@@ -787,16 +803,23 @@ for (betaKey in lociBetaKey_vec) {
         plotSheet_tib <- sampleSheet_tib %>% 
           dplyr::filter(!!sam_pval_name_sym >= opt$samplePvalPerc) %>%
           dplyr::rename(Class_Name=!!class_var) %>% 
-          dplyr::group_by(!!exp_sym) %>%
+          # dplyr::group_by(!!exp_sym) %>%
+          dplyr::group_by(Class_Name) %>%
+          
           dplyr::mutate(Class_Int=dplyr::cur_group_id() ) %>% 
           dplyr::arrange(Class_Int) %>% 
           dplyr::mutate(Rank_Chr=rawToChar(as.raw(64+Class_Int[1])) ) %>%
           dplyr::ungroup() %>%
-          dplyr::group_by(!!exp_sym,Class_Name) %>%
+          # dplyr::group_by(!!exp_sym,Class_Name) %>%
+          dplyr::group_by(Class_Name) %>%
+          
           dplyr::mutate(Rank_Idx=dplyr::row_number()) %>%
           dplyr::mutate(Plot_Name=paste0(Rank_Chr,'_Rep',Rank_Idx,'_',as.integer(!!sam_pval_name_sym))) %>%
           dplyr::ungroup() %>%
-          dplyr::select(Sentrix_Name, Class_Name, !!class_idx, !!exp_sym, Class_Int, !!sam_pval_name_sym, Rank_Idx,Rank_Chr,Plot_Name, everything())
+          dplyr::select(Sentrix_Name, Class_Name, !!class_idx, 
+                        # !!exp_sym, Class_Int, !!sam_pval_name_sym, 
+                        Class_Name, Class_Int, !!sam_pval_name_sym, 
+                        Rank_Idx,Rank_Chr,Plot_Name, everything())
         
         # NOTE:: Previous Versions Re-assigned Sample_Name to equal Class_Name
         # plotSheet_tib <- plotSheet_tib %>% dplyr::mutate(Sample_Name=Class_Name)
@@ -1021,14 +1044,16 @@ for (betaKey in lociBetaKey_vec) {
                            Pass_Negs_Cnt=count(Negs_Pass_0_Perc>=98, na.rm=TRUE),
                            Pass_Poob_Cnt=count(Poob_Pass_0_Perc>=90, na.rm=TRUE),
                            Pass_Negs_Per=round(100*Pass_Negs_Cnt/Total_Count,2),
-                           Pass_Poob_Per=round(100*Pass_Poob_Cnt/Total_Count,2) )
+                           Pass_Poob_Per=round(100*Pass_Poob_Cnt/Total_Count,2),
+                           .groups="drop")
         
         sampleSheet_tib %>% dplyr::group_by(platformUsed,platVersUsed,Chip_Format,Bead_Pool,!!exp_sym) %>% 
           dplyr::summarise(Total_Count=n(), 
                            Pass_Negs_Cnt=count(Negs_Pass_0_Perc>=98, na.rm=TRUE),
                            Pass_Poob_Cnt=count(Poob_Pass_0_Perc>=90, na.rm=TRUE),
                            Pass_Negs_Per=round(100*Pass_Negs_Cnt/Total_Count,2),
-                           Pass_Poob_Per=round(100*Pass_Poob_Cnt/Total_Count,2) )
+                           Pass_Poob_Per=round(100*Pass_Poob_Cnt/Total_Count,2),
+                           .groups="drop")
       }
       
       #
@@ -1240,8 +1265,10 @@ for (betaKey in lociBetaKey_vec) {
           system(glue::glue("touch {dml_end_txt}"))
           cat(glue::glue("[{par$prgmTag}]:{TAB} Done. Writing Full DMLs{RET}{RET}") )
         }
-        rank_dml_tib <- full_dml_tib %>% dplyr::group_by(Probe_ID) %>% 
-          dplyr::summarise(Rank_Avg=mean(Rank, na.rm=TRUE)) %>% dplyr::arrange(Rank_Avg)
+        rank_dml_tib <- full_dml_tib %>% 
+          dplyr::group_by(Probe_ID) %>% 
+          dplyr::summarise(Rank_Avg=mean(Rank, na.rm=TRUE), .groups="drop") %>% 
+          dplyr::arrange(Rank_Avg)
       }
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1286,7 +1313,9 @@ for (betaKey in lociBetaKey_vec) {
             for (expKey in mvp_ss_exp_keys) {
               
               sample_cnt_tib <- mvp_ss_exp_list[[expKey]] %>% dplyr::group_by(Class_Name) %>% 
-                dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(Class_Name) )
+                dplyr::summarise(Count=n(), .groups="drop") %>% 
+                tibble::as_tibble() %>% 
+                dplyr::mutate(Class=as.character(Class_Name) )
               
               sample_ids_vec <- mvp_ss_exp_list[[expKey]]$Sentrix_Name
               sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
@@ -1305,12 +1334,18 @@ for (betaKey in lociBetaKey_vec) {
             #
             sample_cnt_tib <- sampleSheet_tib %>% 
               dplyr::group_by(!!class_var) %>% 
-              dplyr::summarise(Count=n()) %>% tibble::as_tibble() %>% dplyr::mutate(Class=as.character(!!class_var) )
+              dplyr::summarise(Count=n(), .groups="drop") %>% 
+              tibble::as_tibble() %>% 
+              dplyr::mutate(Class=as.character(!!class_var) )
             sample_key_vec <- sample_cnt_tib %>% dplyr::pull(Class)
             sample_cnt_vec <- sample_cnt_tib %>% dplyr::pull(Count)
             
-            sample_key_vec <- sampleSheet_tib %>% dplyr::pull(!!class_var) %>% unique()
-            sample_cnt_vec <- sampleSheet_tib %>% dplyr::group_by(!!class_var) %>% dplyr::summarise(Count=n()) %>% dplyr::pull(Count)
+            sample_key_vec <- sampleSheet_tib %>% 
+              dplyr::pull(!!class_var) %>% unique()
+            sample_cnt_vec <- sampleSheet_tib %>% 
+              dplyr::group_by(!!class_var) %>% 
+              dplyr::summarise(Count=n(), .groups="drop") %>% 
+              dplyr::pull(Count)
             
             cpp.verbose <- 0
             full_dbl_tib <- C_crossSampleLociRSquared(beta_masked_mat, sample_cnt_vec, sample_key_vec, cmb=TRUE, verbose=cpp.verbose) %>% 
@@ -1360,7 +1395,13 @@ for (betaKey in lociBetaKey_vec) {
           dplyr::distinct(Probe_ID) %>%
           dplyr::arrange(Probe_ID)
         
+        # TBD:: This is a quick fix::
+        if (length(featuresDml_vec)==0) featuresDml_vec <- c(rank_dml_tib %>% base::nrow())
+        
         for (dmlSize in featuresDml_vec) {
+          
+          # TBD: Understand why this needs to be reduced???
+          if (dmlSize > 10000) dmlSize <- 10000
           
           # TBD:: Add flags for Top/Pre selection source...
           dml_top_str <- paste('dml',dmlSize, sep='-')
@@ -1386,10 +1427,15 @@ for (betaKey in lociBetaKey_vec) {
           # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
           
           dml_opt_tib <- gen_opt_tib %>% 
-            tibble::add_row( Option="featureSizeDml", Value=as.character(dmlSize), Type="Feature" )
+            tibble::add_row( Option="featureSizeDml", 
+                             Value=as.character(dmlSize), 
+                             Type="Feature" )
           
           if (!is.null(cgn_pre_str))
-            dml_opt_tib <- dml_opt_tib %>% tibble::add_row( Option="featureNamePre", Value=cgn_pre_str, Type="Feature" )
+            dml_opt_tib <- dml_opt_tib %>% 
+            tibble::add_row( Option="featureNamePre", 
+                             Value=cgn_pre_str, 
+                             Type="Feature" )
           
           # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
           #                               Build Models::
@@ -1402,7 +1448,8 @@ for (betaKey in lociBetaKey_vec) {
           # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
           
           for (seed_val in seed_vec) {
-            cat(glue::glue("[{par$prgmTag}]:{TAB} Starting; seed_val={seed_val}...{RET}") )
+            if (opt$verbose>0)
+              cat(glue::glue("[{par$prgmTag}]:{TAB} Starting; seed_val={seed_val}...{RET}") )
             
             seed_str  <- paste('seed',seed_val, sep='-')
             seed_dir  <- file.path(cur_dml_dir, seed_str)
@@ -1441,13 +1488,16 @@ for (betaKey in lociBetaKey_vec) {
               cur_time_csv <- file.path(cur_opt_dir, paste(curName,'time-tracker.csv.gz', sep='.') )
               
               files_tib <- NULL
-              sed_opt_tib <- dml_opt_tib %>% tibble::add_row( Option="seed", Value=as.character(seed_val), Type="seed" )
+              sed_opt_tib <- dml_opt_tib %>% 
+                tibble::add_row(Option="seed", 
+                                Value=as.character(seed_val), 
+                                Type="seed" )
               
               file_tib <- glmnetRforestWrapper(
                 beta=beta_impute_matT, ss=sampleSheet_tib, cgns=cgn_cur_tib, pars=sed_opt_tib, 
                 class_idx=class_idx, seed=seed_val, outName=seed_name, dir=seed_dir, 
-                alpha_min=opt$alphaMin, alpha_max=opt$alphaMax, opt$alphaInc, parallel=FALSE,
-                crossTrain=TRUE,class_var=class_var,cross_perc_min=opt$cross_perc_min,
+                alpha_min=opt$alphaMin, alpha_max=opt$alphaMax, alpha_inc=opt$alphaInc, 
+                parallel=FALSE,crossTrain=TRUE,class_var=class_var,cross_perc_min=opt$cross_perc_min,
                 verbose=opt$verbose, vt=1, tc=2, tt=fTracker)
               
               # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
