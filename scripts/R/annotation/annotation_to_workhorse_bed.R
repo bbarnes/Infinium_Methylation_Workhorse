@@ -150,7 +150,7 @@ if (args.dat[1]=='RStudio') {
   opt$annDir  <- file.path(par$topDir, 'data/annotation')
   opt$manDir  <- file.path(par$topDir, 'data/manifests')
   opt$genDir  <- file.path(par$topDir, 'data/iGenomes/Homo_sapiens/NCBI')
-
+  
   # Pre-defined local options runTypes::
   #
   opt$parallel <- TRUE
@@ -192,7 +192,7 @@ if (args.dat[1]=='RStudio') {
                 help="Target Species Name [default= %default]", metavar="character"),
     make_option(c("--pre_man_csv"), type="character", default=opt$pre_man_csv, 
                 help="Previously defined manifest [default= %default]", metavar="character"),
-
+    
     # Directories::
     make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
@@ -315,7 +315,7 @@ if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
   #                    ".sorted.intersect.bed.gz",
   #                    ".intersect.bed.gz",
   #                    ".formatted.sorted.bed.gz")
-
+  
   #
   # TBD::
   #  - Fix Evidence field [0-9]+
@@ -376,76 +376,6 @@ if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
   print(ucsc_cpgs_tib)
   print(epic_tib_list$cpgIslands)
   
-}
-
-#
-# This is for actually comparing overlaps against manifests::
-#
-if (FALSE) {
-  
-  if (FALSE) {
-    opt$verbose <- 10
-    
-    ncbi_gene_grs <- load_ncbi_gene(file=ncib_gene_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
-    ucsc_gene_grs <- load_ucsc_gene(file=ucsc_gene_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
-    ucsc_cpgs_grs <- load_ucsc_cpgs(file=ucsc_cpgs_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
-    
-    # names(ucsc_gene_grs@elementMetadata) <- c("name","name2","class","source","tissue","rank")
-    
-    #
-    # Lets actually test some of these
-    #
-    # can_cols <- c("name","name2","class","source","tissue","rank")
-    
-    can_pre_str <- "UCSC"
-    ref_pre_str <- "NCBI"
-    ucsc_ncbi_int <- intersect_GRS(ref=ncbi_gene_grs,can=ucsc_gene_grs, 
-                                    
-                                   ref_key=NULL,ref_col=NULL,ref_prefix=ref_pre_str,
-                                   can_key=NULL,can_col=NULL,can_prefix=can_pre_str, 
-                                   # ref_key=NULL,ref_col=NULL,ref_prefix=NULL,
-                                   # can_key=NULL,can_col=NULL,can_prefix=NULL, 
-                                   
-                                   # can_key="ucsc_name", all_can=TRUE,
-                                   # can_prefix=can_pre_str,ref_prefix=ref_pre_str, 
-                                   verbose=opt$verbose, tt=pTracker)
-    
-    
-    ann_int_list <- NULL
-    # NCBI Gene Comparison::
-    #
-    ref_pre_str <- "NCBI_Gene"
-    ann_key_str <- ref_pre_str
-    ref_pre_str <- NULL
-    # ncbi_gene_int_tib <- 
-    ann_int_list[[ann_key_str]] <-
-      intersect_GRS(can=man_pos_grs, ref=ncbi_gene_grs, 
-                    can_key="IlmnID", ref_prefix=ref_pre_str, 
-                    verbose=opt$verbose, tt=pTracker)
-    
-    # UCSC Gene Comparison::
-    #
-    ref_pre_str <- "UCSC_Gene"
-    ann_key_str <- ref_pre_str
-    ref_pre_str <- NULL
-    # ucsc_gene_int_tib <- 
-    ann_int_list[[ann_key_str]] <-
-      intersect_GRS(can=man_pos_grs, ref=ucsc_gene_grs, 
-                    can_key="IlmnID", ref_prefix=ref_pre_str, 
-                    verbose=opt$verbose, tt=pTracker)
-    
-    # UCSC Islands Comparison::
-    #
-    ref_pre_str <- "UCSC_Islands"
-    ann_key_str <- ref_pre_str
-    ref_pre_str <- NULL
-    # ucsc_cpgs_int_tib <- 
-    ann_int_list[[ann_key_str]] <-
-      intersect_GRS(can=man_pos_grs, ref=ucsc_cpgs_grs, 
-                    can_key="IlmnID", ref_prefix=ref_pre_str, 
-                    verbose=opt$verbose, tt=pTracker)
-  }
-  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       6.4 Load Annotation:: Chrom HMM
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -454,6 +384,10 @@ if (FALSE) {
   hmm_ann_dir <- file.path(par$topDir, "data/annotation/liftOver/chrom_hmm/wgEncodeBroadHmm/ucsc_liftover_main",hmm_ann_drn)
   hmm_ann_fns <- list.files(hmm_ann_dir, pattern=".map.bed.gz$", full.names=TRUE, recursive=FALSE)
   
+  hmm_source <- "CHROM_HMM"
+  hmm_out_path <- file.path(opt$outDir, hmm_source)
+  
+  hmm_tissue <- "All"
   hmm_cols <- 
     cols(
       chr    = col_character(),
@@ -486,6 +420,15 @@ if (FALSE) {
                          col_names=names(hmm_cols$cols), 
                          col_types=hmm_cols)
   
+  hmm_sel_col=c("chr","beg","end","srd",
+            "name","name2","class",
+            "source","tissue","rank",
+            "unq_key","evidence")
+  
+  #
+  # This is quick and dirty to build match annotation BEDs like EPIC_CORE and 
+  #   UPDATE_CORE above...
+  #
   for (samp in base::names(hmm_dat_list)) {
     if (opt$verbose>0)
       cat(glue::glue("[{par$prgmTag}]: Sample={samp}...{RET}"))
@@ -495,18 +438,65 @@ if (FALSE) {
     cur_grp_sym <- rlang::sym(cur_grp)
     cur_name <- paste(opt)
     
-    cur_tib <- hmm_dat_list[[samp]] %>%
+    ret_tib <- hmm_dat_list[[samp]] %>%
       dplyr::arrange(chr,beg) %>% 
       dplyr::group_by(class) %>% 
-      dplyr::mutate(class=stringr::str_replace_all(class, '_','-'), 
-                    Class_Rank=dplyr::row_number(), 
-                    Uniq_Id=paste(class,Class_Rank, sep="_")) %>%
-      dplyr::ungroup()
+      dplyr::mutate(class=stringr::str_replace_all(class, '_','-'),
+                    class=stringr::str_replace_all(class, '/','-'),
+                    srd="+",
+                    name=paste(chr,beg,end, sep="-"),
+                    name2=name,
+                    source=hmm_source,
+                    tissue=samp,
+                    evidence=as.integer(0),
+                    rank=dplyr::row_number(), 
+                    unq_key=paste(class,rank, sep="_")) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(dplyr::all_of(hmm_sel_col), dplyr::everything())
     
-    #
-    # This is for actually comparing overlaps against manifests::
-    #
-    if (FALSE) {
+    out_file <- file.path(hmm_out_path, samp, base::basename(hmm_list[[samp]]))
+
+    tabsStr <- TAB
+    funcTag <- par$prgmTag
+    if (opt$verbose>=opt$verbose)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Writing; out={out_file}{RET}"))
+    
+    safe_write(x=ret_tib,type="tsv",file=out_file,done=TRUE,funcTag=funcTag, 
+               verbose=opt$verbose,append=FALSE)
+
+  }
+  
+  # print(epic_tib_list$ucscRefGene)
+  # print(ncbi_gene_tib)
+  # print(ucsc_gene_tib)
+  # print(ucsc_cpgs_tib)
+  # print(epic_tib_list$cpgIslands)
+}
+  
+if (FALSE) {
+  
+  #
+  # This is for actually comparing overlaps against manifests::
+  #
+  if (FALSE) {
+    
+    for (samp in base::names(hmm_dat_list)) {
+      if (opt$verbose>0)
+        cat(glue::glue("[{par$prgmTag}]: Sample={samp}...{RET}"))
+      
+      cur_key <- paste(samp,"hmm", sep="_")
+      cur_grp <- paste(cur_key,"class", sep="_")
+      cur_grp_sym <- rlang::sym(cur_grp)
+      cur_name <- paste(opt)
+      
+      cur_tib <- hmm_dat_list[[samp]] %>%
+        dplyr::arrange(chr,beg) %>% 
+        dplyr::group_by(class) %>% 
+        dplyr::mutate(class=stringr::str_replace_all(class, '_','-'), 
+                      Class_Rank=dplyr::row_number(), 
+                      Uniq_Id=paste(class,Class_Rank, sep="_")) %>%
+        dplyr::ungroup()
+      
       cur_grs <- 
         GenomicRanges::GRanges(
           seqnames=Rle(cur_tib$chr),
@@ -562,6 +552,79 @@ if (FALSE) {
     # break
   }
 }
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    6.5 Compare Annotation:: NCBI/UCSC/HMM
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  if (FALSE) {
+    opt$verbose <- 10
+    
+    ncbi_gene_grs <- load_ncbi_gene(file=ncib_gene_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
+    ucsc_gene_grs <- load_ucsc_gene(file=ucsc_gene_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
+    ucsc_cpgs_grs <- load_ucsc_cpgs(file=ucsc_cpgs_tsv, grs=TRUE, verbose=opt$verbose, tt=pTracker)
+    
+    # names(ucsc_gene_grs@elementMetadata) <- c("name","name2","class","source","tissue","rank")
+    
+    #
+    # Lets actually test some of these
+    #
+    # can_cols <- c("name","name2","class","source","tissue","rank")
+    
+    can_pre_str <- "UCSC"
+    ref_pre_str <- "NCBI"
+    ucsc_ncbi_int <- intersect_GRS(ref=ncbi_gene_grs,can=ucsc_gene_grs, 
+                                   
+                                   ref_key=NULL,ref_col=NULL,ref_prefix=ref_pre_str,
+                                   can_key=NULL,can_col=NULL,can_prefix=can_pre_str, 
+                                   # ref_key=NULL,ref_col=NULL,ref_prefix=NULL,
+                                   # can_key=NULL,can_col=NULL,can_prefix=NULL, 
+                                   
+                                   # can_key="ucsc_name", all_can=TRUE,
+                                   # can_prefix=can_pre_str,ref_prefix=ref_pre_str, 
+                                   verbose=opt$verbose, tt=pTracker)
+    
+    
+    ann_int_list <- NULL
+    # NCBI Gene Comparison::
+    #
+    ref_pre_str <- "NCBI_Gene"
+    ann_key_str <- ref_pre_str
+    ref_pre_str <- NULL
+    # ncbi_gene_int_tib <- 
+    ann_int_list[[ann_key_str]] <-
+      intersect_GRS(can=man_pos_grs, ref=ncbi_gene_grs, 
+                    can_key="IlmnID", ref_prefix=ref_pre_str, 
+                    verbose=opt$verbose, tt=pTracker)
+    
+    # UCSC Gene Comparison::
+    #
+    ref_pre_str <- "UCSC_Gene"
+    ann_key_str <- ref_pre_str
+    ref_pre_str <- NULL
+    # ucsc_gene_int_tib <- 
+    ann_int_list[[ann_key_str]] <-
+      intersect_GRS(can=man_pos_grs, ref=ucsc_gene_grs, 
+                    can_key="IlmnID", ref_prefix=ref_pre_str, 
+                    verbose=opt$verbose, tt=pTracker)
+    
+    # UCSC Islands Comparison::
+    #
+    ref_pre_str <- "UCSC_Islands"
+    ann_key_str <- ref_pre_str
+    ref_pre_str <- NULL
+    # ucsc_cpgs_int_tib <- 
+    ann_int_list[[ann_key_str]] <-
+      intersect_GRS(can=man_pos_grs, ref=ucsc_cpgs_grs, 
+                    can_key="IlmnID", ref_prefix=ref_pre_str, 
+                    verbose=opt$verbose, tt=pTracker)
+  }
+}
+
+
 
 
 
