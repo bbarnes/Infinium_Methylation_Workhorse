@@ -1335,6 +1335,72 @@ add_cgn_imp_bsp_man <-
   dplyr::distinct(IlmnID, .keep_all=TRUE) %>%
   dplyr::arrange(Chromosome_U,Coordinate_U)
 
+#
+# TBD:: Attempt at fixing the above function to better and more usable::
+#
+if (FALSE) {
+  # Filtering methods for I/II
+  
+  add_cgn_imp_bsp_man %>% dplyr::filter(!is.na(Address_M) & (Chromosome_U != Chromosome_M | Coordinate_U != Coordinate_M))
+  
+  add_cgn_imp_bsp_man %>% head(n=3) %>% as.data.frame()
+  
+  add_cgn_imp_bsp_man %>% dplyr::select(dplyr::contains("Cgn"))
+  
+  add_cgn_imp_bsp_man %>% dplyr::select(Ord_Key,dplyr::contains("Cgn"), Ord_Prb_U,Ord_Prb_M)
+  
+  tmp_check_tib <- add_cgn_imp_bsp_man %>% dplyr::mutate(
+    Fin_Mat_Scr=dplyr::case_when(
+      is.na(Address_U) & is.na(Address_M) ~ 10,
+      is.na(Imp_Cgn_M) & Ord_Cgn_U==Imp_Cgn_U ~ 0,
+      !is.na(Address_U) & !is.na(Address_M) & Imp_Cgn_U == Imp_Cgn_M ~ 4,
+
+      is.na(Imp_Cgn_M) & Ord_Cgn_U!=Imp_Cgn_U ~ 5,
+      !is.na(Address_U) & !is.na(Address_M) & Imp_Cgn_U != Imp_Cgn_M ~ 4,
+      
+      TRUE ~ 11
+    )
+  ) # %>% dplyr::select(Fin_Mat_Scr)
+  
+  tmp_check_sum <- tmp_check_tib %>% 
+    # dplyr::arrange(Bsp_Din_Scr) %>%
+    # dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>%
+    # dplyr::group_by(Bsp_Din_Scr,Ord_Des,Ord_Din,Aqp_Idx) %>%
+    dplyr::group_by(Ord_Din,Ord_Col,Fin_Mat_Scr) %>%
+    dplyr::summarise(Count=n(), .groups="drop")
+  tmp_check_cnt <- print_tib(t = tmp_check_sum, f=par$runMode, n="quick-sum", v=100)
+
+  
+  
+  add_cgn_imp_bsp_man_ses <- NULL
+  add_cgn_imp_bsp_man_ses <- 
+    add_cgn_imp_bsp_inn %>% 
+    dplyr::filter(Bsp_Tag=="UM") %>%
+    add_to_man(join=c("Ord_Key","Ord_Din","Ord_Col"),
+               runName=opt$runName,
+               des_key="Ord_Des", pid="Ord_Key",
+               col_key="Ord_Col",
+               # csv=man_csv,
+               validate=TRUE,
+               verbose=10) %>% 
+    dplyr::group_by(Ord_Prb_U) %>%
+    dplyr::mutate(
+      Rank=dplyr::row_number()
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(
+      Strand_FR_U=dplyr::case_when(
+        Strand_FR_U=="F" ~ "+", 
+        Strand_FR_U=="R" ~ "-", 
+        TRUE ~ NA_character_),
+      IlmnID=paste0(
+        Imp_Cgn_U,"_",Imp_TB_U,Imp_CO_U,Infinium_Design,Rank)
+      # Imp_Cgn_U,"_",Imp_TB_U,Imp_CO_U,Infinium_Design,Ord_Prb_Rep_U)
+    ) %>% 
+    dplyr::distinct(IlmnID, .keep_all=TRUE) %>%
+    dplyr::arrange(Chromosome_U,Coordinate_U) 
+}
+
 man_pos_grs <- 
   GenomicRanges::GRanges(
     seqnames=Rle(add_cgn_imp_bsp_man$Chromosome_U), 
@@ -1356,9 +1422,59 @@ man_pos_grs <-
 #
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        6.0 Annotate Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #              6.1 Load Annotations:: EPIC_CORE/UPDATE_CORE/CHROM_HMM
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+  # Could loop over everything and make subdirectories for EPIC,UPDATE,HMM
+  #
+  # epic_ann_file <- list.dirs(epic_ann_path, full.names = TRUE)[-1] 
+  # epic_dir_list <- as.list(epic_ann_file)
+  # names(epic_dir_list) <- base::basename(epic_ann_file)
+
+  core_ann_path <- file.path(par$topDir, "scratch/annotation_to_workhorse_bed/methylation-Human-GRCh37-v2")
+  epic_ann_path <- file.path(core_ann_path, "EPIC_CORE/UCSC")
+  epic_ann_file <- list.files(epic_ann_path,pattern=".bed.gz$",full.names=TRUE)
+  epic_fns_list <- as.list(epic_ann_file)
+  names(epic_fns_list) <- base::basename(epic_ann_file) %>% stringr::str_remove(".bed.gz")
+  
+
+  # TBD:: Load GRS all from list of files with lapply...
+  epic_grs_list <- lapply(epic_fns_list, ann_to_grs, verbose=opt$verbose,tt=pTracker)
+
+  can_key <- "IlmnID"
+  epic_int_list <- NULL
+  epic_int_list <- c(epic_int_list,
+                     lapply(epic_grs_list, intersect_GRS, can=man_pos_grs, 
+                            ref_key=NULL,ref_col=NULL,ref_prefix=NULL,ref_red=TRUE,
+                            can_key=can_key,can_col=can_key,can_prefix=NULL, 
+                            verbose=opt$verbose, tt=pTracker)
+  )
+  
+  # Now write each annotation to run$annDir
+  for (name in names(epic_int_list)) {
+    out_csv <- file.path(run$annDir, paste(opt$runName,name,'annotation.csv.gz', sep='-'))
+    
+    # TBD:: The writing function should be moved to cgn_mapping_workflow()
+    # TBD:: Generate summary coverage stats. This should be done in the function
+    #  as well
+    
+    safe_write(epic_int_list[[name]],"csv",out_csv, funcTag=par$prgmTag,
+               verbose=opt$verbose)
+  }
+  
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       6.0 Annotation Conformation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
+# if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
+if (FALSE) {
   
   core_anno_dir <- file.path(par$topDir, "data/annotation", opt$genBuild)
   

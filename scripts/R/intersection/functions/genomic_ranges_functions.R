@@ -48,7 +48,7 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 intersect_GRS = function(ref,can,
-                         ref_key=NULL,ref_col=NULL,ref_prefix=NULL,
+                         ref_key=NULL,ref_col=NULL,ref_prefix=NULL,ref_red=TRUE,
                          can_key=NULL,can_col=NULL,can_prefix=NULL, 
                          verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'intersect_GRS'
@@ -87,6 +87,13 @@ intersect_GRS = function(ref,can,
     #
     ref_tib <- as.data.frame(ref) %>% tibble::as_tibble(rownames=ref_key)
 
+    if (ref_red) ref_tib <- ref_tib %>% 
+      dplyr::mutate(seqnames=as.character(seqnames),
+                    strand=as.character(strand)) %>%
+      dplyr::rename(chr=seqnames,
+                    pos=start,
+                    srd=strand)
+    
     if (!is.null(ref_col) && length(ref_col)!=0) ref_tib <- ref_tib %>%
       dplyr::select(dplyr::all_of(ref_col))
     
