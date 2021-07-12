@@ -214,8 +214,8 @@ par$ma2_col <- par_cols$ma2$cols %>% names()
 par$aqp_col <- par_cols$aqp$cols %>% names()
 par$pqc_col <- par_cols$pqc$cols %>% names()
 
-par$buildManifest <- FALSE
-par$run_improbe   <- FALSE
+opt$build_manifest <- FALSE
+opt$run_improbe   <- FALSE
 par$load_ann <- FALSE
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -275,11 +275,73 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GSA'
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
-  par$local_runType <- 'GRCm10'
   par$local_runType <- 'EWAS'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'GRCm10'
+  par$local_runType <- 'McMaster10Kselection'
   
-  if (par$local_runType=='EWAS') {
+  opt$parallel <- TRUE
+  
+  opt$verbose <- 10
+  opt$verbose <- 3
+  
+  opt$fresh <- TRUE
+  opt$fresh <- FALSE
+  
+  opt$run_improbe    <- TRUE
+  opt$build_manifest <- TRUE
+  par$load_ann       <- TRUE
+  
+  if (FALSE) {
+    
+  } else if (par$local_runType=='McMaster10Kselection') {
+    opt$genBuild <- 'GRCh37'
+    opt$platform <- 'MCM'
+    opt$version  <- 'A2'
+    opt$Species  <- "Human"
+    
+    opt$idat   <- NULL
+    
+    par$aqpDir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection")
+    opt$ords <- paste(
+      file.path(par$aqpDir, 'McMasterCpG_DesignFile_v4.csv.gz'),
+      sep=',')
+    
+    tmp_tib <- 
+      readr::read_tsv(file.path(par$aqpDir, '20532820_probes.match.gz')) %>% 
+      dplyr::mutate(address_names=address_name) %>% 
+      dplyr::select(address_names,probe_id,sequence,type_b,address_name,bo_seq)
+    readr::write_tsv(tmp_tib, file.path(par$aqpDir, '20532820_probes.v2.match.gz'))
+    rm(tmp_tib)
+
+    opt$mats <- paste(
+      file.path(par$aqpDir, '20532820_probes.v2.match.gz'),
+      sep=',')
+    
+    opt$aqps <- paste(
+      file.path(par$aqpDir, '20051339_A_ProductQC.txt.gz'),
+      sep=',')
+    
+    opt$bpns   <- NULL
+    opt$bpns <- paste(1, sep=",")
+    
+    opt$aqpn   <- NULL
+    opt$aqpn <- paste(1, sep=",")
+    
+    opt$mans   <- NULL
+    opt$mans   <- paste(
+      file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/Rand3-S0.060.manifest.sesame-base.cpg-sorted.csv.gz"),
+      sep=','
+    )
+
+    opt$vcfs   <- paste(
+      "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz",
+      sep=',')
+    opt$beds   <- NULL
+    opt$snps   <- NULL
+    opt$ord_des_csv <- NULL
+    
+  } else if (par$local_runType=='EWAS') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'EWAS'
     opt$version  <- 'A1'
@@ -359,9 +421,6 @@ if (args.dat[1]=='RStudio') {
     # opt$ord_des_csv <- file.path(par$datDir, "manifest/cgnDB/canonical-assignment.cgn-top-grp.csv.gz")
     opt$ord_des_csv <- NULL
     
-    par$buildManifest <- TRUE
-    par$run_improbe   <- TRUE
-
   } else if (par$local_runType=='TruDx') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
@@ -419,7 +478,6 @@ if (args.dat[1]=='RStudio') {
     
     opt$vcfs   <- NULL
     opt$beds   <- NULL
-    
     opt$ord_des_csv <- NULL
     
   } else if (par$local_runType=='GSA') {
@@ -446,7 +504,6 @@ if (args.dat[1]=='RStudio') {
     opt$mans   <- NULL
     opt$vcfs   <- NULL
     opt$beds   <- NULL
-    
     opt$ord_des_csv <- NULL
     
   } else if (par$local_runType=='Chicago') {
@@ -488,9 +545,6 @@ if (args.dat[1]=='RStudio') {
     
     opt$ord_des_csv <- file.path(par$topDir, "data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz")
     
-    par$buildManifest <- TRUE
-    par$run_improbe   <- TRUE
-
   } else if (par$local_runType=='COVIC') {
     opt$genBuild <- 'GRCh36'
     opt$genBuild <- 'GRCh38'
@@ -537,10 +591,10 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'P1'
     opt$version  <- 'P2'
     
+    opt$Species <- "Mouse"
+
     opt$genBuild <- 'GRCm38'
     opt$genBuild <- 'GRCm10'
-    
-    opt$Species <- "Mouse"
     
     opt$genDir  <- file.path(par$topDir, 'data/iGenomes/Mus_musculus/NCBI')
     
@@ -588,8 +642,6 @@ if (args.dat[1]=='RStudio') {
     
     opt$bpns <- paste(1,2,2,3, sep=",")
     
-    par$load_ann <- TRUE
-    
   } else if (par$local_runType=='NZT') {
     opt$genBuild <- 'GRCh36'
     opt$genBuild <- 'GRCh38'
@@ -626,13 +678,7 @@ if (args.dat[1]=='RStudio') {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
   
-  opt$parallel <- TRUE
   opt$runName <- paste(par$local_runType,opt$platform,opt$version,opt$genBuild, sep='-')
-  
-  # opt$fresh <- TRUE
-  opt$fresh   <- FALSE
-  opt$verbose <- 10
-  opt$verbose <- 3
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -725,6 +771,11 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--version"), type="character", default=opt$version, 
                 help="Manifest Version (e.g. B0,B1,B2,B3,B4,C0) [default= %default]", metavar="character"),
     
+    # Process Parallel/Cluster Parameters::
+    make_option(c("--build_manifest"), action="store_true", default=opt$build_manifest, 
+                help="Boolean variable to build basic manifest [default= %default]", metavar="boolean"),
+    make_option(c("--run_improbe"), action="store_true", default=opt$run_improbe, 
+                help="Boolean variable to run improbe [default= %default]", metavar="boolean"),
     
     # Process Parallel/Cluster Parameters::
     make_option(c("--single"), action="store_true", default=opt$single, 
@@ -845,7 +896,6 @@ if (!dir.exists(run$annDir)) dir.create(run$annDir, recursive=TRUE)
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Building Output Directories.{RET}{RET}"))
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                Pre-processing:: Run Time:: Intermediate Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -899,7 +949,12 @@ run$ann_int_csv  <- file.path(run$annDir, paste(opt$runName, 'cpg-pass.annotatio
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Defining Run Time Files.{RET}{RET}"))
 
-if (par$buildManifest) {
+aqp_add_tib <- NULL
+seq_cgn_tib <- NULL
+aqp_bsp_tib <- NULL
+imp_des_tib <- NULL
+
+if (opt$build_manifest) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                  2.1 Functional Manifest Generation::
   #                         AQP Address Workflow()
@@ -907,9 +962,8 @@ if (par$buildManifest) {
   
   par$retData <- TRUE
   par$retData <- FALSE
-  # opt$verbose <- 10
+  opt$verbose <- 100
   
-  aqp_add_tib <- NULL
   stamp_vec <- c(stamp_vec,run$aqp_add_csv)
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     aqp_add_tib <- 
@@ -936,7 +990,6 @@ if (par$buildManifest) {
   #                         CGN Mapping Workflow()
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  seq_cgn_tib <- NULL
   stamp_vec <- c(stamp_vec, 
                  run$int_u49_tsv,
                  run$int_m49_tsv,
@@ -944,15 +997,15 @@ if (par$buildManifest) {
   
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
-    if (par$local_runType=="Chicago") opt$ord_des_csv <- NULL
+    # if (par$local_runType=="Chicago") opt$ord_des_csv <- NULL
+    opt$ord_des_csv <- NULL
     
     seq_cgn_tib <- cgn_mapping_workflow(
       ref_u49=run$imp_u49_tsv,can_u49=run$aqp_u49_tsv,out_u49=run$int_u49_tsv,
       ref_m49=run$imp_m49_tsv,can_m49=run$aqp_m49_tsv,out_m49=run$int_m49_tsv,
       idxA=1, idxB=1,
       ord=opt$ord_des_csv,
-      verbose=opt$verbose,tt=pTracker
-    )
+      verbose=opt$verbose,tt=pTracker)
 
     # TBD:: The writing function should be moved to cgn_mapping_workflow()
     safe_write(seq_cgn_tib,"tsv",run$int_seq_tsv, funcTag=par$prgmTag,
@@ -970,7 +1023,6 @@ if (par$buildManifest) {
   #                  3.3 Join Address and Alignment Data:: BSMAP
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  aqp_bsp_tib <- NULL
   stamp_vec <- c(stamp_vec, run$aqp_bsp_tsv)
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
@@ -1006,7 +1058,6 @@ if (par$buildManifest) {
   #                       4.0 improbe fwd design::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  imp_des_tib <- NULL
   stamp_vec <- c(stamp_vec, 
                  run$imp_inp_tsv,
                  run$imp_des_tsv,
@@ -1076,7 +1127,8 @@ if (opt$verbose>0)
 #
 if (!is.null(add_cgn_inn)) {
   add_cgn_inn1 <- add_cgn_inn %>%
-    dplyr::arrange(Can_Scr,-Imp_Hit_hg37) %>%
+    # dplyr::arrange(Can_Scr,-Imp_Hit_hg37) %>%
+    dplyr::arrange(-Imp_Hit_hg37) %>%
     dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>% 
     dplyr::mutate(
       Mat_Cgn=dplyr::case_when(
@@ -1092,7 +1144,8 @@ if (!is.null(add_cgn_inn)) {
   rm(add_cgn_sum1)
   
   add_cgn_inn2 <- add_cgn_inn %>%
-    dplyr::arrange(Can_Scr,Imp_Hit_hg37) %>%
+    # dplyr::arrange(Can_Scr,Imp_Hit_hg37) %>%
+    dplyr::arrange(-Imp_Hit_hg37) %>%
     dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>% 
     dplyr::mutate(
       Mat_Cgn=dplyr::case_when(
@@ -1108,7 +1161,8 @@ if (!is.null(add_cgn_inn)) {
   rm(add_cgn_sum2)
   
   add_cgn_inn3 <- add_cgn_inn %>%
-    dplyr::arrange(-Can_Scr,Imp_Hit_hg37) %>%
+    # dplyr::arrange(-Can_Scr,Imp_Hit_hg37) %>%
+    dplyr::arrange(-Imp_Hit_hg37) %>%
     dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>% 
     dplyr::mutate(
       Mat_Cgn=dplyr::case_when(
@@ -1124,7 +1178,8 @@ if (!is.null(add_cgn_inn)) {
   rm(add_cgn_sum3)
 
   add_cgn_inn4 <- add_cgn_inn %>%
-    dplyr::arrange(-Can_Scr,-Imp_Hit_hg37) %>%
+    # dplyr::arrange(-Can_Scr,-Imp_Hit_hg37) %>%
+    dplyr::arrange(-Imp_Hit_hg37) %>%
     dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>% 
     dplyr::mutate(
       Mat_Cgn=dplyr::case_when(
@@ -1304,18 +1359,58 @@ man_pos_grs <-
 #                       6.0 Annotation Conformation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
-  hmm_ann_drn <- paste("GRCh36",opt$genBuild, sep='-')
-  hmm_ann_dir <- file.path(par$topDir, "data/annotation/liftOver/chrom_hmm/wgEncodeBroadHmm/ucsc_liftover_main",hmm_ann_drn)
-  hmm_ann_fns <- list.files(hmm_ann_dir, pattern=".map.bed.gz$", full.names=TRUE, recursive=FALSE)
+  
+  core_anno_dir <- file.path(par$topDir, "data/annotation", opt$genBuild)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       6.2 Load Annotation:: EPIC_CORE
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+  # epic_ann_trim <- c(".bed.gz$",".sorted$",".intersect",".sorted",".formatted")
+  # epic_ann_trim <- c(".sorted.merged.bed.gz",
+  #                    ".sorted.intersect.bed.gz",
+  #                    ".intersect.bed.gz",
+  #                    ".formatted.sorted.bed.gz")
+  
+  epic_ann_trim <- c(".bed.gz$")
+  epic_ann_path <- file.path(core_anno_dir, "EPIC_CORE")
+  epic_ann_file <- list.dirs(epic_ann_path, full.names = TRUE)[-1] 
+  epic_dir_list <- as.list(epic_ann_file)
+  names(epic_dir_list) <- base::basename(epic_ann_file)
+  
+  epic_int_list <- NULL
+  for (source in names(epic_dir_list)) {
+    file_list <- get_file_list(
+      dir=epic_dir_list[[source]], pattern=epic_ann_trim[1],
+      trim=epic_ann_trim,
+      verbose=opt$verbose)
+    
+    epic_out_path <- file.path(core_anno_dir, "EPIC_CORE_CLEAN")
+    epic_tib_list <- lapply(file_list, grs=FALSE, load_epic_anno, source=source,
+                            out=epic_out_path,
+                            verbose=opt$verbose)
+    
+    next
+    if (FALSE) {
+      epic_grs_list <- lapply(file_list, grs=TRUE, load_epic_anno, source=source, 
+                              verbose=opt$verbose)
+      epic_int_list <- c(epic_int_list,
+                         lapply(epic_grs_list, intersect_GRS, can=man_pos_grs, 
+                                can_key="IlmnID", ref_prefix=NULL,
+                                verbose=opt$verbose, tt=pTracker)
+      )
+    }
+  }
+
+  # Functionalize: Chrom_HMM and EPIC Annotation lists
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       6.3 Load Annotation:: NCBI/UCSC
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  core_anno_dir <- file.path(par$topDir, "data/annotation", opt$genBuild)
-  ncib_gene_tsv <- file.path(core_anno_dir, paste(opt$genBuild,"ncbi.RefSeqGenes.tsv.gz", sep='.'))
-  ucsc_gene_tsv <- file.path(core_anno_dir, paste(opt$genBuild,"ucsc.knownGene.tsv.gz", sep='.'))
-  ucsc_cpgs_tsv <- file.path(core_anno_dir, paste(opt$genBuild,"ucsc.CpG-Islands.tsv.gz", sep='.'))
+  ncib_gene_tsv <- file.path(core_anno_dir, "NCBI", paste(opt$genBuild,"ncbi.RefSeqGenes.tsv.gz", sep='.'))
+  ucsc_gene_tsv <- file.path(core_anno_dir, "UCSC", paste(opt$genBuild,"ucsc.knownGene.tsv.gz", sep='.'))
+  ucsc_cpgs_tsv <- file.path(core_anno_dir, "UCSC", paste(opt$genBuild,"ucsc.CpG-Islands.tsv.gz", sep='.'))
   
   ncbi_gene_tib <- load_ncbi_gene(file=ncib_gene_tsv, verbose=opt$verbose, tt=pTracker)
   ucsc_gene_tib <- load_ucsc_gene(file=ucsc_gene_tsv, verbose=opt$verbose, tt=pTracker)
@@ -1396,6 +1491,10 @@ if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       6.4 Load Annotation:: Chrom HMM
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  hmm_ann_drn <- paste("GRCh36",opt$genBuild, sep='-')
+  hmm_ann_dir <- file.path(par$topDir, "data/annotation/liftOver/chrom_hmm/wgEncodeBroadHmm/ucsc_liftover_main",hmm_ann_drn)
+  hmm_ann_fns <- list.files(hmm_ann_dir, pattern=".map.bed.gz$", full.names=TRUE, recursive=FALSE)
+  
   hmm_cols <- 
     cols(
       chr    = col_character(),

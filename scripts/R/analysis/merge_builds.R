@@ -53,9 +53,13 @@ par$prgmTag <- 'merge_builds'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Predefined human sample sheet name::
-par$humanSampleSheetName <- 'humanSampleSheet.csv'
-opt$joinType <- "full"
-par$noob_sub <- FALSE
+opt$joinType    <- "full"
+opt$selectType  <- "inner"
+opt$clean_gta   <- FALSE
+opt$forceUnq    <- TRUE
+
+par$noob_sub    <- FALSE
+par$auto_suffix <- 'AutoSampleSheet.csv.gz'
 
 # File Based Parameters::
 opt$inputsCsv <- NULL
@@ -76,10 +80,6 @@ opt$classVar <- 'Karyotype_0_Call'
 opt$classVar <- 'Sample_Name'
 opt$classVar <- 'Sample_Class'
 opt$workflow <- NULL
-
-opt$select <- FALSE
-opt$clean_gta <- FALSE
-opt$forceUnq  <- TRUE
 
 # Sample Sheet Parameters::
 opt$addSampleName    <- FALSE
@@ -219,16 +219,17 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'EPIC-8x1-EM-Sample-Prep'
   par$local_runType <- 'NA12878'
   par$local_runType <- 'qcMVP2'
+  par$local_runType <- 'EPIC-8x1-Chicago-Ober'
   par$local_runType <- 'Chicago-Ober-Custom'
   
   if (FALSE) {
     
-  } else if (par$local_runType=='Chicago-Ober-Custom') {
+  } else if (par$local_runType=='EPIC-8x1-Chicago-Ober') {
     opt$runName  <- par$local_runType
     
-    opt$workflow    <- "ind"
     opt$workflow    <- "nd"
     opt$workflow    <- "raw"
+    opt$workflow    <- "ind"
     
     opt$single   <- FALSE
     # opt$parallel <- TRUE
@@ -244,12 +245,14 @@ if (args.dat[1]=='RStudio') {
     
     opt$classVar <- "AutoSample_R2_Key_3"
     opt$classVar <- "Sample_Class"
+    
+    # opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets/Chicago_Custom_36.sampleSheet.csv.gz")
+    opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets/Chicago_EPIC_36.sampleSheet.csv.gz")
+    opt$manifest  <- file.path(par$datDir, "manifest/core/EPIC-B4.manifest.sesame-base.cpg-sorted.csv.gz")
 
-    opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets/Chicago_Custom_36.sampleSheet.csv.gz")
-        
     opt$datDir <- paste(
       # file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38/swifthoof_main"),
-      file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38",par$vstr,"swifthoof_main"),
+      file.path(par$topDir, 'scratch/swifthoof',opt$runName,"EPIC/B4",par$vstr,"swifthoof_main"),
       sep=',')
     
     opt$runName <- paste(opt$runName,par$vstr, sep="-")
@@ -262,8 +265,63 @@ if (args.dat[1]=='RStudio') {
     #
     # opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
     # auto_sam_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$auto_sam_csv) ))
-
     
+  } else if (par$local_runType=='Chicago-Ober-Custom') {
+    opt$runName  <- par$local_runType
+    
+    opt$verbose <- 10
+    
+    opt$workflow    <- "raw"
+    opt$workflow    <- "nd"
+    opt$workflow    <- "ind"
+    
+    # opt$parallel <- TRUE
+    opt$single     <- FALSE
+    opt$selectType <- "inner"
+
+    opt$platform <- NULL
+    opt$version  <- NULL
+    opt$forceUnq <- FALSE
+    
+    par$vstr <- ""
+    par$vstr <- "v1"
+    par$vstr <- "v2"
+    par$vstr <- "v3"
+    
+    opt$classVar <- "AutoSample_R2_Key_3"
+    opt$classVar <- "Sample_Class"
+    
+    par$chip_select <- "23"
+    par$chip_select <- "24"
+    par$chip_select <- "34"
+    
+    opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets",par$ss_name)
+    opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets/Chicago_Custom_36.true.sampleSheet.csv.gz")
+    opt$manifest  <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz")
+    
+    opt$datDir <- paste(
+      file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38",par$vstr,"swifthoof_main"),
+      sep=',')
+    
+    # For standard all data::
+    #
+    par$ss_name <- paste0("Chicago_Custom_36.true.sampleSheet.csv.gz")
+    opt$runName <- paste(opt$runName,par$vstr, sep="-")
+    
+    # For chip_select::
+    #
+    # par$ss_name <- paste0("Chicago_Custom_36-",par$chip_select,".true.sampleSheet.csv.gz")
+    # opt$runName <- paste(opt$runName,par$vstr,par$chip_select, sep="-")
+    
+    # TBD:: Build extended Chicago Auto Sample Sheet
+    #
+    #   Sentrix_Name        cg_calls_pass_perc_1 cg_pvals_PnegEcdf_pass_perc_1 cg_pvals_PnegEcdf_pass_perc_2 Sample_Class
+    # 1 205271030023_R01C02                 89.7                          99.7                          99.7 Asthma7YrNeg
+    # 5 205271030024_R06C01                 89.3                          99.9                          99.9 Asthma7YrPos
+    #
+    # opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+    # auto_sam_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$auto_sam_csv) ))
+
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     opt$runName  <- par$local_runType
     
@@ -604,9 +662,9 @@ if (args.dat[1]=='RStudio') {
                 help="Human provide sample sheet labeling [default= %default]", metavar="character"),
     make_option(c("--manifest"), type="character", default=opt$manifest, 
                 help="Human provide manifest [default= %default]", metavar="character"),
-    make_option(c("--select"), action="store_true", default=opt$select, 
-                help="Boolean variable to only select samples from provided sample sheet [default= %default]", metavar="boolean"),
-    
+    make_option(c("--selectType"), type="character", default=opt$selectType, 
+                help="Select join method for human provided sample sheet [inner, left] [default= %default]", metavar="character"),
+
     make_option(c("--findSampleSheet"), action="store_true", default=opt$findSampleSheet,
                 help="Boolean variable to search or human provided sample sheet in build directories [default= %default]", metavar="boolean"),
     
@@ -765,30 +823,16 @@ auto_ss_tib <- NULL
 for (curDir in blds_dir_vec) {
   
   if (!dir.exists(curDir)) {
-    cat(glue::glue("[{par$prgmTag}]:{TAB} Failed to find dir={curDir}, skipping...{RET}") )
+    cat(glue::glue("[{par$prgmTag}]:{TAB} Failed to find dir={curDir}, ",
+                   "skipping...{RET}") )
     next
   }
-  
-  if (opt$findSampleSheet) {
-    
-    cur_hm_csv <- file.path(curDir, par$humanSampleSheetName)
-    cat(glue::glue("[{par$prgmTag}]:{TAB}Loading Human Classification; cur_hm_csv={cur_hm_csv}!{RET}") )
-    
-    cur_hm_tib <- suppressMessages(suppressWarnings( readr::read_csv(cur_hm_csv) ))
-    cur_hm_len <- cur_hm_tib %>% base::nrow()
-    cat(glue::glue("[{par$prgmTag}]:{TAB}Done. Loading Human Classification; cur_hm_len={cur_hm_len}!{RET}{RET}") )
-    # print(cur_hm_tib)
-    
-    hum_ss_tib <- dplyr::bind_rows(hum_ss_tib,cur_hm_tib)
-  }
-  
-  suffix='AutoSampleSheet.csv.gz'
   
   cur_ss_tib <- NULL
   cur_ss_tib <- 
     loadAutoSampleSheets(dir=curDir, 
                          platform=opt$platform, manifest=opt$version, 
-                         workflow=opt$workflow, suffix=suffix,
+                         workflow=opt$workflow, suffix=par$auto_suffix,
                          
                          addSampleName=opt$addSampleName, 
                          addPathsCall=opt$addPathsCall, 
@@ -805,8 +849,9 @@ for (curDir in blds_dir_vec) {
   
   if (is.null(cur_ss_tib)) {
     if (opt$verbose>0)
-      cat(glue::glue("[{par$prgmTag}]:{TAB} Failed to find any suffix={suffix} ",
-                     "in dir={curDir}. Skipping...{RET}") )
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Failed to find any ",
+                     "suffix={par$auto_suffix} in dir={curDir}. ",
+                     "Skipping...{RET}") )
     next
   }
   
@@ -852,12 +897,15 @@ if (opt$forceUnq) {
 #                   Expand Class Variable if its a Double::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-class_type <- auto_ss_tib %>% 
-  dplyr::select(!!class_var) %>% 
-  purrr::map_chr(pillar::type_sum) %>% 
-  paste(collapse = "_")
+class_type <- NULL
+if (opt$classVar %in% names(auto_ss_tib)) {
+  class_type <- auto_ss_tib %>% 
+    dplyr::select(!!class_var) %>% 
+    purrr::map_chr(pillar::type_sum) %>% 
+    paste(collapse = "_")
+}
 
-if (class_type=="dbl") {
+if (!is.null(class_type) && class_type=="dbl") {
   if (opt$verbose>0)
     cat(glue::glue("[{par$prgmTag}]:{TAB} Splitting detect_manifest...{RET}"))
   
@@ -1206,7 +1254,8 @@ if (par$noob_sub || par$chig_sub) {
 
 labs_ss_tib <- NULL
 if (!is.null(hum_ss_tib)) {
-  cat(glue::glue("[{par$prgmTag}]: Adding default class_var='{opt$classVar}'{RET}") )
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Adding default class_var='{opt$classVar}'{RET}") )
   
   if (par$noob_sub) {
     labs_ss_tib <- auto_ss_tib %>% 
@@ -1220,36 +1269,42 @@ if (!is.null(hum_ss_tib)) {
   }
   
 } else if (!is.null(opt$sampleCsv) && file.exists(opt$sampleCsv)) {
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Loading predfined human classification; ",
+                   "sampleCsv='{opt$sampleCsv}'{RET}") )
   
-  cat(glue::glue("[{par$prgmTag}]: Loading predfined human classification; sampleCsv='{opt$sampleCsv}'{RET}") )
-  
-  hum_ss_tib <- suppressMessages(suppressWarnings( readr::read_csv(opt$sampleCsv) )) %>% 
+  hum_ss_tib <- 
+    suppressMessages(suppressWarnings( readr::read_csv(opt$sampleCsv) )) %>% 
     dplyr::mutate(Sentrix_Name=paste(Sentrix_ID,Sentrix_Position, sep='_')) %>% 
     dplyr::select(Sentrix_Name,Sample_Class, dplyr::everything())
   hum_ss_len <- hum_ss_tib %>% base::nrow()
-  cat(glue::glue("[{par$prgmTag}]: Done. Loading Human Classification; hum_ss_len={hum_ss_len}!{RET}{RET}") )
-  # print(hum_ss_tib)
   
-  # Left Join now that we will force Sample_Class to nSARSCov2 (COVID-) below
-  # labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
-  #
-  if (opt$select) {
-    labs_ss_tib <- auto_ss_tib %>% dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
-  } else {
-    labs_ss_tib <- auto_ss_tib %>% dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% dplyr::arrange(!!class_var)
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Done. Loading Human Classification; ",
+                   "hum_ss_len={hum_ss_len}!{RET}{RET}") )
+  
+  if (opt$selectType=="inner") {
+    labs_ss_tib <- auto_ss_tib %>% 
+      dplyr::inner_join(hum_ss_tib, by="Sentrix_Name") %>% 
+      dplyr::arrange(!!class_var)
+  } else if (opt$selectType=="left") {
+    labs_ss_tib <- auto_ss_tib %>% 
+      dplyr::left_join(hum_ss_tib, by="Sentrix_Name") %>% 
+      dplyr::arrange(!!class_var)
+  } else{
+    stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported select ",
+                    "method={opt$selectType}!!!{RET}{RET}") )
+    labs_ss_tib <- NULL
   }
 } else {
   if (opt$verbose>0)
-    cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; classVar='{opt$classVar}'{RET}") )
+    cat(glue::glue("[{par$prgmTag}]: Using Auto Classification; ",
+                   "classVar='{opt$classVar}'{RET}") )
   
   labs_ss_tib <- auto_ss_tib
 }
-
-labs_ss_len <- labs_ss_tib %>% base::nrow()
-if (opt$verbose>0)
-  cat(glue::glue("[{par$prgmTag}]: Done. Joining Human Classification ",
-                 "and Auto Sample Sheets; Total={labs_ss_len}.{RET}{RET}"))
-print_tib(labs_ss_tib,par$prgmTag, opt$verbose,vt=10,tc=1, n="labs_ss_tib")
+labs_ss_cnt <- print_tib(labs_ss_tib,par$prgmTag, 
+                         opt$verbose,vt=4,tc=1, n="labs_ss_tib")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Import Datasets (Calls)::

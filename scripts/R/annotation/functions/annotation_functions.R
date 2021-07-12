@@ -313,142 +313,241 @@ manifestToAnnotation = function(tib, ann, gen, csv=NULL, key="Seq_ID",
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                          Intersection Method::
+#                  Standard EPIC Annotation Loading Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-intersectGranges = function(man,ref,
-                            verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'intersectGranges'
+load_epic_anno = function(file,grs=FALSE, source="EPIC", tissue="All",
+                          out=NULL,
+                          sel_col=c("chr","beg","end","srd",
+                                    "name","name2","class",
+                                    "source","tissue","rank",
+                                    "unq_key","evidence"),
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='load_epic_anno') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
+  val_col <- 
+    cols(
+      chr  = col_character(),
+      beg  = col_integer(),
+      end  = col_integer(),
+      srd  = col_character(),
+      unq_key  = col_character(),
+      name2 = col_character()
+    )
+  
   ret_cnt <- 0
   ret_tib <- NULL
-  stime <- system.time({
+  stime <- base::system.time({
     
-    if (! purrr::is_list(ref)) {
-      map_tib <- 
-        GenomicRanges::findOverlaps(man,ref, ignore.strand=TRUE) %>%
-        as.data.frame() %>% tibble::as_tibble()
-      
-      mani_tib <- man %>% as.data.frame() %>%
-        rownames_to_column(var='Seq_ID') %>% tibble::as_tibble() 
-      mani_len <- mani_tib %>% base::nrow()
-      
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} mani_tib({mani_len})={RET}"))
-        print(mani_tib)
-      }
-      
-      gene_tib <- ref %>% as.data.frame() %>%
-        rownames_to_column(var='Name') %>% tibble::as_tibble() # %>% 
-      # purrr::set_names(c('Gene','chrom','chromStart','chromEnd','chromLength','chromStrand'))
-      gene_len <- gene_tib %>% base::nrow()
-      
-      #
-      # TBD::
-      # TBD:: Lame way to fix this; the code commented out above:
-      # TBD::
-      #
-      colnames(gene_tib)[1] <- "Gene"
-      colnames(gene_tib)[2] <- "chrom"
-      colnames(gene_tib)[3] <- "chromStart"
-      colnames(gene_tib)[4] <- "chromEnd"
-      colnames(gene_tib)[5] <- "chromLength"
-      colnames(gene_tib)[6] <- "chromStrand"
-      
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} gene_tib({gene_len})={RET}"))
-        print(gene_tib)
-      }
-      
-      #
-      # Last change:: # dplyr::select(Seq_ID),
-      #
-      cur_tib <- dplyr::bind_cols(
-        mani_tib[map_tib$queryHits, ], # %>% dplyr::select(Seq_ID),
-        gene_tib[map_tib$subjectHits,] ) # %>% dplyr::mutate(Feature=feat_key)
-      cur_len <- cur_tib %>% base::nrow()
-      
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} cur_tib({cur_len})={RET}"))
-        print(cur_tib)
-      }
-      ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data({source})={file}...{RET}"))
+    
+    file_type <- guess_file_del(file)
+
+    if (file_type==COM) {
+      ret_tib <- 
+        readr::read_csv(file, col_names=names(val_col$cols), col_types=val_col)
+    } else if (file_type==TAB) {
+      ret_tib <- 
+        readr::read_tsv(file, col_names=names(val_col$cols), col_types=val_col)
+    } else if (file_type==" ") {
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: file_type=Single-Space!!!{RET}{RET}"))
+      return(ret_tib)
     } else {
-      for (feat_key in names(ref)) {
-        if (verbose>=vt)
-          cat(glue::glue("[{funcTag}]:{tabsStr} GRange Overlap; feature={feat_key}...{RET}"))
-        
-        map_tib <- 
-          GenomicRanges::findOverlaps(man,ref[[feat_key]], ignore.strand=TRUE) %>%
-          as.data.frame() %>% tibble::as_tibble()
-        map_len <- base::nrow(map_tib)
-        
-        if (verbose>=vt+4) {
-          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; man={RET}"))
-          print(man)
-          
-          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; ref={RET}"))
-          print(ref[[feat_key]])
-          
-          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; map_tib={map_len}{RET}"))
-          print(map_tib)
-          
-          cat(glue::glue("[{funcTag}]:{tabsStr}{RET}{RET}"))
-        }
-        
-        mani_tib <- man %>% as.data.frame() %>%
-          rownames_to_column(var='Seq_ID') %>% tibble::as_tibble() 
-        mani_len <- mani_tib %>% base::nrow()
-        
-        if (verbose>=vt+4) {
-          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; mani_tib({mani_len})={RET}"))
-          print(mani_tib)
-        }
-        
-        gene_tib <- ref[[feat_key]] %>% as.data.frame() %>% 
-          rownames_to_column(var='Name') %>% tibble::as_tibble() %>% 
-          purrr::set_names(c('Gene','chrom','chromStart','chromEnd','chromLength','chromStrand'))
-        gene_len <- gene_tib %>% base::nrow()
-        
-        if (verbose>=vt+4) {
-          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; gene_tib({gene_len})={RET}"))
-          print(gene_tib)
-        }
-        
-        cur_tib <- dplyr::bind_cols(
-          # tib[map_tib$queryHits, ] %>% dplyr::select(Seq_ID),
-          mani_tib[map_tib$queryHits, ] %>% dplyr::select(Seq_ID),
-          gene_tib[map_tib$subjectHits,] ) %>%
-          dplyr::mutate(Feature=feat_key)
-        cur_len <- cur_tib %>% base::nrow()
-        
-        if (verbose>=vt+4) {
-          cat(glue::glue("[{funcTag}]:{tabsStr} feature={feat_key}; cur_tib({cur_len})={RET}"))
-          print(cur_tib)
-        }
-        ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
-      }
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: file_type=NULL!!!{RET}{RET}"))
+      return(ret_tib)
     }
+    ret_key <- glue::glue("ret-raw({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
     
-    ret_cnt <- ret_tib %>% base::nrow()
+    #
+    # Determine the data size field 'name2'
+    #
+    dat_len <- ret_tib %>% 
+      dplyr::pull(name2) %>% head(n=1) %>%
+      stringr::str_split(pattern="[-:]", simplify = TRUE) %>% 
+      as.vector() %>% length()
+    if (verbose>=vt+4)
+      cat(glue::glue("[{funcTag}]:{tabsStr} dat_len={dat_len}.{RET}"))
+    
+    ret_tib <- ret_tib %>% # head(4) %>%
+        # dplyr::select(chr,beg,end,srd,name2) %>%
+        dplyr::mutate(name2=stringr::str_replace(name2, ".evd=", ":"),
+                      dat_len=dat_len)
+    ret_key <- glue::glue("ret-spt({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+
+    # name2=transcript/chr-beg-end
+    # name =gene
+    #
+    if (dat_len==1) {
+      # class = name2 (DMR)
+      # name  = chr-beg-end
+      # name2 = name
+      # evidence = 0 [default]
+      #
+      # [DONE]: Files formatted
+      
+      ret_tib <- ret_tib %>%
+        dplyr::mutate(class=name2,
+                      name2=paste(chr,beg,end, sep="-"),
+                      name=paste(chr,beg,end, sep="-"),
+                      evidence=as.integer(0)
+        )
+
+    } else if (dat_len==4) {
+      # class = n1
+      # name  = chr-beg-end
+      # name2 = n2-n3-n4
+      # source = UCSC
+      # evidence = n5
+      #   - Fix Evidence field [0-9]+
+      #
+      # QUESTION: collapse source from UCSC_Island to just UCSC
+      #   NOTE: evidence in this case is CpG Count:
+      #      Leave that for technical writing and marketing to explain...
+      #
+      #
+      # [Done]: File modifications and directory collapse
+      #
+      all_col <- c("n1","n2","n3","n4","n5")
+
+      ret_tib <- ret_tib %>%
+        tidyr::separate(name2, into=all_col, sep="[:]") %>%
+        dplyr::mutate(class=n1,
+                      name=paste(chr,beg,end, sep="-"),
+                      name2=paste(n2,n3,n4, sep="-"),
+                      evidence=as.integer(n5)
+        )
+      
+      
+    } else if (dat_len==5) {
+      # This should be true:
+      #   all_tib %>% filter(Len==5 & (chr!=n3 | beg!=n4 | end!=n5))
+      #
+      # Source and Class will take some file manipulation
+      #   1. TFBS_PeakSeq-based_Peaks -> TFBS_PeakSeq_based_Peaks
+      #
+      # class = n1 Dnase1,TFBS.../Enhacners
+      # name  = n3-n4-n5
+      # name2 = name
+      # source = ENCODE/PHANTOM
+      # evidence = n6
+      #   - Fix Evidence field [0-9]+
+      #
+      # [Done]: Fixed TFBS name to change - to _
+      # [Done]: DNase's
+      # [Done]: Phantom5
+      #
+      all_col <- c("n1","n2","n3","n4","n5","n6")
+      
+      ret_tib <- ret_tib %>%
+        tidyr::separate(name2, into=all_col, sep="[:]") %>%
+        dplyr::mutate(class=n1,
+                      name=paste(n3,n4,n5, sep="-"),
+                      name2=name,
+                      evidence=as.integer(n6)
+        )
+
+    } else if (dat_len==6) {
+      # class = n1
+      # name  = n4
+      # name2 = n3
+      # evidence = n6
+      all_col <- c("n1","n2","n3","n4","n5","n6")
+      
+      ret_tib <- ret_tib %>%
+        tidyr::separate(name2, into=all_col, sep="[:]") %>%
+        dplyr::mutate(class=n1,
+                      name=n4,
+                      name2=n3,
+                      evidence=as.integer(0)
+        )
+    } else if (dat_len==7) {
+      # class = n1
+      # name  = n4
+      # name2 = n5
+      # evidence = n6
+      all_col <- c("n1","n2","n3","n4","n5","n6","n7")
+      
+      ret_tib <- ret_tib %>%
+        tidyr::separate(name2, into=all_col, sep="[:]") %>%
+        dplyr::mutate(class=n1,
+                      name=n4,
+                      name2=n3,
+                      evidence=as.integer(n7)
+        )
+    } else {
+      cat("Unsupported length=",dat_len,"\n")
+    }
+    ret_tib <- ret_tib %>% 
+      dplyr::mutate(source=source,tissue=tissue) %>%
+      dplyr::group_by(class) %>%
+      dplyr::mutate(rank=dplyr::row_number()) %>%
+      dplyr::ungroup() %>%
+      dplyr::arrange(chr,beg,end) %>%
+      dplyr::select(dplyr::all_of(sel_col))
+    
+    if (!is.null(out)) {
+      out_file <- file.path(out, source, base::basename(file))
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing; out={out_file}{RET}"))
+
+      safe_write(x=ret_tib,type="tsv",file=out_file,done=TRUE,funcTag=funcTag, 
+                 verbose=verbose,vt=vt,tc=tc,append=FALSE)
+    }   
+    
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    
+    if (grs) {
+      if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
+      ret_tib = 
+        GenomicRanges::GRanges(
+          seqnames=Rle(ret_tib$chr), 
+          strand=Rle(ret_tib$srd),
+          
+          name=ret_tib$name,
+          name2=ret_tib$name2,
+          class=ret_tib$class,
+          source=ret_tib$source,
+          tissue=ret_tib$tissue,
+          rank=ret_tib$rank,
+          evidence=ret_tib$evidence,
+          
+          IRanges(start=ret_tib$beg, 
+                  end=ret_tib$end, 
+                  names=ret_tib$unq_key)
+        )
+    }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; ",
+                   "Return Count={ret_cnt}; ",
+                   "elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ",
+                   "----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                       Standard UCSC Loading Methods::
+#                 Standard NCBI Annnotation Loading Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 load_ncbi_gene = function(file,grs=FALSE,
-                          source="NCBI",tissue="All",
-                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'load_ncbi_gene'
+                          source="NCBI",tissue="All",out=NULL,
+                          sel_col=c("chr","beg","end","srd",
+                                    "name","name2","class",
+                                    "source","tissue","rank",
+                                    "unq_key","evidence"),
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='load_ncbi_gene') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -535,9 +634,22 @@ load_ncbi_gene = function(file,grs=FALSE,
       ) %>% 
       dplyr::group_by(class) %>%
       dplyr::mutate(rank=dplyr::row_number(),
-                    unq_key=paste(class,rank, sep="_")) %>%
+                    unq_key=paste(class,rank, sep="_"),
+                    evidence=as.integer(0)) %>%
       dplyr::ungroup() %>%
-      dplyr::arrange(chr,beg,end)
+      dplyr::arrange(chr,beg,end) %>%
+      dplyr::select(dplyr::all_of(sel_col))
+    
+    if (!is.null(out)) {
+      out_file <- file.path(out, source, base::basename(file))
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing; out={out_file}{RET}"))
+      
+      safe_write(x=ret_tib,type="tsv",file=out_file,done=TRUE,funcTag=funcTag, 
+                 verbose=verbose,vt=vt,tc=tc,append=FALSE)
+    }
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
     
     if (grs) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
@@ -559,9 +671,6 @@ load_ncbi_gene = function(file,grs=FALSE,
                   end=ret_tib$end, 
                   names=ret_tib$unq_key)
         )
-      ret_cnt <- ret_grs %>% names %>% length()
-    } else {
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -571,10 +680,18 @@ load_ncbi_gene = function(file,grs=FALSE,
   ret_tib
 }
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                 Standard UCSC Annotation Loading Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 load_ucsc_gene = function(file,grs=FALSE,
-                          source="UCSC",tissue="All",
-                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'load_ucsc_gene'
+                          source="UCSC",tissue="All",out=NULL,
+                          sel_col=c("chr","beg","end","srd",
+                                    "name","name2","class",
+                                    "source","tissue","rank",
+                                    "unq_key","evidence"),
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='load_ucsc_gene') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -656,10 +773,23 @@ load_ucsc_gene = function(file,grs=FALSE,
       ) %>% 
       dplyr::group_by(class) %>%
       dplyr::mutate(rank=dplyr::row_number(),
-                    unq_key=paste(class,rank, sep="_")) %>%
+                    unq_key=paste(class,rank, sep="_"),
+                    evidence=as.integer(0)) %>%
       dplyr::ungroup() %>%
-      dplyr::arrange(chr,beg,end)
+      dplyr::arrange(chr,beg,end) %>%
+      dplyr::select(dplyr::all_of(sel_col))
     
+    if (!is.null(out)) {
+      out_file <- file.path(out, source, base::basename(file))
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing; out={out_file}{RET}"))
+      
+      safe_write(x=ret_tib,type="tsv",file=out_file,done=TRUE,funcTag=funcTag, 
+                 verbose=verbose,vt=vt,tc=tc,append=FALSE)
+    }
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+
     if (grs) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
       ret_tib = 
@@ -678,11 +808,7 @@ load_ucsc_gene = function(file,grs=FALSE,
                   end=ret_tib$end, 
                   names=ret_tib$unq_key)
         )
-      ret_cnt <- ret_grs %>% names %>% length()
-    } else {
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
     }
-    
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -692,9 +818,13 @@ load_ucsc_gene = function(file,grs=FALSE,
 }
 
 load_ucsc_cpgs = function(file, grs=FALSE,
-                          source="UCSC",tissue="All",
-                          verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'load_ucsc_cpgs'
+                          source="UCSC",tissue="All",out=NULL,
+                          sel_col=c("chr","beg","end","srd",
+                                    "name","name2","class",
+                                    "source","tissue","rank",
+                                    "unq_key","evidence"),
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='load_ucsc_cpgs') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -704,7 +834,7 @@ load_ucsc_cpgs = function(file, grs=FALSE,
     
     if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Loading Raw Data={file}...{RET}"))
     dat_tib <- suppressMessages(suppressWarnings( readr::read_tsv(file) )) %>% 
-      dplyr::mutate(name=paste0(chrom,'-',chromStart,'-',chromEnd))
+      dplyr::mutate(name2=paste0(chrom,'-',chromStart,'-',chromEnd))
     
     ret_tib <- dplyr::bind_rows(
       
@@ -712,8 +842,7 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      beg=dat_tib$chromStart-4000,
                      end=dat_tib$chromStart-2000,
                      srd="+",
-                     name2=NA_character_,
-                     name=dat_tib$name,
+                     name2=dat_tib$name2,
                      class="NShelf",
                      source=source,
                      tissue=tissue
@@ -723,8 +852,7 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      beg=dat_tib$chromStart-2000,
                      end=dat_tib$chromStart,
                      srd="+",
-                     name2=NA_character_,
-                     name=dat_tib$name,
+                     name2=dat_tib$name2,
                      class="NShore",
                      source=source,
                      tissue=tissue
@@ -734,8 +862,7 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      beg=dat_tib$chromStart,
                      end=dat_tib$chromEnd,
                      srd="+",
-                     name2=NA_character_,
-                     name=dat_tib$name,
+                     name2=dat_tib$name2,
                      class="Island",
                      source=source,
                      tissue=tissue
@@ -745,8 +872,7 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      beg=dat_tib$chromEnd,
                      end=dat_tib$chromEnd+2000,
                      srd="+",
-                     name2=NA_character_,
-                     name=dat_tib$name,
+                     name2=dat_tib$name2,
                      class="SShore",
                      source=source,
                      tissue=tissue
@@ -756,8 +882,7 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                      beg=dat_tib$chromEnd+2000,
                      end=dat_tib$chromEnd+4000,
                      srd="+",
-                     name2=NA_character_,
-                     name=dat_tib$name,
+                     name2=dat_tib$name2,
                      class="SShelf",
                      source=source,
                      tissue=tissue
@@ -765,9 +890,23 @@ load_ucsc_cpgs = function(file, grs=FALSE,
     ) %>% 
       dplyr::group_by(class) %>%
       dplyr::mutate(rank=dplyr::row_number(),
-                    unq_key=paste(class,rank, sep="_")) %>%
+                    unq_key=paste(class,rank, sep="_"),
+                    name=paste(chr,beg,end, sep="-"),
+                    evidence=as.integer(0)) %>%
       dplyr::ungroup() %>%
-      dplyr::arrange(chr,beg,end)
+      dplyr::arrange(chr,beg,end) %>%
+      dplyr::select(dplyr::all_of(sel_col))
+    
+    if (!is.null(out)) {
+      out_file <- file.path(out, source, base::basename(file))
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing; out={out_file}{RET}"))
+      
+      safe_write(x=ret_tib,type="tsv",file=out_file,done=TRUE,funcTag=funcTag, 
+                 verbose=verbose,vt=vt,tc=tc,append=FALSE)
+    }
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
     
     if (grs) {
       if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
@@ -787,9 +926,6 @@ load_ucsc_cpgs = function(file, grs=FALSE,
                   end=ret_tib$end, 
                   names=ret_tib$unq_key)
         )
-      ret_cnt <- ret_grs %>% names %>% length()
-    } else {
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
     }
     
   })
@@ -801,7 +937,8 @@ load_ucsc_cpgs = function(file, grs=FALSE,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                       Standard UCSC Loading Methods:: OLD
+#                   Standard UCSC Loading Methods:: OLD CODE
+#                           SHOULD BE DELETED!!
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 loadNcbiGeneGR = function(file,

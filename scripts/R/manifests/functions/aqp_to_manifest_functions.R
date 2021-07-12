@@ -38,10 +38,10 @@ template_func = function(tib,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+
   ret_tib
 }
 
@@ -276,13 +276,15 @@ aqp_address_workflow = function(ord,
     if (retData) ret_dat$add <- ret_tib
     
     # Overall Summary::
-    if (verbose>=vt+4) {
-      aqp_add_sum <- aqp_add_tib %>% 
-        dplyr::group_by(Aqp_Idx,Ord_Des,Ord_Din) %>%
-        dplyr::summarise(Count=n(), .groups="drop")
-      aqp_add_sum %>% print(n=base::nrow(aqp_add_sum))
-    }
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret-fin")
+    # if (verbose>=vt+4) {
+    #   aqp_add_sum <- aqp_add_tib %>% 
+    #     dplyr::group_by(dplyr::any_of(c("Aqp_Idx","Ord_Des","Ord_Din"))) %>%
+    #     dplyr::summarise(Count=n(), .groups="drop")
+    #   aqp_add_sum %>% print(n=base::nrow(aqp_add_sum))
+    # }
+    
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -300,7 +302,10 @@ load_aqp_files = function(file,
                           funcTag='load_aqp_files') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} file={file}.{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -320,7 +325,8 @@ load_aqp_files = function(file,
       dplyr::bind_rows(.id="Ord_Idx") %>%
       clean_tibble()
     
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="Order")
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -342,8 +348,13 @@ load_aqp_file = function(file, idx=NULL,
   if (is.null(file) || length(file)==0)
     return(base::invisible(NULL))
   
-  if (verbose>=vt) 
+  if (verbose>=vt) {
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  file={file}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} n_max={n_max}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} guess={guess}.{RET}"))
+    cat("\n")
+  }
   
   val_cols <- list()
   val_cols$ord <- 
@@ -399,7 +410,8 @@ load_aqp_file = function(file, idx=NULL,
     )
   
   sel_cols <- list()
-  sel_cols$ord  <- c("Assay_Design_Id","AlleleA_Probe_Sequence","AlleleB_Probe_Sequence","Normalization_Bin")
+  sel_cols$ord  <- c("Assay_Design_Id","AlleleA_Probe_Sequence",
+                     "AlleleB_Probe_Sequence","Normalization_Bin")
   sel_cols$mat1 <- c("Address","Sequence")
   sel_cols$mat2 <- c("address_names","bo_seq")
   # sel_cols$mat2 <- c("address_names","sequence","probe_id")
@@ -430,17 +442,23 @@ load_aqp_file = function(file, idx=NULL,
     sel_col <- NULL
     key_col <- NULL
     if (is.null(beg_key) || is.null(col_num)) {
-      stop(glue::glue("{RET}[{funcTag}]:ERROR: Both beg_key AND col_num are NULL!!!{RET}{RET}"))
+      stop(glue::glue("{RET}[{funcTag}]: ERROR: Either beg_key OR col_num is ",
+                      "NULL!!!{RET}{RET}"))
       return(ret_tib)
-    } else if (beg_key==names(val_cols$ord$cols)[1] && col_num==length(val_cols$ord$cols)) {
+    } else if (beg_key==names(val_cols$ord$cols)[1] && 
+               col_num==length(val_cols$ord$cols)) {
       dat_key <- "ord"
-    } else if (beg_key==names(val_cols$mat1$cols)[1] && col_num==length(val_cols$mat1$cols)) {
+    } else if (beg_key==names(val_cols$mat1$cols)[1] && 
+               col_num==length(val_cols$mat1$cols)) {
       dat_key <- "mat1"
-    } else if (beg_key==names(val_cols$mat2$cols)[1] && col_num==length(val_cols$mat2$cols)) {
+    } else if (beg_key==names(val_cols$mat2$cols)[1] && 
+               col_num==length(val_cols$mat2$cols)) {
       dat_key <- "mat2"
-    } else if (beg_key==names(val_cols$aqp$cols)[1] && col_num==length(val_cols$aqp$cols)) {
+    } else if (beg_key==names(val_cols$aqp$cols)[1] && 
+               col_num==length(val_cols$aqp$cols)) {
       dat_key <- "aqp"
-    } else if (beg_key==names(val_cols$pqc$cols)[1] && col_num==length(val_cols$pqc$cols)) {
+    } else if (beg_key==names(val_cols$pqc$cols)[1] && 
+               col_num==length(val_cols$pqc$cols)) {
       dat_key <- "pqc"
     } else {
       stop(glue::glue("{RET}[{funcTag}]:ERROR: Failed to match beg_key({beg_key}) AND ",
@@ -563,7 +581,8 @@ load_aqp_file = function(file, idx=NULL,
       utils::type.convert() %>%
       dplyr::mutate(across(where(is.factor),  as.character) )
     
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -582,8 +601,14 @@ guess_aqp_file = function(file,
                           funcTag='guess_aqp_file') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) 
+  if (verbose>=vt) {
     cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   file={file}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  n_max={n_max}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} fields={RET}"))
+    print(fields)
+    cat("\n")
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -599,7 +624,8 @@ guess_aqp_file = function(file,
     dat_tib <- readr::read_lines(file, n_max=n_max) %>%
       tibble::as_tibble() %>% 
       dplyr::mutate(row_num=dplyr::row_number())
-    
+    dat_cnt <- print_tib(dat_tib,funcTag, verbose,vt=vt+6,tc=tc, n="dat_tib")
+
     ret_tib <- NULL
     for (field in fields) {
       if (verbose>=vt+6)
@@ -671,17 +697,20 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
     u49_tib <- intersect_seq(ref=ref_u49,can=can_u49,out=out_u49,
                              idxA=idxA,idxB=idxB,
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    u49_cnt <- print_tib(u49_tib,funcTag, verbose,vt+4,tc, n="u49_tib")
+    u49_key <- glue::glue("u49-tib({funcTag})")
+    u49_cnt <- print_tib(u49_tib,funcTag, verbose,vt+4,tc, n=u49_key)
 
     m49_tib <- intersect_seq(ref=ref_m49,can=can_m49,out=out_m49,
                              idxA=idxA,idxB=idxB,
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    m49_cnt <- print_tib(m49_tib,funcTag, verbose,vt+4,tc, n="m49_tib")
+    m49_key <- glue::glue("m49-tib({funcTag})")
+    m49_cnt <- print_tib(m49_tib,funcTag, verbose,vt+4,tc, n=m49_key)
 
     ret_tib <- join_seq_intersect(u49=u49_tib, m49=m49_tib, 
                                   bed=bed, org=org,
                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib-0")
+    ret_key <- glue::glue("ret-tib-0({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
 
     if (!is.null(ord) && file.exists(ord)) {
       if (verbose>=vt+1)
@@ -689,17 +718,20 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
       
       ord_tib <- suppressMessages(suppressWarnings( readr::read_csv(ord) )) %>%
         purrr::set_names(c("Can_Cgn","Can_Top","Can_Src")) %>%
-        dplyr::mutate(Can_Cgn=as.integer(Can_Cgn), Can_Scr=1,
+        dplyr::mutate(Can_Cgn=as.integer(Can_Cgn), 
+                      Can_Scr=as.integer(1),
                       Can_Scr=tidyr::replace_na(Can_Scr, 0)) %>%
         clean_tibble()
       ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n="ord_tib")
       
       ret_tib <- ret_tib %>% 
         dplyr::left_join(ord_tib, by=c("Imp_Cgn"="Can_Cgn")) %>%
-        dplyr::mutate(Can_Scr=tidyr::replace_na(Can_Scr, 0))
+        dplyr::mutate(Can_Scr=tidyr::replace_na(Can_Scr, 0)) %>%
+        clean_tibble()
     }
 
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -711,8 +743,8 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
 }
 
 intersect_seq = function(ref, can, out, idxA=1, idxB=1,
-                         verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'intersect_seq'
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='intersect_seq') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -774,11 +806,13 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1,
       cat(glue::glue("[{funcTag}]: Loading intersection output={out}...{RET}"))
     
     ret_tib <- suppressMessages(suppressWarnings( 
-      readr::read_tsv(out, col_names=names(int_seq_cols$cols), col_types=int_seq_cols) )) %>%
-      utils::type.convert() %>% 
-      dplyr::mutate(across(where(is.factor), as.character) )
+      readr::read_tsv(out, col_names=names(int_seq_cols$cols), 
+                      col_types=int_seq_cols) )) # %>% clean_tibble()
+      # utils::type.convert() %>% 
+      # dplyr::mutate(across(where(is.factor), as.character) )
     
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -873,7 +907,8 @@ join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
       dplyr::select(dplyr::any_of(imp_col_vec),dplyr::everything()) %>%
       clean_tibble()
     
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_fin")
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)

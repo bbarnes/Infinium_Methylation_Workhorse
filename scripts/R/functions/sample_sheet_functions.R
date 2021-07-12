@@ -213,6 +213,106 @@ loadAutoSampleSheets = function(dir, platform=NULL, manifest=NULL, workflow=NULL
 #                     Sample Sheet Manipulation Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+randomize_ss_classes = function(tib, swap, 
+                                class="Sample_Class",
+                                sample_key="Sentrix_Name", 
+                                swap_name="SWAP_PERC",
+                                verbose=0,vt=3,tc=1,tt=NULL,
+                                funcTag='randomize_ss_classes') {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}      class={class}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} sample_key={sample_key}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  swap_name={swap_name}.{RET}"))
+    cat("\n")
+  }
+  
+  ret_cnt  <- 0
+  ret_tib  <- NULL
+  ret_list <- NULL
+  stime <- base::system.time({
+    
+    swap_sym   <- rlang::sym(swap_name)
+    sample_sym <- rlang::sym(sample_key)
+    
+    org_ss_tib <- tib %>% 
+      dplyr::arrange(-cg_calls_pass_perc_1)
+    
+    ss_swap_list <- org_ss_tib %>%
+      split(.[class])
+    
+    swap_names <- names(ss_swap_list)
+    
+    swap_ss_tab <- NULL
+    # swap_vec <- c(0,20,50,80) %>% sort()
+    swap_vec <- swap %>% sort()
+    for (swap_per in swap_vec) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}Swapping: ",
+                       "swap_per={swap_per}...{RET}") )
+      
+      cur_ss_tib <- org_ss_tib %>% dplyr::mutate(!!swap_sym := swap_per)
+      if (swap_per==0) {
+        swap_ss_tab <- swap_ss_tab %>% dplyr::bind_rows(cur_ss_tib)
+        next
+      }
+      swap_cnt_tib <- cur_ss_tib %>% 
+        dplyr::group_by(Sample_Class) %>% 
+        dplyr::summarise(Total_Count=n(), .groups="drop") %>% 
+        dplyr::mutate(Swap_Count=as.integer((swap_per/100)*Total_Count))
+      
+      pre_swap_keys <- NULL
+      for (class_idx in c(1:length(swap_names))) {
+        class_key <- swap_names[class_idx]
+        if (class_idx==length(swap_names)) {
+          swap_key <- swap_names[1]
+        } else {
+          swap_key <- swap_names[class_idx+1]
+        }
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}class_idx={class_idx}, ",
+                         "class_key={class_key}, swap_key={swap_key}...{RET}") )
+        
+        cur_swap_cnt  <- as.integer(base::nrow(ss_swap_list[[class_key]]) * (swap_per/100))
+        cur_swap_keys <- ss_swap_list[[class_key]] %>% head(n=cur_swap_cnt) %>% 
+          dplyr::pull(dplyr::all_of(!!sample_sym))
+        
+        if (verbose>=vt+4) {
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ",
+                         "cur_swap_cnt={cur_swap_cnt}, ",
+                         "class_key={class_key}, swap_key={swap_key}...{RET}"))
+          print(cur_swap_keys)
+        }
+        
+        swap_idx_vec <- which(cur_ss_tib[[sample_key]] %in% cur_swap_keys)
+        # cur_ss_tib[swap_idx_vec, ][[class]] <- rep(swap_key, length(swap_idx_vec))
+        cur_ss_tib[swap_idx_vec, class] <- rep(swap_key, length(swap_idx_vec))
+        
+      }
+      swap_ss_tab <- swap_ss_tab %>% dplyr::bind_rows(cur_ss_tib)
+    }
+    
+    ret_list <- swap_ss_tab %>% 
+      # dplyr::select(sample_key,class,swap_name) %>% 
+      # dplyr::select(dplyr::all_of(sample_key,class,swap_name)) %>% 
+      # dplyr::select(dplyr::all_of(!!sample_key,!!class,!!swap_name)) %>% 
+      split(.[swap_name])
+      # split(.[!!swap_sym])
+    
+    # ret_cnt <- ret_tib %>% base::nrow()
+    # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    ret_cnt <- ret_list %>% names() %>% length()
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_list
+}
+
 getUniqueFields = function(ss, keys, verbose=0,vt=1,tc=1) {
   funcTag <- 'getUniqueFields'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -426,7 +526,7 @@ mergeCallsFromSS = function(ss, max=0, pre=NULL, outName, outDir,
     for (ssIdx in c(1:ss_cnt)) {
       sentrix_name <- dplyr::pull(ss,!!rlang::sym(chipName))[ssIdx]
       call_path    <- dplyr::pull(ss,!!rlang::sym(pathName))[ssIdx]
-
+      
       ss_perc = round(100*ssIdx/ss_cnt, 3)
       if (verbose>=vt) 
         cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Loading {pathName}; ",

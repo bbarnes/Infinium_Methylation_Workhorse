@@ -56,7 +56,7 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'analysis'
-par$prgmTag <- 'build_models'
+par$prgmTag <- 'report_models'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 par$joinType <- "left"
@@ -272,14 +272,8 @@ if (args.dat[1]=='RStudio') {
     par$vstr <- "v1"
     par$vstr <- "v2"
     par$vstr <- "v3"
-    
-    # par$chip_select <- "23"
-    # par$chip_select <- "24"
-    # par$chip_select <- "34"
-
-    # opt$runName <- paste(opt$runName,par$vstr,par$chip_select, sep="-")
     opt$runName <- paste(opt$runName,par$vstr, sep="-")
-
+    
     opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
     
     par$platform <- NULL
@@ -301,8 +295,8 @@ if (args.dat[1]=='RStudio') {
   } else if (par$local_runType=='Chicago-Ober-Custom') {
     opt$runName  <- par$local_runType
     opt$workflow <- "nd"
-    opt$workflow <- "ind"
     opt$workflow <- "raw"
+    opt$workflow <- "ind"
     
     par$platform <- NULL
     par$version  <- NULL
@@ -327,12 +321,6 @@ if (args.dat[1]=='RStudio') {
     par$vstr <- "v1"
     par$vstr <- "v2"
     par$vstr <- "v3"
-    
-    # par$chip_select <- "23"
-    # par$chip_select <- "24"
-    # par$chip_select <- "34"
-    
-    # opt$runName <- paste(opt$runName,par$vstr,par$chip_select, sep="-")
     opt$runName <- paste(opt$runName,par$vstr, sep="-")
     
     opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
@@ -342,15 +330,19 @@ if (args.dat[1]=='RStudio') {
     
     opt$datDir <- paste(
       file.path(par$topDir,"scratch",par$runMode,"merge_builds",opt$runName,
+                # par$platform,par$version,
+                # opt$classVar,
                 opt$classVar,
                 opt$workflow),
       sep=',')
     
+    # NOTE: For SWAP Testing...
+    opt$runName <- paste(opt$runName, 'swap', sep='-')
+
     # opt$trainClass <- paste('ChicagoA1','ChicagoA2', sep=',')
     opt$trainClass <- paste('Asthma7YrNeg','Asthma7YrPos', sep=',')
     
     opt$samplePvalPerc <- 50
-    opt$verbose <- 4
     
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     opt$runName  <- par$local_runType
@@ -581,7 +573,7 @@ if (!dir.exists(par$gen_src_dir))
 
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', 
                          full.names=TRUE, recursive=TRUE)) base::source(sfile)
-if (opt$verbose>0)
+if (opt$verbose>=0)
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form ",
                  "General Source={par$gen_src_dir}!{RET}{RET}") )
 
@@ -666,15 +658,9 @@ cat(glue::glue("[{par$prgmTag}]: Done. Preprocessing!{RET}{RET}") )
 
 cgn_pre_str <- NULL
 if (!is.null(featuresCsv_vec) && length(featuresCsv_vec)!=0 ) {
-  cgn_pre_str <- featuresCsv_vec %>% 
-    base::basename() %>% stringr::str_remove('.csv.gz$') %>% 
-    paste(collapse='-')
-  
-  cgn_pre_tib <- 
-    lapply(featuresCsv_vec, 
-           loadCgnFeatures, id="Probe_ID", verbose=opt$verbose) %>% 
-    dplyr::bind_rows() %>% 
-    dplyr::distinct()
+  cgn_pre_str <- featuresCsv_vec %>% base::basename() %>% stringr::str_remove('.csv.gz$') %>% paste(collapse='-')
+  cgn_pre_tib <- lapply(featuresCsv_vec, loadCgnFeatures, id="Probe_ID", verbose=opt$verbose) %>% 
+    dplyr::bind_rows() %>% dplyr::distinct()
   cgn_pre_len <- cgn_pre_tib %>% base::nrow()
   
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Third Party Features; cgn_pre_len={cgn_pre_len}, cgn_pre_str={cgn_pre_str}!{RET}{RET}") )
@@ -726,7 +712,7 @@ for (betaKey in lociBetaKey_vec) {
       
       # opt$clean <- FALSE
       # opt$clean <- TRUE
-      # opt$verbose <- 40
+      opt$verbose <- 40
 
       # Classes Variable::
       class_str <- opt$trainClass
@@ -786,42 +772,29 @@ for (betaKey in lociBetaKey_vec) {
       #                  Build Label Randomization Sample Sheets::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      swap_name <- "SWAP_PERC"
+      swap_name <- "SWAP_PER"
       rand_ss_list <- randomize_ss_classes(
         tib=sampleSheet_tib, swap=swap_vec, 
         class=class_var, sample_key=sentrix_name, swap_name=swap_name, 
         verbose=opt$verbose, tt=pTracker)
-      
-      # Sanity Check on Swapping Code::
-      #
+
       if (FALSE) {
         tmp_join_tib <-
-          rand_ss_list[[1]] %>% 
-          dplyr::select(sentrix_name,class_var,swap_name) %>%
-          purrr::set_names(c("Sentrix_Name",paste0("Sample_Class_",swap_vec[1]),
-                             paste0(swap_name,"_",swap_vec[1]))) %>%
+          rand_ss_list[[1]] %>% dplyr::select(sentrix_name,class_var,swap_name) %>%
+          purrr::set_names(c("Sentrix_Name",paste0("Sample_Class_",swap_vec[1]),paste0("SWAP_PERC_",swap_vec[1]))) %>%
           dplyr::inner_join(
-            rand_ss_list[[2]] %>% 
-              dplyr::select(sentrix_name,class_var,swap_name) %>%
-              purrr::set_names(c("Sentrix_Name",
-                                 paste0("Sample_Class_",swap_vec[2]),
-                                 paste0(swap_name,"_",swap_vec[2]))),
-            by=c(dplyr::all_of(sentrix_name))) %>%
+            rand_ss_list[[2]] %>% dplyr::select(sentrix_name,class_var,swap_name) %>%
+              purrr::set_names(c("Sentrix_Name",paste0("Sample_Class_",swap_vec[2]),paste0("SWAP_PERC_",swap_vec[2]))),
+            by=c(sentrix_name)) %>%
           dplyr::inner_join(
-            rand_ss_list[[3]] %>% 
-              dplyr::select(sentrix_name,class_var,swap_name) %>%
-              purrr::set_names(c("Sentrix_Name",
-                                 paste0("Sample_Class_",swap_vec[3]),
-                                 paste0(swap_name,"_",swap_vec[3]))),
-            by=c(dplyr::all_of(sentrix_name))) %>%
+            rand_ss_list[[3]] %>% dplyr::select(sentrix_name,class_var,swap_name) %>%
+              purrr::set_names(c("Sentrix_Name",paste0("Sample_Class_",swap_vec[3]),paste0("SWAP_PERC_",swap_vec[3]))),
+            by=c(sentrix_name)) %>%
           dplyr::inner_join(
-            rand_ss_list[[4]] %>% 
-              dplyr::select(sentrix_name,class_var,swap_name) %>%
-              purrr::set_names(c("Sentrix_Name",
-                                 paste0("Sample_Class_",swap_vec[4]),
-                                 paste0(swap_name,"_",swap_vec[4]))),
-            by=c(dplyr::all_of(sentrix_name)))
-          
+            rand_ss_list[[4]] %>% dplyr::select(sentrix_name,class_var,swap_name) %>%
+              purrr::set_names(c("Sentrix_Name",paste0("Sample_Class_",swap_vec[4]),paste0("SWAP_PERC_",swap_vec[4]))),
+            by=c(sentrix_name))
+        
         tmp_join_tib %>% dplyr::filter(Sample_Class_0  != Sample_Class_25)
         tmp_join_tib %>% dplyr::filter(Sample_Class_0  != Sample_Class_50)
         tmp_join_tib %>% dplyr::filter(Sample_Class_0  != Sample_Class_75)
@@ -1352,16 +1325,11 @@ for (betaKey in lociBetaKey_vec) {
                                   Type="seed" )
                 
                 file_tib <- glmnetRforestWrapper(
-                  beta=beta_impute_matT, ss=cur_swap_ss_tib, 
-                  cgns=cgn_cur_tib, pars=sed_opt_tib, 
-                  class_idx=class_idx, seed=seed_val, 
-                  outName=seed_name, dir=seed_dir, 
-                  alpha_min=opt$alphaMin, 
-                  alpha_max=opt$alphaMax, 
-                  alpha_inc=opt$alphaInc, 
-                  parallel=FALSE,crossTrain=TRUE,
-                  class_var=class_var,cross_perc_min=opt$cross_perc_min,
-                  verbose=opt$verbose, tc=2, tt=fTracker)
+                  beta=beta_impute_matT, ss=cur_swap_ss_tib, cgns=cgn_cur_tib, pars=sed_opt_tib, 
+                  class_idx=class_idx, seed=seed_val, outName=seed_name, dir=seed_dir, 
+                  alpha_min=opt$alphaMin, alpha_max=opt$alphaMax, alpha_inc=opt$alphaInc, 
+                  parallel=FALSE,crossTrain=TRUE,class_var=class_var,cross_perc_min=opt$cross_perc_min,
+                  verbose=opt$verbose, vt=1, tc=2, tt=fTracker)
                 
                 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
                 #                       Write Current Params/Options::

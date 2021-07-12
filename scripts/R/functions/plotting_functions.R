@@ -650,23 +650,6 @@ plotBetaMatrix_bySample = function(tib, sample, manifest, minPval, pvalKey, beta
                           spread=spread, outType=outType, dpi=dpi, format=format,
                           verbose=verbose, tc=tc+1)
           
-          # ret <- NULL
-          # ret$gg <- gg
-          # ret$sample <- sample
-          # ret$nameA <- nameA
-          # ret$nameB <- nameB
-          # ret$sam_dir <- sam_dir
-          # ret$prbsA <- prbsA
-          # ret$prbsB <- prbsB
-          # ret$idatA <- idatA
-          # ret$idatB <- idatB
-          # ret$join_prbs <- join_prbs
-          # return(ret)
-          
-          # gg <- plotPvalViolins()
-          
-          # return(gg)
-          # break
         }
       }
       # break
@@ -675,8 +658,6 @@ plotBetaMatrix_bySample = function(tib, sample, manifest, minPval, pvalKey, beta
       cat(glue::glue("[{funcTag}]:{tabsStr} Done."),"\n\n", sep='')
   }
   
-  # exp_names
-  # gg
   join_prbs
 }
 
