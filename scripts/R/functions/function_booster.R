@@ -1027,6 +1027,7 @@ print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
       } else {
         cat(glue::glue("[{funcTag}]:{tabsStr} tibble row count=[{ret_cnt}]:{RET}"))
       }
+      if (l==0) l <- tib %>% base::nrow()
       print(tib, n=l)
     } else {
       if (!is.null(name)) {
@@ -1049,10 +1050,10 @@ splitStrToVec = function(x, del=',', unique=TRUE,
   
   ret_vec <- NULL
   if (!is.null(x)) 
-    ret_vec <- str_split(x, pattern=del, simplify=TRUE) %>% 
-    as.vector() %>% 
-    utils::type.convert() %>%
-    unique()
+    ret_vec <- stringr::str_split(x, pattern=del, simplify=TRUE) %>% 
+    as.vector() # %>% utils::type.convert() %>% # NEVER DO THIS!!!
+    
+    if (unique) ret_vec <- ret_vec %>% unique()
   
   ret_vec
 }

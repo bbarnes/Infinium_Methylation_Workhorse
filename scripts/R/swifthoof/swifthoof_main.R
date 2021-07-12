@@ -218,9 +218,6 @@ if (args.dat[1]=='RStudio') {
   opt$write_call  <- TRUE
   opt$write_csum  <- TRUE
   
-  opt$workflow <- "nd,ind"
-  opt$workflow <- 'ind'
-  
   opt$auto_detect <- TRUE
   
   par$retData  <- TRUE
@@ -260,8 +257,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'COVIC'
   par$local_runType <- "EPIC-8x1-EM-Sample-Prep"
   par$local_runType <- 'qcMVP2'
-  par$local_runType <- 'Chicago-Ober-Custom'
   par$local_runType <- 'NA12878'
+  par$local_runType <- 'Chicago-Ober-Custom'
   
   opt$fresh <- TRUE
   
@@ -269,7 +266,7 @@ if (args.dat[1]=='RStudio') {
     file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
   opt$auto_detect <- TRUE
-  opt$workflow    <- "ind"
+  opt$workflow    <- "nd,ind"
   opt$manDirName  <- 'core'
   
   opt$write_snps  <- TRUE
