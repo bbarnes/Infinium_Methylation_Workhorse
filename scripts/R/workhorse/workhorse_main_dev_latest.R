@@ -278,7 +278,6 @@ if (args.dat[1]=='RStudio') {
   # Pre-defined local options runTypes::
   #
   par$local_runType <- NULL
-  par$local_runType <- 'NZT'
   par$local_runType <- 'COVIC'
   par$local_runType <- 'GSA'
   par$local_runType <- 'HM450'
@@ -287,14 +286,15 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm10'
   par$local_runType <- 'Chicago'
   par$local_runType <- 'McMaster10Kselection'
+  par$local_runType <- 'NZT'
   
   opt$parallel <- TRUE
   
   opt$verbose <- 10
   opt$verbose <- 3
   
-  opt$fresh <- FALSE
   opt$fresh <- TRUE
+  opt$fresh <- FALSE
   
   opt$run_improbe    <- TRUE
   opt$build_manifest <- TRUE
@@ -317,7 +317,7 @@ if (args.dat[1]=='RStudio') {
     #  v0 : 
     #  v00: 
     #
-    # Chicago: with opt$ord_des_csv set to default canonical
+    # TBD: Chicago: with opt$ord_des_csv set to default canonical
     #
     # Below are some examples of how things don't match up...
     # ord_tib <- readr::read_csv(opt$ords) %>% 
@@ -637,13 +637,14 @@ if (args.dat[1]=='RStudio') {
     
     opt$Species <- "Human"
     
+    # These don't do anything yet...
     opt$cpg_top_tsv <- file.path(opt$impDir, 'designOutput_21092020/cgnTop',  paste0(opt$genBuild,'-21092020.cgnTop.sorted.tsv') )
     opt$cpg_pos_tsv <- file.path(opt$impDir, 'designOutput_21092020/genomic', paste0(opt$genBuild,'.improbeDesignInput.cgn-sorted.tsv.gz') )
     
     par$aqpDir <- file.path(par$topDir, 'data/CustomContent/NZT/decode')
     opt$ords <- paste(
-      file.path(par$aqpDir, 'selected.order1.csv.gz'),
-      file.path(par$aqpDir, 'selected.order2.csv.gz'),
+      file.path(par$aqpDir, 'selected.order1.sixCols.csv.gz'),
+      file.path(par$aqpDir, 'selected.order2.sixCols.csv.gz'),
       sep=',')
     
     opt$mats <- paste(
@@ -1146,10 +1147,11 @@ if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: add_cgn_ant_cnt={add_cgn_ant_cnt}. ",
                  "Should be zero.{RET}"))
 
-# TBD: Add check for Canonical data (Can_Scr)
+#
 #
 # Determine Optimal Sorting::
-#
+#  TBD: This needs to be turned into a function...
+#  TBD: Add check for Canonical data (Can_Scr), I think this is done...
 if (!is.null(add_cgn_inn)) {
   add_cgn_inn1 <- add_cgn_inn %>%
     # dplyr::arrange(Can_Scr,-Imp_Hit_hg37) %>%
@@ -1225,8 +1227,12 @@ if (!is.null(add_cgn_inn)) {
   add_cgn_inn <- add_cgn_inn4
   rm(add_cgn_inn4)
   rm(add_cgn_sum4)
+} else {
+  stop(glue::glue("{RET}[{par$prgmTag}]: ERROR: Address/CGN join failed!{RET}"))
 }
 
+# Scratch code to looking different join numbers.
+#  TBD: Add this as a some summary function for the code above. Not super urgent.
 if (FALSE) {
   # A tibble: 1,141,866 x 89
   add_cgn_inn %>% dplyr::inner_join(aqp_bsp_tib, by=c("Aln_Prb"))
@@ -1258,9 +1264,9 @@ if (FALSE) {
 
 #
 # Full Join of add, cgn, imp, bsp::
-# NOTE: For Chicago this blows up real quick::
 #
 # A tibble: 66,880,588 x 47
+add_cgn_imp_bsp_inn <- NULL
 add_cgn_imp_bsp_inn <- 
   dplyr::inner_join(add_cgn_inn,imp_des_tib,
                     by=c("Aln_Key"="Seq_ID",
@@ -1278,7 +1284,23 @@ add_cgn_imp_bsp_inn <-
          "Chromosome"="Bsp_Chr","Coordinate"="Bsp_Pos")
   )
 
-# These three numbers below demonstrate uniqueness across the board::
+# TBD: These are notes reffering to the TBD above
+#
+# If we wanted assume aqp+bsp join was good we would need to make sure that
+#  the follow anti join is zero:
+# aqp_add_tib %>% dplyr::anti_join(aqp_bsp_tib, by=c("Ord_Des","Ord_Din","Address"))
+#
+# If so we could just join bsp+seq by=c("Ord_Des","Ord_Din","Address","Aln_P49"="Aln_Prb")
+#  and then join imp last. This would only take two join instead of three.
+#
+# The concern is that aqp+bsp may lose some probes that don't align form aqp
+#
+# NEVER MIND: The join is inner, but could be changed to left, skip it. 
+#
+
+
+# TBD: Add as a summary call to a function that merges all joining...
+#   These three numbers below demonstrate uniqueness across the board::
 #
 um_cnt1 <- add_cgn_imp_bsp_inn %>%
   dplyr::filter(Bsp_Tag=="UM") %>% base::nrow()
@@ -1292,9 +1314,7 @@ um_cnt3 <- add_cgn_imp_bsp_inn %>%
   dplyr::filter(Bsp_Tag=="UM") %>%
   dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb) %>% base::nrow()
 
-#
 # Here are the Multi Unique Probes::
-#
 ma_cnt1 <- add_cgn_imp_bsp_inn %>%
   dplyr::filter(Bsp_Tag!="UM") %>%
   dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb) %>% base::nrow()
@@ -1302,31 +1322,26 @@ ma_cnt1 <- add_cgn_imp_bsp_inn %>%
 cat(glue::glue("[{par$prgmTag}]: um_cnt={um_cnt1}={um_cnt2}={um_cnt3}, ",
                "ma_cnt={ma_cnt1}.{RET}{RET}"))
 
-# add_cgn_imp_bsp_inn %>% dplyr::select(Ord_Key,Bsp_Din_Ref,Top_Sequence)
-# add_cgn_imp_bsp_inn %>% dplyr::select(Ord_Key,Bsp_Din_Ref,Bsp_Din_Bsc,Bsp_Din_Scr,Top_Sequence) %>% dplyr::filter(Bsp_Din_Ref=="CG") %>% as.data.frame()
-
 # Good summary check::
 #
 add_cgn_imp_bsp_sum <- add_cgn_imp_bsp_inn %>% 
   dplyr::arrange(Bsp_Din_Scr) %>%
   dplyr::distinct(Address,Ord_Des,Ord_Din,Ord_Prb, .keep_all=TRUE) %>%
-  # dplyr::group_by(Bsp_Din_Scr,Ord_Des,Ord_Din,Aqp_Idx) %>%
-  dplyr::group_by(Bsp_Din_Scr) %>%
+  dplyr::group_by(Bsp_Din_Scr,Ord_Des,Ord_Din,Aqp_Idx) %>%
+  # dplyr::group_by(Bsp_Din_Scr) %>%
   dplyr::summarise(Count=n(), .groups="drop")
 add_cgn_imp_bsp_sum %>% print(n=base::nrow(add_cgn_imp_bsp_sum))
 
+
 #
-# Now Filter/Summarize::
+# Current thoughts are true joining:: Two ways::
+#   A: by coordinate and orientation
+#      - TBD: Should add coordinate cgn look up!!
+#   C: by cgn in case alignment failed
 #
-# add_cgn_imp_bsp_inn %>%
-#   dplyr::group_by(Address,Ord_Des,Ord_Din,Ord_Prb) %>%
-#   dplyr::summarise(Bsp_Din_Scr_Min=min(Bsp_Din_Scr, na.rm=TRUE),
-#                    Bsp_Din_Scr_Avg=mean(Bsp_Din_Scr, na.rm=TRUE),
-#                    Bsp_Din_Scr_Med=median(Bsp_Din_Scr, na.rm=TRUE),
-#                    Bsp_Din_Scr_Max=max(Bsp_Din_Scr, na.rm=TRUE),
-#                    Bsp_Din_Scr_Cnt=n(),
-#                    .groups="drop"
-#   )
+# This should all be tested with a small multi-unique set like NZT!
+#
+
 
 #
 # Simple Manifest Generation::

@@ -81,6 +81,8 @@ opt$workflow <- NULL
 opt$trainClass <- NULL
 opt$cross_perc_min <- 90
 
+opt$rankType <- "dml"
+
 # Sample Level Filtering Parameters::
 opt$samplePvalName <- NULL
 opt$samplePvalPerc <- NULL
@@ -205,8 +207,6 @@ if (args.dat[1]=='RStudio') {
   opt$seeds <- "13,42"
   opt$seeds <- "13,42,43"
   
-  opt$swaps <- "0,25,50,75"
-  
   opt$featuresCsv <- NULL
   opt$featuresDml <- NULL
   
@@ -272,7 +272,7 @@ if (args.dat[1]=='RStudio') {
     par$vstr <- "v1"
     par$vstr <- "v2"
     par$vstr <- "v3"
-    
+
     # par$chip_select <- "23"
     # par$chip_select <- "24"
     # par$chip_select <- "34"
@@ -296,7 +296,7 @@ if (args.dat[1]=='RStudio') {
     # opt$trainClass <- paste('ChicagoA1','ChicagoA2', sep=',')
     opt$trainClass <- paste('Asthma7YrNeg','Asthma7YrPos', sep=',')
     
-    opt$samplePvalPerc <- 50
+    opt$samplePvalPerc <- 96
     
   } else if (par$local_runType=='Chicago-Ober-Custom') {
     opt$runName  <- par$local_runType
@@ -314,7 +314,15 @@ if (args.dat[1]=='RStudio') {
     opt$buildDml    <- TRUE
     opt$buildDbl    <- TRUE
     opt$plot_pairs  <- TRUE
-    opt$buildModels <- TRUE
+    opt$buildModels <- FALSE
+    
+    # Not ready yet and might not be the right approach
+    #  -featuresDml and featureDbl are probably better
+    # opt$rankType <- "dml"
+    # opt$rankType <- "dbl"
+    
+    opt$swaps <- "0,25,50,75"
+    opt$swaps <- "0"
     
     opt$lociBetaKey <- "betas"
     opt$lociPvalKey <- "pvals_pOOBAH"
@@ -325,15 +333,15 @@ if (args.dat[1]=='RStudio') {
     
     par$vstr <- ""
     par$vstr <- "v1"
-    par$vstr <- "v2"
-    par$vstr <- "v3"
+
+    par$mstr <- "S39"
     
     # par$chip_select <- "23"
     # par$chip_select <- "24"
     # par$chip_select <- "34"
     
     # opt$runName <- paste(opt$runName,par$vstr,par$chip_select, sep="-")
-    opt$runName <- paste(opt$runName,par$vstr, sep="-")
+    opt$runName <- paste(opt$runName,par$mstr,par$vstr, sep="-")
     
     opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
     
@@ -349,7 +357,7 @@ if (args.dat[1]=='RStudio') {
     # opt$trainClass <- paste('ChicagoA1','ChicagoA2', sep=',')
     opt$trainClass <- paste('Asthma7YrNeg','Asthma7YrPos', sep=',')
     
-    opt$samplePvalPerc <- 50
+    opt$samplePvalPerc <- 96
     opt$verbose <- 4
     
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
@@ -1234,6 +1242,8 @@ for (betaKey in lociBetaKey_vec) {
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #                           Build Feature Sets::
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        
         
         if (opt$buildModels) {
           

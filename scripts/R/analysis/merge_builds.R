@@ -271,10 +271,9 @@ if (args.dat[1]=='RStudio') {
     
     opt$verbose <- 10
     
-    opt$workflow    <- "raw"
     opt$workflow    <- "nd"
     opt$workflow    <- "ind"
-    opt$workflow    <- "raw,ind"
+    opt$workflow    <- "raw"
     
     # opt$parallel <- TRUE
     opt$single     <- FALSE
@@ -286,28 +285,25 @@ if (args.dat[1]=='RStudio') {
     
     par$vstr <- ""
     par$vstr <- "v1"
-    par$vstr <- "v2"
-    par$vstr <- "v3"
     
+    par$mstr <- "S39"
+
     opt$classVar <- "AutoSample_R2_Key_3"
     opt$classVar <- "Sample_Class"
-    
-    par$chip_select <- "23"
-    par$chip_select <- "24"
-    par$chip_select <- "34"
-    
-    opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets/Chicago_Custom_36.true.sampleSheet.csv.gz")
-    opt$manifest  <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz")
-    opt$manifest  <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom/Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz")
+
+    par$ss_name <- paste0("Chicago_Custom_36.true.sampleSheet.csv.gz")
+    opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets",par$ss_name)
+
+    man_name <- paste0("Chicago-",par$mstr,".manifest.sesame-base.cpg-sorted.csv.gz")
+    opt$manifest  <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom",man_name)
 
     opt$datDir <- paste(
-      file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38",par$vstr,"swifthoof_main"),
+      file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/",par$mstr,par$vstr,"swifthoof_main"),
       sep=',')
     
     # For standard all data::
     #
-    par$ss_name <- paste0("Chicago_Custom_36.true.sampleSheet.csv.gz")
-    opt$runName <- paste(opt$runName,par$vstr, sep="-")
+    opt$runName <- paste(opt$runName,par$mstr,par$vstr, sep="-")
     
     # For chip_select::
     #

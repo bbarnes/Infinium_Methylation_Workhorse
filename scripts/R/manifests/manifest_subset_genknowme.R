@@ -305,6 +305,94 @@ if (!dir.exists(run$manDir)) dir.create(run$manDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Suboptimal Selection for 20k:: Open DMAPs
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  maxG_cnt <- 5000
+  maxR_cnt <- 5000
+  max2_cnt <- 10000
+  
+  dmap_cols <- cols(
+    tango    = col_integer(),
+    color    = col_integer()
+  )
+  
+  dmap_tan_tsv <- "/Users/bretbarnes/Documents/data/CustomContent/Genknowme/dmaps/15073382_A_MRGPOOL,_EPIC_15054510_UsedCodes.txt"
+  dmap_tan_tib <- suppressMessages(suppressWarnings(
+    readr::read_tsv(dmap_tan_tsv, col_names=names(dmap_cols$cols), col_types=dmap_cols) ))
+
+  ses_man_dir <- file.path(par$topDir, "data/manifests/methylation/Sesame")
+  sel_aqp_dir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v1")
+  
+  sel_csv <- file.path(ses_man_dir, "EPIC-B4-BP4.manifest.sesame-base.cpg-sorted.csv.gz")
+  pre_csv <- file.path(sel_aqp_dir, "Rand3-S0.060.manifest.sesame-base.cpg-sorted.csv.gz")
+
+  # Remove Non-CpGs
+  sel_tib <- suppressMessages(suppressWarnings(readr::read_csv(sel_csv) )) %>%
+    dplyr::filter(stringr::str_starts(Probe_ID, "cg"))
+  pre_tib <- suppressMessages(suppressWarnings(readr::read_csv(pre_csv) )) %>%
+    dplyr::filter(stringr::str_starts(Probe_ID, "cg"))
+  
+  # Remove pre's in sel
+  #
+  sel_tib <- sel_tib %>% dplyr::filter(! Probe_ID %in% pre_tib$Probe_ID)
+  
+  
+  # Split both sel and pre by G/R/2
+  #
+  pre_list <- pre_tib %>% dplyr::mutate(Prb_Des=dplyr::case_when(
+    is.na(col) ~ "2", TRUE ~ col)
+  ) %>% split(.$Prb_Des)
+  sel_list <- sel_tib %>% dplyr::mutate(Prb_Des=dplyr::case_when(
+    is.na(col) ~ "2", TRUE ~ col)
+  ) %>% split(.$Prb_Des)
+  
+  
+  # Tally up all of pre: preG_cnt, preR_cnt, pre2_cnt
+  #
+  pre2_cnt <- pre_list[["2"]] %>% base::nrow()
+  preG_cnt <- pre_list[["G"]] %>% base::nrow()
+  preR_cnt <- pre_list[["R"]] %>% base::nrow()
+  
+  # Pick the the top X type from sel to satisfy
+  #
+  #  maxG_cnt - preG_cnt = 0
+  #  maxR_cnt - preR_cnt = 0
+  #  max2_cnt - pre2_cnt = 0
+  #
+  mis2_cnt <- max2_cnt - pre2_cnt
+  misR_cnt <- maxR_cnt - preR_cnt
+  misG_cnt <- maxG_cnt - preG_cnt
+
+  new2_tib <- sel_list[["2"]] %>% head(n=mis2_cnt)
+  newG_tib <- sel_list[["G"]] %>% head(n=misG_cnt)
+  newR_tib <- sel_list[["R"]] %>% head(n=misR_cnt)
+  
+  fin_sel_tib  <- dplyr::bind_rows(pre_tib,new2_tib,newG_tib,newR_tib) %>%
+    clean_tibble()
+  fin_sel_list <- fin_sel_tib %>% dplyr::mutate(Prb_Des=dplyr::case_when(
+    is.na(col) ~ "2", TRUE ~ col)
+  ) %>% split(.$Prb_Des)
+  
+  fin_tan_tib <- dplyr::bind_rows(
+    fin_sel_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::select(M) %>% dplyr::rename(tango=M),
+    fin_sel_tib %>% dplyr::filter(!is.na(U)) %>% dplyr::select(U) %>% dplyr::rename(tango=U)
+  ) %>% dplyr::arrange(tango)
+  
+  dmap_out_tib <- dmap_tan_tib %>% dplyr::filter(tango %in% fin_tan_tib$tango)
+  
+  dmap_out_dir <- "/Users/bretbarnes/Documents/data/CustomContent/Genknowme/dmaps/open-dmaps20k"
+  dmap_man_csv <- file.path(dmap_out_dir, "open-dmaps20k.manifest.csv.gz")
+  dmap_out_tsv <- file.path(dmap_out_dir, "open-dmaps20k.unlock.tsv.gz")
+  
+  readr::write_csv(fin_sel_tib,dmap_man_csv)
+  readr::write_csv(dmap_out_tib,dmap_out_tsv)
+  
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                  Main::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
