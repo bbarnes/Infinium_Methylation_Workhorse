@@ -274,6 +274,7 @@ if (args.dat[1]=='RStudio') {
     opt$workflow    <- "raw"
     opt$workflow    <- "nd"
     opt$workflow    <- "ind"
+    opt$workflow    <- "raw,ind"
     
     # opt$parallel <- TRUE
     opt$single     <- FALSE
@@ -295,10 +296,10 @@ if (args.dat[1]=='RStudio') {
     par$chip_select <- "24"
     par$chip_select <- "34"
     
-    opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets",par$ss_name)
     opt$sampleCsv <- file.path(par$topDir, "data/CustomContent/UnivChicago/sampleSheets/Chicago_Custom_36.true.sampleSheet.csv.gz")
     opt$manifest  <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz")
-    
+    opt$manifest  <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom/Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz")
+
     opt$datDir <- paste(
       file.path(par$topDir, 'scratch/swifthoof',opt$runName,"Chicago/S38",par$vstr,"swifthoof_main"),
       sep=',')

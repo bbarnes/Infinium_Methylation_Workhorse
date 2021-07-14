@@ -132,8 +132,9 @@ aqp_address_workflow = function(ord,
     }
     if (verbose>=vt+4)
       cat(glue::glue("{RET}[{funcTag}]:{tabsStr} Done. Loading data.{RET}{RET}"))
-    ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n="order")
-    
+    ord_key <- glue::glue("ret-ord({funcTag})")
+    ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n=ord_key)
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Build Bead Pool/AQP/PQC Info Data Structure::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -142,7 +143,8 @@ aqp_address_workflow = function(ord,
       dplyr::mutate(Ord_Idx=dplyr::row_number()) %>% 
       dplyr::select(Ord_Idx, dplyr::everything()) %>% 
       clean_tibble()
-    exp_cnt <- print_tib(exp_tib,funcTag, verbose,vt+4,tc, n="experiment")
+    exp_key <- glue::glue("ret-exp({funcTag})")
+    exp_cnt <- print_tib(exp_tib,funcTag, verbose,vt+4,tc, n=exp_key)
     if (retData) ret_dat$exp <- exp_tib
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -151,8 +153,9 @@ aqp_address_workflow = function(ord,
     ret_tib <- ord_tib %>% 
       dplyr::arrange(-Ord_Idx,Ord_Key) %>%
       dplyr::left_join(exp_tib, by="Ord_Idx")
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_ord")
-    
+    ret_key <- glue::glue("ret-ord({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+
     if (!is.null(mat_tib) && !is.null(aqp_tib)) {
       if (verbose>=vt+4)
         cat(glue::glue("[{funcTag}]:{tabsStr} Joining mat/aqp...{RET}"))
@@ -161,7 +164,7 @@ aqp_address_workflow = function(ord,
       aqp_tib <- aqp_tib %>% dplyr::left_join(exp_tib, by="Ord_Idx")
       
       if (mat_len==aqp_len) {
-        if (verbose>=vt-2)
+        if (verbose>=vt+2)
           cat(glue::glue("[{funcTag}]:{tabsStr} AQP MATCHING...{RET}"))
         
         ret_tib <- ret_tib %>%
@@ -170,7 +173,7 @@ aqp_address_workflow = function(ord,
           dplyr::left_join(aqp_tib, by=c("Address",
                                          "Ord_Idx","Bpn_Idx","Aqp_Idx") )
       } else {
-        if (verbose>=vt-2)
+        if (verbose>=vt+2)
           cat(glue::glue("[{funcTag}]:{tabsStr} PQC MATCHING...{RET}"))
         
         aqp_tib <- aqp_tib %>% 
@@ -181,14 +184,16 @@ aqp_address_workflow = function(ord,
                                          "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
           dplyr::left_join(aqp_tib, by=c("Address") )
       }
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_pre-decode")
-      
+      ret_key <- glue::glue("pre-pass-decode({funcTag})")
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
 
       ret_tib <- ret_tib %>%
         dplyr::filter(!is.na(Decode_Status)) %>%
         dplyr::filter(Decode_Status==0) %>%
         dplyr::distinct(Address, .keep_all=TRUE)
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_pas-decode")
+      
+      ret_key <- glue::glue("post-pass-decode({funcTag})")
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
     }
     #
     # Add Artifical Address, Decode_Status
@@ -212,7 +217,9 @@ aqp_address_workflow = function(ord,
       dplyr::select(Ord_Key,Ord_Des,Ord_Din,Ord_Col,Ord_Idx,Ord_Prb,
                     Ord_Prb_Rep,Ord_Par_Rep,
                     dplyr::everything())
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_3")
+    ret_key <- glue::glue("ret-tib3({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+
     
     # Write Summary::
     if (verbose>=vt+4 &&
@@ -302,8 +309,8 @@ load_aqp_files = function(file,
                           funcTag='load_aqp_files') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
     cat(glue::glue("[{funcTag}]:{tabsStr} file={file}.{RET}"))
   }
   
@@ -321,7 +328,7 @@ load_aqp_files = function(file,
     
     ret_tib <- file_vec %>%
       lapply(load_aqp_file,
-             verbose=verbose,tt=tt) %>% 
+             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
       dplyr::bind_rows(.id="Ord_Idx") %>%
       clean_tibble()
     
@@ -348,8 +355,8 @@ load_aqp_file = function(file, idx=NULL,
   if (is.null(file) || length(file)==0)
     return(base::invisible(NULL))
   
-  if (verbose>=vt) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
     cat(glue::glue("[{funcTag}]:{tabsStr}  file={file}.{RET}"))
     cat(glue::glue("[{funcTag}]:{tabsStr} n_max={n_max}.{RET}"))
     cat(glue::glue("[{funcTag}]:{tabsStr} guess={guess}.{RET}"))
@@ -388,6 +395,15 @@ load_aqp_file = function(file, idx=NULL,
       address_name  = col_integer(),
       bo_seq        = col_character()
     )
+
+  val_cols$mat3 <- 
+    cols(
+      probe_id      = col_character(),
+      sequence      = col_character(),
+      type_b        = col_character(),
+      address_names = col_integer(),
+      bo_seq        = col_character()
+    )
   
   val_cols$aqp <- 
     cols(
@@ -414,7 +430,7 @@ load_aqp_file = function(file, idx=NULL,
                      "AlleleB_Probe_Sequence","Normalization_Bin")
   sel_cols$mat1 <- c("Address","Sequence")
   sel_cols$mat2 <- c("address_names","bo_seq")
-  # sel_cols$mat2 <- c("address_names","sequence","probe_id")
+  sel_cols$mat3 <- c("address_names","bo_seq")
   sel_cols$aqp  <- c("Address","Decode_Status")
   sel_cols$pqc  <- c("Address","Status")
   
@@ -422,6 +438,7 @@ load_aqp_file = function(file, idx=NULL,
   key_cols$ord  <- c("Ord_Key","Ord_PrbA","Ord_PrbB","Ord_Norm")
   key_cols$mat1 <- c("Address","Sequence")
   key_cols$mat2 <- c("Address","Sequence")
+  key_cols$mat3 <- c("Address","Sequence")
   key_cols$aqp  <- c("Address","Decode_Status")
   key_cols$pqc  <- c("Address","Decode_Status")
   
@@ -454,6 +471,9 @@ load_aqp_file = function(file, idx=NULL,
     } else if (beg_key==names(val_cols$mat2$cols)[1] && 
                col_num==length(val_cols$mat2$cols)) {
       dat_key <- "mat2"
+    } else if (beg_key==names(val_cols$mat3$cols)[1] && 
+               col_num==length(val_cols$mat3$cols)) {
+      dat_key <- "mat3"
     } else if (beg_key==names(val_cols$aqp$cols)[1] && 
                col_num==length(val_cols$aqp$cols)) {
       dat_key <- "aqp"
@@ -545,8 +565,9 @@ load_aqp_file = function(file, idx=NULL,
     }
     
     # Apply Formatting Rules:: Match/AQP/PQC Data Types:: Address
-    if (dat_key=="mat1" || dat_key=="mat2" ||
-        dat_key=="aqp"  || dat_key=="pqc") {
+    # if (dat_key=="mat1" || dat_key=="mat2" ||
+    #     dat_key=="aqp"  || dat_key=="pqc") {
+    if (dat_key!="ord") {
       trim_cnt <- ret_tib %>% 
         dplyr::filter(!stringr::str_starts(Address, '1')) %>% base::nrow()
       if (trim_cnt==0) {
@@ -561,7 +582,8 @@ load_aqp_file = function(file, idx=NULL,
     }
     
     # Apply Formatting Rules:: Match Files:: Sequence
-    if (dat_key=="mat1" || dat_key=="mat2") {
+    # if (dat_key=="mat1" || dat_key=="mat2") {
+    if (stringr::str_starts(dat_key,"mat")) {
       ret_tib <- ret_tib %>% 
         dplyr::mutate(Sequence=stringr::str_to_upper(Sequence),
                       Mat_Tan=stringr::str_sub(Sequence,1,45),
@@ -577,10 +599,7 @@ load_aqp_file = function(file, idx=NULL,
       dplyr::mutate(Dat_IDX=as.integer(idx))
     
     # Standard Column Data Type Clean-Up::
-    ret_tib <- ret_tib %>%
-      utils::type.convert() %>%
-      dplyr::mutate(across(where(is.factor),  as.character) )
-    
+    ret_tib <- ret_tib %>% clean_tibble()
     ret_key <- glue::glue("ret-fin({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
@@ -594,15 +613,16 @@ load_aqp_file = function(file, idx=NULL,
 }
 
 guess_aqp_file = function(file, 
-                          fields=c("Assay_Design_Id","Plate","address_names","Address"), 
+                          fields=c("Assay_Design_Id","Plate",
+                                   "address_names","Address", "probe_id"),
                           cols=NULL,
                           n_max=100, # guess=100000,
                           verbose=0,vt=6,tc=1,tt=NULL,
                           funcTag='guess_aqp_file') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
     cat(glue::glue("[{funcTag}]:{tabsStr}   file={file}.{RET}"))
     cat(glue::glue("[{funcTag}]:{tabsStr}  n_max={n_max}.{RET}"))
     cat(glue::glue("[{funcTag}]:{tabsStr} fields={RET}"))
@@ -615,10 +635,11 @@ guess_aqp_file = function(file,
   ret_val <- NULL
   stime <- base::system.time({
     
-    file_del_str <- guess_file_del(file, n_max=n_max, verbose=verbose,vt=vt+4)
+    file_del_str <- guess_file_del(file, n_max=n_max,
+                                   verbose=verbose,vt=vt+4)
     if (is.null(file_del_str)) {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: file_del_str=NULL!!!{RET}{RET}"))
-      return(NULL)
+      return(ret_tib)
     }
     
     dat_tib <- readr::read_lines(file, n_max=n_max) %>%
@@ -631,7 +652,8 @@ guess_aqp_file = function(file,
       if (verbose>=vt+6)
         cat(glue::glue("[{funcTag}]:{tabsStr} field={field}{RET}"))
       
-      min_tib <- dat_tib %>% dplyr::filter(stringr::str_starts(value, field)) %>% tail(n=1)
+      min_tib <- dat_tib %>% 
+        dplyr::filter(stringr::str_starts(value, field)) %>% tail(n=1)
       min_cnt <- base::nrow(min_tib)
       
       # Skip Empty Results::

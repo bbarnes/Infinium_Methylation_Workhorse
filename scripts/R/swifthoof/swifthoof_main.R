@@ -266,7 +266,7 @@ if (args.dat[1]=='RStudio') {
     file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
   
   opt$auto_detect <- TRUE
-  opt$workflow    <- "nd,ind"
+  opt$workflow    <- "ind"
   opt$manDirName  <- 'core'
   
   opt$write_snps  <- TRUE
@@ -292,12 +292,10 @@ if (args.dat[1]=='RStudio') {
     # For sub manifest testing::
     opt$platform   <- "Chicago"
     opt$version    <- "S38"
+    opt$version    <- "S39"
     opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
-    
     opt$auto_sam_csv <- "/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz"
-    
-    opt$verbose <- 40
-    
+
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     
   } else if (par$local_runType=='NA12878') {

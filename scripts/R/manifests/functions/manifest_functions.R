@@ -10,6 +10,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 
 suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
 suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("digest") ))
 
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
@@ -59,13 +60,73 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Noob Probe_ID Masking::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+noob_mask = function(x, seed=0L, mod=100000000, prefix="nb",
+                     funcTag='noob_mask') {
+  
+  # Clean input::
+  x <- x %>% stringr:: str_remove_all("[^0-9]+") %>% as.integer()
+
+  hash <- digest::digest2int(as.character(x), seed) %% mod
+
+  # Waiting to see if this ever fails
+  m_len <- stringr::str_length(format(tmp, scientific = FALSE))
+  h_len <- stringr::str_length(hash)
+  
+  if (h_len>=m_len) {
+    stop(glue::glue("{RET}[{funcTag}]: ERROR: ",
+                    "h_len({h_len}) >= m_len({m_len})!!!{RET}",
+                    "hash={hash}{RET}",
+                    "mod={mod}{RET}{RET}"))
+    return(NULL)
+  }
+  
+  # Now remake cg style number::
+  hash <- paste0(prefix,
+                 stringr::str_pad(hash, width=m_len-1,side="left", pad="0"))
+  
+  hash
+}
+
+noob_mask_manifest = function(tib, field="Probe_ID",
+                              verbose=0,vt=3,tc=1,tt=NULL,
+                              funcTag='noob_mask_manifest') {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    field_sym <- rlang::sym(field)
+    
+    noob_vec <- tib %>% dplyr::pull(field_sym) %>% 
+      lapply( noob_mask) %>% unlist()
+    
+    ret_tib <- tib %>% dplyr::mutate(!!field_sym := noob_vec)
+    
+    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Manifest I/O::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 get_manifest_list = function(file=NULL, dir=NULL, platform=NULL, version=NULL,
-                           suffix=".manifest.sesame-base.cpg-sorted.csv.gz",
-                           verbose=0,vt=3,tc=1,tt=NULL,
-                           funcTag="get_manifest_list") {
+                             suffix=".manifest.sesame-base.cpg-sorted.csv.gz",
+                             verbose=0,vt=3,tc=1,tt=NULL,
+                             funcTag="get_manifest_list") {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -127,8 +188,8 @@ get_manifest_list = function(file=NULL, dir=NULL, platform=NULL, version=NULL,
 }
 
 load_manifest_list = function(tib, field="path",
-                         verbose=0,vt=3,tc=1,tt=NULL,
-                         funcTag='load_manifest_list') {
+                              verbose=0,vt=3,tc=1,tt=NULL,
+                              funcTag='load_manifest_list') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -138,7 +199,7 @@ load_manifest_list = function(tib, field="path",
     
     field_sym <- rlang::sym(field)
     file_vec <- tib %>% dplyr::distinct(!!field_sym) %>% purrr::as_vector()
-
+    
     tib_row_cnt <- base::nrow(tib)
     for (ii in c(1:tib_row_cnt)) {
       cur_file <- file_vec[ii]
@@ -166,7 +227,7 @@ load_manifest_list = function(tib, field="path",
           tibble::as_tibble()
       }
       ret_cnt <- print_tib(cur_key_tib,funcTag, verbose,vt+4,tc, n="cur_key_tib-2")
-
+      
       cur_platform <- cur_key_tib$platform
       cur_version  <- cur_key_tib$manifest
       if (!is.null(cur_key_tib$percent)) 
@@ -181,14 +242,14 @@ load_manifest_list = function(tib, field="path",
       # Do some renaming::
       #
       cur_nam_vec <- cur_tib %>% names()
-
+      
       # if (which(cur_nam_vec=="COLOR_CHANNEL") %>% length() == 0)
       if (which(cur_nam_vec=="Color_Channel") %>% length() != 0)
         cur_tib <- cur_tib %>% dplyr::rename(COLOR_CHANNEL=Color_Channel)
       
       if (which(cur_nam_vec=="Probe_Source") %>% length() == 0)
         cur_tib <- cur_tib %>% dplyr::mutate(Probe_Source=cur_key)
-
+      
       # Generate Columns that can be calculated::
       ret_dat[[cur_key]] <- cur_tib %>%
         dplyr::mutate(
@@ -229,7 +290,7 @@ load_manifest_list = function(tib, field="path",
       print_tag <- glue::glue("{ii}={cur_key}")
       print_tib(ret_dat[[cur_key]],funcTag, verbose,vt+4,tc, n=print_tag)
     }
-
+    
     ret_cnt <- ret_dat %>% names() %>% length()
     # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })

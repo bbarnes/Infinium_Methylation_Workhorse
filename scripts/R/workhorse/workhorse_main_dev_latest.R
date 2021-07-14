@@ -5,6 +5,13 @@
 
 # Big Science::
 #
+# Producing noob masked probe ids: digest::digest2int("3", 0L) %% 28000000
+#  - library(digest)
+#  - digest::digest2int("aasdfdsfadssdssdad234sdf", 0L) %% 100000000 %>% stringr::str_length()
+#  - need to run a quick scan test scan, but probably not. Just need an 8
+#    digit number. 
+#  - need to explain this to the team tomorrow.
+#
 # Sequencing -> Discovery -> Array Dominace (Can't compete)
 # COVID: Sample Prep -> Gary; do you know about Direct Detection
 #   - Existing array
@@ -107,7 +114,8 @@ opt$ords <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
 opt$mats <- NULL
 opt$aqps <- NULL
 
-opt$mans <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
+opt$mans <- NULL  # Manifest of probes to be added
+opt$noob <- NULL  # Manifest of probes to be noob masked
 opt$vcfs <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
 opt$beds <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
 opt$snps <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
@@ -277,16 +285,16 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'TruDx'
   par$local_runType <- 'EWAS'
   par$local_runType <- 'GRCm10'
-  par$local_runType <- 'McMaster10Kselection'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'McMaster10Kselection'
   
   opt$parallel <- TRUE
   
   opt$verbose <- 10
   opt$verbose <- 3
   
-  opt$fresh <- TRUE
   opt$fresh <- FALSE
+  opt$fresh <- TRUE
   
   opt$run_improbe    <- TRUE
   opt$build_manifest <- TRUE
@@ -297,48 +305,76 @@ if (args.dat[1]=='RStudio') {
   } else if (par$local_runType=='McMaster10Kselection') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'MCM'
-    opt$version  <- 'A2'
+    opt$version  <- 'v1'
     opt$Species  <- "Human"
     
-    opt$idat   <- NULL
+    #
+    # TBD: Rebuild GMAIL with all the new settings in: 
+    #  data/CustomContent/McMaster/McMaster10Kselection/AQP.v1
+    # NOTE: We're going to run all three versions::
+    #
+    #  v1 : Check results, then modularize sesame manifest generation
+    #  v0 : 
+    #  v00: 
+    #
+    # Chicago: with opt$ord_des_csv set to default canonical
+    #
+    # Below are some examples of how things don't match up...
+    # ord_tib <- readr::read_csv(opt$ords) %>% 
+    #   dplyr::mutate(Ord_Key=Assay_Design_Id %>% stringr::str_remove("_.*$"))
+    # man_tib <- readr::read_csv(opt$mans) %>% 
+    #   dplyr::mutate(Ord_Key=Probe_ID %>% stringr::str_remove("_.*$"))
+    # 
+    # ord_tib %>% dplyr::filter(Ord_Key %in% man_tib$Ord_Key)
+    # man_tib %>% dplyr::filter(Ord_Key %in% ord_tib$Ord_Key)
+    # 
+    # cur_tib <- aqp_add_tib %>% 
+    #   dplyr::mutate(Ord_Key=Ord_Key %>% stringr::str_remove("_.*$"))
+    # 
+    # ord_tib %>% dplyr::filter(Ord_Key %in% cur_tib$Ord_Key)
+    # man_tib %>% dplyr::filter(Ord_Key %in% cur_tib$Ord_Key)
+    # 
+    # cur_tib %>% dplyr::filter(Ord_Key %in% ord_tib$Ord_Key)
+    # cur_tib %>% dplyr::filter(Ord_Key %in% man_tib$Ord_Key)
+    #
     
-    par$aqpDir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection")
-    opt$ords <- paste(
-      file.path(par$aqpDir, 'McMasterCpG_DesignFile_v4.csv.gz'),
-      sep=',')
-    
-    tmp_tib <- 
-      readr::read_tsv(file.path(par$aqpDir, '20532820_probes.match.gz')) %>% 
-      dplyr::mutate(address_names=address_name) %>% 
-      dplyr::select(address_names,probe_id,sequence,type_b,address_name,bo_seq)
-    readr::write_tsv(tmp_tib, file.path(par$aqpDir, '20532820_probes.v2.match.gz'))
-    rm(tmp_tib)
+    if (opt$version=="v1") {
+      par$aqpDir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v1")
+      opt$ords <- paste(
+        file.path(par$aqpDir, 'McMaster_CpG_DesignFile_v4.csv.gz'),
+        sep=',')
+      
+      opt$mats <- paste(
+        file.path(par$aqpDir, '20532820_probes.match.gz'),
+        sep=',')
+      
+      opt$aqps <- paste(
+        file.path(par$aqpDir, '20051339_A_ProductQC.txt.gz'),
+        sep=',')
+      
+      opt$noob <- paste(
+        file.path(par$aqpDir, "Rand3-S0.060.manifest.sesame-base.cpg-sorted.csv.gz"),
+        sep=','
+      )
 
-    opt$mats <- paste(
-      file.path(par$aqpDir, '20532820_probes.v2.match.gz'),
-      sep=',')
-    
-    opt$aqps <- paste(
-      file.path(par$aqpDir, '20051339_A_ProductQC.txt.gz'),
-      sep=',')
-    
-    opt$bpns   <- NULL
+    } else if (opt$version=="v0") {
+      par$aqpDir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v0")
+      
+    } else if (opt$version=="v00") {
+      par$aqpDir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v00")
+      
+      tmp_tib <- 
+        readr::read_tsv(file.path(par$aqpDir, '20532820_probes.match.gz')) %>% 
+        dplyr::mutate(address_names=address_name) %>% 
+        dplyr::select(address_names,probe_id,sequence,type_b,address_name,bo_seq)
+      readr::write_tsv(tmp_tib, file.path(par$aqpDir, '20532820_probes.v2.match.gz'))
+      rm(tmp_tib)
+      
+      
+    }
     opt$bpns <- paste(1, sep=",")
-    
-    opt$aqpn   <- NULL
     opt$aqpn <- paste(1, sep=",")
-    
-    opt$mans   <- NULL
-    opt$mans   <- paste(
-      file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/Rand3-S0.060.manifest.sesame-base.cpg-sorted.csv.gz"),
-      sep=','
-    )
 
-    opt$vcfs   <- paste(
-      "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz",
-      sep=',')
-    opt$beds   <- NULL
-    opt$snps   <- NULL
     opt$ord_des_csv <- NULL
     
   } else if (par$local_runType=='EWAS') {
@@ -387,19 +423,11 @@ if (args.dat[1]=='RStudio') {
       new_files <- list.files(new_dir, pattern=".csv.gz$", full.names=TRUE)
     }
     
-    # opt$ords <- c(csv_files,new_files)
     opt$ords <- c(csv_files)
     par$ordn <- opt$ords %>% base::basename() %>% 
       stringr::str_remove("^EPIC-reorder.partition-") %>%
       stringr::str_remove(".order.csv.gz$")
     
-    opt$mats   <- NULL
-    opt$aqps   <- NULL
-    
-    opt$bpns   <- NULL
-    opt$aqpn   <- NULL
-    
-    opt$mans   <- NULL
     # opt$mans   <- paste(
     #   file.path(opt$manDir, "genotyping/GSA-24v2-0_A1.csv.gz"),
     #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation27_270596_v.1.2.csv.gz"),
@@ -407,35 +435,21 @@ if (args.dat[1]=='RStudio') {
     #   file.path(opt$manDir, "methylation/GenomeStudio/MethylationEPIC_v-1-0_B2.csv.gz"),
     # sep=',')
     
-    opt$vcfs   <- NULL
     # opt$vcfs   <- paste(
     # "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/common_all_20180423.snps.csv.gz",
     # "/Users/bretbarnes/Documents/data/annotation/dbSNP/dbSNP-151/GRCh37/All_20180423.vcf.gz",
     #  sep=',')
-    opt$beds   <- NULL
-    opt$snps   <- NULL
+    
     # opt$snps   <- paste(
     #   "/Users/bretbarnes/Documents/data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.csv",
     #   sep=',')
-    
-    # opt$ord_des_csv <- file.path(par$datDir, "manifest/cgnDB/canonical-assignment.cgn-top-grp.csv.gz")
-    opt$ord_des_csv <- NULL
-    
+
   } else if (par$local_runType=='TruDx') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
     opt$version  <- 'A4'
     opt$Species  <- "Human"
     
-    opt$idat   <- NULL
-    opt$ords   <- NULL
-    opt$mats   <- NULL
-    opt$aqps   <- NULL
-    
-    opt$bpns   <- NULL
-    opt$aqpn   <- NULL
-    
-    opt$mans   <- NULL
     # opt$mans   <- paste(
     #   file.path(opt$manDir, "genotyping/GSA-24v2-0_A1.csv.gz"),
     #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation27_270596_v.1.2.csv.gz"),
@@ -451,24 +465,13 @@ if (args.dat[1]=='RStudio') {
     opt$snps   <- paste(
       "/Users/bretbarnes/Documents/data/CustomContent/TruDx/SNPs/TruDx_target_SNPs.csv",
       sep=',')
-    
-    opt$ord_des_csv <- NULL
-    
+
   } else if (par$local_runType=='HM450') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
     opt$version  <- 'A2'
     opt$Species  <- "Human"
     
-    opt$idat   <- NULL
-    opt$ords   <- NULL
-    opt$mats   <- NULL
-    opt$aqps   <- NULL
-    
-    opt$bpns   <- NULL
-    opt$aqpn   <- NULL
-    
-    opt$mans   <- NULL
     opt$mans   <- paste(
       #   file.path(opt$manDir, "genotyping/GSA-24v2-0_A1.csv.gz"),
       #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation27_270596_v.1.2.csv.gz"),
@@ -476,36 +479,19 @@ if (args.dat[1]=='RStudio') {
       #   file.path(opt$manDir, "methylation/GenomeStudio/MethylationEPIC_v-1-0_B2.csv.gz"),
       sep=',')
     
-    opt$vcfs   <- NULL
-    opt$beds   <- NULL
-    opt$ord_des_csv <- NULL
-    
   } else if (par$local_runType=='GSA') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
     opt$version  <- 'A2'
     opt$Species  <- "Human"
-    
-    opt$idat   <- NULL
-    opt$ords   <- NULL
-    opt$mats   <- NULL
-    opt$aqps   <- NULL
-    
-    opt$bpns   <- NULL
-    opt$aqpn   <- NULL
-    
+
     # opt$mans   <- paste(
     #   file.path(opt$manDir, "genotyping/GSA-24v2-0_A1.csv.gz"),
     #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation27_270596_v.1.2.csv.gz"),
     #   file.path(opt$manDir, "methylation/GenomeStudio/HumanMethylation450_15017482_v.1.2.csv.gz"),
     #   file.path(opt$manDir, "methylation/GenomeStudio/MethylationEPIC_v-1-0_B2.csv.gz"),
     #   sep=',')
-    
-    opt$mans   <- NULL
-    opt$vcfs   <- NULL
-    opt$beds   <- NULL
-    opt$ord_des_csv <- NULL
-    
+
   } else if (par$local_runType=='Chicago') {
     opt$genBuild <- 'GRCh38'
     opt$genBuild <- 'GRCh37'
@@ -742,6 +728,8 @@ if (args.dat[1]=='RStudio') {
                 help="AQP file(s) (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--mans"), type="character", default=opt$mans,
                 help="Manifest CSV file(s) (comma seperated) [default= %default]", metavar="character"),
+    make_option(c("--noob"), type="character", default=opt$noob, 
+                help="Manifest of probes to be added and noob-masked CSV file(s) (comma seperated) [default= %default]", metavar="character"),
     
     # Not fully supported yet::
     make_option(c("--vcfs"), type="character", default=opt$vcfs, 
@@ -750,7 +738,7 @@ if (args.dat[1]=='RStudio') {
                 help="Target Design Coordinate BED file(s) (comma seperated) [default= %default]", metavar="character"),
     make_option(c("--snps"), type="character", default=opt$snps, 
                 help="Target Design Coordinate SNP file(s) (comma seperated) [default= %default]", metavar="character"),
-    
+
     # Manufacturing Info:: Required
     make_option(c("--bpns"), type="character", default=opt$bpns, 
                 help="Bead Pool Numbers (comma seperated) [default= %default]", metavar="character"),
@@ -954,15 +942,30 @@ seq_cgn_tib <- NULL
 aqp_bsp_tib <- NULL
 imp_des_tib <- NULL
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#            0.0 Load any pre-defined Standar Manifest to be added::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (!is.null(opt$mans)) {
+
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#          0.1 Load any pre-defined Noob-Masked Manifest to be added::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (!is.null(opt$mans)) {
+  
+}
+
 if (opt$build_manifest) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                  2.1 Functional Manifest Generation::
-  #                         AQP Address Workflow()
+  #                1.1 New Manifest Workflow: Design/Match/AQP
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   par$retData <- TRUE
   par$retData <- FALSE
-  opt$verbose <- 100
+  # opt$verbose <- 100
   
   stamp_vec <- c(stamp_vec,run$aqp_add_csv)
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
@@ -997,8 +1000,10 @@ if (opt$build_manifest) {
   
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
+    # This should likely be removed::
+    #
     # if (par$local_runType=="Chicago") opt$ord_des_csv <- NULL
-    opt$ord_des_csv <- NULL
+    # opt$ord_des_csv <- NULL
     
     seq_cgn_tib <- cgn_mapping_workflow(
       ref_u49=run$imp_u49_tsv,can_u49=run$aqp_u49_tsv,out_u49=run$int_u49_tsv,
@@ -1106,6 +1111,7 @@ if (opt$build_manifest) {
   
 }
 
+#
 # NOTE: Now we have four core tables::
 #  Address:   aqp_add_tib  => aqp_address_workflow()
 #  CG Number: seq_cgn_tib  => cgn_mapping_workflow()
@@ -1347,8 +1353,9 @@ add_cgn_imp_bsp_man <-
       Strand_FR_U=="F" ~ "+", 
       Strand_FR_U=="R" ~ "-", 
       TRUE ~ NA_character_),
-    IlmnID=paste0(
-      Imp_Cgn_U,"_",Imp_TB_U,Imp_CO_U,Infinium_Design,Rank)
+    cgn=paste0("cg",stringr::str_pad(Imp_Cgn_U, side = "left", width = 8, pad = 0)),
+    IlmnID=paste0(cgn,
+        "_",Imp_TB_U,Imp_CO_U,Infinium_Design,Rank)
       # Imp_Cgn_U,"_",Imp_TB_U,Imp_CO_U,Infinium_Design,Ord_Prb_Rep_U)
   ) %>% 
   dplyr::distinct(IlmnID, .keep_all=TRUE) %>%
@@ -1371,19 +1378,26 @@ if (FALSE) {
   ses_sel_cols <- c("IlmnID","Address_U","Address_M","Infinium_Design_Type",
                     "Color_Channel","col","Ord_Din",
                     "Probe_Source","Imp_Nxb_M","Infinium_Design")
-  ses_out_cols <- c("Probe_ID","M","U","DESIGN","COLOR_CHANNEL","col",
+  ses_out_cols <- c("Probe_ID","U","M","DESIGN","COLOR_CHANNEL","col",
                     "Probe_Type","Probe_Source","Next_Base","Probe_Design")
   
   ses_cntr_csv <- file.path(par$topDir, "data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.controls-only.csv.gz")
   ses_cntr_tib <- suppressMessages(suppressWarnings( readr::read_csv(ses_cntr_csv) ))
   
+  probe_source <- "U_Chicago"
+  probe_source <- "GMAIL" # McMaster10Kselection
   add_cgn_imp_bsp_ses <- add_cgn_imp_bsp_man %>% 
     dplyr::select(dplyr::all_of(ses_sel_cols)) %>%
     purrr::set_names(ses_out_cols) %>%
-    dplyr::mutate(Probe_Source="U_Chicago") %>%
+    dplyr::mutate(Probe_Source=probe_source) %>%
     dplyr::bind_rows(ses_cntr_tib)
   
-  sesame_man_csv <- file.path(run$manDir, "Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz")
+  # Fast location for Chicago
+  # sesame_man_csv <- "/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz"
+  # sesame_man_csv <- file.path(run$manDir, "Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz")
+  
+  sesame_man_name <- paste0(par$local_runType,"-",opt$version,".manifest.sesame-base.cpg-sorted.csv.gz")
+  sesame_man_csv <- file.path(run$manDir, sesame_man_name)
   readr::write_csv(add_cgn_imp_bsp_ses,sesame_man_csv)
 
   # Color Channel Validation::
@@ -1454,12 +1468,90 @@ if (FALSE) {
     epi_inf_sum %>% dplyr::filter(DESIGN=="I") %>% dplyr::pull(Count) / 
     epi_inf_sum %>% dplyr::filter(DESIGN=="II") %>% dplyr::pull(Count)
   
-  
   cat(glue::glue("Chicago: G/R = {GR_ses_ratio}, C+G/A+T = {CG_AT_ses_ratio}, I/II = {INF_ses_ratio}{RET}"))
   cat(glue::glue("EPIC-B4: G/R = {GR_epi_ratio}, C+G/A+T = {CG_AT_epi_ratio}, I/II = {INF_epi_ratio}{RET}"))
   
   # Chicago: G/R = 0.546140035906643, C+G/A+T = 0.546140035906643, I/II = 0.128387846984108
   # EPIC-B4: G/R = 0.541549173571645, C+G/A+T = 0.541549173571645, I/II = 0.197196132021809
+  
+  # Color Input Manifest Channel Validation::
+  #
+  man38_csv  <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz")
+  man39_csv  <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom/Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz")
+  
+  man38_tib <- readr::read_csv(man38_csv)
+  man39_tib <- readr::read_csv(man39_csv)
+  
+  tar_tmp_man <- add_cgn_imp_bsp_ses
+  tar_tmp_man <- man39_tib
+  tar_tmp_man <- man38_tib
+  
+  ses_col_sum <- tar_tmp_man %>% 
+    dplyr::filter(Probe_Type=="cg") %>%
+    dplyr::group_by(col) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  ses_nxt_sum <- tar_tmp_man %>% 
+    dplyr::filter(Probe_Type=="cg") %>%
+    dplyr::group_by(Next_Base) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  ses_inf_sum <- tar_tmp_man %>% 
+    dplyr::filter(Probe_Type=="cg") %>%
+    dplyr::group_by(DESIGN) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  ses_all_sum <- tar_tmp_man %>% 
+    dplyr::filter(Probe_Type=="cg") %>%
+    dplyr::group_by(Probe_Type,Next_Base,COLOR_CHANNEL,
+                    col,DESIGN,Probe_Design) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  GR_ses_ratio <- 
+    ses_col_sum %>% dplyr::filter(col=="G") %>% dplyr::pull(Count) / 
+    ses_col_sum %>% dplyr::filter(col=="R") %>% dplyr::pull(Count)
+  
+  CG_AT_ses_ratio <- 
+    sum(ses_nxt_sum %>% dplyr::filter(Next_Base=="C" | Next_Base=="G") %>% dplyr::pull(Count)) /
+    sum(ses_nxt_sum %>% dplyr::filter(Next_Base=="A" | Next_Base=="T") %>% dplyr::pull(Count))
+  
+  INF_ses_ratio <- 
+    ses_inf_sum %>% dplyr::filter(DESIGN=="I") %>% dplyr::pull(Count) / 
+    ses_inf_sum %>% dplyr::filter(DESIGN=="II") %>% dplyr::pull(Count)
+  
+  cat(glue::glue("Chicago: G/R = {GR_ses_ratio}, C+G/A+T = {CG_AT_ses_ratio}, I/II = {INF_ses_ratio}{RET}"))
+  
+  
+  # [38.]: G/R = 3.92227204783259,  C+G/A+T = 3.92227204783259,  I/II = 0.127529302000117
+  # [39f]: G/R = 0.546140035906643, C+G/A+T = 0.546140035906643, I/II = 0.128387846984108
+  # [39r]: G/R = 0.546140035906643, C+G/A+T = 0.546140035906643, I/II = 0.128387846984108
+  # [B4.]: G/R = 0.541549173571645, C+G/A+T = 0.541549173571645, I/II = 0.197196132021809
+  
+  #
+  #
+  # Sample Sheets::
+  #
+  #
+  sam38_csv <- file.path(par$topDir, "scratch/swifthoof/Chicago-Ober-Custom/Chicago/S38/v4/swifthoof_main/205271030022_R01C01_Chicago_S38_AutoSampleSheet.csv.gz")
+  sam39_csv <- file.path(par$topDir, "scratch/swifthoof/Chicago-Ober-Custom/Chicago/S39/v4/swifthoof_main/205271030022_R01C01_Chicago_S39_AutoSampleSheet.csv.gz")
+
+  sam38_tib <- readr::read_csv(sam38_csv)
+  sam39_tib <- readr::read_csv(sam39_csv)
+  
+  tab38_csv <- file.path(par$topDir, "scratch/swifthoof/Chicago-Ober-Custom/Chicago/S38/v4/swifthoof_main/205271030022_R01C01_Chicago_S38_AutoSampleSheetDescriptionTable.csv.gz")
+  tab39_csv <- file.path(par$topDir, "scratch/swifthoof/Chicago-Ober-Custom/Chicago/S39/v4/swifthoof_main/205271030022_R01C01_Chicago_S39_AutoSampleSheetDescriptionTable.csv.gz")
+  
+  tab38_tib <- readr::read_csv(tab38_csv)
+  tab39_tib <- readr::read_csv(tab39_csv)
+  
+  tab39_tib %>% dplyr::inner_join(tab38_tib, by=c("Variable"), suffix=c("_39","_38")) %>% dplyr::select(Variable,Value_39,Value_38,Data_Type_39) %>% 
+    dplyr::filter(Data_Type_39=="numeric") %>% print(n=1000)
+  
+  join_tab <- tab39_tib %>% dplyr::inner_join(tab38_tib, by=c("Variable"), suffix=c("_39","_38")) %>% dplyr::select(Variable,Value_39,Value_38,Data_Type_39) %>%
+    dplyr::filter(Data_Type_39=="numeric") %>%
+    clean_tibble() %>%
+    dplyr::mutate(Diff=Value_39-Value_38)
+  join_tab %>% print(n=10000)
 }
 
 #
