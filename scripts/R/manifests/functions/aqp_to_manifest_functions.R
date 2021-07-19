@@ -46,6 +46,209 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Assign Best CGN from:: BSP & SEQ
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+assign_cgn = function(add, bsp, seq, can, csv=NULL,
+                      merge=TRUE, retData=FALSE,
+                      verbose=0,vt=3,tc=1,tt=NULL,
+                      funcTag='assign_cgn') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} can={can}.{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_dat <- NULL
+  stime <- base::system.time({
+    
+    # Load Canonical CGNs::
+    can_tib <- safe_read(file=can, verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
+      dplyr::select(CGN) %>% 
+      dplyr::rename(Cgn=CGN) %>% 
+      dplyr::mutate(Can_Cnt=1)
+    
+    # Defined Order tib to add original cgn::
+    ord_tib <- add %>% 
+      dplyr::select(Aln_Key,Ord_Cgn) %>%
+      dplyr::rename(Cgn=Ord_Cgn) %>% 
+      dplyr::mutate(Ord_Cnt=1) %>%
+      dplyr::distinct()
+    
+    # Format BSP::
+    bsp_tib <- bsp %>% 
+      dplyr::filter(!is.na(Bsp_Cgn)) %>% 
+      dplyr::select(Ord_Key,Aln_Key, Ord_Des, Ord_Din, Bsp_Cgn) %>% 
+      dplyr::rename(Cgn=Bsp_Cgn) %>%
+      dplyr::distinct() %>%
+      dplyr::arrange(Aln_Key, Cgn) %>% 
+      dplyr::group_by(Ord_Key,Aln_Key,Ord_Des,Ord_Din,Cgn) %>% 
+      dplyr::summarise(Bsp_Cnt=n(), .groups = "drop")
+    bsp_key <- glue::glue("bsp-tib({funcTag})")
+    bsp_cnt <- print_tib(bsp_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+    
+    seq_tib <- seq %>% 
+      dplyr::filter(!is.na(Imp_Cgn)) %>% 
+      dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn) %>% 
+      tidyr::unite(Aln_Key, Address, Ord_Des, Ord_Din, sep="_", remove=FALSE) %>%
+      dplyr::left_join(dplyr::select(aqp_add_tib, Ord_Key,Aln_Key), by="Aln_Key") %>%
+      dplyr::select(Ord_Key,Aln_Key,Ord_Des,Ord_Din,Imp_Cgn) %>%
+      dplyr::rename(Cgn=Imp_Cgn) %>%
+      dplyr::distinct() %>%
+      dplyr::arrange(Aln_Key, Cgn) %>% 
+      dplyr::group_by(Ord_Key,Aln_Key,Ord_Des,Ord_Din,Cgn) %>% 
+      dplyr::summarise(Seq_Cnt=n(), .groups = "drop")
+    seq_key <- glue::glue("seq-tib({funcTag})")
+    seq_cnt <- print_tib(seq_tib,funcTag, verbose,vt+4,tc, n=seq_key)
+    
+    # Build and Sort Counts Tables
+    cnt_tib <- 
+      dplyr::full_join(bsp_tib, seq_tib, by=c("Ord_Key","Aln_Key","Ord_Des","Ord_Din","Cgn")) %>% 
+      dplyr::left_join(can_tib, by="Cgn") %>%
+      dplyr::distinct() %>%
+      dplyr::left_join(ord_tib, by=c("Aln_Key","Cgn")) %>%
+      dplyr::distinct() %>%
+      dplyr::mutate(dplyr::across(c(Bsp_Cnt,Seq_Cnt,Can_Cnt,Ord_Cnt), tidyr::replace_na, 0 ),
+                    Sum_Cnt=Bsp_Cnt+Seq_Cnt,
+                    Max_Cnt=Bsp_Cnt*Seq_Cnt) %>% 
+      dplyr::add_count(Aln_Key, name="Cgn_Cnt") %>% 
+      dplyr::arrange(-Can_Cnt,-Max_Cnt,-Sum_Cnt,-Ord_Cnt) %>%
+      dplyr::mutate(Rank=dplyr::row_number())
+    
+    cnt_list <- cnt_tib %>% split(.$Ord_Des)
+    
+    # Infinium II::
+    inf2_tib <- cnt_list[["2"]] %>%
+      dplyr::arrange(Aln_Key, Rank) %>%
+      dplyr::distinct(Aln_Key, .keep_all = TRUE)
+    
+    # Infinium I:: Full Join
+    #
+    #   TBD:: The joining should really be done by sequence: Ord_Prb
+    #
+    inf1_tib <- dplyr::full_join(
+      cnt_list[["U"]], cnt_list[["M"]], 
+      by=c("Ord_Key","Cgn","Ord_Din"), 
+      suffix=c("_U","_M")
+    ) %>%
+      dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+      dplyr::arrange(Ord_Key, Rank_Min) %>%
+      dplyr::distinct(Ord_Key,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
+    
+    if (retData) ret_dat$inf1_tib <- inf1_tib
+    if (retData) ret_dat$inf2_tib <- inf2_tib
+    
+    ret_tib <- dplyr::bind_rows(
+      dplyr::select(inf1_tib, Ord_Key,Aln_Key_U,Cgn,Ord_Des_U,Ord_Din,Can_Cnt_U,Rank_Min) %>% 
+        purrr::set_names("Ord_Key","Aln_Key","Cgn","Ord_Des","Ord_Din","Can_Cnt","Rank"),
+      
+      dplyr::select(inf1_tib, Ord_Key,Aln_Key_M,Cgn,Ord_Des_M,Ord_Din,Can_Cnt_M,Rank_Min) %>% 
+        purrr::set_names("Ord_Key","Aln_Key","Cgn","Ord_Des","Ord_Din","Can_Cnt","Rank"),
+      
+      dplyr::select(inf2_tib, Ord_Key,Aln_Key,Cgn,Ord_Des,Ord_Din,Can_Cnt,Rank)
+    ) %>% dplyr::filter(!is.na(Aln_Key)) %>%
+      dplyr::distinct()
+    
+    print(ret_tib)
+    
+    mul_cnt <- ret_tib %>% dplyr::add_count(Aln_Key,Cgn, name="Multi_Cnt") %>% 
+      dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
+    mis_cnt <- ret_tib %>% dplyr::filter(is.na(Aln_Key)) %>% base::nrow()
+
+    mis_tib <- dplyr::anti_join(aqp_add_tib, ret_tib, by=c("Aln_Key"))
+    sig_tib <- dplyr::filter(cnt_tib, Aln_Key %in% mis_tib$Aln_Key) %>%
+      dplyr::arrange(Ord_Key,Rank) %>%
+      dplyr::distinct(Aln_Key, .keep_all = TRUE)
+    sig_cnt <- sig_tib %>% base::nrow()
+    
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}   Miss Count={mis_cnt}.{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}  Multi Count={mul_cnt}.{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} Single Count={sig_cnt}.{RET}"))
+      cat("\n")
+    }
+    # if (mis_cnt!=0 || mul_cnt!=0 || sig_cnt!=0) {
+    #   stop(glue::glue("{RET}[{funcTag}]:{tabsStr} Counts non-zero={mis_cnt},",
+    #                   "{mul_cnt},{sig_cnt}!{RET}{RET}"))
+    #   return(NULL)
+    # }
+    
+    # Merge all data together::
+    #
+    ret_cnt <- ret_tib %>% base::nrow()
+    ret_tib <- dplyr::bind_rows(
+      ret_tib %>% dplyr::mutate(
+        Cgn_Tag=dplyr::case_when(
+          Ord_Din=="rs" ~ Ord_Din,
+          Ord_Din=="ch" ~ Ord_Din,
+          TRUE ~ "cg"
+        ),
+        Cgn_Str=dplyr::case_when(
+          Ord_Din=="rs" ~ stringr::str_remove(Ord_Key, "[-_:].*$"),
+          Ord_Din=="ch" ~ stringr::str_remove(Ord_Key, "[-_:].*$"),
+          TRUE ~ paste0("cg",stringr::str_pad(Cgn,width=8,side="left",pad="0"))
+        )),
+      mis_tib %>% 
+        dplyr::select(Ord_Key, Aln_Key,Ord_Cgn,Ord_Des,Ord_Din) %>% 
+        dplyr::rename(Cgn=Ord_Cgn) %>% 
+        dplyr::mutate(Can_Cnt=0, 
+                      Rank=dplyr::row_number() + ret_cnt,
+                      Cgn_Tag="uk",
+                      Cgn_Str=paste0(Cgn_Tag,stringr::str_pad(Cgn,width=8,side="left",pad="0"))
+        )
+    ) %>%
+      # TBD:: Capture other CGN's in seperate column:: actual CGN's not Count!!
+      dplyr::add_count(Aln_Key, name="Alt_Cgn_Cnt") %>%
+      # One Final Clean Up To Ensure Uniqueness::
+      dplyr::arrange(Rank) %>% 
+      dplyr::distinct(Aln_Key, .keep_all = TRUE)
+    
+    mul_cnt <- ret_tib %>% 
+      dplyr::add_count(Aln_Key,Cgn, name="Multi_Cnt") %>% 
+      dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
+    
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}  Multi Count Final={mul_cnt}.{RET}"))
+      cat("\n")
+    }
+    if (mul_cnt!=0) {
+      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} Multi-Count Final={mul_cnt} ",
+                      "not equal to zero!!!{RET}{RET}"))
+      return(NULL)
+    }
+    
+    if (merge) ret_tib <- bsp %>%
+      dplyr::left_join(ret_tib, 
+                       by=c("Ord_Key","Aln_Key","Ord_Des","Ord_Din"),
+                       suffix=c("_bsp","_cgn"))
+    
+    ret_tib <- ret_tib %>% clean_tibble()
+    
+    safe_write(ret_tib,file=csv, funcTag=funcTag,
+               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    
+    if (retData) ret_dat$ret_tib <- ret_tib
+    if (retData) ret_dat$mis_tib <- mis_tib
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  if (retData) return(ret_dat)
+
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                ORD/MAT/AQP/Manifest File Workflows:: Generation
 #                         AQP Address Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -61,6 +264,14 @@ aqp_address_workflow = function(ord,
   funcTag <- 'aqp_address_workflow'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} ord={ord}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} mat={mat}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} aqp={aqp}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} bpn={bpn}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} aqn={aqn}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} runName={runName}{RET}{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -99,12 +310,14 @@ aqp_address_workflow = function(ord,
       mat_vec <- stringr::str_split(mat, pattern=",", simplify=TRUE) %>% 
         BiocGenerics::as.vector()
       mat_len <- length(mat_vec)
-      if (ord_len != mat_len) {
-        stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
-                        "order length != match length! ",
-                        "({ord_len} != {mat_len})! Exiting...{RET}"))
-        return(ret_tib)
-      }
+      # Suspending this rule for now...
+      #
+      # if (ord_len != mat_len) {
+      #   stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
+      #                   "order length != match length! ",
+      #                   "({ord_len} != {mat_len})! Exiting...{RET}"))
+      #   return(ret_tib)
+      # }
       mat_tib <- load_aqp_files(mat_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
       
       if (retData) ret_dat$mat <- mat_tib
@@ -126,7 +339,7 @@ aqp_address_workflow = function(ord,
                         "({aqp_len} != {mat_len})! Exiting...{RET}"))
         return(ret_tib)
       }
-      aqp_tib <- load_aqp_files(aqp_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
+      aqp_tib <- load_aqp_files(aqp_vec, verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
       
       if (retData) ret_dat$aqp <- aqp_tib
     }
@@ -198,6 +411,7 @@ aqp_address_workflow = function(ord,
     #
     # Add Artifical Address, Decode_Status
     #
+    print(ret_tib)
     if (!"Address" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
       dplyr::mutate(Address=dplyr::row_number())
     if (!"Decode_Status" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
@@ -206,7 +420,7 @@ aqp_address_workflow = function(ord,
     # Add Order Predicted CGN::
     ret_tib <- ret_tib %>%
       dplyr::mutate(Ord_Cgn=Ord_Key %>% 
-                      stringr::str_remove("^[a-zA-Z][a-zA-Z]") %>% 
+                      stringr::str_remove("^[a-zA-Z]+") %>% 
                       stringr::str_remove("-.*$") %>% 
                       stringr::str_remove("_.*$") %>% 
                       as.integer())
@@ -238,6 +452,8 @@ aqp_address_workflow = function(ord,
     if (!is.null(man_csv)) {
       man_vec <- c("Ord_Key","Ord_Din","Ord_Col",
                    dplyr::all_of(base::names(exp_tib) ) )
+      print(man_vec)
+      print(ret_tib)
       
       man_tib <- ret_tib %>%
         add_to_man(join=man_vec,
@@ -264,22 +480,21 @@ aqp_address_workflow = function(ord,
         return(NULL)
       }
       
+      print(ret_tib)
       # Write Fasta Output::
       ret_tib <- ret_tib %>%
         add_to_fas(
-          # prb_key="Ord_Prb", add_key="Ord_Key", 
           prb_key="Ord_Prb", add_key=add_key, 
           des_key="Ord_Des", din_key="Ord_Din",
           prb_fas=add_fas, dat_csv=add_csv,
           u49_tsv=u49_tsv, m49_tsv=m49_tsv,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
-    } else if (!is.null(add_csv)) {
-      # Write Address Output::
-      safe_write(ret_tib,"csv",add_csv,
-                 funcTag=funcTag,
-                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     }
+    if (!is.null(add_csv)) 
+      safe_write(ret_tib,file=add_csv, funcTag=funcTag,
+                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
     if (retData) ret_dat$add <- ret_tib
     
     # Overall Summary::
@@ -690,9 +905,8 @@ guess_aqp_file = function(file,
 
 cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
                                 ref_m49,can_m49,out_m49,
-                                int_seq_tsv,
-                                idxA=1,idxB=1,
-                                ord=NULL,bed=NULL,org=NULL,
+                                ord=NULL,bed=NULL,org=NULL,out=NULL,
+                                idxA=1,idxB=1,reload=FALSE,
                                 verbose=0,vt=3,tc=1,tt=NULL,
                                 funcTag='cgn_mapping_workflow') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -717,13 +931,13 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
   stime <- base::system.time({
     
     u49_tib <- intersect_seq(ref=ref_u49,can=can_u49,out=out_u49,
-                             idxA=idxA,idxB=idxB,
+                             idxA=idxA,idxB=idxB, reload=reload,
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     u49_key <- glue::glue("u49-tib({funcTag})")
     u49_cnt <- print_tib(u49_tib,funcTag, verbose,vt+4,tc, n=u49_key)
 
     m49_tib <- intersect_seq(ref=ref_m49,can=can_m49,out=out_m49,
-                             idxA=idxA,idxB=idxB,
+                             idxA=idxA,idxB=idxB, reload=reload,
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     m49_key <- glue::glue("m49-tib({funcTag})")
     m49_cnt <- print_tib(m49_tib,funcTag, verbose,vt+4,tc, n=m49_key)
@@ -736,7 +950,7 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
 
     if (!is.null(ord) && file.exists(ord)) {
       if (verbose>=vt+1)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Loading order CSV={ord}.{RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading order/canonical CSV={ord}.{RET}"))
       
       ord_tib <- suppressMessages(suppressWarnings( readr::read_csv(ord) )) %>%
         purrr::set_names(c("Can_Cgn","Can_Top","Can_Src")) %>%
@@ -750,7 +964,13 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
         dplyr::left_join(ord_tib, by=c("Imp_Cgn"="Can_Cgn")) %>%
         dplyr::mutate(Can_Scr=tidyr::replace_na(Can_Scr, 0)) %>%
         clean_tibble()
+      
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Done order/canonical.{RET}{RET}"))
     }
+    
+    if (!is.null(out)) safe_write(ret_tib,file=out, funcTag=par$prgmTag,
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
 
     ret_key <- glue::glue("ret-fin({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
@@ -764,11 +984,19 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
   ret_tib
 }
 
-intersect_seq = function(ref, can, out, idxA=1, idxB=1,
+intersect_seq = function(ref, can, out, idxA=1, idxB=1, reload=FALSE,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='intersect_seq') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}  ref={ref}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  can={can}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  out={out}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} idxA={idxA}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} idxB={idxB}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} reload={reload}{RET}{RET}"))
+  }
   
   int_seq_cols <-
     cols(
@@ -789,50 +1017,52 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1,
   ret_tib <- NULL
   stime <- base::system.time({
     
-    clean <- FALSE
-    if (stringr::str_ends(can, '.gz')) {
-      cmd_str <- glue::glue("gzip -f -k -d {can}")
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
-      
-      cmd_ret <- base::system(cmd_str)
-      if (cmd_ret!=0) {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
-                        "cmd={cmd_str}!{RET}{RET}"))
-        return(ret_tib)
+    if (reload && file.exists(out)) {
+      if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Reloading!{RET}"))
+    } else {
+      clean <- FALSE
+      if (stringr::str_ends(can, '.gz')) {
+        cmd_str <- glue::glue("gzip -f -k -d {can}")
+        if (verbose>=vt)
+          cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
+        
+        cmd_ret <- base::system(cmd_str)
+        if (cmd_ret!=0) {
+          stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
+                          "cmd={cmd_str}!{RET}{RET}"))
+          return(ret_tib)
+        }
+        can <- stringr::str_remove(can, ".gz$")
+        clean <- TRUE
       }
-      can <- stringr::str_remove(can, ".gz$")
-      clean <- TRUE
-    }
-    
-    cmd_str = glue::glue("gzip -dc {ref} | join -t $'\t' -1{idxA} -2{idxB} - {can} | gzip -c - > {out}")
-    if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
-    cmd_ret <- system(cmd_str)
-    
-    if (clean && !stringr::str_ends(can, '.gz')) {
-      cmd_str <- glue::glue("rm {can}")
+      
+      cmd_str = glue::glue("gzip -dc {ref} | join -t $'\t' -1{idxA} -2{idxB} - {can} | gzip -c - > {out}")
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
-      
       cmd_ret <- system(cmd_str)
-      if (cmd_ret!=0) {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
-                        "cmd={cmd_str}!{RET}{RET}"))
-        return(ret_tib)
+      
+      if (clean && !stringr::str_ends(can, '.gz')) {
+        cmd_str <- glue::glue("rm {can}")
+        if (verbose>=vt)
+          cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
+        
+        cmd_ret <- system(cmd_str)
+        if (cmd_ret!=0) {
+          stop(glue::glue("{RET}[{funcTag}]: ERROR: Failed(cmd_ret={cmd_ret}) ",
+                          "cmd={cmd_str}!{RET}{RET}"))
+          return(ret_tib)
+        }
+        can <- paste(can,'gz', sep='.')
       }
-      can <- paste(can,'gz', sep='.')
     }
     
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]: Loading intersection output={out}...{RET}"))
     
-    ret_tib <- suppressMessages(suppressWarnings( 
+    ret_tib <- suppressMessages(suppressWarnings(
       readr::read_tsv(out, col_names=names(int_seq_cols$cols), 
                       col_types=int_seq_cols) )) # %>% clean_tibble()
-      # utils::type.convert() %>% 
-      # dplyr::mutate(across(where(is.factor), as.character) )
-    
+
     ret_key <- glue::glue("ret-fin({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })

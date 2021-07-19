@@ -284,7 +284,7 @@ program_init = function(name,defs=NULL,
   if (verbose>=vt) cat(glue::glue(
     "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
     "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
-
+  
   opts
 }
 
@@ -716,13 +716,13 @@ get_file_list = function(dir, pattern, trim=NULL,
     file_vec <- list.files(dir, pattern=pattern, full.names=TRUE, 
                            recursive=recursive)
     name_vec <- file_vec %>% base::basename()
-      
+    
     if (!is.null(trim)) {
       for (t in trim) {
         name_vec <- stringr::str_remove(name_vec, t)
       }
     }
-
+    
     ret_tib <- stats::setNames(as.list(file_vec), name_vec)
     ret_cnt <- ret_tib %>% names() %>% length()
   })
@@ -739,8 +739,8 @@ get_file_list = function(dir, pattern, trim=NULL,
 }
 
 get_file_list_tmp = function(dir, pattern, max=0, recursive=FALSE, 
-                         verbose=0,vt=3,tc=1,tt=NULL,
-                         funcTag='get_file_list') {
+                             verbose=0,vt=3,tc=1,tt=NULL,
+                             funcTag='get_file_list') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -802,7 +802,7 @@ findFileByPattern = function(dir, pattern, max=0, recursive=FALSE,
     cat(glue::glue("[{funcTag}]:{tabsStr} All Files (recursive)={RET}"))
     print(files)
   }
-
+  
   files <- base::list.files(path=dir, pattern=pattern, full.names=TRUE, 
                             recursive=recursive)
   if (verbose>=vt) {
@@ -944,10 +944,64 @@ guess_file_del = function(file, n_max=100,
 #                              String Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-safe_write = function(x, type, file=NULL, 
+# TBD:: Add all the other options for reading files and add
+#   col_names, col_types options to be passed in. 
+safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
+                     verbose=0,vt=5,tc=1,tt=NULL,
+                     funcTag='safe_read') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    # Guess type if not provided
+    if (is.null(type)) {
+      tmp_file <- file %>% stringr::str_remove(".gz$")
+      if (stringr::str_ends(tmp_file,".rds")) {
+        type <- "rds"
+      } else {
+        type <- guess_file_del(file, verbose=verbose,vt=vt+6,tc=tc+1,tt=tt)
+      }
+    }
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Reading Data {type}={file}...{RET}"))
+    
+    if (type=="line") {
+      ret_tib <- suppressMessages(suppressWarnings( 
+        readr::read_lines(file=file) ))
+    } else if (type=="csv" || type==COM) {
+      ret_tib <- suppressMessages(suppressWarnings( 
+        readr::read_csv(file=file, guess_max=guess_max) ))
+    } else if (type=="tsv" || type==TAB || type==" ") {
+      ret_tib <- suppressMessages(suppressWarnings(
+        readr::read_tsv(file=file, guess_max=guess_max) ))
+    } else if (type=="rds") {
+      ret_tib <- readr::read_rds(file)
+    } else {
+      stop(cat(glue::glue("{RET}[{funcTag}]: ERROR: Invalid type={type}{RET}")))
+      return(NULL)
+    }
+    if (clean) ret_tib <- clean_tibble(ret_tib)
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+safe_write = function(x, type=NULL, file=NULL, 
                       cols=TRUE, append=FALSE, done=FALSE,
                       funcTag="safe_write",
-                      verbose=0,vt=4,tc=1,tt=NULL) {
+                      verbose=0,vt=5,tc=1,tt=NULL) {
   # If file is provided, usually in the case where the user didn't want it written
   #  simply return invisible and do nothing...
   
@@ -961,6 +1015,20 @@ safe_write = function(x, type, file=NULL,
   stime <- system.time({
     
     build_file_dir(file)
+    
+    # Guess type if not provided
+    if (is.null(type)) {
+      tmp_file <- file %>% stringr::str_remove(".gz$")
+      if (stringr::str_ends(tmp_file,".tsv")) {
+        type <- "tsv"
+      } else if (stringr::str_ends(tmp_file,".csv")) {
+        type <- "csv"
+      } else if (stringr::str_ends(tmp_file,".rds")) {
+        type <- "rds"
+      } else {
+        type <- "line"
+      }
+    }
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr} Writing Data {type}={file}...{RET}"))
     
@@ -1017,7 +1085,9 @@ print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
   ret_cnt <- 0
   ret_tib <- NULL
   
-  if (!is.null(tib) && !is.na(tib)) ret_cnt <- tib %>% base::nrow()
+  if (is.null(tib)) return(ret_cnt)
+
+  if (is.data.frame(tib)) ret_cnt <- tib %>% base::nrow()
   
   if (verbose>=vt) {
     if (!is.null(tib) && !is.na(tib)) {
@@ -1052,8 +1122,8 @@ splitStrToVec = function(x, del=',', unique=TRUE,
   if (!is.null(x)) 
     ret_vec <- stringr::str_split(x, pattern=del, simplify=TRUE) %>% 
     as.vector() # %>% utils::type.convert() %>% # NEVER DO THIS!!!
-    
-    if (unique) ret_vec <- ret_vec %>% unique()
+  
+  if (unique) ret_vec <- ret_vec %>% unique()
   
   ret_vec
 }

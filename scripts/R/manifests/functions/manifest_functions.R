@@ -63,7 +63,18 @@ template_func = function(tib,
 #                             Noob Probe_ID Masking::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-noob_mask = function(x, seed=0L, mod=100000000, prefix="nb",
+# changing default mod=100000000 to mod=999999999
+# changing default prefix="nb" to prefix="cg9999"
+# NOTE: 5 9's is optimal because improbe can only handle 15 characters
+#  as input 2 character (cg) + 8 digits + 2 character ([TB][CO]) = 12
+# However, we can reduce characters to a single leter 1+8 = 9 
+#  Using 5 would put us at 14 leaving one charcter to expand 8 digits to 9
+#
+# None of that really matters since we'll never use these probes in improbe
+#  The issue is running into your growing cg# (8 to 9 to 10) space. 
+#  We'll make 5 9's
+# Wait why don't we just make cgX
+noob_mask = function(x, seed=21L, mod=100000000, prefix="cgBK",
                      funcTag='noob_mask') {
   
   # Clean input::
@@ -72,7 +83,7 @@ noob_mask = function(x, seed=0L, mod=100000000, prefix="nb",
   hash <- digest::digest2int(as.character(x), seed) %% mod
 
   # Waiting to see if this ever fails
-  m_len <- stringr::str_length(format(tmp, scientific = FALSE))
+  m_len <- stringr::str_length(format(mod, scientific = FALSE))
   h_len <- stringr::str_length(hash)
   
   if (h_len>=m_len) {
@@ -90,7 +101,7 @@ noob_mask = function(x, seed=0L, mod=100000000, prefix="nb",
   hash
 }
 
-noob_mask_manifest = function(tib, field="Probe_ID",
+noob_mask_manifest = function(tib, key="Probe_ID", out=NULL, prefix="cg",
                               verbose=0,vt=3,tc=1,tt=NULL,
                               funcTag='noob_mask_manifest') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -100,14 +111,14 @@ noob_mask_manifest = function(tib, field="Probe_ID",
   ret_tib <- NULL
   stime <- system.time({
     
-    field_sym <- rlang::sym(field)
+    if (is.null(out)) out <- key
+    key_sym <- rlang::sym(key)
+    out_sym <- rlang::sym(out)
     
-    noob_vec <- tib %>% dplyr::pull(field_sym) %>% 
+    noob_vec <- tib %>% dplyr::pull(key_sym) %>% 
       lapply( noob_mask) %>% unlist()
     
-    ret_tib <- tib %>% dplyr::mutate(!!field_sym := noob_vec)
-    
-    # ret_cnt <- ret_tib %>% base::nrow()
+    ret_tib <- tib %>% dplyr::mutate(!!out_sym := noob_vec)
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)

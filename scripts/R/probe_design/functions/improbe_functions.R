@@ -57,12 +57,13 @@ imp_designs_workflow = function(tib,fas,imp,gen,des,out,
     
     ret_tib <-
       load_improbe_design(
-        file=des, out=out,
+        file=des, join=tib, out=out,
         level=3, add_inf=TRUE,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
-    
-    # ret_cnt <- ret_tib %>% base::nrow()
+
+    safe_write(x=ret_tib,file=out,funcTag=funcTag,
+               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -117,7 +118,7 @@ run_improbe_docker = function(file, out=NULL, name="unk", image, shell,
   ret_cnt
 }
 
-load_improbe_design = function(file, out=NULL, 
+load_improbe_design = function(file, join=NULL, out=NULL, 
                                level=0, add_inf=TRUE,
                                verbose=0,vt=3,tc=1,tt=NULL,
                                funcTag='load_improbe_design') {
@@ -235,7 +236,11 @@ load_improbe_design = function(file, out=NULL,
     ret_tib <- ret_tib %>% clean_tibble()
     
     if (add_inf && level>=3) {
+      #
+      # Adding some extra required fields for matching later::
+      #
       ret_tib <- ret_tib %>%
+        dplyr::rename(Strand_Ref_FR=Strand_FR) %>%
         dplyr::mutate(
           Scr_Min=pmin(Scr_U,Scr_M),
           Inf_Type=dplyr::case_when(
@@ -255,15 +260,42 @@ load_improbe_design = function(file, out=NULL,
             Scr_Min>=0.7 ~ 1,
             
             TRUE ~ 2
+          ),
+          Imp_U49=dplyr::case_when(
+            Strand_CO=="C" ~ stringr::str_sub(Probe_Seq_U,1,49),
+            Strand_CO=="O" ~ stringr::str_sub(Probe_Seq_U,2,50),
+            TRUE ~ NA_character_
+          ),
+          Imp_M49=dplyr::case_when(
+            Strand_CO=="C" ~ stringr::str_sub(Probe_Seq_M,1,49),
+            Strand_CO=="O" ~ stringr::str_sub(Probe_Seq_M,2,50),
+            TRUE ~ NA_character_
+          ),
+          Strand_FR=dplyr::case_when(
+            Strand_Ref_FR=="F" ~ "R",
+            Strand_Ref_FR=="R" ~ "F",
+            TRUE ~ NA_character_
           )
         )
     }
     
-    if (!is.null(out)) {
-      safe_write(ret_tib,"csv",out,
-                 funcTag=funcTag,
-                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    if (!is.null(join)) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Joining data with improbe data...{RET}"))
+      
+      ret_tib <- dplyr::left_join(
+        join, ret_tib,
+        by=c("Aln_Key"="Seq_ID",
+             "Bsp_Chr"="Chromosome",
+             "Bsp_Pos"="Coordinate",
+             "Bsp_FR"="Strand_FR",
+             "Bsp_CO"="Strand_CO"),
+        suffix=c("_bsp","_imp")
+      )
     }
+
+    safe_write(x=ret_tib,file=out,funcTag=funcTag,
+               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="Clean_Improbe_Data")
   })

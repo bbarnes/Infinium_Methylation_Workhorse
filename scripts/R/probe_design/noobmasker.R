@@ -1,15 +1,24 @@
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                               noobmaskers::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Source Packages::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-rm(list=ls(all=TRUE))
-
 # Load Core Packages::
 suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
-suppressWarnings(suppressPackageStartupMessages( base::require("sesame",quietly=TRUE) ))
-suppressWarnings(suppressPackageStartupMessages( base::require("minfi",quietly=TRUE) ))
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
+suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+
+suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+suppressWarnings(suppressPackageStartupMessages( base::require("digest") ))
 
 # Load Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
@@ -21,12 +30,7 @@ suppressWarnings(suppressPackageStartupMessages( base::require("profmem",quietly
 #                              Global Params::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# ses_mm10_man_tib <- sesameData::sesameDataGet("MM285.mm10.manifest") %>% 
-#   as.data.frame() %>% 
-#   tibble::as_tibble()
-# 
-# ses_mm10_man_csv <- "/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/dat/manifest/sesame_src/MM285.mm10.manifest.csv.gz"
-# readr::write_csv(ses_mm10_man_tib, ses_mm10_man_csv)
+rm(list=ls(all=TRUE))
 
 doParallel::registerDoParallel()
 num_cores   <- detectCores()
@@ -36,9 +40,6 @@ COM <- ","
 TAB <- "\t"
 RET <- "\n"
 BNG <- "|"
-
-# mm10_man_grs = sesameDataGet('MM285.mm10.manifest')
-# mm10_man_tib <- mm10_man_grs %>% as.data.frame() %>% rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Define Default Params and Options::
@@ -60,8 +61,8 @@ par$manDir  <- NULL
 
 # Program Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
-par$prgmDir <- 'manifests'
-par$prgmTag <- 'manifest_subset_genknowme'
+par$prgmDir <- 'probe_design'
+par$prgmTag <- 'noobmasker'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
 # Executables::
@@ -69,26 +70,17 @@ opt$Rscript <- NULL
 
 # Directories::
 opt$outDir <- NULL
-opt$datDir <- NULL
 
 # Platform/Method Options::
-opt$manifest <- NULL
+opt$mastermanifest <- NULL
+opt$manifest       <- NULL
+opt$submanifest    <- NULL
+
 opt$platform <- NULL
 opt$version  <- NULL
 
 # Run Options::
 opt$fresh       <- FALSE
-opt$workflow    <- NULL
-opt$manDirPath  <- NULL
-opt$manDirName  <- 'core'
-opt$subManifest <- NULL
-opt$man_suffix  <- ".manifest.sesame-base.cpg-sorted.csv.gz"
-
-# Threshold Options::
-opt$rand <- NULL
-opt$per1 <- NULL
-opt$per2 <- NULL
-opt$type <- NULL
 
 # Parallel/Cluster Options::
 opt$single   <- FALSE
@@ -101,10 +93,6 @@ opt$trackTime    <- FALSE
 
 # verbose Options::
 opt$verbose <- 3
-
-# Set Default Options::
-#
-def <- opt
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                               Parse Options::
@@ -147,41 +135,31 @@ if (args.dat[1]=='RStudio') {
   # End of local parameter definitions::
   #
   
-  opt$manDirPath <- NULL
-  opt$manDirName <- 'base'
-  opt$manDirName <- 'core'
-
-  par$local_runType <- 'EPIC-noob-BP4'
+  opt$verbose <- 4
+  
+  par$local_runType <- 'noobmasker'
   opt$runName  <- par$local_runType
   
   if (FALSE) {
-  } else if (par$local_runType=='EPIC-noob-BP4') {
-    
+  } else if (par$local_runType=='noobmasker') {
     # For sub manifest testing::
     opt$platform   <- "EPIC"
     opt$version    <- "B4"
-
-    # opt$per2 <- "0,5,10,15,20,30,60,90,100"
-
-    opt$rand <- 5
-    opt$per1 <- "0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100"
-    opt$per2 <- "0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100"
-    opt$type <- "cg"
+    
+    opt$mastermanifest <- file.path(par$topDir,"data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.cpg-sorted.csv.gz")
     
     opt$manifest <- 
-      file.path(par$topDir, "data/manifests/methylation/GenomeStudio/MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz")
+      file.path(par$topDir, "data/CustomContent/beadpools/open-dmaps20k.manifest.csv.gz")
+    opt$submanifest <-
+      file.path(par$topDir, "data/CustomContent/beadpools/Rand3-S0.060.manifest.sesame-base.cpg-sorted.csv.gz")
     
-    par$ses_man_dir <- file.path(par$topDir, "data/manifests/methylation/Sesame")
-    opt$subManifest <- file.path(par$ses_man_dir, "EPIC-B4-BP4.manifest.sesame-base.cpg-sorted.csv.gz")
-    
-    opt$verbose <- 40
+    opt$prefix <- "cgBk"
     
   } else {
-    stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
+    stop(glue::glue("{RET}[{par$prgmTag}]: ","Unrecognized ",
+                    "local_runType={par$local_runType}.{RET}{RET}"))
   }
-  
-  opt$outDir <- file.path(par$topDir, 'scratch',"test",par$runMode)
-  opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
+  opt$outDir <- file.path(par$topDir,'scratch',par$runMode)
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -204,45 +182,28 @@ if (args.dat[1]=='RStudio') {
     # Directories::
     make_option(c("--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("-d","--datDir"), type="character", default=opt$datDir, 
-                help="List of idats directory(s), commas seperated [default= %default]", metavar="character"),
     
     # Platform/Method Parameters::
     make_option(c("--runName"), type="character", default=opt$runName, 
                 help="Run Name [default= %default]", metavar="character"),
-    make_option(c("--manifest"), type="character", default=opt$manifest,
-                help="Path to manfifest (CSV) otherwise auto-detect [default= %default]", metavar="character"),
     make_option(c("--platform"), type="character", default=opt$platform, 
                 help="Forced platform [EPIC, 450k, 27k, NZT] otherwise auto-detect [default= %default]", metavar="character"),
     make_option(c("--version"), type="character", default=opt$version, 
                 help="Forced version [B1, B2, B4, etc.] otherwise auto-detect [default= %default]", metavar="character"),
+    make_option(c("--prefix"), type="character", default=opt$prefix, 
+                help="Prefix for probe names [default= %default]", metavar="character"),
     
-    # Optional Files::
+    # Manifest Files::
+    make_option(c("--mastermanifest"), type="character", default=opt$mastermanifest,
+                help="Path to mastermanifest (CSV) otherwise auto-detect [default= %default]", metavar="character"),
+    make_option(c("--manifest"), type="character", default=opt$manifest,
+                help="Path to manfifest (CSV) otherwise auto-detect [default= %default]", metavar="character"),
     make_option(c("--subManifest"), type="character", default=opt$subManifest,
                 help="Path to manifest to subset (CSV) [default= %default]", metavar="character"),
-
+    
     # Run Parameters::
     make_option(c("--fresh"), action="store_true", default=opt$fresh,
                 help="Boolean variable to build fresh version of database files [default= %default]", metavar="boolean"),
-
-    make_option(c("--manDirPath"), type="character", default=opt$manDirPath,
-                help="Manifest directory path otherwise use default dat/manifest directory [default= %default]", metavar="character"),
-    make_option(c("--manDirName"), type="character", default=opt$manDirName,
-                help="Manifest directory name [default= %default]", metavar="character"),
-    make_option(c("--man_suffix"), type="character", default=opt$man_suffix,
-                help="Manifest suffix search name. Default is set to predefined Sesame suffix. [default= %default]", metavar="character"),
-    
-    #
-    # Threshold Options::
-    #
-    make_option(c("--rand"), type="integer", default=opt$rand, 
-                help="Number of randomization rounds  [default= %default]", metavar="integer"),
-    make_option(c("--per1"), type="character", default=opt$per1, 
-                help="Percent subsets Infinuum I (commas seperated list)  [default= %default]", metavar="character"),
-    make_option(c("--per2"), type="character", default=opt$per2, 
-                help="Percent subsets Infinuum II (commas seperated list)  [default= %default]", metavar="character"),
-    make_option(c("--type"), type="character", default=opt$type, 
-                help="Probe type(s) to subset (commas seperated list)  [default= %default]", metavar="character"),
     
     # Parallel/Cluster Parameters::
     make_option(c("--single"), action="store_true", default=opt$single, 
@@ -270,8 +231,7 @@ if (args.dat[1]=='RStudio') {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 par_reqs <- c('runMode','prgmTag','scrDir','exePath')
-opt_reqs <- c('outDir','Rscript','verbose',
-              'rand','per1','per2','type')
+opt_reqs <- c('outDir','Rscript','manifest','verbose')
 
 par$gen_src_dir <- file.path(par$scrDir, 'functions')
 if (!dir.exists(par$gen_src_dir)) 
@@ -282,6 +242,11 @@ for (sfile in list.files(path=par$gen_src_dir, pattern='.R$',
 if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form ",
                  "General Source={par$gen_src_dir}!{RET}{RET}") )
+
+# TBD:: Make sure we load this::
+#  library(Rcpp)
+#  source("/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R/Rcpp/cpgLociVariation.cpp")
+#
 
 opt <- program_init(name=par$prgmTag,
                     opts=opt, opt_reqs=opt_reqs, 
@@ -305,6 +270,42 @@ if (!dir.exists(run$manDir)) dir.create(run$manDir, recursive=TRUE)
 cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                                  Main::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# Master Manifest:: with sequences::
+#   - Guess we don't need sequecnes for controls
+#   - Nor should we ever give them for this anyways, duh?
+# master_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$mastermanifest))) %>% 
+#   clean_tibble()
+
+# Target Manifest::
+target_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$manifest))) %>% 
+  clean_tibble()
+
+# Load Sub-manifest foor labeling in the manifest::
+sub_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$submanifest))) %>% 
+  clean_tibble()
+
+# Update probe names
+updated_tib <- target_tib %>% # head() %>%
+  noob_mask_manifest(key = "Probe_ID", out = "Hash_ID", prefix = "cgBK")
+
+# Mark the subset::
+updated_tib <- updated_tib %>% dplyr::mutate(
+  SubSet=dplyr::case_when(
+    Probe_ID %in% sub_tib$Probe_ID ~ TRUE,
+    TRUE ~ FALSE
+  )
+)
+
+# Write manifest
+out_man_csv <- file.path(opt$outDir, "updated_manifest.csv")
+readr::write_csv(updated_tib, out_man_csv)
+
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Suboptimal Selection for 20k:: Open DMAPs
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -322,7 +323,7 @@ if (FALSE) {
   dmap_tan_tsv <- "/Users/bretbarnes/Documents/data/CustomContent/Genknowme/dmaps/15073382_A_MRGPOOL,_EPIC_15054510_UsedCodes.txt"
   dmap_tan_tib <- suppressMessages(suppressWarnings(
     readr::read_tsv(dmap_tan_tsv, col_names=names(dmap_cols$cols), col_types=dmap_cols) ))
-
+  
   # 80 To be added from BP4::
   e80_csv <- file.path(par$topDir, "data/CustomContent/Genknowme/dat/add-on-list-n80.cpg-sorted.csv.gz")
   e80_tib <- suppressMessages(suppressWarnings(
@@ -333,7 +334,7 @@ if (FALSE) {
   
   sel_csv <- file.path(ses_man_dir, "EPIC-B4-BP4.manifest.sesame-base.cpg-sorted.csv.gz")
   pre_csv <- file.path(sel_aqp_dir, "Rand3-S0.060.manifest.sesame-base.cpg-sorted.csv.gz")
-
+  
   # Remove Non-CpGs
   sel_tib <- suppressMessages(suppressWarnings(readr::read_csv(sel_csv) )) %>%
     dplyr::filter(stringr::str_starts(Probe_ID, "cg"))
@@ -370,7 +371,7 @@ if (FALSE) {
   mis2_cnt <- max2_cnt - pre2_cnt
   misR_cnt <- maxR_cnt - preR_cnt
   misG_cnt <- maxG_cnt - preG_cnt
-
+  
   new2_tib <- sel_list[["2"]] %>% head(n=mis2_cnt)
   newG_tib <- sel_list[["G"]] %>% head(n=misG_cnt)
   newR_tib <- sel_list[["R"]] %>% head(n=misR_cnt)
@@ -398,15 +399,15 @@ if (FALSE) {
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                                  Main::
+#                      Other Manifest Subsetting Space::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (!is.null(opt$subManifest) && file.exists(opt$subManifest)) {
   
+  epic_man_tib 
+  
   epic_man_tib <- 
-    loadManifestGenomeStudio(opt$manifest, addSource = TRUE, normalize = TRUE, 
-                             retType = "man", verbose = opt$verbose) %>% 
-    clean_tibble()
+    loadManifestGenomeStudio(opt$manifest, addSource=TRUE, normalize = TRUE, retType = "man", verbose = opt$verbose) %>% clean_tibble()
   
   h450_man_csv <- file.path(par$topDir, "data/manifests/methylation/GenomeStudio/HumanMethylation450_15017482_v.1.2.csv.gz")
   h450_man_tib <- loadManifestGenomeStudio(h450_man_csv, addSource = TRUE, normalize = TRUE, 
@@ -426,14 +427,14 @@ if (!is.null(opt$subManifest) && file.exists(opt$subManifest)) {
   # 11k Previously selected from BP4::
   k11_man_csv <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/Rand3-S0.060.manifest.sesame-base.cpg-sorted.csv.gz")
   k11_man_tib <- suppressMessages(suppressWarnings(readr::read_csv(k11_man_csv) ))
-
+  
   # Now we're missing extra BP4 to meet a total of 10k Inf2 and 5k Inf1_Grn/Red  
   bp4_prb_csv <- file.path(par$topDir, "data/CustomContent/Genknowme/manifest/bp4/bp4.rand3.cpg-sorted.csv")
   bp4_prb_tib <- suppressMessages(suppressWarnings(
     readr::read_csv(bp4_prb_csv, col_names=c("Probe_ID")) ))
   bp4_man_tib <- epic_man_tib %>% 
     dplyr::filter(IlmnID %in% bp4_prb_tib$Probe_ID)
-
+  
   # bp4_man_tib %>% dplyr::filter(IlmnID %in% k11_man_tib$Probe_ID)
   # bp4_man_tib %>% dplyr::filter(IlmnID %in% gkm_man_tib$Probe_ID)
   
@@ -457,7 +458,7 @@ if (!is.null(opt$subManifest) && file.exists(opt$subManifest)) {
     dplyr::anti_join(bp4_man_tib, by=c("Probe_ID"="IlmnID")) %>%
     base::nrow()
   cat(glue::glue("[{par$prgmTag}]: gkm_sel_mis_cnt={gkm_sel_mis_cnt}; Exp!=0.{RET}"))
-
+  
   # This should be the mismatch of EPIC probes:: should be zero
   gkm_epi_mis_cnt <- gkm_man_tib %>% 
     dplyr::filter(!stringr::str_starts(Probe_ID, "ctl")) %>%
@@ -471,7 +472,7 @@ if (!is.null(opt$subManifest) && file.exists(opt$subManifest)) {
     dplyr::anti_join(h450_man_tib, by=c("Probe_ID"="IlmnID")) %>%
     base::nrow()
   cat(glue::glue("[{par$prgmTag}]: gkm_450_mis_cnt={gkm_450_mis_cnt}; Exp!=0.{RET}"))
-
+  
   # Make sure BP4 does not contain tangos found in gkm_man_tib
   gkm_450_misA_cnt <- gkm_man_tib %>% 
     dplyr::filter(!is.na(U)) %>%
@@ -493,7 +494,7 @@ if (!is.null(opt$subManifest) && file.exists(opt$subManifest)) {
 }
 
 if (FALSE) {
-
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                             Load Manifest(s)::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -730,7 +731,7 @@ if (FALSE) {
     }
     
   }
-
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

@@ -22,6 +22,7 @@ BNG <- "|"
 template_func = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='template_func') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -29,14 +30,62 @@ template_func = function(tib,
   ret_tib <- NULL
   stime <- base::system.time({
     
-    # ret_cnt <- ret_tib %>% base::nrow()
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Load CGN/Position Database::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+load_cgn_dB = function(file,
+                       verbose=0,vt=3,tc=1,tt=NULL,
+                       funcTag='load_cgn_dB') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} file={file}.{RET}"))
+  }
+  
+  cgd_bed_cols <-
+    cols(
+      Cgd_Chr = col_character(),
+      Cgd_Pos = col_integer(),
+      Cgd_Cgn = col_integer(),
+      Cgd_Top = col_character()
+    )
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    ret_tib <- suppressMessages(suppressWarnings(
+      readr::read_tsv(run$cgn_bed_tsv, 
+                      col_names=names(cgd_bed_cols$cols),
+                      col_types=cgd_bed_cols) )) %>% 
+      dplyr::mutate(Cgd_Chr=paste0("chr",Cgd_Chr))
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; ",
+                   "Return Count={ret_cnt}; ",
+                   "elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ",
+                   "----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
@@ -45,92 +94,147 @@ template_func = function(tib,
 #                         BSP Alignment Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-run_bsmap = function(exe, fas, gen, bsp, 
-                     add=NULL, bed=NULL, org=NULL,
-                     
-                     join_key="Aln_Key",join_type="inner",
-                     des_key="Ord_Des",din_key="Ord_Din",
-                     sort=TRUE,
-                     
-                     opt=NULL, lan=NULL, run=FALSE,
-                     verbose=0,vt=2,tc=1,tt=NULL,
+bsp_mapping_workflow = 
+  function(ref,can,out,exe, sort=FALSE, light=FALSE, reload=FALSE,
+           opt="-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R",
+           
+           add=NULL, cgn=NULL, 
+           join_key="Aln_Key",join_type="inner",
+           des_key="Ord_Des",din_key="Ord_Din",
+           verbose=0,vt=3,tc=1,tt=NULL,funcTag='bsp_mapping_workflow') {
+    
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}   ref={ref}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}   can={can}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}   out={out}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}   exe={exe}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}   exe={exe}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}   opt={opt}{RET}{RET}"))
+      
+      cat(glue::glue("[{funcTag}]:{tabsStr}   sort={sort}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}  light={light}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} reload={reload}{RET}{RET}"))
+    }
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- base::system.time({
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                      Probe Alignment:: BSMAP
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      ret_tib <-run_bsmap(ref=ref, can=can, out=out, exe=exe,
+                          sort=sort, light=light, reload=reload,
+                          
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                      Join Address and Alignment Data::
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      if (!is.null(add)) {
+        
+        # ret_tib <-join_bsmap(bsp=ret_tib, add=add, cgn=cgn, org=org,
+        #     join_key=join_key,join_type=join_type,prb_des_key=des_key,prb_din_key=din_key,
+        #     sort=sort,
+        #     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      }
+      
+      
+      ret_key <- glue::glue("ret-FIN({funcTag})")
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                     "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+    
+    ret_tib
+  }
+
+run_bsmap = function(ref,can,out,exe, sort=FALSE, light=FALSE, reload=FALSE,
+                     opt="-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R",
+                     verbose=0,vt=3,tc=1,tt=NULL,
                      funcTag='run_bsmap') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; bsp={bsp}.{RET}"))
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}   ref={ref}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   can={can}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   out={out}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   exe={exe}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   exe={exe}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   opt={opt}{RET}{RET}"))
+    
+    cat(glue::glue("[{funcTag}]:{tabsStr}   sort={sort}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  light={light}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} reload={reload}{RET}{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
-  aln_ssh <- NULL
-  ret_tsv <- NULL
-  sys_ret <- "Not_Run"
-  stime <- system.time({
-    if (is.null(opt) || length(opt)==0)
-      opt="-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
+  stime <- base::system.time({
     
-    build_file_dir(bsp)
-    aln_ssh <- paste(bsp, 'run.sh', sep='.')
-    ret_tsv <- paste(bsp, 'tsv.gz', sep='.')
+    out_bsp <- file.path(out, "probe.bsp")
+    bsp_ssh <- file.path(out, "probe.bsp.run.sh")
+    bsp_tsv <- file.path(out, "probe.bsp.tsv.gz")
     
-    aln_cmd <- glue::glue("{exe} -a {fas} -d {gen} {opt} -o {bsp}{RET}",
-                          "cat {bsp} | ",
-                          # "cut -f 1,2,4-11 | ",
-                          "gzip -c - > {ret_tsv}{RET}",
-                          "rm -f {bsp}{RET}")
-    
-    safe_write(aln_cmd,"line",aln_ssh,funcTag=funcTag,
-               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    Sys.chmod(paths=aln_ssh, mode="0777")
-    
-    if (run) {
-      exe_method="Running"
-      if (!is.null(lan)) {
-        exe_method="Launching"
-        aln_ssh <- paste(lan,aln_ssh, sep=' ')
-      }
+    if (!reload || !file.exists(bsp_tsv)) {
+      add_cmd <- ""
+      if (light) add_cmd <- "cut -f 1,2,4-11 | "
+      
+      bsp_cmd <- glue::glue("{exe} -a {can} -d {ref} {opt} -o {out_bsp}{RET}",
+                            "cat {out_bsp} | {add_cmd} gzip -c -> {bsp_tsv}{RET}",
+                            "rm -f {out_bsp}{RET}")
+      
+      out_cnt <- safe_write(bsp_cmd,"line",bsp_ssh,funcTag=funcTag,
+                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      Sys.chmod(paths=bsp_ssh, mode="0777")
       
       if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} {exe_method}; CMD={aln_cmd}...{RET}"))
-      sys_ret <- base::system(aln_ssh)
+        cat(glue::glue("[{funcTag}]:{tabsStr} CMD={bsp_cmd}...{RET}"))
+      sys_ret <- 0
+      sys_ret <- base::system(bsp_ssh)
+      
       if (sys_ret!=0) {
         stop(glue::glue("{RET}[{funcTag}]: ERROR: sys_ret({sys_ret}) != 0!!!{RET}{RET}"))
-        return(NULL)
-      }
-      
-      if (!is.null(add)) {
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        #                      Join Address and Alignment Data::
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        
-        ret_tib <-
-          join_bsmap(
-            add=add, bed=bed, org=org, file=ret_tsv,
-            join_key=join_key,join_type=join_type,
-            prb_des_key=des_key,prb_din_key=din_key,
-            sort=sort,
-            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-        
-        ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+        return(ret_tib)
       }
     }
+    
+    ret_tib <- load_bsmap(file=bsp_tsv, sort=sort, light=light,
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; sys={sys_ret}; elapsed={etime}.{RET}{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  if (!is.null(ret_tib)) return(ret_tib)
-  if (run) return(ret_tsv)
-  aln_ssh
+  ret_tib
 }
 
-load_bsmap = function(bsp, sort=FALSE,
+load_bsmap = function(file, sort=FALSE, light=FALSE,
                       verbose=0,vt=3,tc=1,tt=NULL,
                       funcTag='load_bsmap') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}  file={file}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  sort={sort}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} light={light}{RET}{RET}"))
+  }
+  
+  stopifnot(file.exists(file))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -153,14 +257,37 @@ load_bsmap = function(bsp, sort=FALSE,
       Bsp_Str  = col_character()
     )
     
+    low_cols <- cols(
+      Bsp_Key  = col_character(),
+      Bsp_Seq  = col_character(),
+      Bsp_Tag  = col_character(),
+      
+      Bsp_Chr  = col_character(),
+      Bsp_Beg  = col_integer(),
+      Bsp_Srd  = col_character(),
+      Bsp_Mis  = col_integer(),
+      
+      Bsp_Ref  = col_character(),
+      Bsp_Gap  = col_integer(),
+      
+      Bsp_Str  = col_character()
+    )
+    
     # Load BSP
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]:{tabsStr} Loading BSP={bsp}...{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} Loading BSP={file}...{RET}"))
     
-    ret_tib <- 
-      readr::read_tsv(bsp,col_names=names(bsp_cols$cols),col_types=bsp_cols) %>%
-      dplyr::select(-Bsp_Qual) %>%
-      dplyr::mutate(Bsp_Chr=paste0('chr',stringr::str_remove(Bsp_Chr,'^chr')))
+    if (light) {
+      ret_tib <- 
+        readr::read_tsv(file,col_names=names(low_cols$cols),col_types=low_cols) %>%
+        dplyr::mutate(Bsp_Chr=paste0('chr',stringr::str_remove(Bsp_Chr,'^chr')))
+      
+    } else {
+      ret_tib <- 
+        readr::read_tsv(file,col_names=names(bsp_cols$cols),col_types=bsp_cols) %>%
+        dplyr::select(-Bsp_Qual) %>%
+        dplyr::mutate(Bsp_Chr=paste0('chr',stringr::str_remove(Bsp_Chr,'^chr')))
+    }
     
     # Sort by genomic position::
     if (sort) ret_tib <- ret_tib %>% dplyr::arrange(Bsp_Chr, Bsp_Beg)
@@ -176,75 +303,81 @@ load_bsmap = function(bsp, sort=FALSE,
   ret_tib
 }
 
-join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL, 
-                      join_key, join_type="inner", 
+join_bsmap = function(bsp, add, cgn, add_join_key, join_type="inner", 
                       prb_des_key="Ord_Des", prb_din_key="Ord_Din",
-                      fields=NULL, sort=FALSE,
+                      sort=TRUE, full=FALSE, csv=NULL,
                       verbose=0,vt=3,tc=1,tt=NULL,
                       funcTag='join_bsmap') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}",
-                   "[{funcTag}]:{tabsStr}  join_key={join_key}{RET}",
-                   "[{funcTag}]:{tabsStr} join_type={join_type}{RET}")
-    )
-  
-  if (is.null(bsp) && is.null(file)) {
-    stop(glue::glue("[{funcTag}]:{tabsStr} ERROR: bsp AND file are null!!!{RET}{RET}"))
-    return(NULL)
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} add_join_key={add_join_key}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}    join_type={join_type}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  prb_des_key={prb_des_key}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  prb_din_key={prb_din_key}{RET}{RET}"))
   }
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
     
+    # Excessive fields to be removed generally
+    rem_sel_vec <- 
+      c("CG_F1","CG_R1","CG_F2","CG_R2","CG_F1M",
+        "CG_R1M","CG_F1U","CG_R1U","CG_F2D","CG_R2D",
+        "NB_F1","NB_R1","NB_F2","NB_R2","NB_F1M",
+        "NB_R1M","NB_F1U","NB_R1U","NB_F2D","NB_R2D",
+        "Bsp_RefU","Bsp_RefM","Bsp_RefD")
+    
+    # Order of fields to displayed
     imp_col_vec <- c("Address","Ord_Des","Ord_Din",
-                     "Imp_Chr","Imp_Pos","Imp_Cgn",
-                     "Imp_FR","Imp_TB","Imp_CO","Imp_Nxb",
-                     "Bsp_Din_Ref","Bsp_Din_Scr","Aln_Prb")
+                     "Bsp_Chr","Bsp_Pos","Bsp_Cgn",
+                     "Bsp_FR","Bsp_TB","Bsp_CO","Bsp_Nxb",
+                     "Ord_Prb",
+                     "Aln_Key_Unq",
+                     "Bsp_Nxb_Ref","Bsp_Nxb_Bsc",
+                     "Bsp_Din_Ref","Bsp_Din_Bsc",
+                     "Bsp_Prb_Dir","Bsp_Din_Scr",
+                     "Aln_Prb")
     
-    # Load from file if provided::
-    if (!is.null(file))
-      bsp <- load_bsmap(bsp=file, sort=sort,
-                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    bsp_key <- glue::glue("bsp-tib({funcTag})")
+    bsp_cnt <- print_tib(bsp,funcTag, verbose,vt+4,tc, n=bsp_key)
     
-    if (is.null(bsp)) {
-      stop(glue::glue("[{funcTag}]:{tabsStr} ERROR: bsp is null!!!{RET}{RET}"))
-      return(ret_tib)
-    }
-    print_tib(add,funcTag, verbose,vt+4,tc, n="address_tib")
+    add_key <- glue::glue("add-tib({funcTag})")
+    add_cnt <- print_tib(add,funcTag, verbose,vt+4,tc, n=add_key)
     
     prb_des_sym  <- rlang::sym(prb_des_key)
     prb_din_sym  <- rlang::sym(prb_din_key)
+    add_join_sym <- rlang::sym(add_join_key)
+    
     bsp_join_key <- names(bsp)[1]
-    join_key_sym <- rlang::sym(join_key)
     bsp_join_sym <- rlang::sym( bsp_join_key )
     
-    # Rename Bsp_Key to join key and join::
-    if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]:{tabsStr} Joining source data...{RET}",
-                     "[{funcTag}]:{tabsStr} Join Keys::{RET}",
-                     "[{funcTag}]:{tabsStr} add_join_key={join_key}{RET}",
-                     "[{funcTag}]:{tabsStr} bsp_join_key={bsp_join_key}{RET}{RET}" )
-      )
+    if (verbose>=vt+4) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}    join_type={join_type}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}  prb_des_key={prb_des_key}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}  prb_din_key={prb_din_key}{RET}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} bsp_join_key={bsp_join_key}{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} add_join_key={add_join_key}{RET}"))
+    }
     
     if (join_type=="inner") {
       ret_tib <- bsp %>%
-        dplyr::rename(!!join_key_sym := !!bsp_join_sym) %>%
-        dplyr::inner_join(add, by=join_key) # %>% head(n=100)
+        dplyr::rename(!!add_join_sym := !!bsp_join_sym) %>%
+        dplyr::inner_join(add, by=add_join_key) # %>% head(n=100)
     } else if (join_type=="left") {
       ret_tib <- bsp %>%
-        dplyr::rename(!!join_key_sym := !!bsp_join_sym) %>%
-        dplyr::left_join(add, by=join_key) # %>% head(n=100)
+        dplyr::rename(!!add_join_sym := !!bsp_join_sym) %>%
+        dplyr::left_join(add, by=add_join_key) # %>% head(n=100)
     } else if (join_type=="right") {
       ret_tib <- bsp %>%
-        dplyr::rename(!!join_key_sym := !!bsp_join_sym) %>%
-        dplyr::right_join(add, by=join_key) # %>% head(n=100)
+        dplyr::rename(!!add_join_sym := !!bsp_join_sym) %>%
+        dplyr::right_join(add, by=add_join_key) # %>% head(n=100)
     } else if (join_type=="full") {
       ret_tib <- bsp %>%
-        dplyr::rename(!!join_key_sym := !!bsp_join_sym) %>%
-        dplyr::full_join(add, by=join_key) # %>% head(n=100)
+        dplyr::rename(!!add_join_sym := !!bsp_join_sym) %>%
+        dplyr::full_join(add, by=add_join_key) # %>% head(n=100)
     } else {
       stop(glue::glue("[{funcTag}]:{tabsStr} ERROR: Unsupported join_type={join_type}!!!{RET}{RET}"))
       return(ret_tib)
@@ -255,9 +388,26 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
     #
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr} Calculating new fields from joined data...{RET}"))
-    
+      
     ret_tib <- ret_tib %>%
       dplyr::mutate(
+        
+        # Add more common FR/CO values::
+        Bsp_FR=dplyr::case_when(
+          Bsp_Srd=="+-" ~ "R",
+          Bsp_Srd=="--" ~ "F",
+          Bsp_Srd=="++" ~ "R",
+          Bsp_Srd=="-+" ~ "F",
+          TRUE ~ NA_character_
+        ),
+        Bsp_CO=dplyr::case_when(
+          Bsp_Srd=="+-" ~ "C",
+          Bsp_Srd=="--" ~ "C",
+          Bsp_Srd=="++" ~ "O",
+          Bsp_Srd=="-+" ~ "O",
+          TRUE ~ NA_character_
+        ),
+        
         # Generate bisulfite converted Reference Sequences::
         Bsp_RefU=bscUs(Bsp_Ref,uc=TRUE),
         Bsp_RefM=bscMs(Bsp_Ref,uc=TRUE),
@@ -374,17 +524,6 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
         #              [--] => +1
         #
         Bsp_Pos=dplyr::case_when(
-          # prb_din_sym=="cg":: Original Code for only CpG! TO BE DELETED...
-          #
-          # !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
-          # !!prb_des_sym=="M" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
-          # 
-          # !!prb_des_sym=="U" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
-          # !!prb_des_sym=="U" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
-          # 
-          # !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
-          # !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
-          
           #
           # prb_din_sym=="cg"::
           #
@@ -396,6 +535,30 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
           
           !!prb_din_sym=="cg" & !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
           !!prb_din_sym=="cg" & !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          
+          #
+          # prb_din_sym=="mu"::
+          #
+          !!prb_din_sym=="mu" & !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
+          !!prb_din_sym=="mu" & !!prb_des_sym=="M" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="mu" & !!prb_des_sym=="U" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
+          !!prb_din_sym=="mu" & !!prb_des_sym=="U" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="mu" & !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          !!prb_din_sym=="mu" & !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
+          
+          #
+          # prb_din_sym=="bc"::
+          #
+          !!prb_din_sym=="bc" & !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
+          !!prb_din_sym=="bc" & !!prb_des_sym=="M" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="bc" & !!prb_des_sym=="U" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +48,
+          !!prb_din_sym=="bc" & !!prb_des_sym=="U" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg + 0,
+          
+          !!prb_din_sym=="bc" & !!prb_des_sym=="2" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ Bsp_Beg +49,
+          !!prb_din_sym=="bc" & !!prb_des_sym=="2" & (Bsp_Srd=="+-" | Bsp_Srd=="-+") & Bsp_Prb_Dir=="r" ~ Bsp_Beg - 1,
           
           #
           # prb_din_sym=="ch":: for now assume ch==rs
@@ -452,72 +615,91 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
           Bsp_Srd=="+-" & Bsp_Din_Ref=="CG" ~ 1,
           Bsp_Srd=="-+" & stringr::str_starts(Bsp_Din_Ref,"G") ~ 2,
           Bsp_Srd=="++" & stringr::str_ends(Bsp_Din_Ref,"C") ~ 3,
-          TRUE ~ 9) %>% as.integer()
+          TRUE ~ 9) %>% as.integer(),
+        Bsp_Nxb=stringr::str_to_upper(Bsp_Nxb_Ref)
       ) %>% 
       # Create Unique Aln Key for multiple hits::
       #
-      dplyr::group_by(!!join_key_sym) %>%
-      dplyr::mutate(Aln_Key_Unq=paste(!!join_key_sym, dplyr::row_number(), sep="_")) %>%
+      dplyr::group_by(!!add_join_sym) %>%
+      dplyr::mutate(
+        Bsp_Rank=dplyr::row_number(),
+        Aln_Key_Unq=paste(!!add_join_sym, Bsp_Rank, sep="_")) %>%
       dplyr::ungroup() %>%
-      utils::type.convert() %>% 
-      dplyr::mutate(across(where(is.factor),  as.character) )
+      clean_tibble()
+    
+    if (!full) ret_tib <- ret_tib %>% 
+      dplyr::select(- dplyr::all_of(rem_sel_vec))
     
     # Sort by genomic position::
     if (sort) ret_tib <- ret_tib %>% dplyr::arrange(Bsp_Chr, Bsp_Beg)
+    ann_key <- glue::glue("ret-annotated({funcTag})")
+    ann_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ann_key)
     
-    if (!is.null(bed)) {
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Adding cgn bed...{RET}"))
-      
-      ret_tib <- bed %>% 
-        dplyr::right_join(ret_tib, by=c("Imp_Chr"="Bsp_Chr", "Imp_Pos"="Bsp_Pos")) %>%
-        dplyr::mutate(
-          Imp_FR=dplyr::case_when(
-            Bsp_Srd=="+-" ~ "R",
-            Bsp_Srd=="--" ~ "F",
-            Bsp_Srd=="++" ~ "R",
-            Bsp_Srd=="-+" ~ "F",
-            TRUE ~ NA_character_
-          ),
-          Imp_CO=dplyr::case_when(
-            Bsp_Srd=="+-" ~ "C",
-            Bsp_Srd=="--" ~ "C",
-            Bsp_Srd=="++" ~ "O",
-            Bsp_Srd=="-+" ~ "O",
-            TRUE ~ NA_character_
-          ),
-          Imp_TB=dplyr::case_when(
-            Imp_Top_Srd=="+" & Imp_FR=="F" ~ "T",
-            TRUE ~ "B"
-          ),
-          Imp_Nxb=stringr::str_to_upper(Bsp_Nxb_Ref)
-        )
-    }
-    
-    if (!is.null(org)) {
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Adding org bed...{RET}"))
-      
-      ret_tib <- ret_tib %>%
-        dplyr::left_join(
-          org, 
-          by=c("Aln_P49"="Org_49P",
-               "Ord_Des"="Org_Des",
-               "Imp_Chr"="Org_Chr",
-               "Imp_Pos"="Org_Pos",
-               "Imp_FR"="Org_FR",
-               "Imp_TB"="Org_TB",
-               "Imp_CO"="Org_CO")
-        )
-    }
-    
-    ret_tib <- ret_tib  %>%
-      dplyr::mutate(Cgn_Id=stringr::str_remove(Aln_Key_Unq, "-.*$")) %>%
-      dplyr::select(dplyr::any_of(imp_col_vec),
-                    dplyr::everything()) %>%
-      clean_tibble()
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr} Done. Calculating new fields.{RET}{RET}"))
 
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    #
+    # Merge CGN by Position::
+    #
+    if (tibble::is_tibble(cgn)) {
+      if (verbose>=vt+4) {
+        cat(glue::glue("[{funcTag}]:{tabsStr} Usung tibble={RET}"))
+        print(cgn)
+      }
+    } else if (file.exists(cgn) && !dir.exists(cgn)) {
+      if (verbose>=vt+4)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading from file={cgn}.{RET}"))
+      cgn <- load_cgn_dB(file=cgn, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
+    } else {
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} Warning: Unknown cgn type!{RET}"))
+      cgn <- NULL
+    }
+    
+    if (!is.null(cgn)) {
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Adding cgn by position...{RET}"))
+      
+      cgn <- cgn %>% purrr::set_names(c("Bsp_Chr","Bsp_Pos","Bsp_Cgn","Cgd_Top"))
+      
+      mat_tib <- dplyr::bind_rows(
+        dplyr::inner_join(
+          ret_tib %>% dplyr::select(Aln_Key_Unq,Bsp_Chr,Bsp_Pos),
+          cgn %>% dplyr::mutate(Cgd_Nuc="up"),
+          by=c("Bsp_Chr","Bsp_Pos"),
+          suffix=c("_bsp","_cgn")),
+        dplyr::inner_join(
+          ret_tib %>% dplyr::select(Aln_Key_Unq,Bsp_Chr,Bsp_Pos),
+          cgn %>% dplyr::mutate(Bsp_Pos=Bsp_Pos+1, Cgd_Nuc="dn"),
+          by=c("Bsp_Chr","Bsp_Pos"),
+          suffix=c("_bsp","_cgn"))
+      ) %>% dplyr::distinct(Aln_Key_Unq, .keep_all = TRUE)
+      
+      ret_tib <- ret_tib %>% 
+        dplyr::left_join(mat_tib, by=c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos")) %>%
+        dplyr::mutate(
+          Bsp_TB=dplyr::case_when(
+            Cgd_Top=="+" & Bsp_FR=="F" ~ "T",
+            Cgd_Top=="-" & Bsp_FR=="R" ~ "T",
+            
+            Cgd_Top=="+" & Bsp_FR=="R" ~ "B",
+            Cgd_Top=="-" & Bsp_FR=="F" ~ "B",
+            TRUE ~ NA_character_
+          )
+        )
+      
+      if (verbose>=vt)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Done. Adding cgn by position.{RET}{RET}"))
+    }
+    
+    ret_tib <- ret_tib %>% dplyr::select(dplyr::any_of(imp_col_vec),
+                                         dplyr::everything()) %>% clean_tibble()
+    
+    out_cnt <- safe_write(x=ret_tib, file=csv, funcTag=funcTag,
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -538,7 +720,7 @@ join_bsmap = function(add, bsp=NULL, bed=NULL, org=NULL, file=NULL,
 #   BED File: /Users/bretbarnes/Documents/data/improbe/scratch/cgnDB/dbSNP_Core4/design-input/GRCh37.cgn.bed.gz
 #
 if (FALSE) {
-
+  
   bsmap_to_bed = function(tib,bed,
                           verbose=0,vt=3,tc=1,tt=NULL,
                           funcTag='bsmap_to_bed') {

@@ -301,7 +301,7 @@ if (args.dat[1]=='RStudio') {
   } else if (par$local_runType=='McMaster10Kselection') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'MCM'
-    opt$version  <- 'v4'
+    opt$version  <- 'v3'
     opt$Species  <- "Human"
     
     #
@@ -952,7 +952,6 @@ run$int_u49_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-u49.intersect.t
 run$int_m49_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-m49.intersect.tsv.gz", sep='.') )
 run$int_seq_tsv <- file.path(run$intDir, paste(opt$runName, "aqp-seq.intersect.tsv.gz", sep='.') )
 
-run$bsp_cgn_csv  <- file.path(run$desDir, paste(opt$runName,"aqp-pass.bsp-cgn.csv.gz",  sep='.') )
 run$imp_inp_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
 run$imp_des_tsv  <- file.path(run$desDir, paste(opt$runName, 'improbe-designOutput.tsv.gz', sep='.') )
 run$cln_des_csv  <- file.path(run$desDir, paste(opt$runName, 'improbe-designOutput.clean.tsv.gz', sep='.') )
@@ -969,7 +968,7 @@ if (opt$verbose>=1)
 # Data Structures to be pre-defined
 #
 aqp_add_tib <- NULL
-aqp_seq_tib <- NULL
+seq_cgn_tib <- NULL
 aqp_bsp_tib <- NULL
 
 cgn_bed_tib <- NULL
@@ -1050,16 +1049,15 @@ if (opt$build_manifest) {
   
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
-    aqp_seq_tib <- cgn_mapping_workflow(
+    seq_cgn_tib <- cgn_mapping_workflow(
       ref_u49=run$imp_u49_tsv,can_u49=run$aqp_u49_tsv,out_u49=run$int_u49_tsv,
       ref_m49=run$imp_m49_tsv,can_m49=run$aqp_m49_tsv,out_m49=run$int_m49_tsv,
-      # ord=opt$ord_des_csv, # NOT NEEDED HERE
-      ord=NULL, out=run$int_seq_tsv,
+      ord=opt$ord_des_csv,out=run$int_seq_tsv,
       idxA=1, idxB=1, reload=opt$reload,
       verbose=opt$verbose,tt=pTracker)
 
   } else {
-    aqp_seq_tib <- safe_read(
+    seq_cgn_tib <- safe_read(
       run$int_seq_tsv, funcTag="aqp-cgn", clean=TRUE, 
       verbose=opt$verbose,tt=pTracker)
   }
@@ -1084,7 +1082,7 @@ if (opt$build_manifest) {
                  prb_des_key="Ord_Des",prb_din_key="Ord_Din",
                  sort=TRUE, full=FALSE, csv=run$aqp_bsp_tsv,
                  verbose=opt$verbose,tt=pTracker)
-
+    
   } else {
     aqp_bsp_tib <- safe_read(
       run$aqp_bsp_tsv, funcTag="aqp-bsp", clean=TRUE, guess_max=100000,
@@ -1108,28 +1106,9 @@ if (opt$build_manifest) {
     dplyr::filter(Count!=1) %>%
     dplyr::arrange(-Count)
   # print(top_add_multi_tib, n=base::nrow(top_add_multi_tib))
-
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       4.0 improbe fwd design::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  stamp_vec <- c(stamp_vec, run$bsp_cgn_csv)
-  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
-    aqp_cgn_tib <-
-      assign_cgn(add=aqp_add_tib, bsp=aqp_bsp_tib, 
-                 seq=aqp_seq_tib, can=opt$ord_des_csv, 
-                 csv=run$bsp_cgn_csv,  merge=TRUE,
-                 verbose=opt$verbose, tt=pTracker)
-    
-  } else {
-    aqp_cgn_tib <- safe_read(
-      run$bsp_cgn_csv, funcTag="bsp-cgn", clean=TRUE,
-      verbose=opt$verbose,tt=pTracker)
-  }
-  
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     5.0 improbe fwd design::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   stamp_vec <- c(stamp_vec, 
@@ -1140,7 +1119,7 @@ if (opt$build_manifest) {
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
     imp_des_tib <- imp_designs_workflow(
-      tib=aqp_cgn_tib,fas=run$gen_ref_fas,
+      tib=aqp_bsp_tib,fas=run$gen_ref_fas,
       imp=run$imp_inp_tsv,gen=opt$genBuild,
       des=run$imp_des_tsv,out=run$cln_des_csv,
       name=opt$runName,image=image_str,shell=image_ssh,
@@ -1173,49 +1152,9 @@ if (FALSE) {
   #
   # Resolve CGN's::
   #
-  aqp_cgn_tib <-
-    assign_cgn(add=aqp_add_tib, bsp=aqp_bsp_tib, 
-               seq=aqp_seq_tib, can=opt$ord_des_csv, 
-               merge=TRUE,
-               verbose=opt$verbose, tt=pTracker)
-  
-  aqp_cgn_tib %>% 
-    dplyr::arrange(Rank) %>% 
-    dplyr::distinct(Aln_Key, .keep_all = TRUE)
-
-  # dplyr::add_count(Aln_Key,Cgn, name="Multi_Cnt") %>% 
-  # dplyr::filter(Multi_Cnt != 1) %>% 
-  
-  
-  aqp_cgn_list2 <-
-    assign_cgn(add=aqp_add_tib, bsp=aqp_bsp_tib, 
-               seq=aqp_seq_tib, can=opt$ord_des_csv, 
-               retData=TRUE,
-               verbose=opt$verbose, tt=pTracker)
-  
-  all_tib <- dplyr::bind_rows(
-    aqp_cgn_list$ret_tib %>% dplyr::mutate(
-      Cgn_Tag=dplyr::case_when(
-        Ord_Din=="rs" ~ Ord_Din,
-        Ord_Din=="ch" ~ Ord_Din,
-        TRUE ~ "cg"
-      ),
-      Cgn_Str=dplyr::case_when(
-        Ord_Din=="rs" ~ stringr::str_remove(Ord_Key, "[-_:].*$"),
-        Ord_Din=="ch" ~ stringr::str_remove(Ord_Key, "[-_:].*$"),
-        TRUE ~ paste0("cg",stringr::str_pad(Cgn,width=8,side="left",pad="0"))
-      )),
-    aqp_cgn_list$mis_tib %>% 
-      dplyr::select(Ord_Key, Aln_Key,Ord_Cgn,Ord_Des,Ord_Din) %>% 
-      dplyr::rename(Cgn=Ord_Cgn) %>% 
-      dplyr::mutate(Can_Cnt=0, 
-                    Cgn_Tag="uk",
-                    Cgn_Str=paste0(Cgn_Tag,stringr::str_pad(Cgn,width=8,side="left",pad="0"))
-      )
-  )
   
   #
-  # TBD:: Add Ord_Key back to aqp_seq_tib
+  # TBD:: Add Ord_Key back to seq_cgn_tib
   #
   
   # add_tib <- aqp_add_tib %>% 
@@ -1232,7 +1171,7 @@ if (FALSE) {
     dplyr::summarise(Bsp_Cnt=n(), .groups = "drop")
   print(imp_tib)
 
-  seq_tib <- aqp_seq_tib %>% 
+  seq_tib <- seq_cgn_tib %>% 
     dplyr::filter(!is.na(Imp_Cgn)) %>% 
     dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn) %>% 
     tidyr::unite(Aln_Key, Address, Ord_Des, Ord_Din, sep="_", remove=FALSE) %>%
@@ -1505,7 +1444,7 @@ if (FALSE) {
     dplyr::arrange(Address, Bsp_Cgn) %>%
     dplyr::distinct(Address,Ord_Des,Ord_Din, .keep_all = TRUE)
   
-  seq_tib <- aqp_seq_tib %>% 
+  seq_tib <- seq_cgn_tib %>% 
     dplyr::filter(!is.na(Imp_Cgn)) %>% 
     dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn, Imp_TB, 
                   Imp_CO, Imp_Nxb, Aln_Prb) %>% 
@@ -1581,14 +1520,14 @@ if (FALSE) {
 #
 # NOTE: Now we have four core tables::
 #  Address:   aqp_add_tib  => aqp_address_workflow()
-#  CG Number: aqp_seq_tib  => cgn_mapping_workflow()
+#  CG Number: seq_cgn_tib  => cgn_mapping_workflow()
 #  Alignment: aqp_bsp_tib  => run_bspmap()
 #  Design:    imp_des_tib  => imp_designs_workflow()
 
 # Old Structure::
 #
 # aqp_add_tib %>% print()
-# aqp_seq_tib %>% print()
+# seq_cgn_tib %>% print()
 # aqp_bsp_tib %>% print()
 # imp_des_tib %>% print()
 
@@ -1599,7 +1538,7 @@ if (FALSE) {
 # Better bsp data:: aqp_bsp_tib
 
 Ord_tib <- dplyr::select(aqp_add_tib, Address,Ord_Des,Ord_Din,Ord_Prb)
-Seq_tib <- dplyr::select(aqp_seq_tib, Address,Ord_Des,Ord_Din,
+Seq_tib <- dplyr::select(seq_cgn_tib, Address,Ord_Des,Ord_Din,
                          Imp_Cgn,Imp_TB,Imp_CO,Imp_Nxb)
 Bsp_tib <- dplyr::select(bsp_cgn_tib, Bsp_Tag,Bsp_Chr,Bsp_Beg,Bsp_Srd,
                          Bsp_Ref,Bsp_Mis,Bsp_Str)
@@ -1671,9 +1610,9 @@ readr::write_csv(Imp_tib, imp_csv)
 # /Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom.original/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz
 #
 #bretbarnes@Brets-MacBook-Pro Chicago-Ober-Custom.original % ls -ltr /Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom.original
-# total 5672
-# -rw-r--r--  1 bretbarnes  staff  2900636 Jun  7 17:20 Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz
-# bretbarnes@Brets-MacBook-Pro Chicago-Ober-Custom.original % gzip -dc  /Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom.original/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz
+total 5672
+-rw-r--r--  1 bretbarnes  staff  2900636 Jun  7 17:20 Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz
+bretbarnes@Brets-MacBook-Pro Chicago-Ober-Custom.original % gzip -dc  /Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom.original/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz
 #
 #
 #
@@ -1692,9 +1631,9 @@ readr::write_csv(Imp_tib, imp_csv)
 
 
 
-# readr::read_cs::"/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom.original/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz"
-# /Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz
-# /Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz
+readr::read_cs::"/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom.original/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz"
+/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz
+/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz
 
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1707,12 +1646,12 @@ readr::write_csv(Imp_tib, imp_csv)
 #
 add_cgn_inn <- NULL
 add_cgn_inn <- dplyr::inner_join(
-  aqp_add_tib,aqp_seq_tib,
+  aqp_add_tib,seq_cgn_tib,
   by=c("Ord_Des","Ord_Din","Address","Aln_P49"="Aln_Prb")
 )
 
 add_cgn_ant <- dplyr::anti_join(
-  aqp_add_tib,aqp_seq_tib,
+  aqp_add_tib,seq_cgn_tib,
   by=c("Ord_Des","Ord_Din","Address","Aln_P49"="Aln_Prb")
 )
 add_cgn_ant_cnt <- add_cgn_ant %>% base::nrow()
@@ -2966,16 +2905,16 @@ if (par$validateSesame) {
     dplyr::summarise(Count=n(), .groups="drop") %>% print(n=10000)
   
   #
-  # Compare aqp_seq_tib vs. ses_man_tib
+  # Compare seq_cgn_tib vs. ses_man_tib
   #
-  aqp_bsp_tib %>% dplyr::filter(Ord_Key %in% aqp_seq_tib$Address) %>%
+  aqp_bsp_tib %>% dplyr::filter(Ord_Key %in% seq_cgn_tib$Address) %>%
     dplyr::select(Bsp_Seq,Aln_Prb)
   
-  aqp_bsp_tib %>% dplyr::filter(!Bsp_Seq %in% aqp_seq_tib$Aln_Prb)
-  aqp_bsp_tib %>% dplyr::filter(!Aln_Prb %in% aqp_seq_tib$Aln_Prb)
+  aqp_bsp_tib %>% dplyr::filter(!Bsp_Seq %in% seq_cgn_tib$Aln_Prb)
+  aqp_bsp_tib %>% dplyr::filter(!Aln_Prb %in% seq_cgn_tib$Aln_Prb)
   
   aqp_bsp_tib %>% dplyr::select(Ord_Des:Aln_Key) %>% dplyr::arrange(Aln_Prb)
-  aqp_seq_tib %>% dplyr::select(Address:Aln_Prb)
+  seq_cgn_tib %>% dplyr::select(Address:Aln_Prb)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -2984,7 +2923,7 @@ if (par$validateSesame) {
 
 
 #
-# Compare aqp_seq_tib vs. imp_des_tib for TB/CO strand names
+# Compare seq_cgn_tib vs. imp_des_tib for TB/CO strand names
 #
 
 #
