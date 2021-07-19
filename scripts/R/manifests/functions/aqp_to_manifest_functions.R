@@ -50,7 +50,7 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 assign_cgn = function(add, bsp, seq, can, csv=NULL,
-                      merge=TRUE, retData=FALSE,
+                      merge=TRUE, retData=FALSE, join="inner",
                       verbose=0,vt=3,tc=1,tt=NULL,
                       funcTag='assign_cgn') {
   
@@ -71,6 +71,8 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::rename(Cgn=CGN) %>% 
       dplyr::mutate(Can_Cnt=1)
     
+    if (retData) ret_dat$can_tib <- can_tib
+    
     # Defined Order tib to add original cgn::
     ord_tib <- add %>% 
       dplyr::select(Aln_Key,Ord_Cgn) %>%
@@ -78,6 +80,8 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::mutate(Ord_Cnt=1) %>%
       dplyr::distinct()
     
+    if (retData) ret_dat$ord_tib <- ord_tib
+
     # Format BSP::
     bsp_tib <- bsp %>% 
       dplyr::filter(!is.na(Bsp_Cgn)) %>% 
@@ -89,6 +93,8 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::summarise(Bsp_Cnt=n(), .groups = "drop")
     bsp_key <- glue::glue("bsp-tib({funcTag})")
     bsp_cnt <- print_tib(bsp_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+    
+    if (retData) ret_dat$bsp_tib <- bsp_tib
     
     seq_tib <- seq %>% 
       dplyr::filter(!is.na(Imp_Cgn)) %>% 
@@ -104,6 +110,8 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
     seq_key <- glue::glue("seq-tib({funcTag})")
     seq_cnt <- print_tib(seq_tib,funcTag, verbose,vt+4,tc, n=seq_key)
     
+    if (retData) ret_dat$seq_tib <- seq_tib
+    
     # Build and Sort Counts Tables
     cnt_tib <- 
       dplyr::full_join(bsp_tib, seq_tib, by=c("Ord_Key","Aln_Key","Ord_Des","Ord_Din","Cgn")) %>% 
@@ -118,6 +126,8 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::arrange(-Can_Cnt,-Max_Cnt,-Sum_Cnt,-Ord_Cnt) %>%
       dplyr::mutate(Rank=dplyr::row_number())
     
+    if (retData) ret_dat$cnt_tib <- cnt_tib
+    
     cnt_list <- cnt_tib %>% split(.$Ord_Des)
     
     # Infinium II::
@@ -129,15 +139,28 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
     #
     #   TBD:: The joining should really be done by sequence: Ord_Prb
     #
-    inf1_tib <- dplyr::full_join(
-      cnt_list[["U"]], cnt_list[["M"]], 
-      by=c("Ord_Key","Cgn","Ord_Din"), 
-      suffix=c("_U","_M")
-    ) %>%
-      dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
-      dplyr::arrange(Ord_Key, Rank_Min) %>%
-      dplyr::distinct(Ord_Key,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
-    
+    if (join=="full") {
+      inf1_tib <- dplyr::full_join(
+        cnt_list[["U"]], cnt_list[["M"]], 
+        by=c("Ord_Key","Cgn","Ord_Din"), 
+        suffix=c("_U","_M")
+      ) %>%
+        dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+        dplyr::arrange(Ord_Key, Rank_Min) %>%
+        dplyr::distinct(Ord_Key,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
+    } else if (join=="inner") {
+      inf1_tib <- dplyr::inner_join(
+        cnt_list[["U"]], cnt_list[["M"]], 
+        by=c("Ord_Key","Cgn","Ord_Din"), 
+        suffix=c("_U","_M")
+      ) %>%
+        dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+        dplyr::arrange(Ord_Key, Rank_Min) %>%
+        dplyr::distinct(Ord_Key,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
+    } else {
+      stop(glue::glue("[{funcTag}]:{tabsStr} Unsupported join type={join}.{RET}"))
+      return(NULL)
+    }
     if (retData) ret_dat$inf1_tib <- inf1_tib
     if (retData) ret_dat$inf2_tib <- inf2_tib
     
@@ -151,9 +174,7 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::select(inf2_tib, Ord_Key,Aln_Key,Cgn,Ord_Des,Ord_Din,Can_Cnt,Rank)
     ) %>% dplyr::filter(!is.na(Aln_Key)) %>%
       dplyr::distinct()
-    
-    print(ret_tib)
-    
+
     mul_cnt <- ret_tib %>% dplyr::add_count(Aln_Key,Cgn, name="Multi_Cnt") %>% 
       dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
     mis_cnt <- ret_tib %>% dplyr::filter(is.na(Aln_Key)) %>% base::nrow()
@@ -393,9 +414,14 @@ aqp_address_workflow = function(ord,
           dplyr::select(-dplyr::all_of( c("Ord_Idx","Bpn_Idx","Aqp_Idx") ))
         
         ret_tib <- ret_tib %>%
-          dplyr::full_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
+          dplyr::inner_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
                                          "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
           dplyr::left_join(aqp_tib, by=c("Address") )
+        
+        # ret_tib <- ret_tib %>%
+        #   dplyr::full_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
+        #                                  "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
+        #   dplyr::left_join(aqp_tib, by=c("Address") )
       }
       ret_key <- glue::glue("pre-pass-decode({funcTag})")
       ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
@@ -411,7 +437,6 @@ aqp_address_workflow = function(ord,
     #
     # Add Artifical Address, Decode_Status
     #
-    print(ret_tib)
     if (!"Address" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
       dplyr::mutate(Address=dplyr::row_number())
     if (!"Decode_Status" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
