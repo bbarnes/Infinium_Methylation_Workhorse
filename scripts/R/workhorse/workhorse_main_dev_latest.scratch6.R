@@ -1003,9 +1003,6 @@ if (!is.null(opt$mans)) {
 #          0.1 Load any pre-defined Noob-Masked Manifest to be added::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-par$ses_ctl_csv <- file.path(par$topDir, "data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.controls-only.csv.gz")
-ses_ctl_tib <- safe_read(par$ses_ctl_csv, verbose=opt$verbose)
-
 if (!is.null(opt$noob)) {
   
   # opt$noob = data/CustomContent/transfer/updated_manifest.csv.gz
@@ -1051,9 +1048,12 @@ if (!is.null(opt$noob)) {
     dplyr::select(Probe_ID, dplyr::everything()) %>%
     clean_tibble()
   
+  ses_cntr_csv <- file.path(par$topDir, "data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.controls-only.csv.gz")
+  ses_cntr_tib <- safe_read(ses_cntr_csv, verbose=opt$verbose)
+  
   # All Noob & GS Controls::
   #
-  ses_ctl_tib <- dplyr::bind_rows(noob_sel_tib,ses_ctl_tib)
+  all_ctl_tib <- dplyr::bind_rows(noob_sel_tib,ses_cntr_tib)
   
 }
 
@@ -1237,209 +1237,6 @@ if (opt$build_manifest) {
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-imp_des_list <- imp_des_tib %>% split(.$Ord_Des)
-
-# Sanity Check::
-ses2_tib %>% dplyr::select(Probe_ID, Rep_Num) %>% dplyr::filter(Rep_Num != 1)
-
-
-# inf1 baseic join::
-#
-inf1_base_tib <- dplyr::inner_join(imp_des_list[["U"]],imp_des_list[["M"]],
-                  by=c("Ord_Key","Cgn","Ord_Din"), 
-                  suffix=c("_U","_M") )
-
-
-
-inf1_base_tib %>% dplyr::filter(Cgn_Str_U != Cgn_Str_M)
-inf1_base_tib %>% dplyr::filter(Bsp_Chr_U != Bsp_Chr_M)
-inf1_base_tib %>% dplyr::filter(Bsp_Pos_U != Bsp_Pos_M)
-
-inf1_base_tib %>% dplyr::filter(Ord_Prb_U != Ord_Par_M)
-inf1_base_tib %>% dplyr::filter(Ord_Prb_M != Ord_Par_U)
-
-inf1_base_tib %>% dplyr::filter(Top_Sequence_U != Top_Sequence_M)
-inf1_base_tib %>% dplyr::filter(Forward_Sequence_U != Forward_Sequence_M)
-
-inf1_base_tib %>% dplyr::filter(Cpg_Cnt_U != Cpg_Cnt_M)
-
-inf1_base_tib %>% dplyr::filter(Genome_Build_U != Genome_Build_M)
-
-# Include:: Alt_Cgn_Cnt
-
-# Only two fail strand check on McMaster::
-#
-inf1_base_tib %>% dplyr::filter(Bsp_CO_U != Bsp_CO_M)
-inf1_base_tib %>% dplyr::filter(Bsp_FR_U != Bsp_FR_M)
-inf1_base_tib %>% dplyr::filter(Strand_TB_U != Strand_TB_M)
-inf1_base_tib %>% dplyr::filter(Strand_Ref_FR_U != Strand_Ref_FR_M)
-
-inf1_base_tib %>% dplyr::filter(Next_Base_U != Next_Base_M)
-inf1_base_tib %>% dplyr::filter(Cpg_Dis_U != Cpg_Dis_M)
-
-inf1_base_tib %>% dplyr::filter(Probe_Seq_T_U != Probe_Seq_T_M)
-
-
-#
-# Inf1 Full Join::
-#
-inf1_tib <- dplyr::inner_join(imp_des_list[["U"]],imp_des_list[["M"]],
-                              by=c("Ord_Key","Cgn","Ord_Din",
-                                   "Cgn_Str","Bsp_Chr","Bsp_Pos",
-                                   "Top_Sequence","Forward_Sequence",
-                                   "Cpg_Cnt",
-                                   "Genome_Build"),
-                              suffix=c("_U","_M") )
-
-inf2_tib <- imp_des_list[["2"]]
-
-
-ses1_tib <- inf1_tib %>% 
-  dplyr::mutate(
-    Name=Cgn_Str,
-    U=Address_U,
-    AlleleA_ProbeSeq=Ord_Prb_U,
-    M=Address_M,
-    AlleleB_ProbeSeq=Ord_Prb_M,
-    Next_Base=Next_Base_U,
-    Color_Channel=dplyr::case_when(
-      Next_Base_U=="C" | Next_Base_U=="G" ~ "Grn",
-      Next_Base_U=="A" | Next_Base_U=="T" ~ "Red",
-      TRUE ~ NA_character_
-    ),
-    Col=stringr::str_sub(Color_Channel, 1,1),
-    Probe_Type=Ord_Din,
-    Strand_FR=Bsp_FR_U,
-    Strand_TB=Strand_TB_U,
-    Strand_CO=Bsp_CO_U,
-    Infinium_Design_Type="1",
-    CHR=Bsp_Chr,
-    MAPINFO=Bsp_Pos,
-    Species=opt$Species,
-    Genome_Build=opt$genBuild,
-    Source_Seq=Probe_Seq_T_U,
-    Underlying_CpG_Count=Cpg_Cnt,
-    Underlying_CpG_Min_Dist=Cpg_Dis_M,
-    Alt_Cgn_Count_U=Alt_Cgn_Cnt_U,
-    Alt_Cgn_Count_M=Alt_Cgn_Cnt_M
-  ) %>%
-  dplyr::mutate(
-    Cgn_Info=paste0(Strand_TB_U,Bsp_CO_U,"1"),
-    Probe_ID=paste(Cgn_Str,Cgn_Info, sep="_")
-  ) %>%
-  dplyr::group_by(Probe_ID) %>%
-  dplyr::mutate(Rep_Num=dplyr::row_number(),
-                Probe_ID=paste0(Probe_ID,Rep_Num)) %>%
-  dplyr::ungroup() %>%
-  dplyr::select(Probe_ID,Name,U,AlleleA_ProbeSeq,M,AlleleB_ProbeSeq,
-                Next_Base,Color_Channel,Col,Probe_Type,
-                Strand_FR,Strand_TB,Strand_CO,Infinium_Design_Type,Rep_Num,
-                CHR,MAPINFO,Species,Genome_Build,
-                Source_Seq,Forward_Sequence,Top_Sequence,
-                Underlying_CpG_Count,Underlying_CpG_Min_Dist,
-                Alt_Cgn_Count_U,Alt_Cgn_Count_M) %>%
-  clean_tibble()
-
-ses2_tib <- inf2_tib %>% 
-  dplyr::mutate(
-    Name=Cgn_Str,
-    U=Address,
-    AlleleA_ProbeSeq=Ord_Prb,
-    M="",
-    AlleleB_ProbeSeq="",
-    Color_Channel="Both",
-    Col="",
-    Probe_Type=Ord_Din,
-    Strand_FR=Bsp_FR,
-    Strand_CO=Bsp_CO,
-    Infinium_Design_Type="2",
-    CHR=Bsp_Chr,
-    MAPINFO=Bsp_Pos,
-    Species=opt$Species,
-    Genome_Build=opt$genBuild,
-    Source_Seq=Probe_Seq_T,
-    Underlying_CpG_Count=Cpg_Cnt,
-    Underlying_CpG_Min_Dist=Cpg_Dis,
-    Alt_Cgn_Count_U=Alt_Cgn_Cnt,
-    Alt_Cgn_Count_M=0
-  ) %>%
-  dplyr::mutate(
-    Cgn_Info=paste0(Strand_TB,Bsp_CO,Ord_Des),
-    Probe_ID=paste(Cgn_Str,Cgn_Info, sep="_")
-  ) %>%
-  dplyr::group_by(Probe_ID) %>%
-  dplyr::mutate(Rep_Num=dplyr::row_number(),
-                Probe_ID=paste0(Probe_ID,Rep_Num)) %>%
-  dplyr::ungroup() %>%
-  dplyr::select(Probe_ID,Name,U,AlleleA_ProbeSeq,M,AlleleB_ProbeSeq,
-                Next_Base,Color_Channel,Col,Probe_Type,
-                Strand_FR,Strand_TB,Strand_CO,Infinium_Design_Type,Rep_Num,
-                CHR,MAPINFO,Species,Genome_Build,
-                Source_Seq,Forward_Sequence,Top_Sequence,
-                Underlying_CpG_Count,Underlying_CpG_Min_Dist,
-                Alt_Cgn_Count_U,Alt_Cgn_Count_M) %>%
-  clean_tibble()
-
-
-#
-# Join Final Analytical Section::
-#
-
-ses_man_tib <- 
-  dplyr::bind_rows(ses1_tib,ses2_tib) %>% 
-  dplyr::arrange(CHR,MAPINFO) %>% 
-  dplyr::bind_rows(ses_ctl_tib)
-
-ses_man_name <- paste0(par$local_runType,"-",opt$version,".manifest.sesame-base.cpg-sorted.csv.gz")
-ses_man_csv  <- file.path(run$manDir, ses_man_name)
-safe_write(ses_man_tib,ses_man_csv, verbose=opt$verbose)
-
-#
-# Validate Against Order File::
-#
-
-#
-# Validation that all the unpaired probes have failing partners!!!
-#
-if (FALSE) {
-  # These seem to be singletons::
-  #
-  misM_tib <- aqp_add_tib %>% 
-    dplyr::filter(Ord_Des=="M") %>% 
-    dplyr::filter(! Address %in% ses_man_tib$M)
-  misU_tib <- aqp_add_tib %>% 
-    dplyr::filter(Ord_Des!="M") %>% 
-    dplyr::filter(! Address %in% ses_man_tib$U)
-  
-  # No Overlap::
-  #
-  misM_tib %>% dplyr::inner_join(misU_tib, by="Ord_Cgn")
-  
-  mat_vec  <- splitStrToVec(opt$mats)
-  mats_tib <- dplyr::bind_rows(load_aqp_files(mat_vec[1]),load_aqp_files(mat_vec[2]))
-  
-  mat_mis1_tib <- dplyr::bind_rows(
-    mats_tib %>% dplyr::filter(Mat_Prb %in% misM_tib$Ord_Prb),
-    mats_tib %>% dplyr::filter(Mat_Prb %in% misU_tib$Ord_Prb)
-  )
-  pqc_tib %>% dplyr::filter(Address %in% mat_mis1_tib$Address) %>% print(n=10000)
-  
-  # The Pairs all failed!!!
-  mat_mis2_tib <- dplyr::bind_rows(
-    mats_tib %>% dplyr::filter(Mat_Prb %in% misM_tib$Ord_Par),
-    mats_tib %>% dplyr::filter(Mat_Prb %in% misU_tib$Ord_Par)
-  )
-  pqc_tib %>% dplyr::filter(Address %in% mat_mis2_tib$Address) %>% print(n=10000)
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#
-#                              END OF ROUND 2::
-#
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
 #
 # For Chicago Validation::
 #
@@ -1447,16 +1244,174 @@ if (FALSE) {
 # /Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz
 # /Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S39.manifest.sesame-base.cpg-sorted.csv.gz
 
+
+
+# Scratch Space::
+#
+if (FALSE) {
+  
+  ord_tmp_tib <- readr::read_csv(opt$ords)
+  
+  "ACATATATATCCATACCTAATACTATAACTCATATCCCTAAAA"
+  aqp_add_ret2 <- 
+    aqp_address_workflow(
+      ord=opt$ords,
+      mat=opt$mats, aqp=opt$aqps, 
+      bpn=opt$bpns, aqn=opt$aqns,
+      add_csv=NULL,
+      man_csv=run$aqp_man_csv,
+      add_fas=run$aqp_prb_fas,
+      u49_tsv=run$aqp_u49_tsv, m49_tsv=run$aqp_m49_tsv,
+      runName=opt$runName, retData=TRUE,
+      verbose=opt$verbose+10, tt=pTracker)
+  
+  aqp_add_list <- 
+    aqp_address_workflow(
+      ord=opt$ords,
+      mat=opt$mats, aqp=opt$aqps, 
+      bpn=opt$bpns, aqn=opt$aqns,
+      add_csv=NULL,
+      man_csv=run$aqp_man_csv,
+      add_fas=run$aqp_prb_fas,
+      u49_tsv=run$aqp_u49_tsv, m49_tsv=run$aqp_m49_tsv,
+      runName=opt$runName, retData=TRUE,
+      verbose=opt$verbose+10, tt=pTracker)
+  
+  
+  rdat <- aqp_add_list$ord %>% 
+    dplyr::arrange(-Ord_Idx,Ord_Key) %>%
+    dplyr::left_join(aqp_add_list$exp, by="Ord_Idx")
+  
+  m_tib <- aqp_add_list$mat %>% dplyr::left_join(aqp_add_list$exp, by="Ord_Idx")
+  a_tib <- aqp_add_list$aqp %>% dplyr::left_join(aqp_add_list$exp, by="Ord_Idx")
+  
+  rdat %>%
+    dplyr::full_join(m_tib, by=c("Ord_Prb"="Mat_Prb",
+                                 "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
+    dplyr::left_join(a_tib, by=c("Address",
+                                 "Ord_Idx","Bpn_Idx","Aqp_Idx") ) %>% 
+    dplyr::filter(is.na(Ord_Key))
+  
+  rdat %>% dplyr::filter(is.na(Ord_Key))
+  
+  rdat %>%
+    dplyr::full_join(m_tib, by=c("Ord_Prb"="Mat_Prb",
+                                 "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
+    # dplyr::left_join(a_tib, by=c("Address") ) %>% 
+    dplyr::filter(is.na(Ord_Key))
+  
+  rdat %>%
+    dplyr::inner_join(m_tib, by=c("Ord_Prb"="Mat_Prb",
+                                  "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
+    dplyr::left_join(a_tib, by=c("Address") ) %>% 
+    dplyr::filter(is.na(Ord_Key))
+  
+  
+  aqp_cgn_tib2 <-
+    assign_cgn(add=aqp_add_tib, bsp=aqp_bsp_tib, 
+               seq=aqp_seq_tib, can=opt$ord_des_csv, 
+               csv=NULL,  merge=FALSE, retData=FALSE, join="inner",
+               verbose=opt$verbose, tt=pTracker)
+  
+  aqp_cgn_list <-
+    assign_cgn(add=aqp_add_tib, bsp=aqp_bsp_tib, 
+               seq=aqp_seq_tib, can=opt$ord_des_csv, 
+               csv=NULL,  merge=FALSE, retData = TRUE,
+               verbose=opt$verbose, tt=pTracker)
+  
+  c_list <- aqp_cgn_list$cnt_tib %>% split(.$Ord_Des)
+  
+  ful1_tib <- dplyr::full_join(
+    c_list[["U"]], c_list[["M"]], 
+    by=c("Ord_Key","Cgn","Ord_Din"), 
+    suffix=c("_U","_M")
+  ) %>%
+    dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+    dplyr::arrange(Ord_Key, Rank_Min) %>%
+    dplyr::distinct(Ord_Key,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
+  
+  inn1_tib %>% dplyr::filter(is.na(Aln_Key_U))
+  inn1_tib %>% dplyr::filter(is.na(Aln_Key_M))
+  
+  ful1_tib %>% dplyr::filter(is.na(Aln_Key_U))
+  ful1_tib %>% dplyr::filter(is.na(Aln_Key_M))
+  
+  
+}
+
+#
+# Current thoughts are true joining:: Two ways::
+#   A: by coordinate and orientation
+#      - TBD: Should add coordinate cgn look up!!
+#      - TBD: Use the extension distribution some how
+#   C: by cgn in case alignment failed
+#
+# This should all be tested with a small multi-unique set like NZT!
+#
+# Both bsp_cgn_tib and aqp_bsp_tib need to be joined seperately
+#  with aqp_add_tib
+#
+if (FALSE) {
+  #   A: by coordinate and orientation
+  aqp_bsp_tibA <- aqp_bsp_tib %>% 
+    dplyr::select(Address,Bsp_Chr,Bsp_Pos,Bsp_Din_Bsc,Bsp_Nxb_Bsc,
+                  Bsp_Tag,Bsp_Srd,Ord_Key) %>%
+    dplyr::arrange(Bsp_Chr,Bsp_Pos)
+  
+  aqp_bsp_tibB <- aqp_bsp_tib %>% 
+    dplyr::select(Address,Bsp_Chr,Bsp_Pos,Bsp_Din_Bsc,Bsp_Nxb_Bsc,
+                  Bsp_Tag,Bsp_Srd,Ord_Key) %>%
+    dplyr::arrange(Bsp_Chr,Bsp_Pos)
+  
+  aqp_bsp_inn <- aqp_bsp_tibA %>% 
+    dplyr::left_join(aqp_bsp_tibB, by=c("Bsp_Chr","Bsp_Pos"), suffix=c("_A", "_B")) %>% 
+    dplyr::distinct() %>%
+    dplyr::filter(Address_A!=Address_B)
+  
+  
+  aqp_bsp_pas <- dplyr::bind_rows(
+    aqp_bsp_inn %>% dplyr::filter(Ord_Key_A==Ord_Key_B),
+    aqp_bsp_inn %>% dplyr::filter(Ord_Key_A!=Ord_Key_B)
+  )
+  aqp_bsp_bad <- dplyr::anti_join(
+    aqp_bsp_inn,
+    aqp_bsp_pas, 
+    by=c("Address_A","Address_B")
+  )
+  
+  # Reload the original order file::
+  ord_tib <- load_aqp_file(opt$ords)
+  mat_tib <- load_aqp_file(opt$mats)
+  aqp_tib <- load_aqp_file(opt$aqps)
+  aqp_tib %>% dplyr::group_by(Decode_Status) %>% dplyr::summarise(Count=n(), .groups="drop")
+  
+  bsp_tsv <- file.path(par$topDir, "scratch/workhorse_main_dev_latest/NZT-NZT-C0-GRCh37/aln/NZT-NZT-C0-GRCh37.aqp-pass.address.bsp.tsv.gz")
+  bsp_tib <- load_bsmap(bsp_tsv, verbose = opt$verbose)
+  
+  bed_cols <- 
+    cols(
+      Imp_Chr = col_character(),
+      Imp_Pos = col_integer(),
+      imp_End = col_integer(),
+      Imp_Cgn = col_integer(),
+      Imp_Bld = col_character(),
+      Imp_Srd = col_character()
+    )
+  
+  imp_bed <- file.path(par$topDir, "data/improbe/scratch/cgnDB/dbSNP_Core4/design-input/GRCh37.cgn.bed.gz")
+  imp_tib <- readr::read_tsv(imp_bed, col_names=names(bed_cols), col_types=bed_cols)
+}
+
 #
 # Simple Manifest Generation::
 #  TBD:: This needs to be improved ALOT!!!
 #
-valid_tags <- c("UM")
 valid_tags <- c("UM","MA")
+valid_tags <- c("UM")
 
 add_cgn_imp_bsp_man <- NULL
 add_cgn_imp_bsp_man <- 
-  imp_des_tib %>% 
+  add_cgn_imp_bsp_inn %>% 
   dplyr::filter(Bsp_Tag %in% valid_tags) %>%
   add_to_man(join=c("Ord_Key","Ord_Din","Ord_Col"),
              runName=opt$runName,
@@ -1967,70 +1922,6 @@ man_pos_grs <-
 # add_cgn_imp_bsp_man$Cpg_Scr_M
 # add_cgn_imp_bsp_man$Cpg_Scr_U
 #
-
-
-#
-# Current thoughts are true joining:: Two ways::
-#   A: by coordinate and orientation
-#      - TBD: Should add coordinate cgn look up!!
-#      - TBD: Use the extension distribution some how
-#   C: by cgn in case alignment failed
-#
-# This should all be tested with a small multi-unique set like NZT!
-#
-# Both bsp_cgn_tib and aqp_bsp_tib need to be joined seperately
-#  with aqp_add_tib
-#
-if (FALSE) {
-  #   A: by coordinate and orientation
-  aqp_bsp_tibA <- aqp_bsp_tib %>% 
-    dplyr::select(Address,Bsp_Chr,Bsp_Pos,Bsp_Din_Bsc,Bsp_Nxb_Bsc,
-                  Bsp_Tag,Bsp_Srd,Ord_Key) %>%
-    dplyr::arrange(Bsp_Chr,Bsp_Pos)
-  
-  aqp_bsp_tibB <- aqp_bsp_tib %>% 
-    dplyr::select(Address,Bsp_Chr,Bsp_Pos,Bsp_Din_Bsc,Bsp_Nxb_Bsc,
-                  Bsp_Tag,Bsp_Srd,Ord_Key) %>%
-    dplyr::arrange(Bsp_Chr,Bsp_Pos)
-  
-  aqp_bsp_inn <- aqp_bsp_tibA %>% 
-    dplyr::left_join(aqp_bsp_tibB, by=c("Bsp_Chr","Bsp_Pos"), suffix=c("_A", "_B")) %>% 
-    dplyr::distinct() %>%
-    dplyr::filter(Address_A!=Address_B)
-  
-  
-  aqp_bsp_pas <- dplyr::bind_rows(
-    aqp_bsp_inn %>% dplyr::filter(Ord_Key_A==Ord_Key_B),
-    aqp_bsp_inn %>% dplyr::filter(Ord_Key_A!=Ord_Key_B)
-  )
-  aqp_bsp_bad <- dplyr::anti_join(
-    aqp_bsp_inn,
-    aqp_bsp_pas, 
-    by=c("Address_A","Address_B")
-  )
-  
-  # Reload the original order file::
-  ord_tib <- load_aqp_file(opt$ords)
-  mat_tib <- load_aqp_file(opt$mats)
-  aqp_tib <- load_aqp_file(opt$aqps)
-  aqp_tib %>% dplyr::group_by(Decode_Status) %>% dplyr::summarise(Count=n(), .groups="drop")
-  
-  bsp_tsv <- file.path(par$topDir, "scratch/workhorse_main_dev_latest/NZT-NZT-C0-GRCh37/aln/NZT-NZT-C0-GRCh37.aqp-pass.address.bsp.tsv.gz")
-  bsp_tib <- load_bsmap(bsp_tsv, verbose = opt$verbose)
-  
-  bed_cols <- 
-    cols(
-      Imp_Chr = col_character(),
-      Imp_Pos = col_integer(),
-      imp_End = col_integer(),
-      Imp_Cgn = col_integer(),
-      Imp_Bld = col_character(),
-      Imp_Srd = col_character()
-    )
-  
-  imp_bed <- file.path(par$topDir, "data/improbe/scratch/cgnDB/dbSNP_Core4/design-input/GRCh37.cgn.bed.gz")
-  imp_tib <- readr::read_tsv(imp_bed, col_names=names(bed_cols), col_types=bed_cols)
-}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        6.0 Annotate Manifest::
