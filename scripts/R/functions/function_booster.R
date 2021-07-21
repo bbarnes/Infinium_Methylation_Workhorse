@@ -48,7 +48,7 @@ clean_tibble = function(tib,
     
     ret_tib <- tib %>%
       select(where(~sum(!is.na(.x)) > 0)) %>%
-      utils::type.convert() %>%
+      utils::type.convert(as.is=TRUE) %>%
       dplyr::mutate(across(where(is.factor), as.character) )
     
     # ret_cnt <- ret_tib %>% base::nrow()

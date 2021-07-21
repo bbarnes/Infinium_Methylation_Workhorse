@@ -259,6 +259,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'qcMVP2'
   par$local_runType <- 'NA12878'
   par$local_runType <- 'Chicago-Ober-Custom'
+  par$local_runType <- 'NZT'
+  par$local_runType <- 'COVIC-NZT_23092020'
   
   opt$fresh <- TRUE
   
@@ -269,13 +271,14 @@ if (args.dat[1]=='RStudio') {
   opt$workflow    <- "ind"
   opt$manDirName  <- 'core'
   
-  opt$write_snps  <- TRUE
+  # opt$write_snps  <- TRUE
+  opt$write_snps  <- FALSE
   
-  opt$single   <- FALSE
   opt$single   <- TRUE
+  opt$single   <- FALSE
   
-  opt$parallel <- TRUE
   opt$parallel <- FALSE
+  opt$parallel <- TRUE
   
   opt$fresh <- TRUE
   opt$trackTime <- TRUE
@@ -283,11 +286,31 @@ if (args.dat[1]=='RStudio') {
   opt$runName  <- par$local_runType
   
   if (FALSE) {
+  } else if (par$local_runType=='NZT' || par$local_runType=="COVIC-NZT_23092020") {
+    
+    opt$single   <- TRUE
+    opt$single   <- FALSE
+    opt$parallel <- FALSE
+    opt$parallel <- TRUE
+    opt$fresh    <- TRUE
+    
+    # For sub manifest testing::
+    opt$platform   <- "NZT"
+    opt$version    <- "C2"
+    opt$version    <- "B1"
+    
+    opt$manDirName  <- 'base'
+    # opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Sesame/NZT")
+    
+    # opt$auto_sam_csv <- "/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz"
+    
   } else if (par$local_runType=='Chicago-Ober-Custom') {
     
     opt$single   <- TRUE
     opt$parallel <- FALSE
     opt$fresh    <- TRUE
+    
+    opt$workflow    <- "d,ind"
     
     # For sub manifest testing::
     opt$platform   <- "Chicago"
@@ -295,7 +318,7 @@ if (args.dat[1]=='RStudio') {
     opt$version    <- "S39"
     opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
     opt$auto_sam_csv <- "/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz"
-
+    
   } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
     
   } else if (par$local_runType=='NA12878') {
@@ -889,7 +912,8 @@ if (opt$cluster) {
       if (opt$verbose>0)
         cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
-      opt$verbose <- 40
+      # par$retData <- TRUE
+      # opt$verbose <- 40
       # ram_performance <- profmem({
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
@@ -933,6 +957,15 @@ if (opt$cluster) {
 # })
 
 if (FALSE) {
+  # For sset conversion::
+  #  sset_tib <- ssetToTib(sset=rdat$new_sset, source = "sigs", verbose = 10)
+  #
+  # Current ERROR::
+  # 
+  # Error in { : task 1 failed - "'x' must have 1 or more non-missing values"
+  #   In addition: Warning message:
+  #     Unknown or uninitialised column: `percent`. 
+    
   ram_performance$bytes %>% as.vector() %>% sum(na.rm=TRUE)
   ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE)
   ram_performance$bytes %>% as.vector() %>% mean(na.rm=TRUE)

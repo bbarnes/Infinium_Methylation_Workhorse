@@ -41,7 +41,303 @@ template_func = function(tib,
   if (verbose>=vt) cat(glue::glue(
     "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
     "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          AQP to Sesame Manifest::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+aqp_to_sesame1 = function(tib, isMU=FALSE, retData=FALSE,
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='aqp_to_sesame1') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_dat <- NULL
+  stime <- base::system.time({
+    
+    #
+    # Infinium I::
+    #
+    lab_tib <- tib
+    
+    if (!opt$multi_unique)
+      # lab_tib <- lab_tib %>%
+      # dplyr::filter(Ord_Din=="cg" & 
+      #                 Bsp_Din_Ref_U=="CG" & Bsp_Din_Bsc_U=="TG" &
+      #                 Bsp_Din_Ref_M=="CG" & Bsp_Din_Bsc_M=="CG")
+      
+      lab_tib <- lab_tib %>%
+        dplyr::distinct(Ord_Key,Address_U,Address_M,Cgn_Str,Strand_TB_U,Bsp_CO_U,Ord_Prb_U,Ord_Prb_M) %>%
+        dplyr::mutate(
+          Cgn_Info=paste0(Strand_TB_U,Bsp_CO_U,"1"),
+          Probe_ID=paste(Cgn_Str,Cgn_Info, sep="_")
+        ) %>%
+        dplyr::group_by(Probe_ID) %>%
+        dplyr::mutate(Rep_Num=dplyr::row_number(),
+                      Probe_ID=paste0(Probe_ID,Rep_Num)) %>%
+        dplyr::ungroup() %>% 
+        dplyr::select(Ord_Key,Probe_ID,Rep_Num,
+                      Address_U,Ord_Prb_U,
+                      Address_M,Ord_Prb_M)
+    
+    cor_tib <- tib %>% 
+      dplyr::mutate(
+        Name=Cgn_Str,
+        U=Address_U,
+        AlleleA_ProbeSeq=Ord_Prb_U,
+        M=Address_M,
+        AlleleB_ProbeSeq=Ord_Prb_M,
+        Next_Base=Next_Base_U,
+        Color_Channel=dplyr::case_when(
+          Next_Base_U=="C" | Next_Base_U=="G" ~ "Grn",
+          Next_Base_U=="A" | Next_Base_U=="T" ~ "Red",
+          TRUE ~ NA_character_
+        ),
+        Col=stringr::str_sub(Color_Channel, 1,1),
+        Probe_Type=Ord_Din,
+        Strand_FR=Bsp_FR_U,
+        Strand_TB=Strand_TB_U,
+        Strand_CO=Bsp_CO_U,
+        Infinium_Design_Type="1",
+        CHR=Bsp_Chr,
+        MAPINFO=Bsp_Pos,
+        Species=opt$Species,
+        Genome_Build=opt$genBuild,
+        Source_Seq=Probe_Seq_T_U,
+        Underlying_CpG_Count=Cpg_Cnt,
+        Underlying_CpG_Min_Dist=Cpg_Dis_M,
+        Alt_Cgn_Count_U=Alt_Cgn_Cnt_U,
+        Alt_Cgn_Count_M=Alt_Cgn_Cnt_M
+      ) %>%
+      dplyr::select(Ord_Key,Name,U,AlleleA_ProbeSeq,M,AlleleB_ProbeSeq,
+                    Next_Base,Color_Channel,Col,Probe_Type,
+                    Strand_FR,Strand_TB,Strand_CO,Infinium_Design_Type,
+                    CHR,MAPINFO,Species,Genome_Build,
+                    Source_Seq,Forward_Sequence,Top_Sequence,
+                    Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+                    Alt_Cgn_Count_U,Alt_Cgn_Count_M, Bsp_Tag_U,Bsp_Tag_M)
+    
+    all_tib <- cor_tib %>%
+      dplyr::inner_join(lab_tib,
+                        by=c("Ord_Key",
+                             "U"="Address_U","M"="Address_M",
+                             "AlleleA_ProbeSeq"="Ord_Prb_U",
+                             "AlleleB_ProbeSeq"="Ord_Prb_M") ) %>%
+      dplyr::select(Probe_ID,Name,U,AlleleA_ProbeSeq,M,AlleleB_ProbeSeq,
+                    Next_Base,Color_Channel,Col,Probe_Type,
+                    Strand_FR,Strand_TB,Strand_CO,Infinium_Design_Type,Rep_Num,
+                    CHR,MAPINFO,Species,Genome_Build,
+                    Source_Seq,Forward_Sequence,Top_Sequence,
+                    Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+                    Alt_Cgn_Count_U,Alt_Cgn_Count_M, Bsp_Tag_U,Bsp_Tag_M) %>%
+      clean_tibble()
+    
+    ret_tib <- dplyr::right_join(cor_tib,lab_tib,
+                                 by=c("Ord_Key",
+                                      "U"="Address_U","M"="Address_M",
+                                      "AlleleA_ProbeSeq"="Ord_Prb_U",
+                                      "AlleleB_ProbeSeq"="Ord_Prb_M") )
+    if (!opt$multi_unique)
+      ret_tib <- ret_tib %>%
+      dplyr::mutate(
+        CHR=dplyr::case_when(
+          Bsp_Tag_U=="UM" && Bsp_Tag_M=="UM" ~ CHR,
+          TRUE ~ "0"
+        ),
+        MAPINFO=dplyr::case_when(
+          Bsp_Tag_U=="UM" && Bsp_Tag_M=="UM" ~ MAPINFO,
+          TRUE ~ as.integer(0)
+        ),
+        Strand_FR=dplyr::case_when(
+          Bsp_Tag_U=="UM" && Bsp_Tag_M=="UM" ~ Strand_FR,
+          TRUE ~ "0"
+        )
+      )
+    
+    ret_tib <- ret_tib %>%
+      dplyr::select(Probe_ID,Name,U,AlleleA_ProbeSeq,M,AlleleB_ProbeSeq,
+                    Next_Base,Color_Channel,Col,Probe_Type,
+                    Strand_FR,Strand_TB,Strand_CO,Infinium_Design_Type,Rep_Num,
+                    CHR,MAPINFO,Species,Genome_Build,
+                    Source_Seq,Forward_Sequence,Top_Sequence,
+                    Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+                    Alt_Cgn_Count_U,Alt_Cgn_Count_M, Bsp_Tag_U,Bsp_Tag_M) %>%
+      dplyr::distinct() %>%
+      dplyr::distinct(Probe_ID,Name,
+                      U,AlleleA_ProbeSeq,
+                      M,AlleleB_ProbeSeq,
+                      # Next_Base, 
+                      .keep_all = TRUE) %>%
+      dplyr::distinct(U,M, .keep_all = TRUE) %>%
+      clean_tibble()
+    
+    # lab_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "rs"))
+    # all_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "rs"))
+    # ret_tib %>% dplyr::filter(stringr::str_starts(Probe_ID, "rs"))
+    
+    # These should be zero::
+    col_cnt1 <- ret_tib %>% dplyr::filter(is.na(Col)) %>% base::nrow()
+    col_cnt2 <- ret_tib %>% dplyr::filter(is.na(Color_Channel)) %>% base::nrow()
+    max_repn <- max(ret_tib$Rep_Num)
+    cat(glue::glue("[{funcTag}]:{tabsStr} col_cnt1={col_cnt1}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} col_cnt2={col_cnt2}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} max_repn={max_repn}{RET}"))
+    
+    ret_tib %>% dplyr::group_by(Col) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% print()
+    ret_tib %>% dplyr::group_by(Color_Channel) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% print()
+    ret_tib %>% dplyr::filter(stringr::str_starts(Probe_ID,"rs")) %>% print()
+    
+    if (retData) ret_dat$all_tib <- all_tib
+    if (retData) ret_dat$ses_tib <- ret_tib
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  if (retData) return(ret_dat)
+  
+  ret_tib
+}
+
+aqp_to_sesame2 = function(tib, isMU=FALSE, retData=FALSE,
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='aqp_to_sesame2') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_dat <- NULL
+  stime <- base::system.time({
+    
+    # Ord_Din_sym <- rlang::sym(Ord_Din)
+    
+    lab_tib <- tib
+    # if (!isMU)
+    #   lab_tib <- lab_tib %>%
+    #     dplyr::filter(Bsp_Din_Ref=="CG" & Bsp_Din_Bsc=="YG")
+    
+    lab_tib <- lab_tib %>%
+      dplyr::distinct(Ord_Key,Address,Cgn_Str,Bsp_CO,Ord_Prb, .keep_all = TRUE) %>% 
+      dplyr::select(Ord_Key,Address,Cgn_Str,Strand_TB,Bsp_CO,Ord_Prb) %>%
+      dplyr::mutate(
+        Cgn_Info=paste0(Strand_TB,Bsp_CO,"2"),
+        Probe_ID=paste(Cgn_Str,Cgn_Info, sep="_")
+      ) %>%
+      dplyr::group_by(Probe_ID) %>%
+      dplyr::mutate(Rep_Num=dplyr::row_number(),
+                    Probe_ID=paste0(Probe_ID,Rep_Num)) %>%
+      dplyr::ungroup() %>% 
+      dplyr::select(Ord_Key,Probe_ID,Rep_Num,
+                    Address,Ord_Prb)
+    
+    cor_tib <- tib %>% 
+      dplyr::mutate(
+        Name=Cgn_Str,
+        U=Address,
+        AlleleA_ProbeSeq=Ord_Prb,
+        M="",
+        AlleleB_ProbeSeq="",
+        Color_Channel="Both",
+        Col="",
+        Probe_Type=Ord_Din,
+        Strand_FR=Bsp_FR,
+        Strand_CO=Bsp_CO,
+        Infinium_Design_Type="2",
+        CHR=Bsp_Chr,
+        MAPINFO=Bsp_Pos,
+        Species=opt$Species,
+        Genome_Build=opt$genBuild,
+        Source_Seq=Probe_Seq_T,
+        Underlying_CpG_Count=Cpg_Cnt,
+        Underlying_CpG_Min_Dist=Cpg_Dis,
+        Alt_Cgn_Count_U=Alt_Cgn_Cnt,
+        Alt_Cgn_Count_M=0
+      ) %>%
+      dplyr::select(Ord_Key,Name,U,AlleleA_ProbeSeq,M,AlleleB_ProbeSeq,
+                    Next_Base,Color_Channel,Col,Probe_Type,
+                    Strand_FR,Strand_TB,Strand_CO,Infinium_Design_Type,
+                    CHR,MAPINFO,Species,Genome_Build,
+                    Source_Seq,Forward_Sequence,Top_Sequence,
+                    Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+                    Alt_Cgn_Count_U,Alt_Cgn_Count_M, Bsp_Tag) %>%
+      dplyr::rename(Bsp_Tag_U=Bsp_Tag) %>%
+      dplyr::mutate(Bsp_Tag_M="")
+    
+    all_tib <- cor_tib %>%
+      dplyr::inner_join(lab_tib,
+                        by=c("Ord_Key","U"="Address",
+                             "AlleleA_ProbeSeq"="Ord_Prb") ) %>%
+      dplyr::select(Probe_ID,Name,U,AlleleA_ProbeSeq,M,AlleleB_ProbeSeq,
+                    Next_Base,Color_Channel,Col,Probe_Type,
+                    Strand_FR,Strand_TB,Strand_CO,Infinium_Design_Type,Rep_Num,
+                    CHR,MAPINFO,Species,Genome_Build,
+                    Source_Seq,Forward_Sequence,Top_Sequence,
+                    Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+                    Alt_Cgn_Count_U,Alt_Cgn_Count_M, Bsp_Tag_U,Bsp_Tag_M) %>%
+      clean_tibble()
+    
+    ses_tib <- dplyr::right_join(cor_tib,lab_tib, 
+                                 by=c("Ord_Key","U"="Address","AlleleA_ProbeSeq"="Ord_Prb"))
+    
+    if (!isMU)
+      ses_tib <- ses_tib %>%
+      dplyr::mutate(
+        CHR=dplyr::case_when(
+          Bsp_Tag_U=="UM" ~ CHR,
+          TRUE ~ "0"
+        ),
+        MAPINFO=dplyr::case_when(
+          Bsp_Tag_U=="UM" ~ MAPINFO,
+          TRUE ~ as.integer(0)
+        ),
+        Strand_FR=dplyr::case_when(
+          Bsp_Tag_U=="UM" ~ Strand_FR,
+          TRUE ~ "0"
+        )
+      )
+    
+    ret_tib <- ses_tib %>%
+      dplyr::select(Probe_ID,Name,U,AlleleA_ProbeSeq,M,AlleleB_ProbeSeq,
+                    Next_Base,Color_Channel,Col,Probe_Type,
+                    Strand_FR,Strand_TB,Strand_CO,Infinium_Design_Type,Rep_Num,
+                    CHR,MAPINFO,Species,Genome_Build,
+                    Source_Seq,Forward_Sequence,Top_Sequence,
+                    Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+                    Alt_Cgn_Count_U,Alt_Cgn_Count_M, Bsp_Tag_U,Bsp_Tag_M) %>% 
+      dplyr::distinct() %>%
+      dplyr::distinct(Probe_ID,Name,U,AlleleA_ProbeSeq, .keep_all = TRUE) %>%
+      dplyr::distinct(U, .keep_all = TRUE) %>%
+      clean_tibble()
+    
+    if (retData) ret_dat$all_tib <- all_tib
+    if (retData) ret_dat$ses_tib <- ret_tib
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  if (retData) return(ret_dat)
+  
   ret_tib
 }
 
@@ -81,7 +377,7 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::distinct()
     
     if (retData) ret_dat$ord_tib <- ord_tib
-
+    
     # Format BSP::
     bsp_tib <- bsp %>% 
       dplyr::filter(!is.na(Bsp_Cgn)) %>% 
@@ -100,7 +396,7 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::filter(!is.na(Imp_Cgn)) %>% 
       dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn) %>% 
       tidyr::unite(Aln_Key, Address, Ord_Des, Ord_Din, sep="_", remove=FALSE) %>%
-      dplyr::left_join(dplyr::select(aqp_add_tib, Ord_Key,Aln_Key), by="Aln_Key") %>%
+      dplyr::left_join(dplyr::select(add, Ord_Key,Aln_Key), by="Aln_Key") %>%
       dplyr::select(Ord_Key,Aln_Key,Ord_Des,Ord_Din,Imp_Cgn) %>%
       dplyr::rename(Cgn=Imp_Cgn) %>%
       dplyr::distinct() %>%
@@ -174,12 +470,12 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::select(inf2_tib, Ord_Key,Aln_Key,Cgn,Ord_Des,Ord_Din,Can_Cnt,Rank)
     ) %>% dplyr::filter(!is.na(Aln_Key)) %>%
       dplyr::distinct()
-
+    
     mul_cnt <- ret_tib %>% dplyr::add_count(Aln_Key,Cgn, name="Multi_Cnt") %>% 
       dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
     mis_cnt <- ret_tib %>% dplyr::filter(is.na(Aln_Key)) %>% base::nrow()
-
-    mis_tib <- dplyr::anti_join(aqp_add_tib, ret_tib, by=c("Aln_Key"))
+    
+    mis_tib <- dplyr::anti_join(add, ret_tib, by=c("Aln_Key"))
     sig_tib <- dplyr::filter(cnt_tib, Aln_Key %in% mis_tib$Aln_Key) %>%
       dplyr::arrange(Ord_Key,Rank) %>%
       dplyr::distinct(Aln_Key, .keep_all = TRUE)
@@ -265,7 +561,7 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   if (retData) return(ret_dat)
-
+  
   ret_tib
 }
 
@@ -274,14 +570,158 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
 #                         AQP Address Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-aqp_address_workflow = function(ord, 
-                                mat=NULL, aqp=NULL,
-                                bpn=NULL, aqn=NULL,
-                                add_csv=NULL, man_csv=NULL,
-                                add_fas=NULL,
-                                u49_tsv=NULL, m49_tsv=NULL,
-                                runName=NA, retData=FALSE,
-                                verbose=0,vt=3,tc=1,tt=NULL) {
+aqp_address_workflow = function(ord, mat, aqp, out=NULL, name=NULL,
+                                prb_key="Ord_Prb", add_key="Address",
+                                des_key="Ord_Des", din_key="Ord_Din",
+                                verbose=0,vt=3,tc=1,tt=NULL,
+                                funcTag='aqp_address_workflow') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                         Process AQP/PQC Files::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    if (purrr::is_character(aqp)) {
+      aqp_tib <- load_aqp_files(aqp) %>% 
+        dplyr::arrange(-Ord_Idx) %>% 
+        dplyr::distinct(Address, .keep_all=TRUE)
+    } else {
+      aqp_tib <- aqp
+    }
+    if (!tibble::is_tibble(aqp_tib)) {
+      stop(glue::glue("{RET}[{funcTag}]: AQP/PQC is NOT a tibble!{RET}{RET}"))
+      return(ret_tib)
+    }
+    aqp_dup_cnt <- aqp_tib %>% 
+      dplyr::add_count(Address, name="Add_Cnt") %>% 
+      dplyr::filter(Add_Cnt!=1) %>% base::nrow()
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: aqp_dup_cnt={aqp_dup_cnt}.{RET}"))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                          Process Match Files::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (purrr::is_character(mat)) {
+      mat_tib <- load_aqp_files(mat) %>% 
+        dplyr::arrange(-Ord_Idx) %>% 
+        dplyr::distinct(Address, .keep_all=TRUE)
+    } else {
+      mat_tib <- mat
+    }
+    if (!tibble::is_tibble(mat_tib)) {
+      stop(glue::glue("{RET}[{funcTag}]: Match is NOT a tibble!{RET}{RET}"))
+      return(ret_tib)
+    }
+    
+    mat_dup_cnt <- mat_tib %>% 
+      dplyr::add_count(Address, name="Add_Cnt") %>% 
+      dplyr::filter(Add_Cnt!=1) %>% base::nrow()
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: mat_dup_cnt={mat_dup_cnt}.{RET}"))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                          Process Order Files::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (purrr::is_character(ord)) {
+      ord_tib <- load_aqp_files(ord) %>% 
+        dplyr::mutate(Ord_Map=Ord_Idx+Ord_Map)
+    } else {
+      ord_tib <- ord
+    }
+    if (!tibble::is_tibble(ord_tib)) {
+      stop(glue::glue("{RET}[{funcTag}]: Order is NOT a tibble!{RET}{RET}"))
+      return(ret_tib)
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Build Probes/Address Table::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    ret_tib <- aqp_tib %>% 
+      dplyr::filter(Decode_Status==0) %>%
+      dplyr::select(Address,Ord_Idx) %>%
+      dplyr::rename(Aqp_Idx=Ord_Idx) %>%
+      dplyr::inner_join(mat_tib, by="Address") %>%
+      dplyr::rename(Mat_Idx=Ord_Idx) %>%
+      dplyr::inner_join(ord_tib, by=c("Mat_Prb"="Ord_Prb")) %>%
+      dplyr::rename(Ord_Prb=Mat_Prb) %>%
+      dplyr::mutate(Ord_Cgn=Ord_Key %>% 
+                      stringr::str_remove("^[^0-9]+") %>% 
+                      stringr::str_remove("[^0-9]+.*$") %>% 
+                      stringr::str_remove("^0+") ) %>%
+      dplyr::select(Address,Ord_Des,Ord_Din,Ord_Map,Ord_Prb,Ord_Par,
+                    Ord_Key,Ord_Col,Ord_Idx,Mat_Idx,Aqp_Idx,Mat_Tan,
+                    dplyr::everything())
+    
+    prb_dup_cnt <- ret_tib %>% 
+      dplyr::add_count(Address, name="Add_Cnt") %>% 
+      dplyr::filter(Add_Cnt!=1) %>% base::nrow()
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: prb_dup_cnt={prb_dup_cnt}.{RET}"))
+    
+    par_dup_cnt <- ret_tib %>% 
+      dplyr::add_count(Address,Ord_Prb,Ord_Par, name="Dup_Cnt") %>% 
+      dplyr::filter(Dup_Cnt!=1) %>% base::nrow()
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]: par_dup_cnt={par_dup_cnt}.{RET}"))
+    
+    # Build Summary::
+    aqp_sum <- aqp_tib %>% 
+      dplyr::group_by(Ord_Idx, Decode_Status) %>% 
+      dplyr::summarise(Decode_Count=n(), .groups="drop")
+    print(aqp_sum, n=base::nrow(aqp_sum))
+    
+    sum_key <- glue::glue("aqp-summary({funcTag})")
+    sum_cnt <- print_tib(aqp_sum,funcTag, verbose,vt+4,tc, n=sum_key)
+    
+    # Write Fasta Output::
+    #
+    if (!is.null(out)) {
+      if (length(name)>0) name <- paste0(name,".")
+      prb_fas <- file.path(out, paste0(name,"aqp-pass.address.fas.gz"))
+      dat_csv <- file.path(out, paste0(name,"aqp-pass.address.csv.gz"))
+      u49_tsv <- file.path(out, paste0(name,"aqp-pass.address-u49.tsv.gz"))
+      m49_tsv <- file.path(out, paste0(name,"aqp-pass.address-m49.tsv.gz"))
+      sum_csv <- file.path(out, paste0(name,"aqp-decode.summary.csv.gz"))
+      
+      safe_write(sum_csv, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      ret_tib <- add_to_fas(ret_tib,
+                            prb_key=prb_key, add_key=add_key,
+                            des_key=des_key, din_key=din_key,  
+                            prb_fas=prb_fas, dat_csv=dat_csv,
+                            u49_tsv=u49_tsv, m49_tsv=m49_tsv,
+                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    }
+
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
+}
+
+
+aqp_address_workflow2 = function(ord, 
+                                 mat=NULL, aqp=NULL,
+                                 bpn=NULL, aqn=NULL,
+                                 add_csv=NULL, man_csv=NULL,
+                                 add_fas=NULL,
+                                 u49_tsv=NULL, m49_tsv=NULL,
+                                 runName=NA, retData=FALSE,
+                                 verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'aqp_address_workflow'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
@@ -316,7 +756,7 @@ aqp_address_workflow = function(ord,
       BiocGenerics::as.vector()
     
     if (retData) ret_dat$ord <- ord_tib
-
+    
     if (!is.null(mat)) {
       if (is.null(aqp)) {
         stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
@@ -346,13 +786,10 @@ aqp_address_workflow = function(ord,
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                 Validate and Load Data:: AQP/PQC Files
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      aqp_vec <- stringr::str_split(aqp, pattern=",", simplify=TRUE) %>% 
-        BiocGenerics::as.vector()
+      aqp_vec <- splitStrToVec(aqp)
       aqp_len <- length(aqp_vec)
       aqn_vec <- c(1:aqp_len)
-      if (!is.null(aqn)) aqn_vec <- 
-        stringr::str_split(aqn, pattern=",", simplify=TRUE) %>% 
-        BiocGenerics::as.vector()
+      if (!is.null(aqn)) aqn_vec <- splitStrToVec(aqn)
       
       if (aqp_len>1 && aqp_len != mat_len) {
         stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
@@ -368,7 +805,7 @@ aqp_address_workflow = function(ord,
       cat(glue::glue("{RET}[{funcTag}]:{tabsStr} Done. Loading data.{RET}{RET}"))
     ord_key <- glue::glue("ret-ord({funcTag})")
     ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n=ord_key)
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Build Bead Pool/AQP/PQC Info Data Structure::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -389,7 +826,7 @@ aqp_address_workflow = function(ord,
       dplyr::left_join(exp_tib, by="Ord_Idx")
     ret_key <- glue::glue("ret-ord({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-
+    
     if (!is.null(mat_tib) && !is.null(aqp_tib)) {
       if (verbose>=vt+4)
         cat(glue::glue("[{funcTag}]:{tabsStr} Joining mat/aqp...{RET}"))
@@ -415,7 +852,7 @@ aqp_address_workflow = function(ord,
         
         ret_tib <- ret_tib %>%
           dplyr::inner_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
-                                         "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
+                                          "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
           dplyr::left_join(aqp_tib, by=c("Address") )
         
         # ret_tib <- ret_tib %>%
@@ -425,7 +862,7 @@ aqp_address_workflow = function(ord,
       }
       ret_key <- glue::glue("pre-pass-decode({funcTag})")
       ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-
+      
       ret_tib <- ret_tib %>%
         dplyr::filter(!is.na(Decode_Status)) %>%
         dplyr::filter(Decode_Status==0) %>%
@@ -449,7 +886,7 @@ aqp_address_workflow = function(ord,
                       stringr::str_remove("-.*$") %>% 
                       stringr::str_remove("_.*$") %>% 
                       as.integer())
-
+    
     ret_tib <- ret_tib %>%
       dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
       dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep") %>%
@@ -458,7 +895,7 @@ aqp_address_workflow = function(ord,
                     dplyr::everything())
     ret_key <- glue::glue("ret-tib3({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-
+    
     
     # Write Summary::
     if (verbose>=vt+4 &&
@@ -505,7 +942,6 @@ aqp_address_workflow = function(ord,
         return(NULL)
       }
       
-      print(ret_tib)
       # Write Fasta Output::
       ret_tib <- ret_tib %>%
         add_to_fas(
@@ -524,7 +960,7 @@ aqp_address_workflow = function(ord,
     
     # Overall Summary::
     # if (verbose>=vt+4) {
-    #   aqp_add_sum <- aqp_add_tib %>% 
+    #   aqp_add_sum <- add %>% 
     #     dplyr::group_by(dplyr::any_of(c("Aqp_Idx","Ord_Des","Ord_Din"))) %>%
     #     dplyr::summarise(Count=n(), .groups="drop")
     #   aqp_add_sum %>% print(n=base::nrow(aqp_add_sum))
@@ -564,6 +1000,9 @@ load_aqp_files = function(file,
         BiocGenerics::as.vector()
     } else if (purrr::is_vector(file)) {
       file_vec <- file
+    } else {
+      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} unrecognized variable={file}.{RET}"))
+      return(NULL)
     }
     
     ret_tib <- file_vec %>%
@@ -635,7 +1074,7 @@ load_aqp_file = function(file, idx=NULL,
       address_name  = col_integer(),
       bo_seq        = col_character()
     )
-
+  
   val_cols$mat3 <- 
     cols(
       probe_id      = col_character(),
@@ -758,7 +1197,9 @@ load_aqp_file = function(file, idx=NULL,
     
     # Apply Formatting Rules:: Order Data Type
     if (dat_key=="ord") {
+      ret_cnt <- ret_tib %>% base::nrow()
       ord_tib <- ret_tib %>% 
+        dplyr::distinct() %>%
         dplyr::mutate(
           Ord_PrbA=stringr::str_to_upper(Ord_PrbA),
           Ord_PrbB=stringr::str_to_upper(Ord_PrbB),
@@ -778,11 +1219,14 @@ load_aqp_file = function(file, idx=NULL,
             Ord_DesA=="U" & Ord_DesB=="M" & Ord_Norm=="B" ~ "G",
             TRUE ~ NA_character_
           )
-        )
+        ) %>% 
+        dplyr::distinct(Ord_PrbA,Ord_PrbB, .keep_all=TRUE) %>%
+        dplyr::mutate(Ord_Row=dplyr::row_number(),
+                      Ord_Map=as.double(Ord_Row/ret_cnt))
       
-      ord_cols <- c("Ord_Key","Ord_Des", "Ord_Prb", "Ord_Par", "Ord_Col")
-      ord_colA <- c("Ord_Key","Ord_DesA","Ord_PrbA","Ord_PrbB","Ord_Col")
-      ord_colB <- c("Ord_Key","Ord_DesB","Ord_PrbB","Ord_PrbA","Ord_Col")
+      ord_cols <- c("Ord_Key","Ord_Des", "Ord_Prb", "Ord_Par", "Ord_Col","Ord_Map")
+      ord_colA <- c("Ord_Key","Ord_DesA","Ord_PrbA","Ord_PrbB","Ord_Col","Ord_Map")
+      ord_colB <- c("Ord_Key","Ord_DesB","Ord_PrbB","Ord_PrbA","Ord_Col","Ord_Map")
       
       ret_tib <- dplyr::bind_rows(
         ord_tib %>% dplyr::filter(Ord_DesB=="M") %>%
@@ -800,7 +1244,7 @@ load_aqp_file = function(file, idx=NULL,
           Ord_Key=stringr::str_replace_all(Ord_Key, "_", "-")
         ) %>%
         dplyr::select(
-          Ord_Key,Ord_Des,Ord_Din,Ord_Col,dplyr::everything()
+          Ord_Map,Ord_Key,Ord_Des,Ord_Din,Ord_Col,dplyr::everything()
         )
     }
     
@@ -822,7 +1266,6 @@ load_aqp_file = function(file, idx=NULL,
     }
     
     # Apply Formatting Rules:: Match Files:: Sequence
-    # if (dat_key=="mat1" || dat_key=="mat2") {
     if (stringr::str_starts(dat_key,"mat")) {
       ret_tib <- ret_tib %>% 
         dplyr::mutate(Sequence=stringr::str_to_upper(Sequence),
@@ -830,7 +1273,8 @@ load_aqp_file = function(file, idx=NULL,
                       Mat_Prb=stringr::str_sub(Sequence,46)
         ) %>%
         dplyr::select(-Sequence) %>%
-        dplyr::filter(!is.na(Address)) # Not sure if we need this...
+        dplyr::filter(!is.na(Address)) %>% 
+        dplyr::distinct(Address,Mat_Prb, .keep_all=TRUE)
     }
     
     # Add Dat_IDX if provided
@@ -886,7 +1330,7 @@ guess_aqp_file = function(file,
       tibble::as_tibble() %>% 
       dplyr::mutate(row_num=dplyr::row_number())
     dat_cnt <- print_tib(dat_tib,funcTag, verbose,vt=vt+6,tc=tc, n="dat_tib")
-
+    
     ret_tib <- NULL
     for (field in fields) {
       if (verbose>=vt+6)
@@ -936,7 +1380,7 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
                                 funcTag='cgn_mapping_workflow') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-    
+  
   if (verbose>=vt) {
     cat(glue::glue("[{funcTag}]:{tabsStr} ref_u49={ref_u49}.{RET}"))
     cat(glue::glue("[{funcTag}]:{tabsStr} can_u49={can_u49}.{RET}"))
@@ -960,19 +1404,19 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     u49_key <- glue::glue("u49-tib({funcTag})")
     u49_cnt <- print_tib(u49_tib,funcTag, verbose,vt+4,tc, n=u49_key)
-
+    
     m49_tib <- intersect_seq(ref=ref_m49,can=can_m49,out=out_m49,
                              idxA=idxA,idxB=idxB, reload=reload,
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     m49_key <- glue::glue("m49-tib({funcTag})")
     m49_cnt <- print_tib(m49_tib,funcTag, verbose,vt+4,tc, n=m49_key)
-
+    
     ret_tib <- join_seq_intersect(u49=u49_tib, m49=m49_tib, 
                                   bed=bed, org=org,
                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     ret_key <- glue::glue("ret-tib-0({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-
+    
     if (!is.null(ord) && file.exists(ord)) {
       if (verbose>=vt+1)
         cat(glue::glue("[{funcTag}]:{tabsStr} Loading order/canonical CSV={ord}.{RET}"))
@@ -994,9 +1438,9 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
         cat(glue::glue("[{funcTag}]:{tabsStr} Done order/canonical.{RET}{RET}"))
     }
     
-    if (!is.null(out)) safe_write(ret_tib,file=out, funcTag=par$prgmTag,
+    if (!is.null(out)) safe_write(ret_tib,file=out, funcTag=funcTag,
                                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-
+    
     ret_key <- glue::glue("ret-fin({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
@@ -1087,7 +1531,7 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1, reload=FALSE,
     ret_tib <- suppressMessages(suppressWarnings(
       readr::read_tsv(out, col_names=names(int_seq_cols$cols), 
                       col_types=int_seq_cols) )) # %>% clean_tibble()
-
+    
     ret_key <- glue::glue("ret-fin({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
@@ -1121,7 +1565,7 @@ join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
       dplyr::mutate(Imp_Key=stringr::str_split(Imp_Key, pattern=",") ) %>% 
       tidyr::unnest(Imp_Key)
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib1")
-
+    
     ret_tib <- ret_tib %>%
       tidyr::separate(
         Imp_Key, 
@@ -1145,7 +1589,7 @@ join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
                     dplyr::everything()) %>%
       clean_tibble()
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib4")
-
+    
     if (!is.null(bed)) {
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]:{tabsStr} Adding cgn bed...{RET}"))
@@ -1464,8 +1908,6 @@ add_to_fas = function(tib, prb_key="Prb_Seq",
       ) %>%
       dplyr::distinct(Aln_Key,Aln_Prb, .keep_all=TRUE) %>%
       clean_tibble()
-    # utils::type.convert() %>% 
-    # dplyr::mutate(across(where(is.factor), as.character) )
     
     # Generate Remaining Data::
     if (!is.null(prb_fas))
@@ -1781,7 +2223,7 @@ bed_to_prbs = function(tib, fas,
             )
           cur_cnt <- print_tib(cur_tib,funcTag, verbose,vt+4,tc, n="cur-pre-join")
           cgn_vec <- cur_tib %>% dplyr::pull(!!cgn_sym)
-
+          
           # TBD:: Add the current FR/CO/TB fields to cur_tib
           # TBD:: Add the opposite designs
           # TBD:: Remove previous information from the input tibble
@@ -1873,11 +2315,11 @@ bed_to_prbs = function(tib, fas,
               
             )
           } else {
-            stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported fr={fr}...{RET}"))
+            stop(glue::glue("{RET}[{funcTag}]: Unsupported fr={fr}...{RET}"))
             return(NULL)
           }
           prb_cnt <- print_tib(prb_tib,funcTag, verbose,vt+4,tc, n="prb")
-
+          
           cur_tib <- cur_tib %>% dplyr::left_join(prb_tib, by=cgn)
           ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
         }
@@ -1972,7 +2414,7 @@ fas_to_seq = function(tib, fas,
       
       cur_key <- glue::glue("cur_tib_1=chr(str/idx)=({chr_str}/{chr_idx})")
       cur_cnt <- print_tib(cur_tib,funcTag, verbose,vt+4,tc, n=cur_key)
-
+      
       # Subtract two for cg upstream 122mer formation and add two+two as well
       #
       cur_begs <- NULL

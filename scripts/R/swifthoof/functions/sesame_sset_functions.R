@@ -914,14 +914,15 @@ ssetToTib = function(sset, source, name=NULL, man=NULL, mask=NULL,
             dplyr::rename(M=G,U=R) %>% dplyr::select(Probe_ID,!!des_sym,M,U)
         }
       ) %>% dplyr::select(!!by, !!des, dplyr::everything())
-      
+
       # Add sig to the names::
       #
       ret_tib <- ret_tib %>% dplyr::rename(sig_M=M, sig_U=U)
       
       # Old Code to record original manifest reference designs::
       #   man_tib <- man_tib %>% dplyr::rename(Manifest_Design=!!des)
-      man_tib <- man_tib %>% dplyr::select(!!by, !!type)
+      if (!is.null(man_tib)) man_tib <- man_tib %>% dplyr::select(!!by, !!type)
+
     } else {
       if (is.null(name)) {
         if (fresh || is.null(sesame::extra(sset)[[source]]) ) {
