@@ -18,6 +18,9 @@ COM <- ","
 TAB <- "\t"
 RET <- "\n"
 BNG <- "|"
+BRK <- paste0("# ",
+              paste(rep("-----",6),collapse=" "),"|",
+              paste(rep("-----",6),collapse=" ")," #")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::
@@ -26,6 +29,7 @@ BNG <- "|"
 template_func = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='template_func') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -33,14 +37,14 @@ template_func = function(tib,
   ret_tib <- NULL
   stime <- base::system.time({
     
-    # ret_cnt <- ret_tib %>% base::nrow()
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -48,6 +52,43 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          AQP to Sesame Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+aqp_to_man = function(tib,
+                      verbose=0,vt=3,tc=1,tt=NULL,
+                      funcTag='aqp_to_man') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    # TBD::
+    #
+    #  * Investigate BSP alignments::
+    #    - Calculate number of hits good/bad
+    #    - Calculate extension/color distribution
+    #    - Extract BSC Top/Probe-Design
+    #
+    
+    # Workflow::
+    #
+    #  - Split 2,U,M
+    #  - Join U/M
+    #  - 
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+  
+  ret_tib
+}
 
 aqp_to_sesame1 = function(tib, isMU=FALSE, retData=FALSE,
                           verbose=0,vt=3,tc=1,tt=NULL,
@@ -203,9 +244,9 @@ aqp_to_sesame1 = function(tib, isMU=FALSE, retData=FALSE,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   if (retData) return(ret_dat)
   
@@ -332,9 +373,9 @@ aqp_to_sesame2 = function(tib, isMU=FALSE, retData=FALSE,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   if (retData) return(ret_dat)
   
@@ -345,7 +386,7 @@ aqp_to_sesame2 = function(tib, isMU=FALSE, retData=FALSE,
 #                     Assign Best CGN from:: BSP & SEQ
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-assign_cgn = function(add, bsp, seq, can, csv=NULL,
+assign_cgn = function(ord, bsp, seq, can, csv=NULL,
                       merge=TRUE, retData=FALSE, join="inner",
                       verbose=0,vt=3,tc=1,tt=NULL,
                       funcTag='assign_cgn') {
@@ -369,8 +410,8 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
     
     if (retData) ret_dat$can_tib <- can_tib
     
-    # Defined Order tib to add original cgn::
-    ord_tib <- add %>% 
+    # Defined Order tib to ord original cgn::
+    ord_tib <- ord %>% 
       dplyr::select(Aln_Key,Ord_Cgn) %>%
       dplyr::rename(Cgn=Ord_Cgn) %>% 
       dplyr::mutate(Ord_Cnt=1) %>%
@@ -396,7 +437,7 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::filter(!is.na(Imp_Cgn)) %>% 
       dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn) %>% 
       tidyr::unite(Aln_Key, Address, Ord_Des, Ord_Din, sep="_", remove=FALSE) %>%
-      dplyr::left_join(dplyr::select(add, Ord_Key,Aln_Key), by="Aln_Key") %>%
+      dplyr::left_join(dplyr::select(ord, Ord_Key,Aln_Key), by="Aln_Key") %>%
       dplyr::select(Ord_Key,Aln_Key,Ord_Des,Ord_Din,Imp_Cgn) %>%
       dplyr::rename(Cgn=Imp_Cgn) %>%
       dplyr::distinct() %>%
@@ -475,7 +516,7 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
       dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
     mis_cnt <- ret_tib %>% dplyr::filter(is.na(Aln_Key)) %>% base::nrow()
     
-    mis_tib <- dplyr::anti_join(add, ret_tib, by=c("Aln_Key"))
+    mis_tib <- dplyr::anti_join(ord, ret_tib, by=c("Aln_Key"))
     sig_tib <- dplyr::filter(cnt_tib, Aln_Key %in% mis_tib$Aln_Key) %>%
       dplyr::arrange(Ord_Key,Rank) %>%
       dplyr::distinct(Aln_Key, .keep_all = TRUE)
@@ -556,9 +597,9 @@ assign_cgn = function(add, bsp, seq, can, csv=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   if (retData) return(ret_dat)
   
@@ -706,276 +747,9 @@ aqp_address_workflow = function(ord, mat, aqp, out=NULL, name=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
-
-aqp_address_workflow2 = function(ord, 
-                                 mat=NULL, aqp=NULL,
-                                 bpn=NULL, aqn=NULL,
-                                 add_csv=NULL, man_csv=NULL,
-                                 add_fas=NULL,
-                                 u49_tsv=NULL, m49_tsv=NULL,
-                                 runName=NA, retData=FALSE,
-                                 verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'aqp_address_workflow'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  if (verbose>=vt+4) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} ord={ord}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} mat={mat}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} aqp={aqp}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} bpn={bpn}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} aqn={aqn}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} runName={runName}{RET}{RET}"))
-  }
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  ret_dat <- NULL
-  stime <- base::system.time({
-    
-    ord_tib <- NULL
-    mat_tib <- NULL
-    aqp_tib <- NULL
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                 Validate and Load Data:: Order Files
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    ord_vec <- stringr::str_split(ord, pattern=",", simplify=TRUE) %>% 
-      BiocGenerics::as.vector()
-    ord_len <- length(ord_vec)
-    bpn_vec <- c(1:ord_len)
-    aqn_vec <- c(1:ord_len)
-    ord_tib <- load_aqp_files(ord_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
-    if (!is.null(bpn)) bpn_vec <- stringr::str_split(bpn, pattern=",", simplify=TRUE) %>% 
-      BiocGenerics::as.vector()
-    
-    if (retData) ret_dat$ord <- ord_tib
-    
-    if (!is.null(mat)) {
-      if (is.null(aqp)) {
-        stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
-                        "Must provide aqp if provided match files!",
-                        "aqp = NULL! Exiting...{RET}"))
-        return(ret_tib)
-      }
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                 Validate and Load Data:: Match Files
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      mat_vec <- stringr::str_split(mat, pattern=",", simplify=TRUE) %>% 
-        BiocGenerics::as.vector()
-      mat_len <- length(mat_vec)
-      # Suspending this rule for now...
-      #
-      # if (ord_len != mat_len) {
-      #   stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
-      #                   "order length != match length! ",
-      #                   "({ord_len} != {mat_len})! Exiting...{RET}"))
-      #   return(ret_tib)
-      # }
-      mat_tib <- load_aqp_files(mat_vec, verbose=verbose, vt=vt+1,tc=tc+1, tt=tt)
-      
-      if (retData) ret_dat$mat <- mat_tib
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                 Validate and Load Data:: AQP/PQC Files
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      aqp_vec <- splitStrToVec(aqp)
-      aqp_len <- length(aqp_vec)
-      aqn_vec <- c(1:aqp_len)
-      if (!is.null(aqn)) aqn_vec <- splitStrToVec(aqn)
-      
-      if (aqp_len>1 && aqp_len != mat_len) {
-        stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: ",
-                        "AQP>1 must match match length! ",
-                        "({aqp_len} != {mat_len})! Exiting...{RET}"))
-        return(ret_tib)
-      }
-      aqp_tib <- load_aqp_files(aqp_vec, verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-      
-      if (retData) ret_dat$aqp <- aqp_tib
-    }
-    if (verbose>=vt+4)
-      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} Done. Loading data.{RET}{RET}"))
-    ord_key <- glue::glue("ret-ord({funcTag})")
-    ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n=ord_key)
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                  Build Bead Pool/AQP/PQC Info Data Structure::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    exp_tib <- 
-      tibble::tibble(Bpn_Idx=bpn_vec, Aqp_Idx=aqn_vec) %>%
-      dplyr::mutate(Ord_Idx=dplyr::row_number()) %>% 
-      dplyr::select(Ord_Idx, dplyr::everything()) %>% 
-      clean_tibble()
-    exp_key <- glue::glue("ret-exp({funcTag})")
-    exp_cnt <- print_tib(exp_tib,funcTag, verbose,vt+4,tc, n=exp_key)
-    if (retData) ret_dat$exp <- exp_tib
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                                Join Data::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    ret_tib <- ord_tib %>% 
-      dplyr::arrange(-Ord_Idx,Ord_Key) %>%
-      dplyr::left_join(exp_tib, by="Ord_Idx")
-    ret_key <- glue::glue("ret-ord({funcTag})")
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-    
-    if (!is.null(mat_tib) && !is.null(aqp_tib)) {
-      if (verbose>=vt+4)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Joining mat/aqp...{RET}"))
-      
-      mat_tib <- mat_tib %>% dplyr::left_join(exp_tib, by="Ord_Idx")
-      aqp_tib <- aqp_tib %>% dplyr::left_join(exp_tib, by="Ord_Idx")
-      
-      if (mat_len==aqp_len) {
-        if (verbose>=vt+2)
-          cat(glue::glue("[{funcTag}]:{tabsStr} AQP MATCHING...{RET}"))
-        
-        ret_tib <- ret_tib %>%
-          dplyr::full_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
-                                         "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
-          dplyr::left_join(aqp_tib, by=c("Address",
-                                         "Ord_Idx","Bpn_Idx","Aqp_Idx") )
-      } else {
-        if (verbose>=vt+2)
-          cat(glue::glue("[{funcTag}]:{tabsStr} PQC MATCHING...{RET}"))
-        
-        aqp_tib <- aqp_tib %>% 
-          dplyr::select(-dplyr::all_of( c("Ord_Idx","Bpn_Idx","Aqp_Idx") ))
-        
-        ret_tib <- ret_tib %>%
-          dplyr::inner_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
-                                          "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
-          dplyr::left_join(aqp_tib, by=c("Address") )
-        
-        # ret_tib <- ret_tib %>%
-        #   dplyr::full_join(mat_tib, by=c("Ord_Prb"="Mat_Prb",
-        #                                  "Ord_Idx","Bpn_Idx","Aqp_Idx")) %>%
-        #   dplyr::left_join(aqp_tib, by=c("Address") )
-      }
-      ret_key <- glue::glue("pre-pass-decode({funcTag})")
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-      
-      ret_tib <- ret_tib %>%
-        dplyr::filter(!is.na(Decode_Status)) %>%
-        dplyr::filter(Decode_Status==0) %>%
-        dplyr::distinct(Address, .keep_all=TRUE)
-      
-      ret_key <- glue::glue("post-pass-decode({funcTag})")
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-    }
-    #
-    # Add Artifical Address, Decode_Status
-    #
-    if (!"Address" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
-      dplyr::mutate(Address=dplyr::row_number())
-    if (!"Decode_Status" %in% names(ret_tib)) ret_tib <- ret_tib %>% 
-      dplyr::mutate(Decode_Status=as.integer(0))
-    
-    # Add Order Predicted CGN::
-    ret_tib <- ret_tib %>%
-      dplyr::mutate(Ord_Cgn=Ord_Key %>% 
-                      stringr::str_remove("^[a-zA-Z]+") %>% 
-                      stringr::str_remove("-.*$") %>% 
-                      stringr::str_remove("_.*$") %>% 
-                      as.integer())
-    
-    ret_tib <- ret_tib %>%
-      dplyr::add_count(Ord_Prb, name="Ord_Prb_Rep") %>%
-      dplyr::add_count(Ord_Prb,Ord_Par, name="Ord_Par_Rep") %>%
-      dplyr::select(Ord_Key,Ord_Des,Ord_Din,Ord_Col,Ord_Idx,Ord_Prb,
-                    Ord_Prb_Rep,Ord_Par_Rep,
-                    dplyr::everything())
-    ret_key <- glue::glue("ret-tib3({funcTag})")
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-    
-    
-    # Write Summary::
-    if (verbose>=vt+4 &&
-        !is.null(mat_tib) && !is.null(aqp_tib)) {
-      ret_sum <- 
-        ret_tib %>% 
-        dplyr::group_by(Ord_Idx,Bpn_Idx,Aqp_Idx,
-                        Ord_Des,Ord_Col,Ord_Din,
-                        Decode_Status) %>% 
-        dplyr::summarise(Count=n(), .groups="drop")
-      ret_sum %>% print(n=base::nrow(ret_sum))
-      # sum_cnt <- print_tib(ret_sum,funcTag, verbose,vt+4,tc, n="summary")
-    }
-    
-    # Write Manifest Output::
-    if (!is.null(man_csv)) {
-      man_vec <- c("Ord_Key","Ord_Din","Ord_Col",
-                   dplyr::all_of(base::names(exp_tib) ) )
-      print(man_vec)
-      print(ret_tib)
-      
-      man_tib <- ret_tib %>%
-        add_to_man(join=man_vec,
-                   runName=runName,
-                   des_key="Ord_Des", pid="Ord_Key",
-                   col_key="Ord_Col",
-                   csv=man_csv,
-                   validate=TRUE,
-                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      if (retData) ret_dat$man <- man_tib
-    }
-    
-    # Write Outputs::
-    if (!is.null(add_fas)) {
-      # Set Look Up Keys::
-      if ("Address" %in% names(ret_tib)) {
-        add_key <- "Address"
-      } else if ("Ord_Key" %in% names(ret_tib)) {
-        add_key <- "Ord_Key"
-      } else if ("Ord_Prb_U" %in% names(ret_tib)) {
-        add_key <- "Ord_Prb_U"
-      } else {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR Failed to find valid add_key!!!{RET}{RET}"))
-        return(NULL)
-      }
-      
-      # Write Fasta Output::
-      ret_tib <- ret_tib %>%
-        add_to_fas(
-          prb_key="Ord_Prb", add_key=add_key, 
-          des_key="Ord_Des", din_key="Ord_Din",
-          prb_fas=add_fas, dat_csv=add_csv,
-          u49_tsv=u49_tsv, m49_tsv=m49_tsv,
-          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      
-    }
-    if (!is.null(add_csv)) 
-      safe_write(ret_tib,file=add_csv, funcTag=funcTag,
-                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
-    if (retData) ret_dat$add <- ret_tib
-    
-    # Overall Summary::
-    # if (verbose>=vt+4) {
-    #   aqp_add_sum <- add %>% 
-    #     dplyr::group_by(dplyr::any_of(c("Aqp_Idx","Ord_Des","Ord_Din"))) %>%
-    #     dplyr::summarise(Count=n(), .groups="drop")
-    #   aqp_add_sum %>% print(n=base::nrow(aqp_add_sum))
-    # }
-    
-    ret_key <- glue::glue("ret-fin({funcTag})")
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  if (retData) return(ret_dat)
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1016,9 +790,9 @@ load_aqp_files = function(file,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1289,9 +1063,9 @@ load_aqp_file = function(file, idx=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1361,9 +1135,9 @@ guess_aqp_file = function(file,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1398,6 +1172,9 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
+    
+    build_file_dir(out_u49)
+    build_file_dir(out_m49)
     
     u49_tib <- intersect_seq(ref=ref_u49,can=can_u49,out=out_u49,
                              idxA=idxA,idxB=idxB, reload=reload,
@@ -1446,9 +1223,9 @@ cgn_mapping_workflow = function(ref_u49,can_u49,out_u49,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1537,9 +1314,9 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1, reload=FALSE,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1633,9 +1410,9 @@ join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1644,6 +1421,7 @@ join_seq_intersect = function(u49,m49,bed=NULL,org=NULL,
 #                       Manifest Mutation Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# TBD:: Pretty Sure this can be removed::
 mutate_probe_id = function(tib, 
                            pid="Probe_ID", cgn="Imp_Cgn_Seq",
                            des="Ord_Des",  din="Ord_Din",
@@ -1680,9 +1458,9 @@ mutate_probe_id = function(tib,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1691,6 +1469,7 @@ mutate_probe_id = function(tib,
 #                       Address To Manifest Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# TBD:: Pretty Sure this can be removed::
 add_comb = function(tibA, tibB, field,
                     join,
                     verbose=0,vt=3,tc=1,tt=NULL) {
@@ -1716,9 +1495,9 @@ add_comb = function(tibA, tibB, field,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1863,9 +1642,9 @@ add_to_man = function(tib, join, runName,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1945,9 +1724,9 @@ add_to_fas = function(tib, prb_key="Prb_Seq",
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -2135,9 +1914,9 @@ seq_to_prbs = function(tib, seq,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -2330,9 +2109,9 @@ bed_to_prbs = function(tib, fas,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -2619,9 +2398,9 @@ fas_to_seq = function(tib, fas,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }

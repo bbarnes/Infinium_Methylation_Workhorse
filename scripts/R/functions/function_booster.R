@@ -5,6 +5,9 @@ COM <- ","
 TAB <- "\t"
 RET <- "\n"
 BNG <- "|"
+BRK <- paste0("# ",
+              paste(rep("-----",6),collapse=" "),"|",
+              paste(rep("-----",6),collapse=" ")," #")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::
@@ -13,6 +16,7 @@ BNG <- "|"
 template_func = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='template_func') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -20,14 +24,14 @@ template_func = function(tib,
   ret_tib <- NULL
   stime <- base::system.time({
     
-    # ret_cnt <- ret_tib %>% base::nrow()
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -57,8 +61,8 @@ clean_tibble = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -110,8 +114,8 @@ makeFieldUnique = function(tib, field, add=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -128,23 +132,13 @@ get_fileSuffix = function(file,
   
   ret_cnt <- 0
   ret_val <- NULL
-  stime <- system.time({
-    
-    ret_val <- stringr::str_remove(file, "\\.gz$") %>% 
-      stringr::str_remove("^.*\\.")
-    ret_cnt <- ret_val %>% length()
-    # ret_cnt <- ret_tib %>% base::nrow()
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+
+  ret_val <- stringr::str_remove(file, "\\.gz$") %>% 
+    stringr::str_remove("^.*\\.")
+  ret_cnt <- ret_val %>% length()
   
   ret_val
 }
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Clean Files for docker::
@@ -180,8 +174,8 @@ clean_file = function(file, touch=FALSE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   file
 }
@@ -280,11 +274,10 @@ program_init = function(name,defs=NULL,
   
   # etime <- stime[3] %>% as.double() %>% round(2)
   etime <- 0
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
-  
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+
   opts
 }
 
@@ -360,11 +353,10 @@ load_libraries = function(opts, pars, rcpp=FALSE,
   
   # etime <- stime[3] %>% as.double() %>% round(2)
   etime <- 0
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
-  
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+
   opts
 }
 
@@ -395,11 +387,10 @@ check_list = function(list, vals, name="options",
   
   # etime <- stime[3] %>% as.double() %>% round(2)
   etime <- 0
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
-  
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+
   list
 }
 
@@ -450,8 +441,8 @@ valid_time_stamp = function(files,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_val
 }
@@ -535,8 +526,8 @@ check_timeStamps = function(name,outDir,origin=NULL,files,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -607,8 +598,8 @@ addColNames = function(tib, add, fix, prefix=TRUE, del='_',
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-    "{tabsStr}# ----- ----- ----- ----- |----- ----- ----- ----- #{RET}{RET}"))
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -728,12 +719,9 @@ get_file_list = function(dir, pattern, trim=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; ",
-                   "Return Count={ret_cnt}; ",
-                   "elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ",
-                   "----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -933,9 +921,9 @@ guess_file_del = function(file, n_max=100,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_val
 }
@@ -952,6 +940,11 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  if (is.null(file)) {
+    stop(glue::glue("{RET}[{funcTag}]:{tabsStr} file can't be NULL!!{RET}{RET}"))
+    return(file)
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -991,9 +984,9 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -1060,9 +1053,9 @@ safe_write = function(x, type=NULL, file=NULL,
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
   
   ret_cnt
 }
