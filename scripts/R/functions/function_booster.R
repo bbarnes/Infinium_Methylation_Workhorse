@@ -19,11 +19,18 @@ template_func = function(tib,
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
     
+    # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })

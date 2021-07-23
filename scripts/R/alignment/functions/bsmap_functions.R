@@ -28,11 +28,18 @@ template_func = function(tib,
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
     
+    # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
@@ -127,26 +134,41 @@ bsp_mapping_workflow =
       #                      Probe Alignment:: BSMAP
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      ret_tib <-run_bsmap(ref=ref, can=can, out=out, exe=exe,
-                          sort=sort, light=light, reload=reload,
+      ret_tib <-run_bsmap(ref=ref,
+                          can=can,
+                          out=out,
+                          exe=exe,
+                          sort=sort,
+                          light=light, 
+                          reload=reload,
                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                      Join Address and Alignment Data::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      ret_tib <- join_bsmap(bsp=ret_tib, ord=ord, cgn=cgn,
-                            join_key=join_key, join_type=join_type,
-                            des_key=des_key, din_key=din_key,
-                            sort=sort, full=full, csv=NULL,
+      ret_tib <- join_bsmap(bsp=ret_tib,
+                            ord=ord,
+                            cgn=cgn,
+                            join_key=join_key,
+                            join_type=join_type,
+                            des_key=des_key,
+                            din_key=din_key,
+                            sort=sort,
+                            full=full,
+                            csv=NULL,
                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                         Consolidate/Assign CGNs::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      ret_tib <- assign_cgn(ord=ord, bsp=ret_tib, seq=seq, 
-                            can=canonical, csv=csv, merge=TRUE,
+      ret_tib <- assign_cgn(ord=ord,
+                            bsp=ret_tib,
+                            seq=seq, 
+                            can=canonical,
+                            csv=csv,
+                            merge=TRUE,
                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -193,8 +215,10 @@ bsp_mapping_workflow =
     ret_tib
   }
 
-run_bsmap = function(ref,can,out,exe, 
-                     sort=FALSE, light=FALSE, reload=FALSE,
+run_bsmap = function(ref, can, out, exe, 
+                     sort=FALSE, 
+                     light=FALSE,
+                     reload=FALSE,
                      opt="-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R",
                      verbose=0,vt=3,tc=1,tt=NULL,
                      funcTag='run_bsmap') {
@@ -262,7 +286,9 @@ run_bsmap = function(ref,can,out,exe,
   ret_tib
 }
 
-load_bsmap = function(file, sort=FALSE, light=FALSE,
+load_bsmap = function(file,
+                      sort=FALSE,
+                      light=FALSE,
                       verbose=0,vt=3,tc=1,tt=NULL,
                       funcTag='load_bsmap') {
   
@@ -344,9 +370,13 @@ load_bsmap = function(file, sort=FALSE, light=FALSE,
 }
 
 join_bsmap = function(bsp, ord, cgn, 
-                      join_key, join_type="inner", 
-                      des_key="Ord_Des", din_key="Ord_Din",
-                      sort=TRUE, full=FALSE, csv=NULL,
+                      join_key,
+                      join_type="inner", 
+                      des_key="Ord_Des",
+                      din_key="Ord_Din",
+                      sort=TRUE,
+                      full=FALSE,
+                      csv=NULL,
                       verbose=0,vt=3,tc=1,tt=NULL,
                       funcTag='join_bsmap') {
   

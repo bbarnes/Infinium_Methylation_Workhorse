@@ -300,10 +300,10 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
   par$local_runType <- 'EWAS'
-  par$local_runType <- 'GRCm10'
-  par$local_runType <- 'NZT'
-  par$local_runType <- 'McMaster10Kselection'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'GRCm10'
+  par$local_runType <- 'McMaster10Kselection'
+  par$local_runType <- 'NZT'
   
   opt$parallel <- TRUE
   
@@ -324,7 +324,7 @@ if (args.dat[1]=='RStudio') {
   } else if (par$local_runType=='McMaster10Kselection') {
     opt$genBuild <- 'GRCh37'
     opt$platform <- 'MCM'
-    opt$version  <- 'v8'
+    opt$version  <- 'v7'
     opt$Species  <- "Human"
     
     #
@@ -538,8 +538,6 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'A11'
     opt$version  <- 'A12'
     opt$version  <- 'A13'
-    opt$version  <- 'A14'
-    opt$version  <- 'A15'
     
     opt$Species  <- "Human"
     
@@ -906,31 +904,15 @@ run <- NULL
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Checking pre-defined files.{RET}"))
 
-# Find Genome FASTA Files::
-#
-run$gen_dir <- file.path(opt$genDir, opt$genBuild,"Sequence/WholeGenomeFasta")
-bsc_ref_pat <- paste0(opt$genBuild,".genome.[FR]C[MUD].fa.gz$")
-bsc_snp_pat <- paste0(opt$genBuild,".genome.dbSNP-151.iupac.[FR]C[MUD].fa.gz$")
-
-# Genome:: Reference
-#   - Ref
-#   - SNP (dbSNP-151)
-run$gen_ref_fas <- file.path(run$gen_dir, paste0(opt$genBuild,".genome.fa.gz"))
+# Define Run Time:: Ref Alignment Genome::
+run$gen_ref_fas <- file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
+                             paste0(opt$genBuild,".genome.fa.gz"))
 stopifnot(file.exists(run$gen_ref_fas))
 
-run$gen_snp_fas <- file.path(run$gen_dir, paste0(opt$genBuild,".dbSNP151-genome.fa.gz"))
+# Define Run Time:: SNP IUPAC Genome::
+run$gen_snp_fas <- file.path(opt$genDir, opt$genBuild, "Sequence/WholeGenomeFasta",
+                             paste0(opt$genBuild,".dbSNP151-genome.fa.gz"))
 stopifnot(file.exists(run$gen_snp_fas))
-
-# Genome:: Bisulfite Converted
-#   - Ref (U/M/D)
-#   - SNP (dbSNP: U/M/D)
-#
-run$bsc_ref_fas <- get_file_list(run$gen_dir, pattern=bsc_ref_pat, 
-                                 trim=c(opt$genBuild,".genome.",".fa.gz"),
-                                 verbose=opt$verbose)
-run$bsc_snp_fas <- get_file_list(run$gen_dir, pattern=bsc_snp_pat, 
-                                 trim=c(opt$genBuild,".genome.",".fa.gz"),
-                                 verbose=opt$verbose)
 
 # Define Pre-built improbe directories and files::
 run$imp_prb_dir <- file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-output/prbs-p49")
@@ -983,10 +965,9 @@ run$bsp_cgn_csv  <- file.path(run$bspDir, paste(opt$runName,"aqp-pass.bsp-cgn.cs
 
 # Improbe Design Directory::
 run$impDir <- file.path(opt$outDir, 'imp')
-run$imp_seq_csv  <- file.path(run$impDir, paste(opt$runName, 'improbe-sequence.csv.gz', sep='.') )
 run$imp_inp_tsv  <- file.path(run$impDir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
 run$imp_des_tsv  <- file.path(run$impDir, paste(opt$runName, 'improbe-designOutput.tsv.gz', sep='.') )
-run$imp_fin_tsv  <- file.path(run$impDir, paste(opt$runName, 'improbe-designOutput.clean.tsv.gz', sep='.') )
+run$cln_des_csv  <- file.path(run$impDir, paste(opt$runName, 'improbe-designOutput.clean.tsv.gz', sep='.') )
 
 # Manifest Directory::
 run$manDir <- file.path(opt$outDir, 'man')
@@ -1151,7 +1132,7 @@ if (opt$build_manifest) {
       run$bsp_cgn_csv, funcTag="aqp-bsp", clean=TRUE, guess_max=100000,
       verbose=opt$verbose,tt=pTracker)
   }
-
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                     4.0 improbe fwd design::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -1159,66 +1140,25 @@ if (opt$build_manifest) {
   stamp_vec <- c(stamp_vec, 
                  run$imp_inp_tsv,
                  run$imp_des_tsv,
-                 run$imp_fin_tsv)
+                 run$cln_des_csv)
   
-  if (TRUE || opt$fresh || !valid_time_stamp(stamp_vec)) {
+  if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
     # TBD:: Add a safty check for Aln_Key_Unq > 15 characters!!!
-    # TBD:: Add converted genomes and substring probe checking!!!
-    # TBD:: Add r-improbe designer
     #
-
-    #    aqp_imp_list <- imp_designs_workflow(
-    aqp_imp_tib_pre <- aqp_imp_tib
     aqp_imp_tib <- imp_designs_workflow(
-      tib=aqp_cgn_tib, # max=20,
-      
-      imp_inp_tsv=run$imp_inp_tsv,
-      imp_des_tsv=run$imp_des_tsv, 
-      imp_fin_tsv=run$imp_fin_tsv,
-      imp_seq_csv=run$imp_seq_csv,
-      
-      # Genomes::
-      gen_bld=opt$genBuild,
-      
-      gen_ref_fas=run$gen_ref_fas,
-      bsc_ref_fas=run$bsc_ref_fas,
-      gen_snp_fas=run$gen_snp_fas,
-      bsc_snp_fas=run$bsc_snp_fas,
-      
-      # Field Parameters::
-      ids_key="Aln_Key_Unq",
-      din_key="Ord_Din",
-      pos_key="Bsp_Pos",
-      chr_key="Bsp_Chr",
-      
-      srsplit=TRUE,
-      srd_key="Bsp_FR",
-      cosplit=TRUE,
-      cos_key="Bsp_CO",
-
-      # Docker Parameters::
-      run_name=opt$runName, 
-      doc_image=image_str, 
-      doc_shell=image_ssh,
-      
+      tib=aqp_cgn_tib, fas=run$gen_ref_fas, imp=run$imp_inp_tsv,
+      gen=opt$genBuild, des=run$imp_des_tsv, out=run$cln_des_csv,
+      key="Aln_Key_Unq", din="Ord_Din", chr="Bsp_Chr", pos="Bsp_Pos",
+      name=opt$runName, image=image_str, shell=image_ssh,
       join_new=c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos","Bsp_FR","Bsp_CO"),
       join_old=c("Seq_ID","Chromosome","Coordinate","Strand_FR","Strand_CO"),
-      
-      # reload=opt$reload,
-      # retData=TRUE,
-      
-      parallel=opt$parallel,
-      # parallel=FALSE,
-      r_improbe=TRUE,
-      s_improbe=FALSE,
-      
       verbose=opt$verbose, tt=pTracker)
-
+    
   } else {
     
     aqp_imp_tib <- safe_read(
-      run$imp_fin_tsv, funcTag="aqp-imp", clean=TRUE,
+      run$cln_des_csv, funcTag="aqp-imp", clean=TRUE,
       verbose=opt$verbose,tt=pTracker)
     
     if (FALSE) {
@@ -1238,105 +1178,6 @@ if (opt$build_manifest) {
   #
 }
 
-
-
-
-
-
-
-
-aqp_imp_tib$r_imp %>% base::nrow()
-aqp_imp_tib$r_imp %>% dplyr::filter( Seq_ID %in% aqp_imp_tib$s_imp$Aln_Key_Unq ) %>% base::nrow()
-aqp_imp_tib$r_imp %>% dplyr::filter(!Seq_ID %in% aqp_imp_tib$s_imp$Aln_Key_Unq ) %>% base::nrow()
-
-aqp_imp_tib$s_imp %>% base::nrow()
-aqp_imp_tib$s_imp %>% dplyr::filter( Aln_Key_Unq %in% aqp_imp_tib$r_imp$Seq_ID ) %>% base::nrow()
-aqp_imp_tib$s_imp %>% dplyr::filter(!Aln_Key_Unq %in% aqp_imp_tib$r_imp$Seq_ID ) %>% base::nrow()
-
-
-aqp_imp_tib$r_imp %>% dplyr::distinct(Seq_ID, .keep_all=TRUE) %>% base::nrow()
-aqp_imp_tib$s_imp %>% dplyr::distinct(Aln_Key_Unq, .keep_all=TRUE) %>% base::nrow()
-
-
-aqp_imp_tib$r_imp %>% dplyr::add_count(Seq_ID, name="Seq_ID_Count") %>% dplyr::filter(Seq_ID_Count != 1)
-
-aqp_imp_tib$s_imp %>% dplyr::filter(Aln_Key=="10606234_2cg")
-
-r_tmp_tib <- r_improbe(tib=aqp_imp_tib$s_imp,
-                       
-                       sr_str='FR', 
-                       co_str='CO',
-                       
-                       ids_key="Aln_Key_Unq",
-                       seq_key="Iupac_Forward_Sequence",
-                       prb_key="Ord_Din",
-                       
-                       srsplit=TRUE,
-                       srd_key="Bsp_FR",
-                       
-                       cosplit=TRUE,
-                       cos_key="Bsp_CO",
-                       
-                       # parallel=opt$parallel, 
-                       parallel=FALSE,
-                       add_matseq=TRUE, 
-                       
-                       verbose=opt$verbose+3, tt=pTracker)
-
-aqp_imp_tib$s_imp %>% split.data.frame(f=aqp_imp_tib$s_imp %>% dplyr::pull(bsp_fs_var))
-
-
-
-v0 <- c("F")
-v1 <- c("F", "R")
-v2 <- c("C", "O")
-v3 <- c("C", "O", "D")
-
-expand.grid(v1, v2) %>% 
-  tibble::as_tibble() %>% 
-  tidyr::unite(srd, Var1,Var2, sep='', remove=TRUE)
-
-
-#
-# Design Steps::
-#  gen_ref_fas
-#    - Don't build probes (--build_prbs=FALSE)
-#
-#  r-improbe(Forward_Sequence=Imp_Temp_Seq)
-#    - Compare Prb1_[U/M] against improbe [U/M]
-#    - Compare by Ord_Des (2/U/M) against Ord_Prb
-#
-#  s-improbe (substring improbe) [BSC U/M/D]
-#    - Compare Prb1_[U/M] against improbe [U/M]
-#    - Compare by Ord_Des (2/U/M) against Ord_Prb
-#
-# SNP Check::
-#    - Pos:Iupac (Include Next Base: pos=0)
-#
-# Update Probe_ID
-#    - rs/ch database
-#    - mu = multiple zero mismatch hits
-#    - ma = multiple non-zero mismatch hits
-#    - um = un-paired Infinium I probes
-#
-# Extension/Color Summary::
-#    - Extension Summary (Cpg, Nxb)
-#    - Color Summary (Red, Grn)
-#
-# Clean-Up Steps::
-#  - Remove/Rename Temp_Seq
-#  - Remove *_Len
-#  - Only build probes when nescessary
-#
-
-tmp_join_vec <- c("Aln_Key_Unq", "Address","Ord_Des", "Ord_Din")
-
-tmp_join_tib <- dplyr::inner_join(
-  aqp_imp_list$fwd, aqp_imp_list$ret, 
-  by=tmp_join_vec,
-  suffix=c("_fwd","_imp") )
-
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #
@@ -1344,9 +1185,6 @@ tmp_join_tib <- dplyr::inner_join(
 #
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       1.0 Write improbe input::
@@ -1391,9 +1229,7 @@ fwd_seq_tib <- ord_imp_tib %>%
              chr1="Bsp_Chr", pos="Bsp_Pos",
              nrec=nrec, verbose=opt$verbose)
 
-# snp_seq_org <- snp_seq_tib
-# snp_seq_org2 <- snp_seq_tib
-
+snp_seq_org <- snp_seq_tib
 snp_seq_tib <- ord_imp_tib %>% 
   dplyr::arrange(Bsp_Chr,Bsp_Pos) %>%
   fas_to_seq(fas=run$gen_snp_fas, file=snp_seq_tsv, 
@@ -1401,13 +1237,6 @@ snp_seq_tib <- ord_imp_tib %>%
              gen=opt$genBuild,
              chr1="Bsp_Chr", pos="Bsp_Pos",
              nrec=nrec, verbose=opt$verbose)
-
-# Compare probes against designs::
-#
-fwd_seq_tib %>% dplyr::filter(Bsp_FR=="F", Bsp_CO=="C") %>% 
-  dplyr::select(Aln_Key_Unq, Probe_Seq_T,Prb1_FC)
-snp_seq_tib %>% dplyr::filter(Bsp_FR=="F", Bsp_CO=="C") %>% 
-  dplyr::select(Aln_Key_Unq, Probe_Seq_T,Prb1_FC)
 
 #
 # Get Converted Genomes::
@@ -1568,6 +1397,11 @@ ii_fwdSnp_cmp$cmp %>%
 #  Manifest Generation::
 #    - Code Clean Up
 #       - [done] bsp_mapping_workflow()
+#    - Fix Probe_ID
+#       - rs/ch database
+#       - mu = multiple zero mismatch hits
+#       - ma = multiple non-zero mismatch hits
+#       - um = un-paired Infinium I probes
 #
 #    - Calculate extension/color distribution
 #    - Extract BSC Top/Probe-Design
