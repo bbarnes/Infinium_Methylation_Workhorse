@@ -1,11 +1,12 @@
 
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
 
-COM <- ","
-TAB <- "\t"
-RET <- "\n"
-BNG <- "|"
-BRK <- paste0("# ",
+COM  <- ","
+TAB  <- "\t"
+RET  <- "\n"
+RET2 <- "\n\n"
+BNG  <- "|"
+BRK  <- paste0("# ",
               paste(rep("-----",6),collapse=" "),"|",
               paste(rep("-----",6),collapse=" ")," #")
 
@@ -733,9 +734,9 @@ get_file_list = function(dir, pattern, trim=NULL,
   ret_tib
 }
 
-get_file_list_tmp = function(dir, pattern, max=0, recursive=FALSE, 
+get_file_list_old = function(dir, pattern, max=0, recursive=FALSE, 
                              verbose=0,vt=3,tc=1,tt=NULL,
-                             funcTag='get_file_list') {
+                             funcTag='get_file_list_old') {
   
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
@@ -967,7 +968,8 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
       }
     }
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]:{tabsStr} Reading Data {type}={file}...{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} Reading Data (sep='{type}') ",
+                     "file='{file}'...{RET}"))
     
     if (type=="line") {
       ret_tib <- suppressMessages(suppressWarnings( 
@@ -981,7 +983,7 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
     } else if (type=="rds") {
       ret_tib <- readr::read_rds(file)
     } else {
-      stop(cat(glue::glue("{RET}[{funcTag}]: ERROR: Invalid type={type}{RET}")))
+      stop(cat(glue::glue("{RET}[{funcTag}]: ERROR: Invalid type='{type}'!{RET2}")))
       return(NULL)
     }
     if (clean) ret_tib <- clean_tibble(ret_tib)
@@ -1085,7 +1087,7 @@ print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
   ret_cnt <- 0
   ret_tib <- NULL
   
-  if (is.null(tib)) return(ret_cnt)
+  if (is.null(tib) || base::nrow(t)==0) return(ret_cnt)
 
   if (is.data.frame(tib)) ret_cnt <- tib %>% base::nrow()
   

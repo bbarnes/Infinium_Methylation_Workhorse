@@ -89,6 +89,936 @@ list.string.diff<-function(a="ATTCGA-",b="attTGTT",exclude=c("-","?"),ignore.cas
   return(only.diff)
 }
 
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#
+#              These functions should probably be deprecated
+#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# cgn_mapping_workflow(dir=run$imp_prb_dir, pattern_u="-probe_U49_cgn-table.tsv.gz", pattern_m="-probe_M49_cgn-table.tsv.gz")
+cgn_mapping_workflow = function(tib, dir,
+                                pattern_u,
+                                pattern_m,
+                                
+                                prb_key = "Prb_Seq", 
+                                add_key = "Address", 
+                                des_key = "Prb_Des", 
+                                din_key = "Prb_Din",
+                                unq_key = "Unq_Key",
+                                
+                                out    = NULL,
+                                prefix = NULL,
+                                suffix = NULL,
+                                
+                                idxA=1,idxB=1,
+                                reload=FALSE,
+                                parallel=FALSE,
+                                
+                                verbose=0, vt=3,tc=1,tt=NULL,
+                                funcTag='cgn_mapping_workflow') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} ref_u49={ref_u49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} can_u49={can_u49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} out_u49={out_u49}.{RET}"))
+    cat("\n")
+    cat(glue::glue("[{funcTag}]:{tabsStr} ref_m49={ref_m49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} can_m49={can_m49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} out_m49={out_m49}.{RET}"))
+    cat("\n")
+    cat(glue::glue("[{funcTag}]:{tabsStr}    idxA={idxA}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}    idxB={idxB}.{RET}"))
+    cat("\n")
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    prb_sym <- rlang::sym(prb_key)
+    des_sym <- rlang::sym(des_key)
+    din_sym <- rlang::sym(din_key)
+    unq_sym <- rlang::sym(unq_key)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #        Find All Pre-Built Reference Prefix-Partition Files:: U49
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    cgn_U49_tsvs <- get_file_list(dir = dir, 
+                                  pattern = pattern_u, 
+                                  trim    = pattern_u,
+                                  verbose = opt$verbose)
+    u49_tsv_cnt <- cgn_U49_tsvs %>% names() %>% length()
+    u49_pre_len <- cgn_U49_tsvs %>% names() %>% stringr::str_length() %>% max()
+    
+    if (verbose>=vt+2) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Found {u49_tsv_cnt} U49-files, ",
+                     "prefix length={u49_pre_len}.{RET}"))
+      cgn_U49_tsvs %>% head(n=3) %>% print()
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #        Find All Pre-Built Reference Prefix-Partition Files:: M49
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    cgn_M49_tsvs <- get_file_list(dir = dir,
+                                  pattern = pattern_m, 
+                                  trim    = pattern_m,
+                                  verbose = opt$verbose)
+    m49_tsv_cnt <- cgn_M49_tsvs %>% names() %>% length()
+    m49_pre_len <- cgn_M49_tsvs %>% names() %>% stringr::str_length() %>% max()
+    
+    if (verbose>=vt+2) {
+      cat(glue::glue("[{funcTag}]:{tabsStr} Found {m49_tsv_cnt} M49-files, ",
+                     "prefix length={m49_pre_len}.{RET}"))
+      cgn_M49_tsvs %>% head(n=3) %>% print()
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #               Sanity Check:: Prefix Lengths Must be Equal!!!
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (u49_pre_len != m49_pre_len) {
+      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: prefix lengths for ",
+                      "U49 and M49 are not equal: ",
+                      "{u49_pre_len} != {m49_pre_len}!{RET2}"))
+      return(ret_tib)
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                 Build Candidate Sub-String Probes:: U49 & M49
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    #
+    # NOTE: Build U49/M49 Sub-sequences and split by 5' two nucelotide prefix  
+    #  into sorted output files. Splitting by prefix makes the join later much 
+    #  faster...
+    #
+    
+    ret_tib <- tib %>%
+      dplyr::mutate(
+        Aln_Prb=deMs(!!prb_sym, uc=TRUE),
+        # Aln_Rev=revCmp(Aln_Prb),
+        Aln_P49=dplyr::case_when(
+          !!des_sym == '2' ~ stringr::str_sub(Aln_Prb, 2),
+          !!des_sym == 'U' ~ stringr::str_remove(Aln_Prb, '[A-Z]$'),
+          !!des_sym == 'M' ~ stringr::str_remove(Aln_Prb, '[A-Z]$'),
+          TRUE ~ NA_character_
+        ),
+        Pre_Nuc=stringr::str_sub(Aln_P49, 1,u49_pre_len)
+      ) %>%
+      dplyr::distinct(Aln_Key,Aln_Prb, .keep_all=TRUE) %>%
+      clean_tibble()
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                  Intersecting by Probe Sequence:: U49
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    u49_tibs <- ret_tib %>% 
+      dplyr::filter(!!des_sym == '2' | !!des_sym=='U') %>%
+      dplyr::filter(!is.na(Aln_P49)) %>%
+      dplyr::select(Aln_P49,Aln_Key) %>%
+      dplyr::arrange(Aln_P49) %>%
+      split(f=.$Pre_Nuc)
+    
+    u49_tib <- NULL
+    if (parallel) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Intersecting probe sequences ",
+                       "U49 (Parallel)...{RET}"))
+      
+      u49_tib <- foreach (pre_nuc=u49_tibs, .combine=rbind) %dopar% {
+        intersect_seq_strand(
+          can = u49_tibs[[pre_nuc]], ref = cgn_U49_tsvs[[pre_nuc]],
+          bsc_str = "U49", pre_nuc = pre_nuc, idxA = idxA, idxB = idxB,
+          out = out, prefix = prefix, suffix = suffix, reload = reload,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      }
+    } else {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Intersecting probe sequences ",
+                       "U49 (Linear)...{RET}"))
+      
+      for (pre_nuc in names(u49_tibs)) {
+        cur_u49_tib <- intersect_seq_strand(
+          can = u49_tibs[[pre_nuc]], ref = cgn_U49_tsvs[[pre_nuc]],
+          bsc_str = "U49", pre_nuc = pre_nuc, idxA = idxA, idxB = idxB,
+          out = out, prefix = prefix, suffix = suffix, reload = reload,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        u49_tib <- dplyr::bind_rows(u49_tib, cur_u49_tib)
+        
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Done. Intersecting probe ",
+                         "sequences U49 nuc={pre_nuc}{RET2}"))
+      }
+    }
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Intersecting probe sequences ",
+                     "U49!{RET2}"))
+    
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                  Intersecting by Probe Sequence:: M49
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    m49_tibs <- ret_tib %>% 
+      dplyr::filter(!!des_sym=='M') %>%
+      dplyr::filter(!is.na(Aln_P49)) %>%
+      dplyr::select(Aln_P49,Aln_Key) %>%
+      dplyr::arrange(Aln_P49) %>%
+      split(f=.$Pre_Nuc)
+    
+    m49_tib <- NULL
+    if (parallel) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Intersecting probe sequences ",
+                       "M49 (Parallel)...{RET}"))
+      
+      m49_tib <- foreach (pre_nuc=m49_tibs, .combine=rbind) %dopar% {
+        intersect_seq_strand(
+          can = m49_tibs[[pre_nuc]], ref = cgn_M49_tsvs[[pre_nuc]],
+          bsc_str = "M49", pre_nuc = pre_nuc, idxA = idxA, idxB = idxB,
+          out = out, prefix = prefix, suffix = suffix, reload = reload,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      }
+    } else {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Intersecting probe sequences ",
+                       "M49 (Linear)...{RET}"))
+      
+      for (pre_nuc in names(m49_tibs)) {
+        cur_m49_tib <- 
+          intersect_seq_strand(
+            can = m49_tibs[[pre_nuc]], ref = cgn_M49_tsvs[[pre_nuc]],
+            bsc_str = "M49", pre_nuc = pre_nuc, idxA = idxA, idxB = idxB,
+            out = out, prefix = prefix, suffix = suffix, reload = reload,
+            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        m49_tib <- dplyr::bind_rows(m49_tib, cur_m49_tib)
+        
+        if (verbose>=vt) 
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Done. Intersecting probe ",
+                         "sequences M49 nuc={pre_nuc}{RET2}"))
+      }
+    }
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Intersecting probe sequences ",
+                     "M49!{RET2}"))
+    
+    
+    # CODE IS A FUNCTION ABOVE NOW:: DELET THIS::
+    #
+    # ref_tsv <- cgn_U49_tsvs[[pre_nuc]]
+    # can_tsv <- 
+    #   file.path(out, paste(prefix,suffix,pre_nuc,"U49.tsv.gz", sep='.'))
+    # out_tsv <- 
+    #   file.path(out, paste(prefix,suffix,pre_nuc,"U49.intersect.tsv.gz", sep='.'))
+    # 
+    # safe_write(x = u49_tibs[[pre_nuc]], file = can_tsv, cols = FALSE, 
+    #            funcTag = funcTag, verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    # 
+    # cur_u49_tib <- intersect_seq(ref=ref_tsv,
+    #                              can=can_tsv,
+    #                              out=out_tsv,
+    #                              
+    #                              idxA=idxA,
+    #                              idxB=idxB,
+    #                              reload=reload,
+    #                              
+    #                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # 
+    # u49_key <- glue::glue("u49-tib({funcTag})")
+    # u49_cnt <- print_tib(cur_u49_tib, funcTag, verbose,vt+4,tc, n=u49_key)
+    #
+    # ref_tsv <- cgn_M49_tsvs[[pre_nuc]]
+    # can_tsv <- 
+    #   file.path(out, paste(prefix,suffix,pre_nuc,"M49.tsv.gz", sep='.'))
+    # out_tsv <- 
+    #   file.path(out, paste(prefix,suffix,pre_nuc,"M49.intersect.tsv.gz", sep='.'))
+    # 
+    # safe_write(x = m49_tibs[[pre_nuc]], file = can_tsv, cols = FALSE, 
+    #            funcTag = funcTag, verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    # 
+    # cur_m49_tib <- intersect_seq(ref=ref_tsv,
+    #                          can=can_tsv,
+    #                          out=out_tsv,
+    #                          
+    #                          idxA=idxA,
+    #                          idxB=idxB,
+    #                          reload=reload,
+    #                          
+    #                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # 
+    # m49_key <- glue::glue("m49-tib({funcTag})")
+    # m49_cnt <- print_tib(cur_m49_tib, funcTag, verbose,vt+4,tc, n=m49_key)
+    
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                 Join Probe Sequence Intersection:: U49/M49
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    # build_file_dir(out_u49)
+    # build_file_dir(out_m49)
+    # 
+    # u49_tib <- intersect_seq(ref=ref_u49,can=can_u49,out=out_u49,
+    #                          idxA=idxA,idxB=idxB, reload=reload,
+    #                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # u49_key <- glue::glue("u49-tib({funcTag})")
+    # u49_cnt <- print_tib(u49_tib,funcTag, verbose,vt+4,tc, n=u49_key)
+    # 
+    # m49_tib <- intersect_seq(ref=ref_m49,can=can_m49,out=out_m49,
+    #                          idxA=idxA,idxB=idxB, reload=reload,
+    #                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # m49_key <- glue::glue("m49-tib({funcTag})")
+    # m49_cnt <- print_tib(m49_tib,funcTag, verbose,vt+4,tc, n=m49_key)
+    
+    out_csv <- NULL
+    ret_tib <- join_seq_intersect(u49 = u49_tib, 
+                                  m49 = m49_tib, 
+                                  bed = bed, org = org,
+                                  verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    out_csv <- 
+      file.path(out, paste(prefix,suffix,"intersect.tsv.gz", sep='.'))
+    
+    out_cnt <- safe_write(ret_tib, file=out_csv, funcTag=funcTag,
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+  
+  ret_tib
+}
+
+cgn_mapping_workflow_single = function(ref_u49,can_u49,out_u49,
+                                       ref_m49,can_m49,out_m49,
+                                       ord=NULL,bed=NULL,org=NULL,out=NULL,
+                                       idxA=1,idxB=1,reload=FALSE,
+                                       verbose=0,vt=3,tc=1,tt=NULL,
+                                       funcTag='cgn_mapping_workflow_single') {
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  if (verbose>=vt) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} ref_u49={ref_u49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} can_u49={can_u49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} out_u49={out_u49}.{RET}"))
+    cat("\n")
+    cat(glue::glue("[{funcTag}]:{tabsStr} ref_m49={ref_m49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} can_m49={can_m49}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} out_m49={out_m49}.{RET}"))
+    cat("\n")
+    cat(glue::glue("[{funcTag}]:{tabsStr}    idxA={idxA}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}    idxB={idxB}.{RET}"))
+    cat("\n")
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    build_file_dir(out_u49)
+    build_file_dir(out_m49)
+    
+    u49_tib <- intersect_seq(ref=ref_u49,can=can_u49,out=out_u49,
+                             idxA=idxA,idxB=idxB, reload=reload,
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    u49_key <- glue::glue("u49-tib({funcTag})")
+    u49_cnt <- print_tib(u49_tib,funcTag, verbose,vt+4,tc, n=u49_key)
+    
+    m49_tib <- intersect_seq(ref=ref_m49,can=can_m49,out=out_m49,
+                             idxA=idxA,idxB=idxB, reload=reload,
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    m49_key <- glue::glue("m49-tib({funcTag})")
+    m49_cnt <- print_tib(m49_tib,funcTag, verbose,vt+4,tc, n=m49_key)
+    
+    ret_tib <- join_seq_intersect(u49=u49_tib, m49=m49_tib, 
+                                  bed=bed, org=org,
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    ret_key <- glue::glue("ret-tib-0({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    
+    if (!is.null(ord) && file.exists(ord)) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Loading order/canonical CSV={ord}.{RET}"))
+      
+      ord_tib <- suppressMessages(suppressWarnings( readr::read_csv(ord) )) %>%
+        purrr::set_names(c("Can_Cgn","Can_Top","Can_Src")) %>%
+        dplyr::mutate(Can_Cgn=as.integer(Can_Cgn), 
+                      Can_Scr=as.integer(1),
+                      Can_Scr=tidyr::replace_na(Can_Scr, 0)) %>%
+        clean_tibble()
+      ord_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n="ord_tib")
+      
+      ret_tib <- ret_tib %>% 
+        dplyr::left_join(ord_tib, by=c("Imp_Cgn"="Can_Cgn")) %>%
+        dplyr::mutate(Can_Scr=tidyr::replace_na(Can_Scr, 0)) %>%
+        clean_tibble()
+      
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Done order/canonical.{RET}{RET}"))
+    }
+    
+    if (!is.null(out)) safe_write(ret_tib,file=out, funcTag=funcTag,
+                                  verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_key <- glue::glue("ret-fin({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Common Conversion Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+fas_to_seq = function(tib, 
+                      
+                      nrec=0, 
+                      gen_bld="na", 
+                      gen_ref_fas, 
+                      bsc_ref_fas=NULL,
+                      gen_snp_fas=NULL, 
+                      bsc_snp_fas=NULL,
+                      
+                      imp_tsv=NULL,
+                      seq_csv=NULL,
+                      
+                      build=c(""),
+                      
+                      s_dat_key,
+                      r_dat_key,
+                      
+                      ids_key="Aln_Key_Unq",
+                      din_key="Ord_Din",
+                      tar_din="rs",
+                      
+                      ext_seq="Ext_Forward_Seq",
+                      iup_seq="Iupac_Forward_Sequence",
+                      imp_seq="Forward_Sequence",
+                      
+                      srd_str="F",
+                      pos_key="Coordinate",
+                      chr_key="Chromosome",
+                      
+                      srsplit=FALSE,
+                      srd_key=NULL,
+                      cosplit=FALSE,
+                      cos_key=NULL,
+                      
+                      ref_col="Ref",
+                      alt_col="Alt",
+                      iup_col="Iupac",
+                      
+                      ups_len=60,
+                      seq_len=122,
+                      iupac=NULL,
+                      del="_",
+                      
+                      subset=FALSE,
+                      sub_cols=NULL,
+                      
+                      reload=FALSE,
+                      retData=FALSE,
+                      
+                      parallel=FALSE,
+                      r_improbe=FALSE,
+                      s_improbe=FALSE,
+                      add_flanks=FALSE, 
+                      add_matseq=TRUE, 
+                      
+                      verbose=0,vt=4,tc=1,tt=NULL,
+                      funcTag='fas_to_seq') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr} Genome Parameters::{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}          nrec={nrec}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       gen_bld={gen_bld}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   gen_ref_fas={gen_ref_fas}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   bsc_ref_fas={bsc_ref_fas}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   gen_snp_fas={gen_snp_fas}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   bsc_snp_fas={bsc_snp_fas}.{RET}"))
+    cat(glue::glue("{RET}"))
+    
+    cat(glue::glue("[{funcTag}]:{tabsStr} Output File Parameters::{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       imp_tsv={imp_tsv}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       seq_csv={seq_csv}{RET}"))
+    cat(glue::glue("{RET}"))
+    
+    cat(glue::glue("[{funcTag}]:{tabsStr} Field Parameters::{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       ids_key={ids_key}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       din_key={din_key}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       tar_din={tar_din}{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       ext_seq={ext_seq}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       iup_seq={iup_seq}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       imp_seq={imp_seq}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       srd_str={srd_str}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       pos_key={pos_key}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       chr_key={chr_key}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       srsplit={srsplit}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       srd_key={srd_key}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       cosplit={cosplit}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       cos_key={cos_key}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       ref_col={ref_col}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       alt_col={alt_col}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       iup_col={iup_col}.{RET}"))
+    cat(glue::glue("{RET}"))
+    
+    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}           del={del}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}         iupac={iupac}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       ups_len={ups_len}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}       seq_len={seq_len}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}      subset={subset}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}    sub_cols={sub_cols}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}      reload={reload}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}     retData={retData}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}    parallel={parallel}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   r_improbe={r_improbe}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}   s_improbe={s_improbe}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  add_flanks={add_flanks}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}  add_matseq={add_matseq}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime   <- 0
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_dat <- NULL
+  
+  # Reload if all data is present::
+  #
+  if (reload &&
+      !purrr::is_null(imp_tsv) && file.exists(imp_tsv) &&
+      !purrr::is_null(seq_csv) && file.exists(seq_csv)) {
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Reloading seq_csv{seq_csv}...{RET}"))
+    
+    stime <- base::system.time({
+      ret_tib <- safe_read(seq_csv)
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) cat(glue::glue(
+      "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    return(ret_tib)
+  }
+  
+  stime <- base::system.time({
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh...{RET}"))
+    
+    # Define symbolic variables::
+    #
+    ids_sym  <- rlang::sym(ids_key)
+    ext_sym  <- rlang::sym(ext_seq)
+    iup_sym  <- rlang::sym(iup_seq)
+    imp_sym  <- rlang::sym(imp_seq)
+    
+    pos_sym  <- rlang::sym(pos_key)
+    chr_sym  <- rlang::sym(chr_key)
+    
+    ref_col_sym  <- rlang::sym(ref_col)
+    alt_col_sym  <- rlang::sym(alt_col)
+    iup_col_sym  <- rlang::sym(iup_col)
+    
+    # Load Genome::
+    #
+    dna_dat <- load_genome(file=gen_ref_fas, nrec=nrec,
+                           chr_key=chr_key, ret_map=TRUE,
+                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    # Split Data by Chromosome::
+    #
+    chr_list <- tib %>% 
+      dplyr::arrange(!!chr_sym,!!pos_sym) %>%
+      split(.[[chr_key]])
+    
+    chr_maps <- dna_dat$maps %>%
+      split(.[[chr_key]])
+    
+    # Process each chromosome::
+    #  TBD:: Add parallel computing over chromosomes
+    #
+    chr_vec_1 <- names(chr_list)
+    chr_vec_2 <- names(chr_maps)
+    chr_names <- chr_vec_1[chr_vec_1 %in% chr_vec_2]
+    
+    if (parallel) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Extacting sequence templates ",
+                       "from genome (Parallel)...{RET}"))
+      
+      ret_tib <- foreach (chr_str=chr_names, .combine=rbind) %dopar% {
+        chr_idx <- chr_maps[[chr_str]] %>% head(n=1) %>% pull(Idx) %>% as.integer()
+        cur_tib <- s_improbe_template_workflow(
+          tib=chr_list[[chr_str]], seq=dna_dat$seqs[[chr_idx]],
+          srd_str=srd_str, pos_key=pos_key, chr_key=chr_key, chr_str=chr_str,
+          ext_seq=ext_seq, iup_seq=iup_seq, imp_seq=imp_seq,
+          ups_len=ups_len, seq_len=seq_len, iupac=iupac, del=del,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      }
+      
+    } else {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Extacting sequence templates ",
+                       "from genome (Linear)...{RET}"))
+      
+      for (chr_str in chr_names) {
+        chr_idx <- chr_maps[[chr_str]] %>% head(n=1) %>% pull(Idx) %>% as.integer()
+        cur_tib <- s_improbe_template_workflow(
+          tib=chr_list[[chr_str]], seq=dna_dat$seqs[[chr_idx]], 
+          srd_str=srd_str, pos_key=pos_key, chr_key=chr_key, chr_str=chr_str,
+          ext_seq=ext_seq, iup_seq=iup_seq, imp_seq=imp_seq,
+          ups_len=ups_len, seq_len=seq_len, iupac=iupac, del=del,
+          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        #                          Merge Probe Designs::
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        ret_tib <- dplyr::bind_rows(ret_tib, cur_tib)
+        cur_key <- glue::glue("cur-tib({funcTag}-{chr_str})")
+        cur_cnt <- print_tib(cur_tib %>% dplyr::select(!!ids_sym,!!imp_sym),
+                             funcTag, verbose,vt=vt+4,tc=tc+1, n=cur_key)
+        
+        if (verbose>=vt+1)
+          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Substring ",
+                         "chr_str={chr_str}.{RET}{RET}"))
+      }
+    }
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Extacting sequence templates ",
+                   "from genome.{RET}{RET}"))
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc, n=ret_key)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #      Forward Template Sequence Generation:: Tri-fecta s-improbe
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (add_flanks) {
+      
+      tri_tib <- NULL
+      tri_tib <- s_improbe_trifecta(tib=ret_tib,
+                                    
+                                    tar_din=tar_din, 
+                                    ids_key=ids_key, 
+                                    din_key=din_key,
+                                    
+                                    pos_key=pos_key,
+                                    # chr_str=chr_str, 
+                                    
+                                    ext_seq=ext_seq, 
+                                    iup_seq=iup_seq, 
+                                    imp_seq=imp_seq, 
+                                    
+                                    ref_col=ref_col,
+                                    alt_col=alt_col,
+                                    iup_col=iup_col,
+                                    
+                                    verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+      
+      ret_tib <- dplyr::bind_rows(ret_tib, tri_tib)
+    }
+    ret_tib <- ret_tib %>% dplyr::arrange(!!ids_sym)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                       Probe Design:: s_improbe()
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (s_improbe && length(build)>0) {
+      
+      ret_tib <- s_improbe(tib=ret_tib, 
+                           build=build, 
+                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                       Probe Design:: r_improbe()
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (r_improbe) {
+      
+      r_imp_tib <- r_improbe(tib=ret_tib,
+                             
+                             sr_str='FR', 
+                             co_str='CO',
+                             
+                             ids_key=ids_key,
+                             seq_key=iup_seq,
+                             din_key=din_key,
+                             
+                             srsplit=srsplit,
+                             srd_key=srd_key,
+                             cosplit=cosplit,
+                             cos_key=cos_key,
+                             
+                             prb_len=ups_len,
+                             seq_len=seq_len,
+                             
+                             subset=subset,
+                             sub_cols=sub_cols,
+                             
+                             parallel=parallel, 
+                             add_matseq=add_matseq,
+                             
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      
+      # Join s_imp_tib (ret_tib) and r_imp_tib::
+      # by_cols <- c(ids_key,din_key,iup_seq, srd_key,cos_key)
+      # print(by_cols)
+      # 
+      # dplyr::rename(r_imp_tib, srd_key="Strand_FR", cos_key="Strand_CO") %>% 
+      #   head() %>% as.data.frame() %>% print()
+      # 
+      # ret_tib %>% head() %>% as.data.frame() %>%  print()
+      # 
+      # ret_tib <- ret_tib %>% dplyr::inner_join(
+      #   dplyr::rename(r_imp_tib, srd_key="Strand_FR", cos_key="Strand_CO"),
+      #   by=by_cols, suffix=c("_simp","_rimp"))
+      # 
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                   Write improbe Design Input File:: TSV
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (!is.null(imp_tsv)) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing improbe input TSV={imp_tsv}...{RET}"))
+      
+      imp_col <- c("Seq_ID","Sequence","Genome_Build",
+                   "Chromosome","Coordinate","CpG_Island")
+      imp_tib <- ret_tib %>% 
+        dplyr::mutate(Genome_Build=!!gen_bld, 
+                      CpG_Island="FALSE") %>%
+        dplyr::select(dplyr::all_of(
+          c(!!ids_key,  !!imp_seq, "Genome_Build", 
+            !!chr_key, !!pos_key, "CpG_Island")) ) %>%
+        purrr::set_names(imp_col)
+      
+      out_cnt <- safe_write(x=imp_tib, file=imp_tsv, funcTag=funcTag, 
+                            verbose=verbose,vt=vt,tc=tc,append=FALSE)
+    }
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Calculate Data Summary:: CSV
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (verbose>=vt)
+      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Calculating Summary...{RET}"))
+    
+    sum_tib <- ret_tib %>% 
+      dplyr::group_by(up61,dn61,Des_Din) %>% 
+      dplyr::summarise(Count=n(), .groups="drop")
+    sum_key <- glue::glue("ret-summary({funcTag})")
+    sum_cnt <- print_tib(sum_tib,funcTag, verbose,vt+4,tc, n=sum_key)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Write Full Data Set:: CSV
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (!is.null(seq_csv)) {
+      if (verbose>=vt+1)
+        cat(glue::glue("[{funcTag}]:{tabsStr} Writing seq table CSV={seq_csv}...{RET}"))
+      
+      sum_csv <- seq_csv %>% 
+        stringr::str_remove(".gz$") %>%
+        stringr::str_remove(".[tcsv]+$") %>%
+        paste(".summary.csv.gz")
+      
+      seq_cnt <- safe_write(x=ret_tib, file=seq_csv, funcTag=funcTag, 
+                            verbose=verbose,vt=vt,tc=tc,append=FALSE)
+      sum_cnt <- safe_write(x=sum_tib, file=sum_csv, funcTag=funcTag, 
+                            verbose=verbose,vt=vt,tc=tc,append=FALSE)
+    }
+    
+    if (retData) ret_dat[[s_dat_key]] <- ret_tib
+    if (retData) ret_dat[[r_dat_key]] <- r_imp_tib
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+  
+  if (retData) return(ret_dat)
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                Run Both improbe and r-improbe Simultaneously!
+#
+#  NOTE:: This code hasn't been tested much and has more or less been 
+#   re-implemented in seperate workflows, but keeping it around for now...
+#
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE) {
+  
+  improbe_design_all = function(tib, ptype, outDir, gen, image, shell,
+                                seqKey="IUPAC_Sequence", sr_str="FR",
+                                reduce_imp=TRUE, parse_din=FALSE,
+                                parallel=TRUE, retData=FALSE,
+                                sidx=2, plen=50,del='_',
+                                verbose=0,vt=3,tc=1,tt=NULL,
+                                funcTag='improbe_design_all') {
+    
+    tabsStr <- paste0(rep(TAB, tc), collapse='')
+    if (verbose>=vt) 
+      cat(glue::glue("[{funcTag}]:{tabsStr} Starting; ptype={ptype}...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    ret_dat <- NULL
+    stime <- system.time({
+      idx1 <- sidx
+      len1 <- plen - 1
+      idx2 <- sidx + 1
+      len2 <- plen
+      
+      if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
+      
+      imp_fwd_name <- paste(ptype,gen,"improbe_fwd-seq.tsv.gz", sep=del)
+      imp_fwd_path <- file.path(outDir, imp_fwd_name)
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                                 improbe::
+      #                                docker/c++
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      imp_fwd_tib <- tib %>% 
+        dplyr::select(Seq_ID, Sequence, Genome_Build, Chromosome, Coordinate, CpG_Island)
+      readr::write_tsv(imp_fwd_tib, imp_fwd_path)
+      
+      imp_des_tib <- run_improbe_docker(
+        dir=outDir, file=imp_fwd_name, 
+        name=gen, image=image, shell=shell, 
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        dplyr::mutate(
+          Seq_48U_1=stringr::str_sub(UnMethyl_Probe_Sequence, idx1,len1) %>% 
+            stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+            stringr::str_replace_all('Y', 'T'),
+          
+          Seq_48U_2=stringr::str_sub(UnMethyl_Probe_Sequence, idx2,len2) %>% 
+            stringr::str_to_upper() %>% stringr::str_replace_all('R', 'A') %>% 
+            stringr::str_replace_all('Y', 'T'),
+          
+          Chromosome=as.character(Chromosome),
+          Strand_SR=Methyl_Allele_FR_Strand,
+          Strand_TB=stringr::str_sub(Methyl_Allele_TB_Strand,1,1),
+          Strand_CO=Methyl_Allele_CO_Strand,
+          Probe_Score_Min=pmin(Methyl_Final_Score,UnMethyl_Final_Score),
+          Underlying_CpG_Count=as.integer(Methyl_Underlying_CpG_Count),
+          Underlying_CpG_Min_Dist=as.integer(Methyl_Underlying_CpG_Min_Dist)
+        )
+      
+      if (parse_din) imp_des_tib <- imp_des_tib %>%
+        tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
+      
+      #
+      # TBD:: Add better reduced returned value...
+      #
+      if (reduce_imp) {
+        imp_des_tib <- imp_des_tib %>%
+          dplyr::select(
+            Seq_ID,Forward_Sequence,Genome_Build,Chromosome,Coordinate,Top_Sequence,
+            Strand_SR,Strand_TB,Strand_CO,Probe_Score_Min,
+            Underlying_CpG_Count,Underlying_CpG_Min_Dist,
+            Methyl_Probe_Sequence,UnMethyl_Probe_Sequence,Seq_48U_1,Seq_48U_2)
+      }
+      imp_key <- glue::glue("imp_des_tib({funcTag})")
+      imp_cnt <- print_tib(imp_des_tib,funcTag, verbose,vt+4,tc, n=imp_key)
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                               r-improbe::
+      #                           de-novo IUPAC designs
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      iup_des_tib <- r_improbe(
+        tib=tib,
+        ids_key="Seq_ID",seqKey=seqKey,prbKey="Probe_Type",
+        sr_str=sr_str, parallel=parallel,
+        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>%
+        dplyr::mutate(
+          
+          Seq_48U_1=stringr::str_sub(PRB1_U_MAT, idx1,len1) %>% 
+            stringr::str_to_upper() %>% 
+            stringr::str_replace_all('R', 'A') %>% 
+            stringr::str_replace_all('Y', 'T'),
+          
+          Seq_48U_2=stringr::str_sub(PRB1_U_MAT, idx2,len2) %>% 
+            stringr::str_to_upper() %>% 
+            stringr::str_replace_all('R', 'A') %>% 
+            stringr::str_replace_all('Y', 'T'),
+        )
+      
+      if (parse_din) iup_des_tib <- iup_des_tib %>%
+        tidyr::separate(Seq_ID, into=c("Seq_ID","DiNuc"), sep=del)
+      
+      if (!reduce_imp) imp_des_tib <- imp_des_tib %>% 
+        dplyr::rename(Probe_Type_IMP=Probe_Type)
+      
+      ret_tib <- dplyr::inner_join(
+        imp_des_tib, iup_des_tib,
+        by=c("Seq_ID", "Strand_SR", "Strand_CO",
+             "Seq_48U_1", "Seq_48U_2"),
+        suffix=c("_IMP", "_IUP")
+      )
+      
+      if (retData) ret_dat$imp <- imp_des_tib
+      if (retData) ret_dat$iup <- iup_des_tib
+      
+      ret_key <- glue::glue("ret-FIN({funcTag})")
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) cat(glue::glue(
+      "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    
+    if (retData) return(ret_dat)
+    
+    ret_tib
+  }
+  
+}
+
 if (FALSE) {
   if (FALSE) {
     cur_tib <- chr_list[[chr_str]]

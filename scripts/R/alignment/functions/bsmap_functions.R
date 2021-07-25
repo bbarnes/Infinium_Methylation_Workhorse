@@ -10,13 +10,14 @@ suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
-COM <- ","
-TAB <- "\t"
-RET <- "\n"
-BNG <- "|"
-BRK <- paste0("# ",
-              paste(rep("-----",6),collapse=" "),"|",
-              paste(rep("-----",6),collapse=" ")," #")
+COM  <- ","
+TAB  <- "\t"
+RET  <- "\n"
+RET2 <- "\n\n"
+BNG  <- "|"
+BRK  <- paste0("# ",
+               paste(rep("-----",6),collapse=" "),"|",
+               paste(rep("-----",6),collapse=" ")," #")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::
@@ -53,61 +54,23 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                         Load CGN/Position Database::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-load_cgn_dB = function(file,
-                       verbose=0,vt=3,tc=1,tt=NULL,
-                       funcTag='load_cgn_dB') {
-  
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  if (verbose>=vt+4) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} file={file}.{RET}"))
-  }
-  
-  cgd_bed_cols <-
-    cols(
-      Cgd_Chr = col_character(),
-      Cgd_Pos = col_integer(),
-      Cgd_Cgn = col_integer(),
-      Cgd_Top = col_character()
-    )
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- base::system.time({
-    
-    ret_tib <- suppressMessages(suppressWarnings(
-      readr::read_tsv(run$cgn_bed_tsv, 
-                      col_names=names(cgd_bed_cols$cols),
-                      col_types=cgd_bed_cols) )) %>% 
-      dplyr::mutate(Cgd_Chr=paste0("chr",Cgd_Chr))
-    
-    ret_key <- glue::glue("ret-FIN({funcTag})")
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Done; ",
-                   "Return Count={ret_cnt}; ",
-                   "elapsed={etime}.{RET}{RET}",
-                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ",
-                   "----- ----- ----- ----- ----- #{RET}{RET}"))
-  
-  ret_tib
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         BSP Alignment Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 bsp_mapping_workflow = 
-  function(ref, can, ord, seq, out, exe, cgn=NULL, csv=NULL, canonical=NULL,
-           sort=TRUE, light=FALSE, reload=FALSE, full=FALSE, merge=TRUE,
-           join_key="Aln_Key", join_type="inner",
-           des_key="Ord_Des", din_key="Ord_Din",
+  function(ref, can, ord, seq, out, exe, 
+           cgn=NULL, 
+           csv=NULL, 
+           canonical=NULL,
+           sort=TRUE, 
+           light=FALSE, 
+           reload=FALSE, 
+           full=FALSE, 
+           merge=TRUE,
+           join_key="Aln_Key",
+           join_type="inner",
+           des_key="Ord_Des", 
+           din_key="Ord_Din",
            opt="-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R",
            verbose=0,vt=3,tc=1,tt=NULL, funcTag='bsp_mapping_workflow') {
     
@@ -158,7 +121,7 @@ bsp_mapping_workflow =
                             full=full,
                             csv=NULL,
                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      
+
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                         Consolidate/Assign CGNs::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -791,6 +754,283 @@ join_bsmap = function(bsp, ord, cgn,
   if (verbose>=vt) cat(glue::glue(
     "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
     "{RET}{tabsStr}{BRK}{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Assign Best CGN from:: BSP & SEQ
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# TBD:: This function needs to be cleaned up! Logic probably needs to be fixed
+#   as well. 
+#
+
+assign_cgn = function(ord, bsp, seq, can, csv=NULL,
+                      merge=TRUE, retData=FALSE, join="inner",
+                      verbose=0,vt=3,tc=1,tt=NULL,
+                      funcTag='assign_cgn') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} can={can}.{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_dat <- NULL
+  stime <- base::system.time({
+    
+    # Load Canonical CGNs::
+    can_tib <- safe_read(file=can, verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
+      dplyr::select(CGN) %>% 
+      dplyr::rename(Cgn=CGN) %>% 
+      dplyr::mutate(Can_Cnt=1)
+    
+    if (retData) ret_dat$can_tib <- can_tib
+    
+    # Defined Order tib to ord original cgn::
+    ord_tib <- ord %>% 
+      dplyr::select(Aln_Key,Ord_Cgn) %>%
+      dplyr::rename(Cgn=Ord_Cgn) %>% 
+      dplyr::mutate(Ord_Cnt=1) %>%
+      dplyr::distinct()
+    
+    if (retData) ret_dat$ord_tib <- ord_tib
+    
+    # Format BSP::
+    bsp_tib <- bsp %>% 
+      dplyr::filter(!is.na(Bsp_Cgn)) %>% 
+      dplyr::select(Ord_Key, Aln_Key, Ord_Des, Ord_Din, Bsp_Cgn) %>% 
+      dplyr::rename(Cgn=Bsp_Cgn) %>%
+      dplyr::distinct() %>%
+      dplyr::arrange(Aln_Key, Cgn) %>% 
+      dplyr::group_by(Ord_Key,Aln_Key,Ord_Des,Ord_Din,Cgn) %>% 
+      dplyr::summarise(Bsp_Cnt=n(), .groups = "drop")
+    bsp_key <- glue::glue("bsp-tib({funcTag})")
+    bsp_cnt <- print_tib(bsp_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+    
+    if (retData) ret_dat$bsp_tib <- bsp_tib
+    
+    seq_tib <- seq %>% 
+      dplyr::filter(!is.na(Imp_Cgn)) %>% 
+      dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn) %>% 
+      tidyr::unite(Tmp_Key, Ord_Des,Ord_Din, sep="", remove=FALSE) %>%
+      tidyr::unite(Aln_Key, Address, Tmp_Key, sep="_", remove=FALSE) %>%
+      dplyr::select(-Tmp_Key) %>%
+      dplyr::left_join(dplyr::select(ord, Ord_Key,Aln_Key), by="Aln_Key") %>%
+      dplyr::select(Ord_Key,Aln_Key,Ord_Des,Ord_Din,Imp_Cgn) %>%
+      dplyr::rename(Cgn=Imp_Cgn) %>%
+      dplyr::distinct() %>%
+      dplyr::arrange(Aln_Key, Cgn) %>% 
+      dplyr::group_by(Ord_Key,Aln_Key,Ord_Des,Ord_Din,Cgn) %>% 
+      dplyr::summarise(Seq_Cnt=n(), .groups = "drop")
+    seq_key <- glue::glue("seq-tib({funcTag})")
+    seq_cnt <- print_tib(seq_tib,funcTag, verbose,vt+4,tc, n=seq_key)
+    
+    if (retData) ret_dat$seq_tib <- seq_tib
+    
+    # Build and Sort Counts Tables
+    cnt_tib <- 
+      dplyr::full_join(bsp_tib, seq_tib, 
+                       by=c("Ord_Key","Aln_Key","Ord_Des","Ord_Din","Cgn")) %>% 
+      dplyr::left_join(can_tib, by="Cgn") %>%
+      dplyr::distinct() %>%
+      dplyr::left_join(ord_tib, by=c("Aln_Key","Cgn")) %>%
+      dplyr::distinct() %>%
+      dplyr::mutate(dplyr::across(c(Bsp_Cnt,Seq_Cnt,Can_Cnt,Ord_Cnt), tidyr::replace_na, 0 ),
+                    Sum_Cnt=Bsp_Cnt+Seq_Cnt,
+                    Max_Cnt=Bsp_Cnt*Seq_Cnt) %>% 
+      dplyr::add_count(Aln_Key, name="Cgn_Cnt") %>% 
+      dplyr::arrange(-Can_Cnt,-Max_Cnt,-Sum_Cnt,-Ord_Cnt) %>%
+      dplyr::mutate(Rank=dplyr::row_number())
+    
+    if (retData) ret_dat$cnt_tib <- cnt_tib
+    
+    cnt_list <- cnt_tib %>% split(.$Ord_Des)
+    
+    # Infinium II::
+    inf2_tib <- cnt_list[["2"]] %>%
+      dplyr::arrange(Aln_Key, Rank) %>%
+      dplyr::distinct(Aln_Key, .keep_all = TRUE)
+    
+    # Infinium I:: Full Join
+    #
+    #   TBD:: The joining should really be done by sequence: Ord_Prb
+    #
+    if (join=="full") {
+      inf1_tib <- dplyr::full_join(
+        cnt_list[["U"]], cnt_list[["M"]], 
+        by=c("Ord_Key","Cgn","Ord_Din"), 
+        suffix=c("_U","_M")
+      ) %>%
+        dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+        dplyr::arrange(Ord_Key, Rank_Min) %>%
+        dplyr::distinct(Ord_Key,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
+    } else if (join=="inner") {
+      inf1_tib <- dplyr::inner_join(
+        cnt_list[["U"]], cnt_list[["M"]], 
+        by=c("Ord_Key","Cgn","Ord_Din"), 
+        suffix=c("_U","_M")
+      ) %>%
+        dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+        dplyr::arrange(Ord_Key, Rank_Min) %>%
+        dplyr::distinct(Ord_Key,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
+    } else {
+      stop(glue::glue("[{funcTag}]:{tabsStr} Unsupported join type={join}.{RET}"))
+      return(NULL)
+    }
+    if (retData) ret_dat$inf1_tib <- inf1_tib
+    if (retData) ret_dat$inf2_tib <- inf2_tib
+    
+    ret_tib <- dplyr::bind_rows(
+      dplyr::select(inf1_tib, Ord_Key,Aln_Key_U,Cgn,Ord_Des_U,Ord_Din,Can_Cnt_U,Rank_Min) %>% 
+        purrr::set_names("Ord_Key","Aln_Key","Cgn","Ord_Des","Ord_Din","Can_Cnt","Rank"),
+      
+      dplyr::select(inf1_tib, Ord_Key,Aln_Key_M,Cgn,Ord_Des_M,Ord_Din,Can_Cnt_M,Rank_Min) %>% 
+        purrr::set_names("Ord_Key","Aln_Key","Cgn","Ord_Des","Ord_Din","Can_Cnt","Rank"),
+      
+      dplyr::select(inf2_tib, Ord_Key,Aln_Key,Cgn,Ord_Des,Ord_Din,Can_Cnt,Rank)
+    ) %>% dplyr::filter(!is.na(Aln_Key)) %>%
+      dplyr::distinct()
+    
+    mul_cnt <- ret_tib %>% dplyr::add_count(Aln_Key,Cgn, name="Multi_Cnt") %>% 
+      dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
+    mis_cnt <- ret_tib %>% dplyr::filter(is.na(Aln_Key)) %>% base::nrow()
+    
+    mis_tib <- dplyr::anti_join(ord, ret_tib, by=c("Aln_Key"))
+    sig_tib <- dplyr::filter(cnt_tib, Aln_Key %in% mis_tib$Aln_Key) %>%
+      dplyr::arrange(Ord_Key,Rank) %>%
+      dplyr::distinct(Aln_Key, .keep_all = TRUE)
+    sig_cnt <- sig_tib %>% base::nrow()
+    
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}   Miss Count={mis_cnt}.{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr}  Multi Count={mul_cnt}.{RET}"))
+      cat(glue::glue("[{funcTag}]:{tabsStr} Single Count={sig_cnt}.{RET}"))
+      cat("\n")
+    }
+    # if (mis_cnt!=0 || mul_cnt!=0 || sig_cnt!=0) {
+    #   stop(glue::glue("{RET}[{funcTag}]:{tabsStr} Counts non-zero={mis_cnt},",
+    #                   "{mul_cnt},{sig_cnt}!{RET}{RET}"))
+    #   return(NULL)
+    # }
+    
+    # Merge all data together::
+    #
+    ret_cnt <- ret_tib %>% base::nrow()
+    ret_tib <- dplyr::bind_rows(
+      ret_tib %>% dplyr::mutate(
+        Cgn_Tag=dplyr::case_when(
+          Ord_Din=="rs" ~ Ord_Din,
+          Ord_Din=="ch" ~ Ord_Din,
+          TRUE ~ "cg"
+        ),
+        Cgn_Str=dplyr::case_when(
+          Ord_Din=="rs" ~ stringr::str_remove(Ord_Key, "[-_:].*$"),
+          Ord_Din=="ch" ~ stringr::str_remove(Ord_Key, "[-_:].*$"),
+          TRUE ~ paste0("cg",stringr::str_pad(Cgn,width=8,side="left",pad="0"))
+        )),
+      mis_tib %>% 
+        dplyr::select(Ord_Key, Aln_Key,Ord_Cgn,Ord_Des,Ord_Din) %>% 
+        dplyr::rename(Cgn=Ord_Cgn) %>% 
+        dplyr::mutate(Can_Cnt=0, 
+                      Rank=dplyr::row_number() + ret_cnt,
+                      Cgn_Tag="uk",
+                      Cgn_Str=paste0(Cgn_Tag,stringr::str_pad(Cgn,width=8,side="left",pad="0"))
+        )
+    ) %>%
+      # TBD:: Capture other CGN's in seperate column:: actual CGN's not Count!!
+      dplyr::add_count(Aln_Key, name="Alt_Cgn_Cnt") %>%
+      # One Final Clean Up To Ensure Uniqueness::
+      dplyr::arrange(Rank) %>% 
+      dplyr::distinct(Aln_Key, .keep_all = TRUE)
+    
+    mul_cnt <- ret_tib %>% 
+      dplyr::add_count(Aln_Key,Cgn, name="Multi_Cnt") %>% 
+      dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
+    
+    if (verbose>=vt) {
+      cat(glue::glue("[{funcTag}]:{tabsStr}  Multi Count Final={mul_cnt}.{RET}"))
+      cat("\n")
+    }
+    if (mul_cnt!=0) {
+      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} Multi-Count Final={mul_cnt} ",
+                      "not equal to zero!!!{RET}{RET}"))
+      return(NULL)
+    }
+    
+    if (merge) ret_tib <- bsp %>%
+      dplyr::left_join(ret_tib, 
+                       by=c("Ord_Key","Aln_Key","Ord_Des","Ord_Din"),
+                       suffix=c("_bsp","_cgn"))
+    
+    ret_tib <- ret_tib %>% clean_tibble()
+    out_cnt <- safe_write(ret_tib,file=csv, funcTag=funcTag,
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    
+    if (retData) ret_dat$ret_tib <- ret_tib
+    if (retData) ret_dat$mis_tib <- mis_tib
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+  
+  if (retData) return(ret_dat)
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Load CGN/Position Database::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+load_cgn_dB = function(file,
+                       verbose=0,vt=3,tc=1,tt=NULL,
+                       funcTag='load_cgn_dB') {
+  
+  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr} file={file}.{RET}"))
+  }
+  
+  cgd_bed_cols <-
+    cols(
+      Cgd_Chr = col_character(),
+      Cgd_Pos = col_integer(),
+      Cgd_Cgn = col_integer(),
+      Cgd_Top = col_character()
+    )
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    ret_tib <- suppressMessages(suppressWarnings(
+      readr::read_tsv(run$cgn_bed_tsv, 
+                      col_names=names(cgd_bed_cols$cols),
+                      col_types=cgd_bed_cols) )) %>% 
+      dplyr::mutate(Cgd_Chr=paste0("chr",Cgd_Chr))
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt)
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; ",
+                   "Return Count={ret_cnt}; ",
+                   "elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ",
+                   "----- ----- ----- ----- ----- #{RET}{RET}"))
   
   ret_tib
 }
