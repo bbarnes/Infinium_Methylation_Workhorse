@@ -65,16 +65,13 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 c_improbe_workflow = function(imp_tib = NULL,
-                              imp_tsv = NULL,
-                              out_dir = NULL,
-                              
+
                               ids_key = "Prb_Key_Unq",
                               imp_seq = "Forward_Sequence",                              
                               pos_key = "Bsp_Pos",
                               chr_key = "Bsp_Chr",
                               gen_bld,
                               
-                              run_name,
                               doc_image,
                               doc_shell,
                               
@@ -85,11 +82,11 @@ c_improbe_workflow = function(imp_tib = NULL,
                               join_new = join_new,
                               join_old = join_old,
 
-                              prefix,
-                              inp_suffix,
-                              out_suffix,
-                              
                               reload = FALSE,
+                              
+                              out_csv=NULL, out_dir, run_tag, 
+                              re_load=FALSE, pre_tag=NULL,
+                              end_str='tsv.gz', sep_chr='.',
 
                               verbose=0, vt=3,tc=1,tt=NULL,
                               funcTag='c_improbe_workflow') {
@@ -97,20 +94,37 @@ c_improbe_workflow = function(imp_tib = NULL,
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
+  out_csv <- redata(out_dir, run_tag, funcTag, re_load, 
+                    pre_tag, end_str=end_str, sep=sep_chr,
+                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  if (tibble::is_tibble(out_csv)) return(out_csv)
+  if (is.null(out_csv)) {
+    stop(glue::glue("{RET}{mssg} ERROR: out_csv is NULL!{RET2}"))
+    return(out_csv)
+  }
+  out_dir <- base::dirname(out_csv)
+  
+  imp_tsv <- out_csv %>% 
+    stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
+    paste("improbe-inputs.tsv.gz", sep=sep_chr)
+  
+  imp_des_tsv <- out_csv %>% 
+    stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
+    paste("improbe-designOutput.tsv.gz", sep=sep_chr)
+
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
-  if (verbose>=vt+2) {
+  if (verbose>=vt) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
-    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg}       out_csv={out_csv}.{RET}"))
+    cat(glue::glue("{mssg}       imp_tsv={imp_tsv}.{RET}"))
+    cat(glue::glue("{mssg}   imp_des_tsv={imp_des_tsv}.{RET}"))
     cat(glue::glue("{RET}"))
   }
 
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
-    
-    out_dir <- file.path(out_dir,funcTag)
-    if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #
@@ -125,13 +139,19 @@ c_improbe_workflow = function(imp_tib = NULL,
       }
     } else {
       if (!dir.exists(out_dir)) dir.create(out_dir)
+      
+      imp_col <- c("Seq_ID","Sequence","Genome_Build",
+                   "Chromosome","Coordinate","CpG_Island")
 
-      imp_tsv <- file.path(out_dir, paste(prefix,inp_suffix,"tsv.gz", sep='.'))
+      # imp_tsv <- file.path(out_dir, paste(prefix,inp_suffix,"tsv.gz", sep='.'))
       imp_tib <- imp_tib %>% 
         dplyr::mutate(Genome_Build=!!gen_bld, CpG_Island="FALSE") %>%
         dplyr::select(dplyr::all_of(c(!!ids_key, !!imp_seq, "Genome_Build", 
                                       !!chr_key, !!pos_key, "CpG_Island"))) %>%
         purrr::set_names(imp_col)
+      
+      cat(glue::glue("{mssg}       imp_tsv={imp_tsv}; imp_tib::{RET}"))
+      imp_tib %>% head(n=3) %>% print()
       
       out_cnt <- safe_write(x=imp_tib, file=imp_tsv, funcTag=funcTag, 
                             verbose=verbose,vt=vt,tc=tc,append=FALSE)
@@ -145,7 +165,7 @@ c_improbe_workflow = function(imp_tib = NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     ret_val <- run_improbe_docker(file   = imp_tsv, 
-                                  name   = run_name, 
+                                  name   = paste(run_tag,funcTag, sep=sep_chr),
                                   image  = doc_image, 
                                   shell  = doc_shell,
                                   reload = reload,
@@ -155,27 +175,27 @@ c_improbe_workflow = function(imp_tib = NULL,
     #                     1.2 Load improbe designs:: filter
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    imp_des_tsv <- imp_tsv %>% 
-      stringr::str_remove(".gz$") %>%
-      stringr::str_remove(".[tc]sv$") %>%
-      stringr::str_remove(".txt$") %>%
-      stringr::str_remove(inp_suffix) %>%
-      paste0(out_suffix)
-      # paste0("improbe-designOutput.tsv.gz") # , sep='.')
-    
-    imp_fin_tsv <- imp_tsv %>% 
-      stringr::str_remove(".gz$") %>%
-      stringr::str_remove(".[tc]sv$") %>%
-      stringr::str_remove(".txt$") %>%
-      stringr::str_remove(inp_suffix) %>%
-      paste0(out_suffix) %>%
-      stringr::str_remove(".gz$") %>%
-      stringr::str_remove(".[tc]sv$") %>%
-      paste0("clean.tsv.gz")
-      # paste0("improbe-designOutput.clean.tsv.gz") # , sep='.')
+    # imp_des_tsv <- imp_tsv %>% 
+    #   stringr::str_remove(".gz$") %>%
+    #   stringr::str_remove(".[tc]sv$") %>%
+    #   stringr::str_remove(".txt$") %>%
+    #   stringr::str_remove(inp_suffix) %>%
+    #   paste0(out_suffix)
+    #   # paste0("improbe-designOutput.tsv.gz") # , sep='.')
+    # 
+    # imp_fin_tsv <- imp_tsv %>% 
+    #   stringr::str_remove(".gz$") %>%
+    #   stringr::str_remove(".[tc]sv$") %>%
+    #   stringr::str_remove(".txt$") %>%
+    #   stringr::str_remove(inp_suffix) %>%
+    #   paste0(out_suffix) %>%
+    #   stringr::str_remove(".gz$") %>%
+    #   stringr::str_remove(".[tc]sv$") %>%
+    #   paste0("clean.tsv.gz")
+    #   # paste0("improbe-designOutput.clean.tsv.gz") # , sep='.')
     
     ret_tib <- load_improbe_design(des_tsv = imp_des_tsv, 
-                                   out_tsv = imp_fin_tsv,
+                                   out_tsv = out_csv,
                                    
                                    level   = level,
                                    add_inf = add_inf, 
@@ -232,27 +252,36 @@ run_improbe_docker = function(file,
   if (is.null(out)) out_dir <- base::dirname(file)
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive=TRUE)
   
+  cat(glue::glue("{mssg}      out={out}.{RET}"))
+  
   ret_log <- file.path(out_dir, paste(name,suffix,'log', sep='.'))
   ret_tsv <- file.path(out_dir, paste(name,suffix,'tsv.gz', sep='.'))
   base_file <- base::basename( file )
   
-  if (reload && 
-      file.exists(file) &&
-      file.exists(ret_log) &&
-      file.exists(ret_tsv) &&
-      file.mtime(file) <= file.mtime(ret_log) &&
-      file.mtime(file) <= file.mtime(ret_tsv)) {
-    if (verbose>=vt) 
-      cat(glue::glue("{mssg} Reloading...{RET}"))
-    
-    ret_cnt <- 0
-    etime   <- 0
-    if (!is.null(tt)) tt$addTime(stime,funcTag)
-    if (verbose>=vt) cat(glue::glue(
-      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-      "{RET}{tabs}{BRK}{RET2}"))
-    
-    return(ret_cnt)
+  cat(glue::glue("{mssg}         file={file}.{RET}"))
+  cat(glue::glue("{mssg}    base_file={base_file}.{RET}"))
+  cat(glue::glue("{mssg}      ret_log={ret_log}.{RET}"))
+  cat(glue::glue("{mssg}      ret_tsv={ret_tsv}.{RET}"))
+  
+  if (FALSE) {
+    if (reload && 
+        file.exists(file) &&
+        file.exists(ret_log) &&
+        file.exists(ret_tsv) &&
+        file.mtime(file) <= file.mtime(ret_log) &&
+        file.mtime(file) <= file.mtime(ret_tsv)) {
+      if (verbose>=vt) 
+        cat(glue::glue("{mssg} Reloading...{RET}"))
+      
+      ret_cnt <- 0
+      etime   <- 0
+      if (!is.null(tt)) tt$addTime(stime,funcTag)
+      if (verbose>=vt) cat(glue::glue(
+        "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+        "{RET}{tabs}{BRK}{RET2}"))
+      
+      return(ret_cnt)
+    }
   }
   
   ret_cnt <- 1
@@ -289,7 +318,7 @@ run_improbe_docker = function(file,
 }
 
 load_improbe_design = function(des_tsv, 
-                               out_tsv = NULL, 
+                               out_tsv, 
                                
                                level = 0,
                                join = FALSE, 
@@ -477,6 +506,8 @@ load_improbe_design = function(des_tsv,
     out_cnt <- safe_write(x=ret_tib, file=out_tsv, funcTag=funcTag,
                           verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     
+    # tt$addFile(out_csv)
+
     ret_key <- glue::glue("Clean_Improbe_Data({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })

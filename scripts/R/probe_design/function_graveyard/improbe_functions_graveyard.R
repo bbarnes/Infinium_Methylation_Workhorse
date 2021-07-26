@@ -97,6 +97,615 @@ list.string.diff<-function(a="ATTCGA-",b="attTGTT",exclude=c("-","?"),ignore.cas
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+if (FALSE) {
+  
+  
+  assign_cgn_old = function(ord_tib,
+                            bsp_tib,
+                            seq_tib,
+                            
+                            can_csv,
+                            can_tib = NULL,
+                            bsp_csv = NULL,
+                            
+                            ids_key = run$ids_key,  # Use to be Aln_Key
+                            
+                            join    = "inner",
+                            merge   = TRUE, 
+                            retData = FALSE, 
+                            
+                            verbose=0,vt=3,tc=1,tt=NULL,
+                            funcTag='assign_cgn_old') {
+    
+    tabs <- paste0(rep(TAB, tc), collapse='')
+    mssg <- glue::glue("[{funcTag}]:{tabs}")
+    
+    if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+    if (verbose>=vt+4) {
+      cat(glue::glue("{RET}"))
+      cat(glue::glue("{mssg} File IO Parameters::{RET}"))
+      cat(glue::glue("{mssg}    can_csv={can_csv}.{RET}"))
+      cat(glue::glue("{mssg}    bsp_csv={bsp_csv}.{RET}"))
+      cat(glue::glue("{RET}"))
+      
+      cat(glue::glue("{mssg} Function Parameters::{RET}"))
+      cat(glue::glue("{mssg}      ids_key={ids_key}.{RET}"))
+      cat(glue::glue("{mssg}      join={join}.{RET}"))
+      cat(glue::glue("{mssg}     merge={merge}.{RET}"))
+      cat(glue::glue("{mssg}   retData={retData}.{RET}"))
+      cat(glue::glue("{RET}"))
+    }
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    ret_dat <- NULL
+    # stime <- base::system.time({
+    
+    ids_sym <- rlang::sym(ids_key)
+    
+    # Load Canonical CGNs::
+    if (is.null(can_tib)) {
+      can_tib <- 
+        safe_read(file=can_csv, 
+                  verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
+        dplyr::select(CGN) %>% 
+        dplyr::rename(Cgn=CGN) %>% 
+        dplyr::mutate(Can_Cnt=1) %>%
+        clean_tibble()
+    }
+    ret_key <- glue::glue("can_tib({funcTag})")
+    ret_cnt <- print_tib(can_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    
+    if (retData) ret_dat$can_tib <- can_tib
+    
+    # Defined Order tib to ord original cgn::
+    ord_tib <- ord_tib %>% 
+      dplyr::select(!!ids_sym,Ord_Cgn,Ord_Map) %>%
+      dplyr::rename(Cgn=Ord_Cgn) %>% 
+      dplyr::mutate(Ord_Cnt=1) %>%
+      dplyr::distinct() %>%
+      clean_tibble()
+    
+    ret_key <- glue::glue("ord_tib({funcTag})")
+    ret_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    
+    if (retData) ret_dat$ord_tib <- ord_tib
+    
+    # Format BSP::
+    bsp_tib <- bsp_tib %>% 
+      dplyr::filter(!is.na(Bsp_Cgn)) %>% 
+      dplyr::select(Address,Ord_Map, !!ids_sym, Ord_Des, Ord_Din, Bsp_Cgn) %>% 
+      dplyr::rename(Cgn=Bsp_Cgn) %>%
+      dplyr::distinct() %>%
+      dplyr::arrange(!!ids_sym, Cgn) %>% 
+      dplyr::group_by(Address,Ord_Map,!!ids_sym,Ord_Des,Ord_Din,Cgn) %>% 
+      dplyr::summarise(Bsp_Cnt=n(), .groups = "drop") %>%
+      clean_tibble()
+    
+    bsp_key <- glue::glue("bsp_tib({funcTag})")
+    bsp_cnt <- print_tib(bsp_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    
+    if (retData) ret_dat$bsp_tib <- bsp_tib
+    
+    # return(ret_dat)
+    
+    seq_tib <- seq_tib %>% 
+      dplyr::filter(!is.na(Imp_Cgn)) %>% 
+      dplyr::left_join(dplyr::distinct(bsp_tib,Address, Ord_Map), by=c("Address")) %>%
+      dplyr::select(Address, Ord_Des, Ord_Din, Imp_Cgn) %>% 
+      tidyr::unite(Tmp_Key, Ord_Des,Ord_Din, sep="", remove=FALSE) %>%
+      tidyr::unite(!!ids_sym, Address, Tmp_Key, sep="_", remove=FALSE) %>%
+      dplyr::select(-Tmp_Key) %>%
+      # dplyr::left_join(dplyr::select(ord_tib, Ord_Map,!!ids_sym), by=ids_key) %>%
+      dplyr::select(Ord_Map,!!ids_sym,Ord_Des,Ord_Din,Imp_Cgn) %>%
+      dplyr::rename(Cgn=Imp_Cgn) %>%
+      dplyr::distinct() %>%
+      dplyr::arrange(!!ids_sym, Cgn) %>% 
+      dplyr::group_by(Ord_Map,!!ids_sym,Ord_Des,Ord_Din,Cgn) %>% 
+      dplyr::summarise(Seq_Cnt=n(), .groups = "drop") %>%
+      clean_tibble()
+    
+    seq_key <- glue::glue("seq-tib({funcTag})")
+    seq_cnt <- print_tib(seq_tib,funcTag, verbose,vt+4,tc, n=seq_key)
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    
+    if (retData) ret_dat$seq_tib <- seq_tib
+    
+    # Build and Sort Counts Tables
+    cnt_tib <- 
+      dplyr::full_join(bsp_tib, seq_tib, 
+                       by=c("Ord_Map",ids_key,"Ord_Des","Ord_Din","Cgn")) %>% 
+      dplyr::left_join(can_tib, by="Cgn") %>%
+      dplyr::distinct() %>%
+      dplyr::left_join(ord_tib, by=c(ids_key,"Cgn")) %>%
+      dplyr::distinct() %>%
+      dplyr::mutate(dplyr::across(c(Bsp_Cnt,Seq_Cnt,Can_Cnt,Ord_Cnt), tidyr::replace_na, 0 ),
+                    Sum_Cnt=Bsp_Cnt+Seq_Cnt,
+                    Max_Cnt=Bsp_Cnt*Seq_Cnt) %>% 
+      dplyr::add_count(!!ids_sym, name="Cgn_Cnt") %>% 
+      dplyr::arrange(-Can_Cnt,-Max_Cnt,-Sum_Cnt,-Ord_Cnt) %>%
+      dplyr::mutate(Rank=dplyr::row_number()) %>%
+      clean_tibble()
+    
+    seq_key <- glue::glue("cnt_tib({funcTag})")
+    seq_cnt <- print_tib(cnt_tib,funcTag, verbose,vt+4,tc, n=seq_key)
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    
+    
+    if (retData) ret_dat$cnt_tib <- cnt_tib
+    
+    cnt_list <- cnt_tib %>% split(.$Ord_Des)
+    
+    cnt_tib_cnt <- cnt_tib %>% base::nrow()
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    cat(glue::glue("{mssg}    cnt_tib(n={cnt_tib_cnt})::{RET}"))
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    
+    # Infinium II::
+    inf2_tib <- cnt_list[["2"]] %>%
+      dplyr::arrange(!!ids_sym, Rank) %>%
+      dplyr::distinct(!!ids_sym, .keep_all = TRUE)
+    
+    # Infinium I:: Full Join
+    #
+    #   TBD:: The joining should really be done by sequence: Ord_Prb
+    #
+    if (join=="full") {
+      inf1_tib <- dplyr::full_join(
+        cnt_list[["U"]], cnt_list[["M"]], 
+        by=c("Ord_Map","Cgn","Ord_Din"), 
+        suffix=c("_U","_M")
+      ) %>%
+        dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+        dplyr::arrange(Ord_Map, Rank_Min) %>%
+        dplyr::distinct(Ord_Map,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
+    } else if (join=="inner") {
+      inf1_tib <- dplyr::inner_join(
+        cnt_list[["U"]], cnt_list[["M"]], 
+        by=c("Ord_Map","Cgn","Ord_Din"), 
+        suffix=c("_U","_M")
+      ) %>%
+        dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+        dplyr::arrange(Ord_Map, Rank_Min) %>%
+        dplyr::distinct(Ord_Map,Aln_Key_U,Aln_Key_M, .keep_all = TRUE)
+    } else {
+      stop(glue::glue("{mssg} Unsupported join type={join}.{RET}"))
+      return(NULL)
+    }
+    if (retData) ret_dat$inf1_tib <- inf1_tib
+    if (retData) ret_dat$inf2_tib <- inf2_tib
+    
+    ret_tib <- dplyr::bind_rows(
+      dplyr::select(inf1_tib, Ord_Map,Aln_Key_U,Cgn,Ord_Des_U,Ord_Din,Can_Cnt_U,Rank_Min) %>% 
+        purrr::set_names("Ord_Map",ids_key,"Cgn","Ord_Des","Ord_Din","Can_Cnt","Rank"),
+      
+      dplyr::select(inf1_tib, Ord_Map,Aln_Key_M,Cgn,Ord_Des_M,Ord_Din,Can_Cnt_M,Rank_Min) %>% 
+        purrr::set_names("Ord_Map",ids_key,"Cgn","Ord_Des","Ord_Din","Can_Cnt","Rank"),
+      
+      dplyr::select(inf2_tib, Ord_Map,!!ids_sym,Cgn,Ord_Des,Ord_Din,Can_Cnt,Rank)
+    ) %>% dplyr::filter(!is.na(!!ids_sym)) %>%
+      dplyr::distinct()
+    
+    mul_cnt <- ret_tib %>% dplyr::add_count(!!ids_sym,Cgn, name="Multi_Cnt") %>% 
+      dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
+    mis_cnt <- ret_tib %>% dplyr::filter(is.na(!!ids_sym)) %>% base::nrow()
+    
+    mis_tib <- dplyr::anti_join(ord_tib, ret_tib, by=c(ids_key))
+    sig_tib <- dplyr::filter(cnt_tib, ids_key %in% mis_tib[[ids_key]]) %>%
+      dplyr::arrange(Ord_Map,Rank) %>%
+      dplyr::distinct(!!ids_sym, .keep_all = TRUE)
+    sig_cnt <- sig_tib %>% base::nrow()
+    
+    if (verbose>=vt) {
+      cat(glue::glue("{mssg}   Miss Count={mis_cnt}.{RET}"))
+      cat(glue::glue("{mssg}  Multi Count={mul_cnt}.{RET}"))
+      cat(glue::glue("{mssg} Single Count={sig_cnt}.{RET}"))
+      cat("\n")
+    }
+    # if (mis_cnt!=0 || mul_cnt!=0 || sig_cnt!=0) {
+    #   stop(glue::glue("{RET}{mssg} Counts non-zero={mis_cnt},",
+    #                   "{mul_cnt},{sig_cnt}!{RET2}"))
+    #   return(NULL)
+    # }
+    
+    # Merge all data together::
+    #
+    ret_cnt <- ret_tib %>% base::nrow()
+    ret_tib <- dplyr::bind_rows(
+      ret_tib %>% dplyr::mutate(
+        Cgn_Tag=dplyr::case_when(
+          Ord_Din=="rs" ~ Ord_Din,
+          Ord_Din=="ch" ~ Ord_Din,
+          TRUE ~ "cg"
+        ),
+        Cgn_Str=dplyr::case_when(
+          Ord_Din=="rs" ~ stringr::str_remove(Ord_Map, "[-_:].*$"),
+          Ord_Din=="ch" ~ stringr::str_remove(Ord_Map, "[-_:].*$"),
+          TRUE ~ paste0("cg",stringr::str_pad(Cgn,width=8,side="left",pad="0"))
+        )),
+      mis_tib %>% 
+        dplyr::select(Ord_Map, !!ids_sym,Ord_Cgn,Ord_Des,Ord_Din) %>% 
+        dplyr::rename(Cgn=Ord_Cgn) %>% 
+        dplyr::mutate(Can_Cnt=0, 
+                      Rank=dplyr::row_number() + ret_cnt,
+                      Cgn_Tag="uk",
+                      Cgn_Str=paste0(Cgn_Tag,stringr::str_pad(Cgn,width=8,side="left",pad="0"))
+        )
+    ) %>%
+      # TBD:: Capture other CGN's in seperate column:: actual CGN's not Count!!
+      dplyr::add_count(!!ids_sym, name="Alt_Cgn_Cnt") %>%
+      # One Final Clean Up To Ensure Uniqueness::
+      dplyr::arrange(Rank) %>% 
+      dplyr::distinct(!!ids_sym, .keep_all = TRUE)
+    
+    mul_cnt <- ret_tib %>% 
+      dplyr::add_count(!!ids_sym,Cgn, name="Multi_Cnt") %>% 
+      dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
+    
+    if (verbose>=vt) {
+      cat(glue::glue("{mssg}  Multi Count Final={mul_cnt}.{RET}"))
+      cat("\n")
+    }
+    if (mul_cnt!=0) {
+      stop(glue::glue("{RET}{mssg} Multi-Count Final={mul_cnt} ",
+                      "not equal to zero!!!{RET2}"))
+      return(NULL)
+    }
+    
+    if (merge) ret_tib <- bsp_tib %>%
+      dplyr::left_join(ret_tib, 
+                       by=c("Ord_Map",ids_key,"Ord_Des","Ord_Din"),
+                       suffix=c("_bsp","_cgn"))
+    
+    ret_tib <- ret_tib %>% clean_tibble()
+    out_cnt <- safe_write(ret_tib,file=bsp_csv, funcTag=funcTag,
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    
+    if (retData) ret_dat$ret_tib <- ret_tib
+    if (retData) ret_dat$mis_tib <- mis_tib
+    # })
+    etime <- 0
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) cat(glue::glue(
+      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{mssg}{BRK}{RET2}"))
+    
+    if (retData) return(ret_dat)
+    
+    ret_tib
+  }
+  
+  
+}
+
+
+if (FALSE) {
+  
+
+  
+  run$merge <- FALSE
+  cgn_out_csv <- file.path(opt$outDir, "assigned-cgns.csv.gz")
+  
+  can_tib_bk <- can_tib
+  
+  ids_sym <- rlang::sym(run$ids_key)
+  
+  can_tib <- NULL
+  ord_tib <- aqp_ord_tib
+  bsp_tib = aqp_bsp_tib
+  
+  seq_tib = aqp_seq_tib
+  can_csv = run$canonical_csv
+  can_tib = can_tib_bk
+  
+  ids_key = run$ids_key
+  
+  bsp_csv = cgn_out_csv
+  merge = run$merge
+  
+  retData <- FALSE
+  
+  
+  tt <- NULL
+  opt$verbose <- 5
+  verbose <- opt$verbose
+  tc <- 1
+  vt <- 0
+  funcTag <- "Testing"
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  # Load Canonical CGNs::
+  if (is.null(can_tib)) {
+    can_tib <- safe_read(file=run$canonical_csv, verbose=opt$verbose) %>% 
+      dplyr::select(CGN) %>% 
+      dplyr::rename(Cgn=CGN) %>% 
+      dplyr::mutate(Can_Cnt=1)
+  }
+  # can_tib = can_tib_bk
+  
+  
+  bsp_key <- glue::glue("can_tib({funcTag})")
+  bsp_cnt <- print_tib(can_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}"))
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  if (retData) ret_dat$can_tib <- can_tib
+  
+  # Defined Order tib to ord original cgn::
+  ord_tib <- aqp_ord_tib %>% 
+    dplyr::select(Ord_Map,Prb_Key,Ord_Cgn) %>%
+    dplyr::rename(Cgn=Ord_Cgn) %>% 
+    dplyr::mutate(Ord_Cnt=1) %>%
+    dplyr::distinct() %>%
+    clean_tibble()
+  
+  bsp_key <- glue::glue("ord_tib({funcTag})")
+  bsp_cnt <- print_tib(ord_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}"))
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  # if (retData) ret_dat$ord_tib <- ord_tib
+  
+  # Format BSP::
+  bsp_tib <- aqp_bsp_tib %>% 
+    dplyr::filter(!is.na(Bsp_Cgn)) %>% 
+    dplyr::select(Ord_Map, Prb_Key, Ord_Des, Ord_Din, Bsp_Cgn) %>% 
+    dplyr::rename(Cgn=Bsp_Cgn) %>%
+    dplyr::distinct() %>%
+    dplyr::arrange(Prb_Key, Cgn) %>% 
+    dplyr::group_by(Ord_Map,Prb_Key,Ord_Des,Ord_Din,Cgn) %>% 
+    dplyr::summarise(Bsp_Cnt=n(), .groups = "drop") %>%
+    clean_tibble()
+  
+  bsp_key <- glue::glue("bsp_tib({funcTag})")
+  bsp_cnt <- print_tib(bsp_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}"))
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  
+  # Format Seq::
+  seq_tib <- aqp_seq_tib %>% 
+    dplyr::filter(!is.na(Imp_Cgn)) %>% 
+    dplyr::left_join(dplyr::distinct(aqp_bsp_tib,Address, Ord_Map), by=c("Address")) %>%
+    dplyr::select(Address, Ord_Des, Ord_Din, Ord_Map, Imp_Cgn) %>% 
+    tidyr::unite(Tmp_Key, Ord_Des,Ord_Din, sep="", remove=FALSE) %>%
+    tidyr::unite(Prb_Key, Address, Tmp_Key, sep="_", remove=FALSE) %>%
+    dplyr::select(-Tmp_Key) %>%
+    # dplyr::left_join(dplyr::select(ord_tib, Ord_Map,Prb_Key), by=run$ids_key) %>%
+    dplyr::select(Ord_Map,Prb_Key,Ord_Des,Ord_Din,Imp_Cgn) %>%
+    dplyr::rename(Cgn=Imp_Cgn) %>%
+    dplyr::distinct() %>%
+    dplyr::arrange(Prb_Key, Cgn) %>% 
+    dplyr::group_by(Ord_Map,Prb_Key,Ord_Des,Ord_Din,Cgn) %>% 
+    dplyr::summarise(Seq_Cnt=n(), .groups = "drop") %>%
+    clean_tibble()
+  
+  bsp_key <- glue::glue("seq_tib({funcTag})")
+  bsp_cnt <- print_tib(seq_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}"))
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  # Build and Sort Counts Tables
+  cnt_tib <- 
+    dplyr::full_join(
+      bsp_tib, seq_tib, by=c("Ord_Map",run$ids_key,"Ord_Des","Ord_Din","Cgn")
+    ) %>%
+    dplyr::left_join(can_tib, by="Cgn") %>%
+    dplyr::distinct() %>%
+    dplyr::left_join(ord_tib, by=c(run$ids_key,"Cgn","Ord_Map")
+    ) %>%
+    dplyr::distinct() %>%
+    dplyr::mutate(dplyr::across(c(Bsp_Cnt,Seq_Cnt,Can_Cnt,Ord_Cnt), tidyr::replace_na, 0 ),
+                  Sum_Cnt=Bsp_Cnt+Seq_Cnt,
+                  Max_Cnt=Bsp_Cnt*Seq_Cnt) %>% 
+    dplyr::add_count(!!ids_sym, name="Cgn_Cnt") %>% 
+    dplyr::arrange(-Can_Cnt,-Max_Cnt,-Sum_Cnt,-Ord_Cnt) %>%
+    dplyr::mutate(Rank=dplyr::row_number()) %>%
+    clean_tibble()
+  
+  bsp_key <- glue::glue("cnt_tib({funcTag})")
+  bsp_cnt <- print_tib(cnt_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}"))
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  
+  cnt_list <- cnt_tib %>% split(.$Ord_Des)
+  
+  #
+  # Infinium II::
+  #
+  inf2_tib <- cnt_list[["2"]] %>%
+    dplyr::arrange(!!ids_sym, Rank) %>%
+    dplyr::distinct(!!ids_sym, .keep_all = TRUE)
+  
+  bsp_key <- glue::glue("inf2_tib({funcTag})")
+  bsp_cnt <- print_tib(inf2_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}"))
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  # Infinium I:: Full Join
+  #
+  #   TBD:: The joining should really be done by sequence: Ord_Prb
+  #
+  run$join <- "inner"
+  if (run$join=="full") {
+    inf1_tib <- dplyr::full_join(
+      cnt_list[["U"]], 
+      cnt_list[["M"]], 
+      by=c("Ord_Map","Cgn","Ord_Din"), 
+      suffix=c("_U","_M")
+    ) %>%
+      dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+      dplyr::arrange(Ord_Map, Rank_Min) %>%
+      dplyr::distinct(Ord_Map,Prb_Key_U,Prb_Key_M, .keep_all = TRUE)
+  } else if (run$join=="inner") {
+    inf1_tib <- dplyr::inner_join(
+      cnt_list[["U"]], 
+      cnt_list[["M"]], 
+      by=c("Ord_Map","Cgn","Ord_Din"), 
+      suffix=c("_U","_M")
+    ) %>%
+      dplyr::mutate(Rank_Min=pmin(Rank_U,Rank_M)) %>%
+      dplyr::arrange(Ord_Map, Rank_Min) %>%
+      dplyr::distinct(Ord_Map,Prb_Key_U,Prb_Key_M, .keep_all = TRUE)
+  } else {
+    stop(glue::glue("{mssg} Unsupported join type={join}.{RET}"))
+    return(NULL)
+  }
+  bsp_key <- glue::glue("inf1_tib({funcTag})")
+  bsp_cnt <- print_tib(inf1_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  # retData <- FALSE
+  # if (retData) ret_dat$inf1_tib <- inf1_tib
+  # if (retData) ret_dat$inf2_tib <- inf2_tib
+  
+  ret_tib <- dplyr::bind_rows(
+    dplyr::select(inf1_tib, Ord_Map,Prb_Key_U,Cgn,Ord_Des_U,Ord_Din,Can_Cnt_U,Rank_Min) %>% 
+      purrr::set_names("Ord_Map",run$ids_key,"Cgn","Ord_Des","Ord_Din","Can_Cnt","Rank"),
+    
+    dplyr::select(inf1_tib, Ord_Map,Prb_Key_M,Cgn,Ord_Des_M,Ord_Din,Can_Cnt_M,Rank_Min) %>% 
+      purrr::set_names("Ord_Map",run$ids_key,"Cgn","Ord_Des","Ord_Din","Can_Cnt","Rank"),
+    
+    dplyr::select(inf2_tib, Ord_Map,!!ids_sym,Cgn,Ord_Des,Ord_Din,Can_Cnt,Rank)
+  ) %>% dplyr::filter(!is.na(!!ids_sym)) %>%
+    dplyr::distinct()
+  bsp_key <- glue::glue("ret_tib({funcTag})")
+  bsp_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  
+  mul_cnt <- ret_tib %>% dplyr::add_count(!!ids_sym,Cgn, name="Multi_Cnt") %>% 
+    dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
+  mis_cnt <- ret_tib %>% dplyr::filter(is.na(!!ids_sym)) %>% base::nrow()
+  
+  # bsp_key <- glue::glue("ret_tib({funcTag})")
+  # bsp_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  
+  mis_tib <- dplyr::anti_join(ord_tib, ret_tib, by=c(run$ids_key)) %>%
+    dplyr::left_join(aqp_ord_tib %>% dplyr::select(Prb_Key,Ord_Des,Ord_Din), by=c("Prb_Key"))
+  sig_tib <- dplyr::filter(cnt_tib, run$ids_key %in% mis_tib[[run$ids_key]]) %>%
+    dplyr::arrange(Ord_Map,Rank) %>%
+    dplyr::distinct(!!ids_sym, .keep_all = TRUE)
+  sig_cnt <- sig_tib %>% base::nrow()
+  
+  bsp_key <- glue::glue("ret_tib({funcTag})")
+  bsp_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=bsp_key)
+  cat(glue::glue("{mssg}{RET}"))
+  cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  
+  if (verbose>=vt) {
+    cat(glue::glue("{mssg}   Miss Count={mis_cnt}.{RET}"))
+    cat(glue::glue("{mssg}  Multi Count={mul_cnt}.{RET}"))
+    cat(glue::glue("{mssg} Single Count={sig_cnt}.{RET}"))
+    cat("\n")
+  }
+  # if (mis_cnt!=0 || mul_cnt!=0 || sig_cnt!=0) {
+  #   stop(glue::glue("{RET}{mssg} Counts non-zero={mis_cnt},",
+  #                   "{mul_cnt},{sig_cnt}!{RET2}"))
+  #   return(NULL)
+  # }
+  
+  # Merge all data together::
+  #
+  ret_cnt <- ret_tib %>% base::nrow()
+  ret_tib <- dplyr::bind_rows(
+    #
+    # Add Formatted cg#'s
+    #
+    ret_tib %>% 
+      dplyr::mutate(
+        
+        Cgn_Tag=dplyr::case_when(
+          Ord_Din=="rs" ~ Ord_Din,
+          Ord_Din=="ch" ~ Ord_Din,
+          TRUE ~ "cg"
+        ),
+        Cgn_Str=dplyr::case_when(
+          Ord_Din=="rs" ~ stringr::str_remove(Ord_Map, "[-_:].*$"),
+          Ord_Din=="ch" ~ stringr::str_remove(Ord_Map, "[-_:].*$"),
+          TRUE ~ paste0("cg",stringr::str_pad(Cgn,width=8,side="left",pad="0"))
+        )
+      ),
+    mis_tib %>% 
+      dplyr::select(Ord_Map, !!ids_sym,Cgn,Ord_Des,Ord_Din) %>% 
+      
+      # Ord_Cgn -> Cgn naming is done above
+      # dplyr::select(Ord_Map, !!ids_sym,Ord_Cgn,Ord_Des,Ord_Din) %>% 
+      # dplyr::rename(Cgn=Ord_Cgn) %>% 
+      dplyr::mutate(Can_Cnt=0, 
+                    Rank=dplyr::row_number() + ret_cnt,
+                    Cgn_Tag="uk",
+                    Cgn_Str=paste0(Cgn_Tag,stringr::str_pad(Cgn,width=8,side="left",pad="0")
+                    )
+      )
+  ) %>%
+    # TBD:: Capture other CGN's in seperate column:: actual CGN's not Count!!
+    dplyr::add_count(!!ids_sym, name="Alt_Cgn_Cnt") %>%
+    # One Final Clean Up To Ensure Uniqueness::
+    dplyr::arrange(Rank) %>% 
+    dplyr::distinct(!!ids_sym, .keep_all = TRUE)
+  
+  mul_cnt <- ret_tib %>% 
+    dplyr::add_count(!!ids_sym,Cgn, name="Multi_Cnt") %>% 
+    dplyr::filter(Multi_Cnt != 1) %>% base::nrow()
+  
+  if (verbose>=vt) {
+    cat(glue::glue("{mssg}  Multi Count Final={mul_cnt}.{RET}"))
+    cat("\n")
+  }
+  if (mul_cnt!=0) {
+    stop(glue::glue("{RET}{mssg} Multi-Count Final={mul_cnt} ",
+                    "not equal to zero!!!{RET2}"))
+    return(NULL)
+  }
+  
+  if (merge) ret_tib <- bsp_tib %>%
+    dplyr::left_join(ret_tib, 
+                     by=c("Ord_Map",ids_key,"Ord_Des","Ord_Din"),
+                     suffix=c("_bsp","_cgn"))
+  
+  ret_tib <- ret_tib %>% clean_tibble()
+  out_cnt <- safe_write(ret_tib,file=bsp_csv, funcTag=funcTag,
+                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  
+  ret_key <- glue::glue("ret-FIN({funcTag})")
+  ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  
+  if (retData) ret_dat$ret_tib <- ret_tib
+  if (retData) ret_dat$mis_tib <- mis_tib
+  # })
+  etime <- 0
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
+  
+  if (retData) return(ret_dat)
+  
+  ret_tib
+  
+  
+  
+  
+}
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             FASTA File Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

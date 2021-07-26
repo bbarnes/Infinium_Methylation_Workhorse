@@ -74,7 +74,6 @@ cgn_mapping_workflow = function(tib, dir,
                                 ids_key = "Prb_Key",
                                 aln_key = "Aln_P49",
 
-                                out    = NULL,
                                 prefix = NULL,
                                 suffix = NULL,
                                 
@@ -139,7 +138,7 @@ cgn_mapping_workflow = function(tib, dir,
     din_sym <- rlang::sym(din_key)
     aln_sym <- rlang::sym(aln_key)
     
-    if (!dir.exists(out)) dir.create(out, recursive = TRUE)
+    # if (!dir.exists(out)) dir.create(out, recursive = TRUE)
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 Build Candidate Sub-String Probes:: U49/M49
