@@ -27,16 +27,19 @@ BRK  <- paste0("# ",
 #                          Standard Function Template::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+
 template_func = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='template_func') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -51,8 +54,7 @@ template_func = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -62,28 +64,62 @@ template_func = function(tib,
 #                         AQP Address Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-aqp_address_workflow = function(ord, mat, aqp,
-                                
-                                out    = NULL, 
-                                prefix = NULL,
-                                suffix = NULL,
+aqp_address_workflow = function(ord_dat, 
+                                mat_dat, 
+                                aqp_dat,
+
+                                prefix  = NULL,
+                                suffix  = NULL,
                                 
                                 prb_key = "Ord_Prb",
                                 add_key = "Address",
                                 des_key = "Ord_Des",
                                 din_key = "Ord_Din",
                                 ids_key = "Prb_Key",
-
                                 del = "_",
                                 
+                                out_csv=NULL, out_dir, run_tag, 
+                                re_load=FALSE, pre_tag=NULL,
+                                end_str='csv.gz', sep_chr='.',
                                 verbose=0,vt=3,tc=1,tt=NULL,
                                 funcTag='aqp_address_workflow') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
   
+  out_csv <- redata(out_dir, run_tag, funcTag, re_load, 
+                    pre_tag, end_str=end_str, sep=sep_chr,
+                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  if (tibble::is_tibble(out_csv)) return(out_csv)
+  if (is.null(out_csv)) {
+    stop(glue::glue("{RET}{mssg} ERROR: out_csv is NULL!{RET2}"))
+    return(out_csv)
+  }
+  out_dir <- base::dirname(out_csv)
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}       del={del}.{RET}"))
+    cat(glue::glue("{mssg}   out_dir={out_dir}.{RET}"))
+    cat(glue::glue("{mssg}   out_csv={out_csv}.{RET}"))
+    cat(glue::glue("{mssg}    prefix={prefix}.{RET}"))
+    cat(glue::glue("{mssg}    suffix={suffix}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}   prb_key={prb_key}.{RET}"))
+    cat(glue::glue("{mssg}   add_key={add_key}.{RET}"))
+    cat(glue::glue("{mssg}   des_key={des_key}.{RET}"))
+    cat(glue::glue("{mssg}   din_key={din_key}.{RET}"))
+    cat(glue::glue("{mssg}   ids_key={ids_key}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime   <- 0
   ret_cnt <- 0
   ret_tib <- NULL
+  ret_dat <- NULL
+
   stime <- base::system.time({
     
     prb_sym <- rlang::sym(prb_key)
@@ -94,12 +130,12 @@ aqp_address_workflow = function(ord, mat, aqp,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                         Process AQP/PQC Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    if (purrr::is_character(aqp)) {
-      aqp_tib <- load_aqp_files(aqp) %>% 
+    if (purrr::is_character(aqp_dat)) {
+      aqp_tib <- load_aqp_files(aqp_dat) %>% 
         dplyr::arrange(-Ord_Idx) %>% 
         dplyr::distinct(Address, .keep_all=TRUE)
     } else {
-      aqp_tib <- aqp
+      aqp_tib <- aqp_dat
     }
     if (!tibble::is_tibble(aqp_tib)) {
       stop(glue::glue("{RET}[{funcTag}]: AQP/PQC is NOT a tibble!{RET}{RET}"))
@@ -115,12 +151,12 @@ aqp_address_workflow = function(ord, mat, aqp,
     #                          Process Match Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (purrr::is_character(mat)) {
-      mat_tib <- load_aqp_files(mat) %>% 
+    if (purrr::is_character(mat_dat)) {
+      mat_tib <- load_aqp_files(mat_dat) %>% 
         dplyr::arrange(-Ord_Idx) %>% 
         dplyr::distinct(Address, .keep_all=TRUE)
     } else {
-      mat_tib <- mat
+      mat_tib <- mat_dat
     }
     if (!tibble::is_tibble(mat_tib)) {
       stop(glue::glue("{RET}[{funcTag}]: Match is NOT a tibble!{RET}{RET}"))
@@ -137,11 +173,11 @@ aqp_address_workflow = function(ord, mat, aqp,
     #                          Process Order Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    if (purrr::is_character(ord)) {
-      ord_tib <- load_aqp_files(ord) %>% 
+    if (purrr::is_character(ord_dat)) {
+      ord_tib <- load_aqp_files(ord_dat) %>% 
         dplyr::mutate(Ord_Map=Ord_Idx+Ord_Map)
     } else {
-      ord_tib <- ord
+      ord_tib <- ord_dat
     }
     if (!tibble::is_tibble(ord_tib)) {
       stop(glue::glue("{RET}[{funcTag}]: Order is NOT a tibble!{RET}{RET}"))
@@ -158,10 +194,8 @@ aqp_address_workflow = function(ord, mat, aqp,
       dplyr::rename(Aqp_Idx=Ord_Idx) %>%
       dplyr::inner_join(mat_tib, by=add_key) %>%
       dplyr::rename(Mat_Idx=Ord_Idx) %>%
-      
       dplyr::rename_with(~ c(prb_key), dplyr::all_of(c("Mat_Prb")) ) %>%
       dplyr::inner_join(ord_tib, by=c(prb_key)) %>%
-      
       tidyr::unite(Tmp_Key, dplyr::all_of(aln_vec), sep=del, remove=FALSE) %>%
       tidyr::unite(!!ids_sym, Tmp_Key,!!din_sym, sep="", remove=FALSE) %>%
       dplyr::select(-Tmp_Key) %>%
@@ -196,15 +230,15 @@ aqp_address_workflow = function(ord, mat, aqp,
     
     # Write Probe and Summary Output::
     #
-    if (!is.null(out) && !is.null(prefix) && !is.null(suffix)) {
-      prb_csv <- file.path(out, paste(prefix,suffix,"csv.gz", sep='.'))
-      sum_csv <- file.path(out, paste(prefix,suffix,"summary.csv.gz", sep='.'))
+    sum_csv <- out_csv %>% 
+      stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
+      paste("summary.csv.gz", sep=sep_chr)
 
-      sum_cnt <- safe_write(x=aqp_sum, file=sum_csv,
-                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      out_cnt <- safe_write(x=ret_tib, file=prb_csv,
-                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    }
+    sum_cnt <- safe_write(x=aqp_sum, file=sum_csv, done = TRUE,
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    out_cnt <- safe_write(x=ret_tib, file=out_csv, done = TRUE,
+                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    tt$addFile(out_csv)
     
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
@@ -212,8 +246,8 @@ aqp_address_workflow = function(ord, mat, aqp,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -222,10 +256,15 @@ load_aqp_files = function(file,
                           verbose=0,vt=3,tc=1,tt=NULL,
                           funcTag='load_aqp_files') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-  if (verbose>=vt+4) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} file={file}.{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   file={file}.{RET}"))
+    cat(glue::glue("{RET}"))
   }
   
   ret_cnt <- 0
@@ -239,7 +278,7 @@ load_aqp_files = function(file,
     } else if (purrr::is_vector(file)) {
       file_vec <- file
     } else {
-      stop(glue::glue("{RET}[{funcTag}]:{tabsStr} unrecognized variable={file}.{RET}"))
+      stop(glue::glue("{RET}{mssg} unrecognized variable={file}.{RET}"))
       return(NULL)
     }
     
@@ -255,29 +294,34 @@ load_aqp_files = function(file,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
   
   ret_tib
 }
 
-load_aqp_file = function(file, idx=NULL,
-                         n_max=100, guess=1000,
+load_aqp_file = function(file, 
+                         idx=NULL,
+                         n_max=100, 
+                         guess=1000,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='load_aqp_file') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
   
   # Saftey Check for Empty Files::
   if (is.null(file) || length(file)==0)
     return(base::invisible(NULL))
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+4) {
-    cat(glue::glue("[{funcTag}]:{tabsStr}  file={file}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} n_max={n_max}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} guess={guess}.{RET}"))
-    cat("\n")
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}     idx={idx}.{RET}"))
+    cat(glue::glue("{mssg}   n_max={n_max}.{RET}"))
+    cat(glue::glue("{mssg}   guess={guess}.{RET}"))
+    cat(glue::glue("{RET}"))
   }
   
   val_cols <- list()
@@ -528,8 +572,8 @@ load_aqp_file = function(file, idx=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -538,18 +582,22 @@ guess_aqp_file = function(file,
                           fields=c("Assay_Design_Id","Plate",
                                    "address_names","Address", "probe_id"),
                           cols=NULL,
-                          n_max=100, # guess=100000,
+                          n_max=100,
                           verbose=0,vt=6,tc=1,tt=NULL,
                           funcTag='guess_aqp_file') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+4) {
-    cat(glue::glue("[{funcTag}]:{tabsStr}   file={file}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}  n_max={n_max}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} fields={RET}"))
-    print(fields)
-    cat("\n")
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}     file={file}.{RET}"))
+    cat(glue::glue("{mssg}   fields={fields}.{RET}"))
+    cat(glue::glue("{mssg}     cols={cols}.{RET}"))
+    cat(glue::glue("{mssg}    n_max={n_max}.{RET}"))
+    cat(glue::glue("{RET}"))
   }
   
   ret_cnt <- 0
@@ -572,7 +620,7 @@ guess_aqp_file = function(file,
     ret_tib <- NULL
     for (field in fields) {
       if (verbose>=vt+6)
-        cat(glue::glue("[{funcTag}]:{tabsStr} field={field}{RET}"))
+        cat(glue::glue("{mssg} field={field}{RET}"))
       
       min_tib <- dat_tib %>% 
         dplyr::filter(stringr::str_starts(value, field)) %>% tail(n=1)
@@ -592,7 +640,7 @@ guess_aqp_file = function(file,
           dplyr::mutate(col_num=col_num,del_key=file_del_str,beg_key=field)
       )
       if (verbose>=vt+6)
-        cat(glue::glue("[{funcTag}]:{tabsStr} NEXT...{RET}{RET}"))
+        cat(glue::glue("{mssg} NEXT...{RET}{RET}"))
     }
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc)
@@ -600,143 +648,11 @@ guess_aqp_file = function(file,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
   
   ret_tib
 }
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             FASTA File Methods::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-ord_to_fas = function(tib, 
-                      prb_key = "Prb_Seq", 
-                      add_key = "Address", 
-                      des_key = "Prb_Des", 
-                      din_key = "Prb_Din",
-                      
-                      prb_csv = NULL,
-                      prb_fas = NULL,
-                      
-                      out    = NULL,
-                      prefix = NULL,
-                      suffix = NULL,
-                      pre_len = 0,
-                      
-                      # u49_tsv=NULL,
-                      # m49_tsv=NULL,
-                      del="_",
-                      verbose=0, vt=3,tc=1,tt=NULL, funcTag='ord_to_fas') {
-  
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; key={prb_key}...{RET}"))
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- base::system.time({
-    
-    prb_sym <- rlang::sym(prb_key)
-    des_sym <- rlang::sym(des_key)
-    din_sym <- rlang::sym(din_key)
-    aln_vec <- c(add_key,des_key)
-    
-    # aln_vec <- c(des_key,din_key)
-    #
-    # To make all Aln_Key's <=15 characters for improbe we'll 
-    #   unite the Aln_Key in two steps to remove one underscore ("_")
-    #
-    # Old Definition: aln_vec <- c(add_key,des_key,din_key)
-    #
-    
-    # Build Alignment Keys/Seqs and Write Data::
-    #
-    ret_tib <- tib %>% 
-      tidyr::unite(Tmp_Key, dplyr::all_of(aln_vec),sep=del, remove=FALSE) %>%
-      tidyr::unite(Aln_Key, Tmp_Key,!!din_sym,sep="", remove=FALSE) %>%
-      dplyr::select(-Tmp_Key) %>%
-      dplyr::mutate(
-        Aln_Prb=deMs(!!prb_sym, uc=TRUE),
-        Aln_Rev=revCmp(Aln_Prb),
-        Aln_P49=dplyr::case_when(
-          !!des_sym == '2' ~ stringr::str_sub(Aln_Prb, 2),
-          !!des_sym == 'U' ~ stringr::str_remove(Aln_Prb, '[A-Z]$'),
-          !!des_sym == 'M' ~ stringr::str_remove(Aln_Prb, '[A-Z]$'),
-          TRUE ~ NA_character_
-        )
-      ) %>%
-      dplyr::distinct(Aln_Key,Aln_Prb, .keep_all=TRUE) %>%
-      clean_tibble()
-    
-    safe_write(x=ret_tib, file=dat_csv, funcTag=funcTag,
-               verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-    
-    # Build/Write FASTA File::
-    #
-    if (!is.null(prb_fas))
-      fas_vec <- ret_tib %>%
-      dplyr::mutate(fas_line=paste0(">",Aln_Key,"\n",Aln_Prb) ) %>%
-      dplyr::pull(fas_line)
-    
-    safe_write(x=fas_vec, type="line", file=prb_fas, funcTag=funcTag,
-               verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-    
-    
-    # Build U49/M49 Sub-sequences and split by 5' two nucelotide prefix into 
-    #  sorted output files. Splitting by prefix makes the join later much 
-    #  faster...
-    #
-    
-    u49_tibs <- NULL
-    if (!is.null(u49_tsv))
-      u49_tib <- ret_tib %>% 
-      dplyr::filter(!!des_sym == '2' | !!des_sym=='U') %>%
-      dplyr::filter(!is.na(Aln_P49)) %>%
-      dplyr::select(Aln_P49,Aln_Key) %>%
-      dplyr::arrange(Aln_P49)
-    
-    m49_tib <- NULL
-    if (!is.null(m49_tsv))
-      m49_tib <- ret_tib %>% 
-      dplyr::filter(!!des_sym=='M') %>%
-      dplyr::filter(!is.na(Aln_P49)) %>%
-      dplyr::select(Aln_P49,Aln_Key) %>%
-      dplyr::arrange(Aln_P49)
-    
-    if (pre_len>0) {
-      u49_tibs <- u49_tib %>% 
-        dplyr::mutate(Pre_Nuc=stringr::str_sub(Aln_P49, 1,pre_len)) %>%
-        split(f=.$Pre_Nuc)
-      
-      for (pre_nuc in names(u49_tibs)) {
-        prb_csv <- file.path(out, paste())
-        
-        prb_tsv <- file.path(out, paste(prefix,suffix,pre_nuc,"U49.tsv.gz", sep='.'))
-        
-        
-      }
-    }
-      
-    
-    
-    safe_write(u49_tib,"tsv",u49_tsv,cols=FALSE, 
-               funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    safe_write(m49_tib,"tsv",m49_tsv,cols=FALSE, 
-               funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
-  
-  ret_tib
-}
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Manifest Mutation Methods::
@@ -744,14 +660,28 @@ ord_to_fas = function(tib,
 
 # TBD:: Pretty Sure this can be removed::
 mutate_probe_id = function(tib, 
-                           pid="Probe_ID", cgn="Imp_Cgn_Seq",
-                           des="Ord_Des",  din="Ord_Din",
-                           tb="Imp_TB_Seq", co="Imp_CO_Seq",
-                           inf="Infinium_Design",pad=8,
+                           
+                           pid="Probe_ID", 
+                           cgn="Imp_Cgn_Seq",
+                           des="Ord_Des",  
+                           din="Ord_Din",
+                           tb="Imp_TB_Seq", 
+                           co="Imp_CO_Seq",
+                           inf="Infinium_Design",
+                           
+                           pad=8,
                            verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'mutate_probe_id'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -780,8 +710,96 @@ mutate_probe_id = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Noob-Mask Manifest Functions::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# VERY HACKY QUICK FIX FOR NOOB CONTROLS
+# TBD:: Make this clean!!!
+#
+# noob_mask(noob_csv = opt$noob, ctl_csv = opt$ses_ctl_csv, verbose=opt$verbose, tt=pTracker)
+noob_mask = function(noob_csv,
+                     ctl_csv = NULL,
+                     
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='noob_mask') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    if (!is.null(ctl_csv) && file.exists(ctl_csv))
+      ctl_tib <- safe_read(ctl_csv, verbose=verbose)
+    
+    # pqc_tib  <- load_aqp_files(opt$aqps, verbose=opt$verbose)
+    noob_tib <- safe_read(noob_csv, verbose=verbose) %>%
+      dplyr::mutate(
+        Probe_Design=dplyr::case_when(
+          DESIGN=="I"  ~ 1,
+          DESIGN=="II" ~ 2,
+          TRUE ~ NA_real_
+        )
+      )
+    
+    # pqc_pas_tib <- dplyr::filter(pqc_tib,Decode_Status==0)
+    # pqc_mis_tib <- dplyr::filter(pqc_tib,Decode_Status!=0)
+    
+    # noob_mis_tib <- dplyr::bind_rows(
+    #   noob_tib %>% dplyr::filter(!is.na(U)) %>% dplyr::filter(U %in% pqc_mis_tib$Address),
+    #   noob_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(M %in% pqc_mis_tib$Address)
+    # ) %>% dplyr::distinct(Probe_ID, .keep_all = TRUE)
+    
+    # noob_pas_tib <- noob_tib %>% dplyr::filter(!Probe_ID %in% noob_mis_tib$Probe_ID)
+    
+    # noob_man_tib <- dplyr::bind_rows(
+    #   noob_pas_tib %>% dplyr::filter(!is.na(U)) %>% dplyr::filter(U %in% pqc_pas_tib$Address),
+    #   noob_pas_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(M %in% pqc_pas_tib$Address)
+    # ) %>% dplyr::distinct(Probe_ID, .keep_all = TRUE)
+    
+    # noob_man_sum <- noob_man_tib %>% 
+    #   dplyr::group_by(SubSet,DESIGN) %>% 
+    #   dplyr::summarise(Count=n(), .groups="drop")
+    
+    # For everything::
+    # noob_man_tib <- noob_tib
+    
+    noob_sel_tib <- noob_tib %>%
+      dplyr::filter(SubSet) %>%
+      dplyr::select(-Probe_ID,-SubSet) %>%
+      dplyr::rename(Probe_ID=Hash_ID) %>%
+      dplyr::select(Probe_ID, dplyr::everything()) %>%
+      clean_tibble()
+    
+    # All Noob & GS Controls::
+    #
+    ret_tib <- dplyr::bind_rows(noob_sel_tib,ctl_tib)
+
+    # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -801,8 +819,16 @@ aqp_to_man = function(tib,
                       verbose=0,vt=3,tc=1,tt=NULL,
                       funcTag='aqp_to_man') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -828,8 +854,8 @@ aqp_to_man = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
   
   ret_tib
 }
@@ -838,8 +864,16 @@ aqp_to_sesame1 = function(tib, isMU=FALSE, retData=FALSE,
                           verbose=0,vt=3,tc=1,tt=NULL,
                           funcTag='aqp_to_sesame1') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -970,9 +1004,9 @@ aqp_to_sesame1 = function(tib, isMU=FALSE, retData=FALSE,
     col_cnt1 <- ret_tib %>% dplyr::filter(is.na(Col)) %>% base::nrow()
     col_cnt2 <- ret_tib %>% dplyr::filter(is.na(Color_Channel)) %>% base::nrow()
     max_repn <- max(ret_tib$Rep_Num)
-    cat(glue::glue("[{funcTag}]:{tabsStr} col_cnt1={col_cnt1}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} col_cnt2={col_cnt2}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} max_repn={max_repn}{RET}"))
+    cat(glue::glue("{mssg} col_cnt1={col_cnt1}{RET}"))
+    cat(glue::glue("{mssg} col_cnt2={col_cnt2}{RET}"))
+    cat(glue::glue("{mssg} max_repn={max_repn}{RET}"))
     
     ret_tib %>% dplyr::group_by(Col) %>% 
       dplyr::summarise(Count=n(), .groups="drop") %>% print()
@@ -989,8 +1023,8 @@ aqp_to_sesame1 = function(tib, isMU=FALSE, retData=FALSE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
   
   if (retData) return(ret_dat)
   
@@ -1001,8 +1035,16 @@ aqp_to_sesame2 = function(tib, isMU=FALSE, retData=FALSE,
                           verbose=0,vt=3,tc=1,tt=NULL,
                           funcTag='aqp_to_sesame2') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -1118,8 +1160,8 @@ aqp_to_sesame2 = function(tib, isMU=FALSE, retData=FALSE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
   
   if (retData) return(ret_dat)
   
@@ -1132,191 +1174,5 @@ aqp_to_sesame2 = function(tib, isMU=FALSE, retData=FALSE,
 #                        and moved to function graveyard!
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-if (FALSE) {
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                       Address To Manifest Methods::
-  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  
-  # TBD:: Pretty Sure this can be removed::
-  add_comb = function(tibA, tibB, field,
-                      join,
-                      verbose=0,vt=3,tc=1,tt=NULL) {
-    funcTag <- 'add_comb'
-    tabsStr <- paste0(rep(TAB, tc), collapse='')
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-    
-    ret_cnt <- 0
-    ret_tib <- NULL
-    stime <- base::system.time({
-      
-      ret_tib <- 
-        dplyr::inner_join(
-          tibA, tibB, 
-          by=dplyr::all_of(join),
-          suffix=c("_U","_M")
-        ) # %>%
-      # dplyr::select(dplyr::starts_with(field)) %>%
-      # dplyr::distinct() %>%
-      # purrr::set_names(c("U","M"))
-      
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
-    })
-    etime <- stime[3] %>% as.double() %>% round(2)
-    if (!is.null(tt)) tt$addTime(stime,funcTag)
-    if (verbose>=vt) cat(glue::glue(
-      "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-      "{RET}{tabsStr}{BRK}{RET}{RET}"))
-    
-    ret_tib
-  }
-  
-  add_to_man = function(tib, join, runName,
-                        des_key="Ord_Des", pid_key="Ord_Key",
-                        rep_key=NULL, rep_val=NULL,
-                        col_key=NULL, nxb_key=NULL,
-                        csv=NULL, validate=TRUE,
-                        verbose=0,vt=3,tc=1,tt=NULL) {
-    funcTag <- 'add_to_man'
-    tabsStr <- paste0(rep(TAB, tc), collapse='')
-    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
-    
-    ret_cnt <- 0
-    ret_tib <- NULL
-    stime <- base::system.time({
-      
-      des_list <- NULL
-      des_list <- tib %>% split(.[[des_key]])
-      des_cnt  <- des_list %>% names() %>% length()
-      if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr} des_list[{des_key}]={RET}"))
-        print(des_list)
-      }
-      
-      # Build Infinium I::
-      ret1_tib <- NULL
-      if (!is.null(des_list[["U"]]) && !is.null(des_list[["M"]])) {
-        ret1_tib <- dplyr::full_join(
-          dplyr::select(des_list[["U"]], -dplyr::all_of(des_key)), 
-          dplyr::select(des_list[["M"]], -dplyr::all_of(des_key)), 
-          by=dplyr::all_of(join),
-          suffix=c("_U","_M")
-        ) %>% dplyr::mutate(Infinium_Design=as.integer(1))
-        # TBD:: We should allow these "singletons" to pass, but under
-        #  a different classification...
-        #
-        if ("Address_U" %in% names(ret1_tib) && 
-            "Address_M" %in% names(ret1_tib)) ret1_tib <- ret1_tib %>% 
-            dplyr::filter(!is.na(Address_U) & !is.na(Address_M))
-      }
-      ret1_cnt <- print_tib(ret1_tib,funcTag, verbose,vt+4,tc, n="InfI")
-      
-      # Build Infinium II::
-      ret2_tib <- NULL
-      if (!is.null(des_list[["2"]])) {
-        ret2_tib <- dplyr::bind_cols(
-          dplyr::select(des_list[["2"]],  dplyr::all_of(join)),
-          dplyr::select(des_list[["2"]], -dplyr::all_of(join)) %>% 
-            purrr::set_names(paste(names(.),"U", sep="_"))
-        ) %>% dplyr::mutate(Infinium_Design=as.integer(2))
-        ret2_cnt <- print_tib(ret2_tib,funcTag, verbose,vt+4,tc, n="InfII")
-      }
-      
-      # Bind Infinium I/II into single manifest::
-      ret_tib <- dplyr::bind_rows(ret1_tib, ret2_tib) %>%
-        dplyr::mutate(
-          # Infinium_Design=dplyr::case_when(
-          #   is.na(Address_M) ~ 2,
-          #   !is.na(Address_M) ~ 1,
-          #   TRUE ~ NA_real_
-          # ) %>% as.integer(),
-          Infinium_Design_Type=dplyr::case_when(
-            Infinium_Design==1 ~ 'I',
-            Infinium_Design==2 ~ 'II',
-            TRUE ~ NA_character_)
-        )
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="InfI+II.0")
-      
-      if (!is.null(col_key)) {
-        col_sym <- rlang::sym(col_key)
-        ret_tib <- ret_tib %>%
-          dplyr::mutate(
-            col=dplyr::case_when(
-              Infinium_Design==1 ~ !!col_sym,
-              TRUE ~ NA_character_),
-            Color_Channel=dplyr::case_when(
-              Infinium_Design==2 ~ 'Both',
-              col=="R" ~ 'Red',
-              col=='G' ~ 'Grn',
-              TRUE ~ NA_character_),
-            Next_Base=dplyr::case_when(
-              col=="R" ~ "A",
-              col=="G" ~ "C",
-              TRUE ~ NA_character_
-            ),
-            Probe_Source=runName
-          )
-      } else if (!is.null(nxb_key)) {
-        nxb_sym <- rlang::sym(nxb_key)
-        
-        ret_tib <- ret_tib %>%
-          dplyr::mutate(
-            Color_Channel=dplyr::case_when(
-              Infinium_Design==2 ~ 'Both',
-              Infinium_Design==1 & (!!nxb_sym=='A' | !!nxb_sym=='T' |
-                                      !!nxb_sym=='a' | !!nxb_sym=='t') ~ 'Red',
-              Infinium_Design==1 & (!!nxb_sym=='C' | !!nxb_sym=='G' |
-                                      !!nxb_sym=='c' | !!nxb_sym=='g') ~ 'Grn',
-              TRUE ~ NA_character_),
-            col=dplyr::case_when(
-              Infinium_Design==2 ~ NA_character_,
-              Infinium_Design==1 ~ stringr::str_sub(Color_Channel, 1,1),
-              TRUE ~ NA_character_),
-            Next_Base=dplyr::case_when(
-              col=="R" ~ !!nxb_sym,
-              col=="G" ~ !!nxb_sym,
-              TRUE ~ NA_character_
-            ),
-            # Next_Base=!!nxb_sym,
-            Probe_Source=runName
-          )
-      } else {
-        # Do nothing for now, but this should not be a standard use case
-        return(NULL)
-      }
-      
-      if (!is.null(pid_key)) {
-        pid_key_sym = rlang::sym(pid_key)
-        ret_tib <- ret_tib %>% dplyr::arrange(pid_key)
-      }
-      
-      if (!is.null(pid_key) && !is.null(rep_key) && !is.null(rep_val)) {
-        rep_key_sym = rlang::sym(rep_key)
-        rep_val_sym = rlang::sym(rep_val)
-        
-        if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr} Adding Probe Replicate({rep_key}/{rep_val})...{RET}"))
-        ret_tib <- ret_tib %>% dplyr::group_by(!!rep_key_sym) %>%
-          dplyr::mutate(!!rep_val_sym := dplyr::row_number(),
-                        !!pid_key_sym := paste0(!!rep_key_sym,!!rep_val_sym)) %>%
-          dplyr::ungroup()
-      }
-      
-      if (!is.null(csv)) {
-        safe_write(ret_tib,"csv",csv,
-                   funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      }
-      
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="InfI+II")
-    })
-    etime <- stime[3] %>% as.double() %>% round(2)
-    if (!is.null(tt)) tt$addTime(stime,funcTag)
-    if (verbose>=vt) cat(glue::glue(
-      "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-      "{RET}{tabsStr}{BRK}{RET}{RET}"))
-    
-    ret_tib
-  }
-}
 
 # End of file

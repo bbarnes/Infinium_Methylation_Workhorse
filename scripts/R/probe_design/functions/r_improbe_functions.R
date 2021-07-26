@@ -28,12 +28,14 @@ template_func = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='template_func') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -48,11 +50,11 @@ template_func = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -63,31 +65,139 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 r_improbe_workflow = function(tib,
+                              
+                              ids_key,
+                              seq_key,
+                              din_key,
+                              
+                              srsplit = FALSE,
+                              srd_key = NULL,
+                              srd_str = "FR", 
+                              
+                              cosplit = FALSE,
+                              cos_key = NULL,
+                              cos_str = "CO",
+                              
+                              ups_len = 60,
+                              seq_len = 122,
+                              
+                              join     = FALSE,
+                              subset   = FALSE,
+                              sub_cols = NULL,
+                              
+                              reload     = FALSE,
+                              parallel   = FALSE,
+                              add_matseq = TRUE,
+                              
                               verbose=0,vt=3,tc=1,tt=NULL,
                               funcTag='r_improbe_workflow') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} File IO Parameters::{RET}"))
+    cat(glue::glue("{mssg}      prb_csv={prb_csv}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}      ids_key={ids_key}.{RET}"))
+    cat(glue::glue("{mssg}      din_key={din_key}.{RET}"))
+    cat(glue::glue("{mssg}      seq_key={seq_key}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}      srsplit={srsplit}.{RET}"))
+    cat(glue::glue("{mssg}      srd_key={srd_key}.{RET}"))
+    cat(glue::glue("{mssg}      srd_str={srd_str}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}      cosplit={cosplit}.{RET}"))
+    cat(glue::glue("{mssg}      cos_key={cos_key}.{RET}"))
+    cat(glue::glue("{mssg}      cos_str={cos_str}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}      ups_len={ups_len}.{RET}"))
+    cat(glue::glue("{mssg}      seq_len={seq_len}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}         join={join}.{RET}"))
+    cat(glue::glue("{mssg}       subset={subset}.{RET}"))
+    cat(glue::glue("{mssg}     sub_cols={sub_cols}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}       reload={reload}.{RET}"))
+    cat(glue::glue("{mssg}     parallel={parallel}.{RET}"))
+    cat(glue::glue("{mssg}   add_matseq={add_matseq}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
+  etime   <- 0
   ret_cnt <- 0
   ret_tib <- NULL
+  ret_dat <- NULL
+  
+  out_dir <- file.path(out_dir,funcTag)
+  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  
+  
+  # Reload if all data is present::
+  #
+  if (reload &&
+      !purrr::is_null(prb_csv) && file.exists(prb_csv)) {
+    if (verbose>=vt) 
+      cat(glue::glue("{mssg} Reloading:: prb_csv{prb_csv}...{RET}"))
+    
+    stime <- base::system.time({
+      ret_tib <- safe_read(file = prb_csv, funcTag=funcTag,
+                           verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) cat(glue::glue(
+      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{mssg}{BRK}{RET2}"))
+    
+    ret_key <- glue::glue("ret-reloaded({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+    return(ret_tib)
+  }
+  
   stime <- base::system.time({
     
-    # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    ret_tib <- 
+      r_improbe(tib=tib,
+                
+                ids_key = ids_key,
+                seq_key = seq_key,
+                din_key = din_key,
+                
+                srsplit = srsplit,
+                srd_key = srd_key,
+                srd_str = srd_str, 
+                
+                cosplit = cosplit,
+                cos_key = cos_key,
+                cos_str = cos_str,
+                
+                ups_len = ups_len,
+                seq_len = seq_len,
+                
+                join     = join,
+                subset   = subset,
+                sub_cols = sub_cols,
+                
+                parallel   = parallel, 
+                add_matseq = add_matseq,
+                
+                verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
+    prb_cnt <- safe_write(x=ret_tib, file=prb_csv, funcTag=funcTag,
+                          verbose=verbose, vt=vt,tc=tc,append=FALSE)
+
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -102,7 +212,7 @@ r_improbe_workflow = function(tib,
 # NOTE:: Function has been renamed desSeq_to_prbs() -> r_improbe()
 #
 r_improbe = function(tib,
-
+                     
                      ids_key, 
                      seq_key, 
                      din_key,
@@ -115,48 +225,49 @@ r_improbe = function(tib,
                      cos_key=NULL,
                      cos_str='CO',
                      
-                     prb_len=60, 
-                     seq_len=122,
+                     ups_len = 60, 
+                     seq_len = 122,
                      
-                     join=FALSE,
-                     subset=FALSE,
-                     sub_cols=NULL,
+                     join     = FALSE,
+                     subset   = FALSE,
+                     sub_cols = NULL,
                      
-                     parallel=FALSE, 
-                     add_matseq=TRUE,
+                     parallel   = FALSE, 
+                     add_matseq = TRUE,
                      
                      del='_',
                      max=0,
                      verbose=0,vt=3,tc=1,tt=NULL, 
                      funcTag='r_improbe') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     ids_key={ids_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     din_key={din_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     seq_key={seq_key}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}      ids_key={ids_key}.{RET}"))
+    cat(glue::glue("{mssg}      din_key={din_key}.{RET}"))
+    cat(glue::glue("{mssg}      seq_key={seq_key}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     srsplit={srsplit}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     srd_key={srd_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     srd_str={srd_str}.{RET}"))
+    cat(glue::glue("{mssg}      srsplit={srsplit}.{RET}"))
+    cat(glue::glue("{mssg}      srd_key={srd_key}.{RET}"))
+    cat(glue::glue("{mssg}      srd_str={srd_str}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     cosplit={cosplit}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     cos_key={cos_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     cos_str={cos_str}.{RET}"))
+    cat(glue::glue("{mssg}      cosplit={cosplit}.{RET}"))
+    cat(glue::glue("{mssg}      cos_key={cos_key}.{RET}"))
+    cat(glue::glue("{mssg}      cos_str={cos_str}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     prb_len={prb_len}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     seq_len={seq_len}.{RET}"))
+    cat(glue::glue("{mssg}      ups_len={ups_len}.{RET}"))
+    cat(glue::glue("{mssg}      seq_len={seq_len}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}        join={join}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      subset={subset}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    sub_cols={sub_cols}.{RET}"))
+    cat(glue::glue("{mssg}         join={join}.{RET}"))
+    cat(glue::glue("{mssg}       subset={subset}.{RET}"))
+    cat(glue::glue("{mssg}     sub_cols={sub_cols}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    parallel={parallel}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}  add_matseq={add_matseq}.{RET}"))
+    cat(glue::glue("{mssg}     parallel={parallel}.{RET}"))
+    cat(glue::glue("{mssg}   add_matseq={add_matseq}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -176,15 +287,15 @@ r_improbe = function(tib,
        ( cosplit && !is.null(cos_key) ) ) {
     
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Will split by strand...{RET}"))
+      cat(glue::glue("{mssg} Will split by strand...{RET}"))
     
     if (srsplit &&!is.null(srd_key)) {
       tib_list <- split(tib, f=dplyr::pull(tib, srd_key))
       
       for (srd in names(tib_list)) {
         if (verbose>=vt) 
-          cat(glue::glue("{RET}{BRK}{RET}[{funcTag}]:{tabsStr} ",
-                         "Starting::split={tc}/{srd}{RET}{RET}{RET}"))
+          cat(glue::glue("{RET}{BRK}{RET}{mssg} ",
+                         "Starting::split={tc}/{srd}{RET2}{RET}"))
         if (verbose>=vt+4)
           tib_list[[srd]] %>% dplyr::select(
             dplyr::all_of(c(!!ids_key,!!seq_key,!!din_key,
@@ -204,7 +315,7 @@ r_improbe = function(tib,
                              cosplit=cosplit,
                              cos_key=cos_key, 
                              
-                             prb_len=prb_len, 
+                             ups_len=ups_len, 
                              seq_len=seq_len, 
                              
                              join=join,
@@ -220,7 +331,7 @@ r_improbe = function(tib,
         ret_tib <- dplyr::bind_rows(ret_tib, cur_tib)
         
         if (verbose>=vt) 
-          cat(glue::glue("{RET}[{funcTag}]:{tabsStr} DONE::split={srd}{RET}{BRK}{RET}"))
+          cat(glue::glue("{RET}{mssg} DONE::split={srd}{RET}{BRK}{RET}"))
       }
       
     } else if (cosplit && !is.null(cos_key)) {
@@ -228,8 +339,8 @@ r_improbe = function(tib,
       
       for (srd in names(tib_list)) {
         if (verbose>=vt) 
-          cat(glue::glue("{RET}{BRK}{RET}[{funcTag}]:{tabsStr} ",
-                         "Starting::split={tc}/{srd}{RET}{RET}{RET}"))
+          cat(glue::glue("{RET}{BRK}{RET}{mssg} ",
+                         "Starting::split={tc}/{srd}{RET2}{RET}"))
         if (verbose>=vt+4)
           tib_list[[srd]] %>% dplyr::select(
             dplyr::all_of(c(!!ids_key,!!seq_key,!!din_key,
@@ -249,7 +360,7 @@ r_improbe = function(tib,
                              cosplit=FALSE,
                              cos_key=cos_key,
                              
-                             prb_len=prb_len, 
+                             ups_len=ups_len, 
                              seq_len=seq_len, 
                              
                              join=join,
@@ -266,13 +377,13 @@ r_improbe = function(tib,
         ret_tib <- dplyr::bind_rows(ret_tib, cur_tib)
         
         if (verbose>=vt) 
-          cat(glue::glue("{RET}[{funcTag}]:{tabsStr} DONE::split={srd}{RET}{BRK}{RET}"))
+          cat(glue::glue("{RET}{mssg} DONE::split={srd}{RET}{BRK}{RET}"))
       }
     }
   } else {
     
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Running r-improbe...{RET}{RET}"))
+      cat(glue::glue("{mssg} Running r-improbe...{RET2}"))
     
     ret_cnt <- 0
     ret_tib <- NULL
@@ -280,14 +391,14 @@ r_improbe = function(tib,
       
       valid_srd_vec <- c("FR","TB")
       if (!srd_str %in% valid_srd_vec) {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Invalid SR ",
-                        "string={srd_str}!{RET}{RET}"))
+        stop(glue::glue("{RET}{mssg} ERROR: Invalid SR ",
+                        "string={srd_str}!{RET2}"))
         return(ret_tib)
       }
       valid_cos_vec <- c("CO")
       if (!cos_str %in% valid_cos_vec) {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Invalid CO ",
-                        "string={cos_str}!{RET}{RET}"))
+        stop(glue::glue("{RET}{mssg} ERROR: Invalid CO ",
+                        "string={cos_str}!{RET2}"))
         return(ret_tib)
       }
       
@@ -296,7 +407,7 @@ r_improbe = function(tib,
       
       if (max>0) {
         if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr} Will subset input to ",
+          cat(glue::glue("{mssg} Will subset input to ",
                          "max={max}.{RET}"))
         tib <- tib %>% head(n=max)
       }
@@ -332,7 +443,7 @@ r_improbe = function(tib,
       # Ensure we have 122 mer format 60[NN]60
       src_man_tib <- validate_templates(tib=src_man_tib,
                                         seq_key=seq_key,
-                                        prb_len=prb_len,
+                                        ups_len=ups_len,
                                         seq_len=seq_len,
                                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       
@@ -344,7 +455,7 @@ r_improbe = function(tib,
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Building forward & reverse ",
+        cat(glue::glue("{mssg} Building forward & reverse ",
                        "reference template sequneces...{RET}"))
       
       bsc_tibs <- NULL
@@ -377,11 +488,11 @@ r_improbe = function(tib,
       srd_count <- srd_names %>% length()
       
       if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Strand Names({srd_names})={RET}"))
+        cat(glue::glue("{mssg} Strand Names({srd_names})={RET}"))
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Done. Building forward & reverse ",
+        cat(glue::glue("{mssg} Done. Building forward & reverse ",
                        "reference template sequneces(strands={srd_count})!",
-                       "{RET}{RET}"))
+                       "{RET2}"))
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                    Build all Probes on Each Strand::
@@ -389,7 +500,7 @@ r_improbe = function(tib,
       
       if (parallel) {
         if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building probes for each ",
+          cat(glue::glue("{mssg}{TAB} Building probes for each ",
                          "strand (Parallel)...{RET}"))
         
         ret_tib <- foreach (srd=srd_names, .combine=rbind) %dopar% {
@@ -399,7 +510,7 @@ r_improbe = function(tib,
         }
       } else {
         if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Building probes for each ",
+          cat(glue::glue("{mssg}{TAB} Building probes for each ",
                          "strand (Linear)...{RET}"))
         
         for (srd in srd_names) {
@@ -411,14 +522,14 @@ r_improbe = function(tib,
         }
       }
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Building probes for ",
-                       "each strand.{RET}{RET}"))
+        cat(glue::glue("{mssg}{TAB} Done. Building probes for ",
+                       "each strand.{RET2}"))
       ret_key <- glue::glue("prbs-on-all-srds:ret-tib({funcTag})")
       ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
       
       # Update Keys::
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Updating keys and strands.{RET}"))
+        cat(glue::glue("{mssg} Updating keys and strands.{RET}"))
       
       ids_unq_key <- paste(ids_key,"srd", sep=del)
       ids_unq_sym <- rlang::sym(ids_unq_key)
@@ -452,7 +563,7 @@ r_improbe = function(tib,
       # Add match probe sequences
       if (add_matseq) {
         if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding match probe ",
+          cat(glue::glue("{mssg}{TAB} Adding match probe ",
                          "sequencess...{RET}"))
         ret_tib <- ret_tib %>% 
           dplyr::mutate(!!prb1U_sym:=stringr::str_to_upper(PRB1_U),
@@ -488,15 +599,15 @@ r_improbe = function(tib,
         ret_tib <- ret_tib %>% dplyr::select(dplyr::any_of(sub_cols), 
                                              dplyr::everything())
       }
-      
+
       ret_key <- glue::glue("ret-FIN({funcTag})")
       ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     })
     etime <- stime[3] %>% as.double() %>% round(2)
     if (!is.null(tt)) tt$addTime(stime,funcTag)
     if (verbose>=vt) cat(glue::glue(
-      "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-      "{RET}{tabsStr}{BRK}{RET}{RET}"))
+      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{tabs}{BRK}{RET2}"))
     
     return(ret_tib)
   }
@@ -507,29 +618,31 @@ r_improbe = function(tib,
   # etime <- stime[3] %>% as.double() %>% round(2)
   # if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
 
 validate_templates = function(tib,
                               seq_key,
-                              prb_len=60, 
+                              ups_len=60, 
                               seq_len=122, 
                               del="_",
                               pad="N",
                               verbose=0,vt=3,tc=1,tt=NULL,
                               funcTag='validate_templates') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   seq_key={seq_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   prb_len={prb_len}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   seq_len={seq_len}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}   seq_key={seq_key}.{RET}"))
+    cat(glue::glue("{mssg}   ups_len={ups_len}.{RET}"))
+    cat(glue::glue("{mssg}   seq_len={seq_len}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -540,7 +653,7 @@ validate_templates = function(tib,
     seq_sym <- rlang::sym(seq_key)
     
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]:{tabsStr} Validating design sequneces...{RET}"))
+      cat(glue::glue("{mssg} Validating design sequneces...{RET}"))
     
     ret_tib <- tib %>%
       dplyr::mutate(
@@ -549,19 +662,19 @@ validate_templates = function(tib,
       tidyr::separate(!!seq_sym, 
                       into=c("PreSeqN", "MidSeqN", "PosSeqN"), sep=del) %>%
       dplyr::mutate(
-        PreSeqN=stringr::str_sub(PreSeqN,   -prb_len),
-        PosSeqN=stringr::str_sub(PosSeqN, 1, prb_len),
+        PreSeqN=stringr::str_sub(PreSeqN,   -ups_len),
+        PosSeqN=stringr::str_sub(PosSeqN, 1, ups_len),
         PreSeqN=stringr::str_pad(string=PreSeqN, 
-                                 width=prb_len, side='left', pad=pad),
+                                 width=ups_len, side='left', pad=pad),
         PosSeqN=stringr::str_pad(string=PosSeqN, 
-                                 width=prb_len, side='right', pad=pad),
+                                 width=ups_len, side='right', pad=pad),
         DesNucA=stringr::str_sub(MidSeqN, 1,1), 
         DesNucB=stringr::str_sub(MidSeqN, 2,2),
         !!seq_sym :=paste0(PreSeqN,'[',MidSeqN,']',PosSeqN) )
     
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Done. Validating design ",
-                     "sequneces.{RET}{RET}"))
+      cat(glue::glue("{mssg} Done. Validating design ",
+                     "sequneces.{RET2}"))
     
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
@@ -569,8 +682,8 @@ validate_templates = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -588,19 +701,21 @@ bsc_templates = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='bsc_templates') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   srd_chr={srd_chr}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   srd_vec={srd_vec}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   seq_key={seq_key}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}   srd_chr={srd_chr}.{RET}"))
+    cat(glue::glue("{mssg}   srd_vec={srd_vec}.{RET}"))
+    cat(glue::glue("{mssg}   seq_key={seq_key}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   srd_bol={srd_bol}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   srd_str={srd_str}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   cos_bol={cos_bol}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   cos_str={cos_str}.{RET}"))
+    cat(glue::glue("{mssg}   srd_bol={srd_bol}.{RET}"))
+    cat(glue::glue("{mssg}   srd_str={srd_str}.{RET}"))
+    cat(glue::glue("{mssg}   cos_bol={cos_bol}.{RET}"))
+    cat(glue::glue("{mssg}   cos_str={cos_str}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -629,7 +744,7 @@ bsc_templates = function(tib,
     #
     if (!is.null(des_seq_tib)) {
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Building bisulfite converted ",
+        cat(glue::glue("{mssg} Building bisulfite converted ",
                        "forward strand template sequence(s)...{RET}"))
       
       ret_dat[[srdC]] <- des_seq_tib %>% 
@@ -639,7 +754,7 @@ bsc_templates = function(tib,
           DesBscD = bscDs(DesSeqN) )
       
       if (verbose>=vt+1) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Done. Building bisulfite ",
+        cat(glue::glue("{mssg} Done. Building bisulfite ",
                        "template sequences ({srdC}).{RET}"))
       ret_key <- glue::glue("bsc_tibs-{srdC}({funcTag})")
       ret_cnt <- print_tib(ret_dat[[srdC]],funcTag, verbose,vt+6,tc, n=ret_key)
@@ -656,7 +771,7 @@ bsc_templates = function(tib,
             DesBscD=revCmp(DesBscD) )
         
         if (verbose>=vt+1)
-          cat(glue::glue("[{funcTag}]:{tabsStr} Done. Building bisulfite ",
+          cat(glue::glue("{mssg} Done. Building bisulfite ",
                          "template sequences ({srdO}).{RET}"))
         ret_key <- glue::glue("bsc_tibs-{srdO}({funcTag})")
         ret_cnt <- print_tib(ret_dat[[srdO]],funcTag, verbose,vt+6,tc,n=ret_key)
@@ -671,8 +786,8 @@ bsc_templates = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_dat
 }
@@ -684,15 +799,16 @@ des_all_prbs = function(tib,
                         din_key,
                         verbose=0,vt=5,tc=1,tt=NULL, funcTag='des_all_prbs') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   srd_str={srd_str}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   cos_str={cos_str}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   din_key={din_key}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}   srd_str={srd_str}.{RET}"))
+    cat(glue::glue("{mssg}   cos_str={cos_str}.{RET}"))
+    cat(glue::glue("{mssg}   din_key={din_key}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -724,8 +840,8 @@ des_all_prbs = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -744,17 +860,18 @@ des_to_prbs = function(tib,
                        QC_CPN=FALSE,
                        verbose=0,vt=5,tc=1,tt=NULL, funcTag='des_to_prbs') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+4) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       pr={pr}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       mu={mu}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      fwd={fwd}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      con={con}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}  des_seq={des_seq}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}       pr={pr}.{RET}"))
+    cat(glue::glue("{mssg}       mu={mu}.{RET}"))
+    cat(glue::glue("{mssg}      fwd={fwd}.{RET}"))
+    cat(glue::glue("{mssg}      con={con}.{RET}"))
+    cat(glue::glue("{mssg}  des_seq={des_seq}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -766,24 +883,24 @@ des_to_prbs = function(tib,
     stopifnot(is.logical(con))
     
     if (!is.logical(fwd)) {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: fwd={fwd} Must be ",
-                      "logical!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} ERROR: fwd={fwd} Must be ",
+                      "logical!{RET2}"))
       return(ret_tib)
     }
     if (!is.logical(con)) {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: con={con} Must be ",
-                      "logical!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} ERROR: con={con} Must be ",
+                      "logical!{RET2}"))
       return(ret_tib)
     }
     
     if (mu!='N' && mu!='U' && mu!='M' && mu!='D') {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: mu={mu} Only ",
-                      "Supported=[N,U,M,D]!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} ERROR: mu={mu} Only ",
+                      "Supported=[N,U,M,D]!{RET2}"))
       return(ret_tib)
     }
     if (pr!='cg' && pr!='ch' && pr!='rs' && pr!='rp' && pr!='mu' && pr!='bc') {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: pr={pr} Only ",
-                      "Supported=[cg,ch,rp,rs]!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} ERROR: pr={pr} Only ",
+                      "Supported=[cg,ch,rp,rs]!{RET2}"))
       return(ret_tib)
     }
     
@@ -794,8 +911,8 @@ des_to_prbs = function(tib,
       else if ( fwd && !con) nxb_pos <- 61
       else if (!fwd && !con) nxb_pos <- 60
       else {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination ",
-                        "fwd={fwd}, con={con}!{RET}{RET}"))
+        stop(glue::glue("{RET}{mssg} ERROR: unsupported combination ",
+                        "fwd={fwd}, con={con}!{RET2}"))
         return(ret_tib)
       }
     } else if (pr=='ch') {
@@ -807,8 +924,8 @@ des_to_prbs = function(tib,
       else if ( fwd && !con) nxb_pos <- 60 # Previously = 61
       else if (!fwd && !con) nxb_pos <- 60
       else {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination ",
-                        "fwd={fwd}, con={con}!{RET}{RET}"))
+        stop(glue::glue("{RET}{mssg} ERROR: unsupported combination ",
+                        "fwd={fwd}, con={con}!{RET2}"))
       }
       
       # NEW:: CpH Code::
@@ -818,8 +935,8 @@ des_to_prbs = function(tib,
       else if ( fwd && !con) nxb_pos <- 61 # Previously = 61
       else if (!fwd && !con) nxb_pos <- 60
       else {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: unsupported combination ",
-                        "fwd={fwd}, con={con}!{RET}{RET}"))
+        stop(glue::glue("{RET}{mssg} ERROR: unsupported combination ",
+                        "fwd={fwd}, con={con}!{RET2}"))
         return(ret_tib)
       }
       
@@ -838,8 +955,8 @@ des_to_prbs = function(tib,
       if (!con) nxb_pos <- 61
       
     } else {
-      stop(glue::glue("[{funcTag}]: ERROR: Probe_Type={pr} is currently NOT ",
-                      "supported!{RET}{RET}"))
+      stop(glue::glue("{mssg} ERROR: Probe_Type={pr} is currently NOT ",
+                      "supported!{RET2}"))
       return(ret_tib)
     }
     cpg_pos <- nxb_pos + 1
@@ -877,8 +994,8 @@ des_to_prbs = function(tib,
       qc_len <- qc_tib %>% base::nrow()
       if (qc_len != 0) {
         qc_tib %>% dplyr::select(1,PRB0,PRB1) %>% print()
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: pr={pr}, qc_len={qc_len} ",
-                        "!= 0!{RET}{RET}"))
+        stop(glue::glue("{RET}{mssg} ERROR: pr={pr}, qc_len={qc_len} ",
+                        "!= 0!{RET2}"))
         return(NULL)
       }
     } else {
@@ -906,8 +1023,8 @@ des_to_prbs = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -916,7 +1033,7 @@ des2prbsNOTES = function(srd, desSeq,
                          verbose=0,vt=5,tc=1,tt=NULL) {
   funcTag <- 'des2prbs'
   for (i in c(1:tc)) tabsStr <- paste0(tabsStr, TAB)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   
   # bscNewU <- bscNewU(desSeq)
   # bscNewM <- bscNewM(desSeq)
@@ -953,7 +1070,7 @@ des2prbsNOTES = function(srd, desSeq,
   # $$prbRef[$srd][$iM]=[ revCmpl($desSetM[4]), revCmpl($desSetM[3]), revCmpl($desSetM[1].$desSetM[2]), revCmpl($desSetM[0]) ];
   # $$prbRef[$srd][$iD]=[ revCmpl($desSetD[4]), revCmpl($desSetD[3]), revCmpl($desSetD[1].$desSetD[2]), revCmpl($desSetD[0]) ];
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Done.{RET2}"))
   
   NULL
 }
@@ -979,20 +1096,21 @@ print_prbs = function(tib,
                       max=0,
                       verbose=0,vt=5,tc=1,tt=NULL, funcTag='print_prbs') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+4) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   tar_des={tar_des}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   prb_key={prb_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   tar_des={tar_des}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   des_key={des_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   din_key={din_key}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}   tar_des={tar_des}.{RET}"))
+    cat(glue::glue("{mssg}   prb_key={prb_key}.{RET}"))
+    cat(glue::glue("{mssg}   tar_des={tar_des}.{RET}"))
+    cat(glue::glue("{mssg}   des_key={des_key}.{RET}"))
+    cat(glue::glue("{mssg}   din_key={din_key}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     outDir={outDir}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   plotName={plotName}.{RET}{RET}"))
+    cat(glue::glue("{mssg}     outDir={outDir}.{RET}"))
+    cat(glue::glue("{mssg}   plotName={plotName}.{RET2}"))
   }
   
   ids_sym <- rlang::sym(ids_key)
@@ -1009,7 +1127,7 @@ print_prbs = function(tib,
     dplyr::distinct(!!ids_sym, .keep_all=TRUE)
   plot_ord_cnt <- plot_ord_tib %>% base::nrow()
   if (verbose>=vt) 
-    cat(glue::glue("[{funcTag}]:{tabsStr} plot_ord_cnt={plot_ord_cnt}, ",
+    cat(glue::glue("{mssg} plot_ord_cnt={plot_ord_cnt}, ",
                    "prb_mat_cnt={prb_mat_cnt}.{RET}"))
   
   if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
@@ -1026,7 +1144,7 @@ print_prbs = function(tib,
     tag_tib <- plot_ord_tib[ii,]
     cur_SeqID <- tag_tib %>% head(n=1) %>% dplyr::pull(ids_key)
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ii={ii}; cur_SeqID={cur_SeqID}.{RET}"))
+      cat(glue::glue("{mssg}{TAB} ii={ii}; cur_SeqID={cur_SeqID}.{RET}"))
     
     cur_org <- NULL
     org_str <- ''
@@ -1096,7 +1214,7 @@ print_prbs = function(tib,
     
     if (max!=0 && ii>=max) break
   }
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Done.{RET2}"))
   
   tibs
 }
@@ -1128,11 +1246,14 @@ srds_to_brac = function(tib,
   
 }
 
-prbsToStr = function(tib, pr, verbose=0,vt=5,tc=1,tt=NULL) {
-  funcTag <- 'prbsToStr'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
+prbsToStr = function(tib,
+                     pr, 
+                     verbose=0, vt=5,tc=1,tt=NULL, funcTag='prbsToStr') {
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; pr={pr}.{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting; pr={pr}.{RET}"))
   
   # fr1Key <- tib %>% dplyr::select(!!frKey) %>% head(n=1) %>% pull()
   # fr2Key <- tib$StrandFR[2]
@@ -1144,7 +1265,7 @@ prbsToStr = function(tib, pr, verbose=0,vt=5,tc=1,tt=NULL) {
   co1Key <- tib$StrandCO[1]
   co2Key <- tib$StrandCO[2]
   
-  if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} fr1Key={fr1Key}, fr2Key={fr2Key}, co1Key={co1Key}, co2Key={co2Key}.{RET}"))
+  if (verbose>=vt+1) cat(glue::glue("{mssg} fr1Key={fr1Key}, fr2Key={fr2Key}, co1Key={co1Key}, co2Key={co2Key}.{RET}"))
   
   mud <- list('U'='U','M'='M','D'='D')
   
@@ -1217,7 +1338,7 @@ prbsToStr = function(tib, pr, verbose=0,vt=5,tc=1,tt=NULL) {
         "{pass_str}{fr1Key}_{co1Key}_II{TAB}",paste0(rep(" ", 10-bufC), collapse=''),"{tib[[endKey$D]][1]}{Biostrings::reverse(tib[[bodKey$D]][1])}{tib[[secKey$D]][1]}{BNG}{tib[[tarKey$D]][1]}{RET}",
         "{RET}")
     } else {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: fr1Key={fr1Key}, fr2Key={fr2Key}, Allowed Values=[F,R]!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} ERROR: fr1Key={fr1Key}, fr2Key={fr2Key}, Allowed Values=[F,R]!{RET2}"))
     }
   } else {
     if (fr1Key=='F' && fr2Key=='F') {
@@ -1254,18 +1375,21 @@ prbsToStr = function(tib, pr, verbose=0,vt=5,tc=1,tt=NULL) {
         "{pass_str}{fr1Key}_{co1Key}_II{TAB}",paste0(rep(" ", 10+buf), collapse=''),"{tib[[endKey$D]][1]}{Biostrings::reverse(tib[[bodKey$D]][1])}{BNG}{tib[[secKey$D]][1]}{tib[[tarKey$D]][1]}{RET}",
         "{RET}")
     } else {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: fr1Key={fr1Key}, fr2Key={fr2Key}, Allowed Values=[F,R]!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} ERROR: fr1Key={fr1Key}, fr2Key={fr2Key}, Allowed Values=[F,R]!{RET2}"))
     }
   }
   if (verbose>=vt) cat(str)
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Done.{RET2}"))
   
   str
 }
 
-prbsToStrMUD = function(tib, mu='U', verbose=0,vt=5,tc=1,tt=NULL) {
-  funcTag <- 'prbsToStr'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
+prbsToStrMUD = function(tib, 
+                        mu='U', 
+                        verbose=0,vt=5,tc=1,tt=NULL, funcTag='prbsToStr') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
   
   fr1Key <- tib$StrandFR[1]
   fr2Key <- tib$StrandFR[2]

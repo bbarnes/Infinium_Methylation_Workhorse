@@ -31,12 +31,14 @@ template_func = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='template_func') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -51,17 +53,16 @@ template_func = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         CGN Mapping Workflow Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# cgn_mapping_workflow(dir=run$imp_prb_dir, pattern_u="-probe_U49_cgn-table.tsv.gz", pattern_m="-probe_M49_cgn-table.tsv.gz")
 cgn_mapping_workflow = function(tib, dir,
                                 pattern_u,
                                 pattern_m,
@@ -83,33 +84,48 @@ cgn_mapping_workflow = function(tib, dir,
                                 
                                 del="_",
                                 
-                                verbose=0, vt=3,tc=1,tt=NULL,
+                                out_csv=NULL, out_dir, run_tag, 
+                                re_load=FALSE, pre_tag=NULL,
+                                end_str='csv.gz', sep_chr='.',
+                                verbose=0,vt=3,tc=1,tt=NULL,
                                 funcTag='cgn_mapping_workflow') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  if (verbose>=vt) {
+  out_csv <- redata(out_dir, run_tag, funcTag, re_load, 
+                    pre_tag, end_str=end_str, sep=sep_chr,
+                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  if (tibble::is_tibble(out_csv)) return(out_csv)
+  if (is.null(out_csv)) {
+    stop(glue::glue("{RET}{mssg} ERROR: out_csv is NULL!{RET2}"))
+    return(out_csv)
+  }
+  out_dir <- base::dirname(out_csv)
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}         dir={dir}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   pattern_u={pattern_u}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   pattern_m={pattern_m}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}         dir={dir}.{RET}"))
+    cat(glue::glue("{mssg}   pattern_u={pattern_u}.{RET}"))
+    cat(glue::glue("{mssg}   pattern_m={pattern_m}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     prb_key={prb_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     add_key={add_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     des_key={des_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     din_key={din_key}.{RET}"))
+    cat(glue::glue("{mssg}     prb_key={prb_key}.{RET}"))
+    cat(glue::glue("{mssg}     add_key={add_key}.{RET}"))
+    cat(glue::glue("{mssg}     des_key={des_key}.{RET}"))
+    cat(glue::glue("{mssg}     din_key={din_key}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}         out={out}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      prefix={prefix}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      suffix={suffix}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}        idxA={idxA}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}        idxB={idxB}.{RET}"))
+    cat(glue::glue("{mssg}     out_dir={out_dir}.{RET}"))
+    cat(glue::glue("{mssg}     out_csv={out_csv}.{RET}"))
+    cat(glue::glue("{mssg}      prefix={prefix}.{RET}"))
+    cat(glue::glue("{mssg}      suffix={suffix}.{RET}"))
+    cat(glue::glue("{mssg}        idxA={idxA}.{RET}"))
+    cat(glue::glue("{mssg}        idxB={idxB}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      reload={reload}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    parallel={parallel}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}         del={del}.{RET}"))
+    cat(glue::glue("{mssg}      reload={reload}.{RET}"))
+    cat(glue::glue("{mssg}    parallel={parallel}.{RET}"))
+    cat(glue::glue("{mssg}         del={del}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -117,11 +133,11 @@ cgn_mapping_workflow = function(tib, dir,
   ret_tib <- NULL
   stime <- base::system.time({
     
+    ids_sym <- rlang::sym(ids_key)
     prb_sym <- rlang::sym(prb_key)
     des_sym <- rlang::sym(des_key)
     din_sym <- rlang::sym(din_key)
     aln_sym <- rlang::sym(aln_key)
-    ids_sym <- rlang::sym(ids_key)
     
     if (!dir.exists(out)) dir.create(out, recursive = TRUE)
 
@@ -138,8 +154,6 @@ cgn_mapping_workflow = function(tib, dir,
     ret_tib <- tib %>%
       dplyr::mutate(
         Aln_Prb = deMs(!!prb_sym, uc=TRUE),
-        # Aln_Prb = deMs(!!prb_key, uc=TRUE),
-        # Aln_Rev=revCmp(Aln_Prb),
         !!aln_sym := dplyr::case_when(
           !!des_sym == '2' ~ stringr::str_sub(Aln_Prb, 2),
           !!des_sym == 'U' ~ stringr::str_remove(Aln_Prb, '[A-Z]$'),
@@ -153,7 +167,6 @@ cgn_mapping_workflow = function(tib, dir,
     ret_key <- glue::glue("add-P49({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
     
-
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Intersecting by Probe Sequence:: U49
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -170,7 +183,7 @@ cgn_mapping_workflow = function(tib, dir,
                              aln_key = aln_key,
 
                              idxA = idxA, idxB = idxB, 
-                             out = out, prefix = prefix, suffix = suffix, 
+                             out = out_dir, prefix = prefix, suffix = suffix, 
                              
                              reload   = reload, parallel = parallel, 
                              
@@ -192,7 +205,7 @@ cgn_mapping_workflow = function(tib, dir,
                              aln_key = aln_key,
                              
                              idxA = idxA, idxB = idxB, 
-                             out = out, prefix = prefix, suffix = suffix, 
+                             out = out_dir, prefix = prefix, suffix = suffix, 
                              
                              reload   = reload, parallel = parallel, 
                              
@@ -202,16 +215,18 @@ cgn_mapping_workflow = function(tib, dir,
     #                  Intersecting by Probe Sequence:: M49
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    out_csv <- NULL
     ret_tib <- join_seq_intersect(u49 = u49_tib, 
                                   m49 = m49_tib, 
                                   ids_key = ids_key,
                                   verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-    out_csv <- 
-      file.path(out, paste(prefix,suffix,"intersect.tsv.gz", sep='.'))
+    # Defined Above::
+    #
+    # out_csv <- 
+    #   file.path(out, paste(prefix,suffix,"intersect.tsv.gz", sep='.'))
     
-    out_cnt <- safe_write(ret_tib, file=out_csv, funcTag=funcTag,
+    out_cnt <- safe_write(ret_tib, file=out_csv, funcTag=funcTag, done=TRUE,
                           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    tt$addFile(out_csv)
     
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
@@ -219,13 +234,12 @@ cgn_mapping_workflow = function(tib, dir,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET}{RET}"))
   
   ret_tib
 }
 
-# intersect_seq_workflow(tib = tib, dir = dir, pattern = pattern, tar_bsc = "U49", tar_des = "2", prb_key = prb_key, des_key = des_key, din_key = din_key, unq_key = unq_key, out = out, prefix = prefix, suffix = suffix, idxA = idxA, idxB = idxB, reload = reload, parallel = parallel, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
 intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
 
                                   prb_key = "Prb_Seq", 
@@ -243,12 +257,14 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
                                   verbose=0,vt=3,tc=1,tt=NULL,
                                   funcTag='intersect_seq_workflow') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -273,11 +289,12 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
                               pattern = pattern, 
                               trim    = pattern,
                               verbose = opt$verbose)
+    
     tsv_cnt <- cgn_tsvs %>% names() %>% length()
     pre_len <- cgn_tsvs %>% names() %>% stringr::str_length() %>% max()
     
     if (verbose>=vt+6) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} Found {tsv_cnt} {tar_bsc}-files, ",
+      cat(glue::glue("{mssg} Found {tsv_cnt} {tar_bsc}-files, ",
                      "prefix length={pre_len}, tar_des={tar_des_str}.{RET}"))
       cgn_tsvs %>% head(n=3) %>% print()
     }
@@ -298,7 +315,7 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
 
     if (verbose>=vt+6) {
       nuc_cnt <- prb_tibs %>% names() %>% length()
-      cat(glue::glue("[{funcTag}]:{tabsStr} Found {nuc_cnt} {tar_bsc}-tibs, ",
+      cat(glue::glue("{mssg} Found {nuc_cnt} {tar_bsc}-tibs, ",
                      "prefix length={pre_len}, tar_des={tar_des_str}.{RET}"))
       ret_key <- glue::glue("{tar_bsc}/{tar_des_str}-{tar_des}-pre1-int-tib({funcTag})")
       ret_cnt <- print_tib(prb_tibs[[2]],funcTag, verbose,vt+6,tc, n=ret_key)
@@ -309,7 +326,7 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
     ret_tib <- NULL
     if (parallel) {
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Intersecting probe sequences ",
+        cat(glue::glue("{mssg}{TAB} Intersecting probe sequences ",
                        "{tar_bsc}-{tar_des_str} (Parallel)...{RET}"))
       
       ret_tib <- foreach (pre_nuc=names(prb_tibs), .combine=rbind) %dopar% {
@@ -322,7 +339,7 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
       }
     } else {
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Intersecting probe sequences ",
+        cat(glue::glue("{mssg}{TAB} Intersecting probe sequences ",
                        "{tar_bsc}-{tar_des_str} (Linear)...{RET}"))
       
       for (pre_nuc in names(prb_tibs)) {
@@ -336,12 +353,12 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
         ret_tib <- dplyr::bind_rows(ret_tib, prb_tib)
         
         if (verbose>=vt) 
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}{TAB} Done. Intersecting probe ",
+          cat(glue::glue("{mssg}{TAB}{TAB} Done. Intersecting probe ",
                          "sequences {tar_bsc}/{tar_des_str} nuc={pre_nuc}{RET2}"))
       }
     }
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Intersecting probe sequences ",
+      cat(glue::glue("{mssg}{TAB} Done. Intersecting probe sequences ",
                      "{tar_bsc}/{tar_des_str}!{RET2}"))
     
     ret_key <- glue::glue("{tar_bsc}/{tar_des_str}-{tar_des}-int-tib({funcTag})")
@@ -350,14 +367,12 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET}{RET}"))
   
   ret_tib
 }
 
-
-# intersect_seq_strand(can=m49_tibs[[pre_nuc]], ref=cgn_M49_tsvs[[pre_nuc]], bsc_str="M49", out=out, prefix=prefix, suffix=suffix, pre_nuc = pre_nuc, idxA = idxA, idxB = idxB, reload = reload, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
 intersect_seq_strand = function(can, ref,
                                 bsc_str, pre_nuc, idxA, idxB,
                                 out, prefix, suffix, 
@@ -365,21 +380,22 @@ intersect_seq_strand = function(can, ref,
                                 verbose=0,vt=3,tc=1,tt=NULL,
                                 funcTag='intersect_seq_strand') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       ref={ref}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   bsc_str={bsc_str}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   pre_nuc={pre_nuc}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      idxA={idxA}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      idxB={idxB}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       out={out}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    prefix={prefix}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    suffix={suffix}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    reload={reload}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}       ref={ref}.{RET}"))
+    cat(glue::glue("{mssg}   bsc_str={bsc_str}.{RET}"))
+    cat(glue::glue("{mssg}   pre_nuc={pre_nuc}.{RET}"))
+    cat(glue::glue("{mssg}      idxA={idxA}.{RET}"))
+    cat(glue::glue("{mssg}      idxB={idxB}.{RET}"))
+    cat(glue::glue("{mssg}       out={out}.{RET}"))
+    cat(glue::glue("{mssg}    prefix={prefix}.{RET}"))
+    cat(glue::glue("{mssg}    suffix={suffix}.{RET}"))
+    cat(glue::glue("{mssg}    reload={reload}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -412,24 +428,30 @@ intersect_seq_strand = function(can, ref,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET}{RET}"))
   
   ret_tib
 }
 
-intersect_seq = function(ref, can, out, idxA=1, idxB=1, reload=FALSE,
+intersect_seq = function(ref, can, out, 
+                         idxA=1, idxB=1, 
+                         reload=FALSE,
+                         
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='intersect_seq') {
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+4) {
-    cat(glue::glue("[{funcTag}]:{tabsStr}  ref={ref}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}  can={can}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}  out={out}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} idxA={idxA}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} idxB={idxB}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} reload={reload}{RET}{RET}"))
+    cat(glue::glue("{mssg}  ref={ref}{RET}"))
+    cat(glue::glue("{mssg}  can={can}{RET}"))
+    cat(glue::glue("{mssg}  out={out}{RET}"))
+    cat(glue::glue("{mssg} idxA={idxA}{RET}"))
+    cat(glue::glue("{mssg} idxB={idxB}{RET}"))
+    cat(glue::glue("{mssg} reload={reload}{RET}{RET}"))
   }
   
   int_seq_cols <-
@@ -452,7 +474,7 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1, reload=FALSE,
   stime <- base::system.time({
     
     if (reload && file.exists(out)) {
-      if (verbose>=vt+1) cat(glue::glue("[{funcTag}]:{tabsStr} Reloading!{RET}"))
+      if (verbose>=vt+1) cat(glue::glue("{mssg} Reloading!{RET}"))
     } else {
       clean <- FALSE
       if (stringr::str_ends(can, '.gz')) {
@@ -503,22 +525,22 @@ intersect_seq = function(ref, can, out, idxA=1, idxB=1, reload=FALSE,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET}{RET}"))
   
   ret_tib
 }
 
-join_seq_intersect = function(u49,
-                              m49,
+join_seq_intersect = function(u49, m49,
                               ids_key = "Prb_Key",
                               
-                              bed=NULL,
-                              org=NULL,
-                              verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'join_seq_intersect'
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+                              verbose=0,vt=3,tc=1,tt=NULL,
+                              funcTag='join_seq_intersect') {
+
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -534,21 +556,25 @@ join_seq_intersect = function(u49,
       dplyr::select(-Imp_SrdI,-Imp_Scr) %>% 
       dplyr::mutate(Imp_Key=stringr::str_split(Imp_Key, pattern=",") ) %>% 
       tidyr::unnest(Imp_Key)
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib1")
+    ret_key <- glue::glue("ret_tib1({funcTag})")
+    ret_cnt <- print_tib(ret_tib, funcTag, verbose,vt+6,tc, n=ret_key)
     
     ret_tib <- ret_tib %>%
-      tidyr::separate(
-        Imp_Key, 
-        into=c("Imp_Cgn","Imp_Hit_hg38","Imp_Hit_hg37", "Imp_Hit_hg36", "Imp_Hit_mm10"), 
-        sep="_", remove=TRUE)
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib2")
+      tidyr::separate(Imp_Key, 
+                      into=c("Imp_Cgn",
+                             "Imp_Hit_hg38", "Imp_Hit_hg37", 
+                             "Imp_Hit_hg36", "Imp_Hit_mm10"), 
+                      sep="_", remove=TRUE)
+    ret_key <- glue::glue("ret_tib2({funcTag})")
+    ret_cnt <- print_tib(ret_tib, funcTag, verbose,vt+6,tc, n=ret_key)
     
     ret_tib <- ret_tib %>%
       tidyr::separate(ids_key, into=c("Address", "Tmp_Key"), 
                       sep="_", remove=FALSE) %>%
       tidyr::separate(Tmp_Key, into=c("Ord_Des","Ord_Din"), sep=1) %>%
       dplyr::rename(Aln_Prb=Imp_Seq, Aln_Nuc=Imp_Nuc)
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib3")
+    ret_key <- glue::glue("ret_tib3({funcTag})")
+    ret_cnt <- print_tib(ret_tib, funcTag, verbose,vt+6,tc, n=ret_key)
     
     ret_tib <- ret_tib %>%
       tidyr::separate(Imp_Srd3, into=c("Imp_TB","Imp_CO", "Imp_Nxb"),
@@ -557,44 +583,11 @@ join_seq_intersect = function(u49,
                     Imp_TB, Imp_CO, Imp_Nxb, Aln_Prb, Aln_Nuc, 
                     dplyr::everything()) %>%
       clean_tibble()
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret_tib4")
-    
-    if (!is.null(bed)) {
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Adding cgn bed...{RET}"))
-      
-      ret_tib <- bed %>%
-        dplyr::right_join(ret_tib,by=c("Imp_Cgn")) %>%
-        dplyr::mutate(
-          Imp_FR=dplyr::case_when(
-            Imp_Top_Srd=="+" & Imp_TB=="T" ~ "F",
-            Imp_Top_Srd=="-" & Imp_TB=="T" ~ "R",
-            Imp_Top_Srd=="+" & Imp_TB=="B" ~ "R",
-            Imp_Top_Srd=="-" & Imp_TB=="B" ~ "F",
-            TRUE ~ NA_character_
-          )
-        )
-    }
-    
-    if (!is.null(org)) {
-      if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Adding org bed...{RET}"))
-      
-      ret_tib <- ret_tib %>%
-        dplyr::left_join(
-          org, 
-          by=c("Aln_Prb"="Org_49P",
-               "Ord_Des"="Org_Des",
-               "Imp_Chr"="Org_Chr",
-               "Imp_Pos"="Org_Pos",
-               "Imp_FR"="Org_FR",
-               "Imp_TB"="Org_TB",
-               "Imp_CO"="Org_CO")
-        )
-    }
+    ret_key <- glue::glue("ret_tib4({funcTag})")
+    ret_cnt <- print_tib(ret_tib, funcTag, verbose,vt+6,tc, n=ret_key)
     
     ret_tib <- ret_tib  %>%
-      dplyr::select(dplyr::any_of(imp_col_vec),dplyr::everything()) %>%
+      dplyr::select(dplyr::any_of(imp_col_vec), dplyr::everything()) %>%
       clean_tibble()
     
     ret_key <- glue::glue("ret-fin({funcTag})")
@@ -603,8 +596,8 @@ join_seq_intersect = function(u49,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET}{RET}"))
   
   ret_tib
 }

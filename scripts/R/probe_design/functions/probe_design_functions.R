@@ -52,8 +52,7 @@ template_func = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET2}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -77,7 +76,13 @@ prb_designs_workflow = function(
   # Output Parameters::
   out_dir,
   run_name,
-
+  
+  add_inf    = TRUE,
+  imp_level  = 3,
+  imp_prefix = NULL,
+  imp_inp_suffix = NULL,
+  imp_out_suffix = NULL,
+  
   # improbe File Parameters::
   imp_inp_tsv=NULL,
   imp_des_tsv=NULL, 
@@ -94,7 +99,7 @@ prb_designs_workflow = function(
   bsc_ref_fas = NULL,
   gen_snp_fas = NULL, 
   bsc_snp_fas = NULL,
-
+  
   # Field Parameters:: general
   ids_key = "Aln_Key_Unq", 
   din_key = "Ord_Din", 
@@ -106,7 +111,7 @@ prb_designs_workflow = function(
   iup_seq = "Iupac_Forward_Sequence",
   imp_seq = "Forward_Sequence",
   iupac=NULL,
-
+  
   # Field Parameters:: r-improbe
   srsplit = FALSE,
   srd_key = NULL,
@@ -115,14 +120,14 @@ prb_designs_workflow = function(
   cosplit = FALSE,
   cos_key = NULL,
   cos_str = "CO",
-
+  
   # Docker Parameters::
   doc_image,
   doc_shell = "run_improbe.sh",
   
+  join     = FALSE,
   join_new = c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos","Bsp_FR","Bsp_CO"),
   join_old = c("Seq_ID","Chromosome","Coordinate","Strand_FR","Strand_CO"),
-  
   
   # Run Parameters::
   max = 0,
@@ -138,6 +143,7 @@ prb_designs_workflow = function(
   
   r_improbe = FALSE,
   s_improbe = FALSE,
+  c_improbe = FALSE,
   
   add_flanks = FALSE,
   add_matseq = TRUE,
@@ -172,67 +178,81 @@ prb_designs_workflow = function(
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} improbe Parameters::{RET}"))
-    cat(glue::glue("{mssg}       out_dir={out_dir}.{RET}"))
-    cat(glue::glue("{mssg}      run_name={run_name}.{RET}"))
+    cat(glue::glue("{mssg}        out_dir={out_dir}.{RET}"))
+    cat(glue::glue("{mssg}       run_name={run_name}.{RET}"))
+    cat(glue::glue("{mssg}        add_inf={add_inf}.{RET}"))
+    cat(glue::glue("{mssg}      imp_level={imp_level}.{RET}"))
+    cat(glue::glue("{mssg}     imp_prefix={imp_prefix}.{RET}"))
+    cat(glue::glue("{mssg} imp_inp_suffix={imp_inp_suffix}.{RET}"))
+    cat(glue::glue("{mssg} imp_out_suffix={imp_out_suffix}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}   imp_inp_tsv={imp_inp_tsv}.{RET}"))
-    cat(glue::glue("{mssg}   imp_des_tsv={imp_des_tsv}.{RET}"))
-    cat(glue::glue("{mssg}   imp_fin_tsv={imp_fin_tsv}.{RET}"))
+    cat(glue::glue("{mssg}    imp_inp_tsv={imp_inp_tsv}.{RET}"))
+    cat(glue::glue("{mssg}    imp_des_tsv={imp_des_tsv}.{RET}"))
+    cat(glue::glue("{mssg}    imp_fin_tsv={imp_fin_tsv}.{RET}"))
     cat(glue::glue("{RET}"))
     
     cat(glue::glue("{mssg} Genome Parameters::{RET}"))
-    cat(glue::glue("{mssg}       gen_bld={gen_bld}.{RET}"))
-    cat(glue::glue("{mssg}      gen_nrec={gen_nrec}.{RET}"))
-    cat(glue::glue("{mssg}       gen_key={gen_nrec}.{RET}"))
+    cat(glue::glue("{mssg}        gen_bld={gen_bld}.{RET}"))
+    cat(glue::glue("{mssg}       gen_nrec={gen_nrec}.{RET}"))
+    cat(glue::glue("{mssg}        gen_key={gen_nrec}.{RET}"))
     print_tib(gen_tib, funcTag, verbose,vt=vt+8, n="gen_tib")
     
-    cat(glue::glue("{mssg}   gen_ref_fas={gen_ref_fas}.{RET}"))
-    cat(glue::glue("{mssg}   bsc_ref_fas={bsc_ref_fas}.{RET}"))
+    cat(glue::glue("{mssg}    gen_ref_fas={gen_ref_fas}.{RET}"))
+    cat(glue::glue("{mssg}    bsc_ref_fas={bsc_ref_fas}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}   gen_snp_fas={gen_snp_fas}.{RET}"))
-    cat(glue::glue("{mssg}   bsc_snp_fas={bsc_snp_fas}.{RET}"))
+    cat(glue::glue("{mssg}    gen_snp_fas={gen_snp_fas}.{RET}"))
+    cat(glue::glue("{mssg}    bsc_snp_fas={bsc_snp_fas}.{RET}"))
     cat(glue::glue("{RET}"))
     
     cat(glue::glue("{mssg} Field Parameters::{RET}"))
-    cat(glue::glue("{mssg}       ids_key={ids_key}.{RET}"))
-    cat(glue::glue("{mssg}       din_key={din_key}.{RET}"))
-    cat(glue::glue("{mssg}       pos_key={pos_key}.{RET}"))
-    cat(glue::glue("{mssg}       chr_key={chr_key}.{RET}"))
+    cat(glue::glue("{mssg}        ids_key={ids_key}.{RET}"))
+    cat(glue::glue("{mssg}        din_key={din_key}.{RET}"))
+    cat(glue::glue("{mssg}        pos_key={pos_key}.{RET}"))
+    cat(glue::glue("{mssg}        chr_key={chr_key}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}       ext_seq={ext_seq}.{RET}"))
-    cat(glue::glue("{mssg}       iup_seq={iup_seq}.{RET}"))
-    cat(glue::glue("{mssg}       imp_seq={imp_seq}.{RET}"))
-    cat(glue::glue("{mssg}         iupac={iupac}.{RET}"))
+    cat(glue::glue("{mssg}        ext_seq={ext_seq}.{RET}"))
+    cat(glue::glue("{mssg}        iup_seq={iup_seq}.{RET}"))
+    cat(glue::glue("{mssg}        imp_seq={imp_seq}.{RET}"))
+    cat(glue::glue("{mssg}          iupac={iupac}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}       srsplit={srsplit}.{RET}"))
-    cat(glue::glue("{mssg}       srd_key={srd_key}.{RET}"))
-    cat(glue::glue("{mssg}       srd_str={srd_str}.{RET}"))
+    cat(glue::glue("{mssg}        srsplit={srsplit}.{RET}"))
+    cat(glue::glue("{mssg}        srd_key={srd_key}.{RET}"))
+    cat(glue::glue("{mssg}        srd_str={srd_str}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}       cosplit={cosplit}.{RET}"))
-    cat(glue::glue("{mssg}       cos_key={cos_key}.{RET}"))
-    cat(glue::glue("{mssg}       cos_str={cos_str}.{RET}"))
+    cat(glue::glue("{mssg}        cosplit={cosplit}.{RET}"))
+    cat(glue::glue("{mssg}        cos_key={cos_key}.{RET}"))
+    cat(glue::glue("{mssg}        cos_str={cos_str}.{RET}"))
     cat(glue::glue("{RET}"))
     
     cat(glue::glue("{mssg} Docker Parameters::{RET}"))
-    cat(glue::glue("{mssg}     doc_shell={doc_shell}.{RET}"))
-    cat(glue::glue("{mssg}     doc_image={doc_image}.{RET}"))
+    cat(glue::glue("{mssg}      doc_shell={doc_shell}.{RET}"))
+    cat(glue::glue("{mssg}      doc_image={doc_image}.{RET}"))
+    cat(glue::glue("{RET}"))
+
+    cat(glue::glue("{mssg} Joining Parameters::{RET}"))
+    cat(glue::glue("{mssg}           join={join}.{RET}"))
+    cat(glue::glue("{mssg}       join_new={join_new}.{RET}"))
+    cat(glue::glue("{mssg}       join_old={join_old}.{RET}"))
     cat(glue::glue("{RET}"))
     
     cat(glue::glue("{mssg} Run Time Parameters::{RET}"))
-    cat(glue::glue("{mssg}           max={max}.{RET}"))
-    cat(glue::glue("{mssg}           del={del}.{RET}"))
-    cat(glue::glue("{mssg}       ups_len={ups_len}.{RET}"))
-    cat(glue::glue("{mssg}       seq_len={seq_len}.{RET}"))
-    cat(glue::glue("{mssg}        subset={subset}.{RET}"))
-    cat(glue::glue("{mssg}      sub_cols={sub_cols}.{RET}"))
+    cat(glue::glue("{mssg}            max={max}.{RET}"))
+    cat(glue::glue("{mssg}            del={del}.{RET}"))
+    cat(glue::glue("{mssg}        ups_len={ups_len}.{RET}"))
+    cat(glue::glue("{mssg}        seq_len={seq_len}.{RET}"))
+    cat(glue::glue("{mssg}         subset={subset}.{RET}"))
+    cat(glue::glue("{mssg}       sub_cols={sub_cols}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}        reload={reload}.{RET}"))
-    cat(glue::glue("{mssg}       retData={retData}.{RET}"))
-    cat(glue::glue("{mssg}      parallel={parallel}.{RET}"))
-    cat(glue::glue("{mssg}     r_improbe={r_improbe}.{RET}"))
-    cat(glue::glue("{mssg}     s_improbe={s_improbe}.{RET}"))
-    cat(glue::glue("{mssg}    add_flanks={add_flanks}.{RET}"))
-    cat(glue::glue("{mssg}    add_matseq={add_matseq}.{RET}"))
+    cat(glue::glue("{mssg}         reload={reload}.{RET}"))
+    cat(glue::glue("{mssg}        retData={retData}.{RET}"))
+    cat(glue::glue("{mssg}       parallel={parallel}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}      r_improbe={r_improbe}.{RET}"))
+    cat(glue::glue("{mssg}      s_improbe={s_improbe}.{RET}"))
+    cat(glue::glue("{mssg}      c_improbe={c_improbe}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}     add_flanks={add_flanks}.{RET}"))
+    cat(glue::glue("{mssg}     add_matseq={add_matseq}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -252,7 +272,7 @@ prb_designs_workflow = function(
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     # This should be wrapped into:: parse_template_workflow()
-
+    
     g_seq_tibs <- NULL
     r_imp_tibs <- NULL
     
@@ -261,7 +281,7 @@ prb_designs_workflow = function(
         dplyr::filter(Strand_BSC=="N") %>%
         split(f=.[[gen_key]])
       
-      print(ref_fas_list)
+      # print(ref_fas_list)
       
       for (cur_gen_key in names(ref_fas_list)) {
         out_csv <- file.path(out_dir, paste(run_name,cur_gen_key,"sequences.csv", sep='.'))
@@ -277,6 +297,7 @@ prb_designs_workflow = function(
                                   gen_fas = ref_fas_list[[cur_gen_key]]$Path,
                                   seq_csv = out_csv,
                                   
+                                  # ids_key = unq_key,
                                   ids_key = ids_key,
                                   din_key = din_key,
                                   tar_din = "rs",
@@ -293,7 +314,7 @@ prb_designs_workflow = function(
                                   ups_len = 60, 
                                   seq_len = 122, 
                                   del = "_",
-
+                                  
                                   subset   = subset,
                                   sub_cols = sub_cols,
                                   
@@ -304,7 +325,7 @@ prb_designs_workflow = function(
                                   
                                   parallel   = parallel,
                                   add_flanks = add_flanks,
-
+                                  
                                   verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
         
         ret_key <- glue::glue("ref-dna-tib({funcTag})")
@@ -322,124 +343,113 @@ prb_designs_workflow = function(
         
         if (r_improbe) {
           
+          prb_csv <- file.path(out_dir, paste(run_name,cur_gen_key,"r-improbe.csv", sep='.'))
+          
           r_imp_tibs[[cur_gen_key]] <- 
-            r_improbe(tib=g_seq_tibs[[cur_gen_key]],
-                      
-                      ids_key = ids_key,
-                      seq_key = iup_seq,
-                      din_key = din_key,
-                      
-                      srsplit = srsplit,
-                      srd_key = srd_key,
-                      srd_str = srd_str, 
-                      
-                      cosplit = cosplit,
-                      cos_key = cos_key,
-                      cos_str = cos_str,
-                      
-                      prb_len = ups_len,
-                      seq_len = seq_len,
-                      
-                      subset = subset,
-                      sub_cols = sub_cols,
-                      
-                      parallel = parallel, 
-                      add_matseq = add_matseq,
-                      
-                      verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+            r_improbe_workflow(tib = g_seq_tibs[[cur_gen_key]],
+                               prb_csv = prb_csv,
+                               
+                               ids_key = ids_key,
+                               seq_key = iup_seq,
+                               din_key = din_key,
+                               
+                               srsplit = srsplit,
+                               srd_key = srd_key,
+                               srd_str = srd_str, 
+                               
+                               cosplit = cosplit,
+                               cos_key = cos_key,
+                               cos_str = cos_str,
+                               
+                               ups_len = ups_len,
+                               seq_len = seq_len,
+                               
+                               subset   = subset,
+                               sub_cols = sub_cols,
+                               
+                               reload     = reload,
+                               parallel   = parallel,
+                               add_matseq = add_matseq,
+                               
+                               verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
         }
         
       }
       
       if (retData) ret_dat$seqs <- g_seq_tibs
       if (retData) ret_dat$rimp <- r_imp_tibs
-
+      
       if (retData) ret_cnt <- ret_dat %>% length()
     }
     
-    
-    if (FALSE) {
+    if (c_improbe) {
 
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #
-      #                1.0 Load Ref Genomes and run r-improbe::
-      #
-      #                (r-improbe = improbe re-implemented in R)
-      #
-      #                          Write improbe input::
-      #
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      c_imp_tibs <- NULL
+      c_imp_tibs <- c_improbe_workflow(imp_tib = g_seq_tibs[["FCN_dna"]],
+                                       imp_tsv = NULL,
+                                       out_dir = out_dir,
+                                       
+                                       ids_key = ids_key,
+                                       imp_seq = imp_seq,                              
+                                       pos_key = pos_key,
+                                       chr_key = chr_key,
+                                       gen_bld = gen_bld,
+                                       
+                                       run_name  = run_name,
+                                       doc_image = doc_image,
+                                       doc_shell = doc_shell,
+                                       
+                                       level   = imp_level,
+                                       add_inf = add_inf, 
+                                       
+                                       join     = join,
+                                       join_new = join_new,
+                                       join_old = join_old,
+                                       
+                                       prefix = imp_prefix,
+                                       inp_suffix = imp_inp_suffix,
+                                       out_suffix = imp_out_suffix,
+                                       reload = reload,
+                                       
+                                       verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
       
-      s_imp_tib <- fas_to_seq(tib = tib,
-                             gen_bld = gen_bld,
-                             
-                             # gen_dat = ref_dna_dat,
-                             
-                             # gen_ref_fas=gen_ref_fas,
-                             # bsc_ref_fas=bsc_ref_fas,
-                             # gen_snp_fas=gen_snp_fas,
-                             # bsc_snp_fas=bsc_snp_fas,
-                             
-                             imp_tsv=imp_inp_tsv, 
-                             seq_csv=imp_seq_csv,
-                             
-                             s_dat_key="s_ref",
-                             r_dat_key="r_ref",
-                             
-                             ids_key=ids_key, 
-                             din_key=din_key,
-                             pos_key=pos_key,
-                             chr_key=chr_key,
-                             
-                             srsplit=srsplit,
-                             srd_key=srd_key,
-                             cosplit=cosplit,
-                             cos_key=cos_key,
-                             
-                             subset=subset,
-                             sub_cols=sub_cols,
-                             
-                             reload=reload,
-                             # retData=retData,
-                             retData=TRUE,
-                             parallel=parallel,
-                             r_improbe=r_improbe,
-                             s_improbe=FALSE,
-                             
-                             add_flanks=add_flanks,
-                             add_matseq=add_matseq,
-                             
-                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      if (retData) ret_dat$c_imp <- c_imp_tibs
+    }
       
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #
-      #                 1.1 Run improbe designs:: via docker
-      #
-      #                     (improbe = original c++ version)
-      #
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    if (FALSE) {
+      if (FALSE) {
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        #
+        #                 1.1 Run improbe designs:: via docker
+        #                     (improbe = original c++ version)
+        #
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        ret_val <- run_improbe_docker(file=imp_inp_tsv, 
+                                      name=run_name, 
+                                      image=doc_image, 
+                                      shell=doc_shell,
+                                      reload=reload,
+                                      verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        #                     1.2 Load improbe designs:: filter
+        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+        
+        imp_tib <- load_improbe_design(file=imp_des_tsv, out=imp_fin_tsv, 
+                                       join=NULL,
+                                       join_new=join_new,join_old=join_old,
+                                       level=3, add_inf=TRUE, 
+                                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        
+        if (retData) ret_dat$s_ref <- ret_list$s_ref
+        if (retData) ret_dat$r_ref <- ret_list$r_ref
+        
+      }
       
-      ret_val <- run_improbe_docker(file=imp_inp_tsv, 
-                                    name=run_name, 
-                                    image=doc_image, 
-                                    shell=doc_shell,
-                                    reload=reload,
-                                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                     1.2 Load improbe designs:: filter
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      imp_tib <- load_improbe_design(file=imp_des_tsv, out=imp_fin_tsv, 
-                                     # join=ret_list$s_ref,
-                                     join=NULL,
-                                     join_new=join_new,join_old=join_old,
-                                     level=3, add_inf=TRUE, 
-                                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      
-      if (retData) ret_dat$s_ref <- ret_list$s_ref
-      if (retData) ret_dat$r_ref <- ret_list$r_ref
-      if (retData) ret_dat$i_imp <- imp_tib
+    }
+    
+    if (s_improbe) {
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #
@@ -741,7 +751,7 @@ cmpInfI = function(tib, fieldAU, fieldBU, fieldAM, fieldBM, del='_',
 
 cmpInfII = function(tib, fieldA, fieldB, mu='D', del='_',
                     verbose=0,vt=4,tc=1,tt=NULL, funcTag='cmpInfI') {
-
+  
   fieldA <- rlang::sym(fieldA)
   fieldB <- rlang::sym(fieldB)
   

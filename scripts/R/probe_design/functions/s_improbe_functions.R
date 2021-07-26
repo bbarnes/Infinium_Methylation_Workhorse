@@ -28,12 +28,14 @@ template_func = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='template_func') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -48,8 +50,7 @@ template_func = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -66,12 +67,14 @@ s_improbe_workflow = function(tib,
                               verbose=0,vt=3,tc=1,tt=NULL,
                               funcTag='s_improbe_workflow') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -86,8 +89,8 @@ s_improbe_workflow = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -99,15 +102,20 @@ s_improbe_workflow = function(tib,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-s_improbe = function(tib, build=c("Prb1C","Prb2C","Prb1O","Prb2O"),
+s_improbe = function(tib, 
+                     
+                     build=c("Prb1C","Prb2C","Prb1O","Prb2O"),
+                     
                      verbose=0,vt=3,tc=1,tt=NULL,
                      funcTag='s_improbe') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   build={build}{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}   build={build}{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -190,8 +198,8 @@ s_improbe = function(tib, build=c("Prb1C","Prb2C","Prb1O","Prb2O"),
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -216,24 +224,26 @@ s_improbe_template_workflow = function(tib,
                                        verbose=0,vt=3,tc=1,tt=NULL,
                                        funcTag='s_improbe_template_workflow') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Field Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   srd_str={srd_str}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   pos_key={pos_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   chr_key={chr_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   chr_str={chr_str}.{RET}"))
+    cat(glue::glue("{mssg} Field Parameters::{RET}"))
+    cat(glue::glue("{mssg}   srd_str={srd_str}.{RET}"))
+    cat(glue::glue("{mssg}   pos_key={pos_key}.{RET}"))
+    cat(glue::glue("{mssg}   chr_key={chr_key}.{RET}"))
+    cat(glue::glue("{mssg}   chr_str={chr_str}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   ext_seq={ext_seq}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   iup_seq={iup_seq}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   imp_seq={imp_seq}.{RET}"))
+    cat(glue::glue("{mssg}   ext_seq={ext_seq}.{RET}"))
+    cat(glue::glue("{mssg}   iup_seq={iup_seq}.{RET}"))
+    cat(glue::glue("{mssg}   imp_seq={imp_seq}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     iupac={iupac}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   ups_len={ups_len}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   seq_len={seq_len}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}     iupac={iupac}.{RET}"))
+    cat(glue::glue("{mssg}   ups_len={ups_len}.{RET}"))
+    cat(glue::glue("{mssg}   seq_len={seq_len}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -287,8 +297,8 @@ s_improbe_template_workflow = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -307,20 +317,22 @@ s_improbe_template = function(tib, seqs,
                               verbose=0,vt=3,tc=1,tt=NULL,
                               funcTag='s_improbe_template') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Field Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   chr_str={chr_str}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   ext_seq={ext_seq}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   iup_seq={iup_seq}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   imp_seq={imp_seq}.{RET}"))
+    cat(glue::glue("{mssg} Field Parameters::{RET}"))
+    cat(glue::glue("{mssg}   chr_str={chr_str}{RET}"))
+    cat(glue::glue("{mssg}   ext_seq={ext_seq}.{RET}"))
+    cat(glue::glue("{mssg}   iup_seq={iup_seq}.{RET}"))
+    cat(glue::glue("{mssg}   imp_seq={imp_seq}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       iupac={iupac}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     ups_len={ups_len}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     seq_len={seq_len}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}       iupac={iupac}.{RET}"))
+    cat(glue::glue("{mssg}     ups_len={ups_len}.{RET}"))
+    cat(glue::glue("{mssg}     seq_len={seq_len}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -371,7 +383,7 @@ s_improbe_template = function(tib, seqs,
     ref_dn01 <- stringr::str_sub(seqs, ups_len-2+ups_len-2+9,ups_len-2+ups_len-2+9)
     
     if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} seqs({chr_str})={RET}"))
+      cat(glue::glue("{mssg}{TAB} seqs({chr_str})={RET}"))
       seqs %>% head(n=2) %>% print()
     }
     
@@ -430,8 +442,8 @@ s_improbe_template = function(tib, seqs,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -455,25 +467,27 @@ s_improbe_trifecta = function(tib,
                               verbose=0,vt=3,tc=1,tt=NULL,
                               funcTag='s_improbe_trifecta') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Field Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   tar_din={tar_din}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   ids_key={ids_key}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   din_key={din_key}{RET}"))
+    cat(glue::glue("{mssg} Field Parameters::{RET}"))
+    cat(glue::glue("{mssg}   tar_din={tar_din}{RET}"))
+    cat(glue::glue("{mssg}   ids_key={ids_key}{RET}"))
+    cat(glue::glue("{mssg}   din_key={din_key}{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   pos_key={pos_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   chr_str={chr_str}{RET}"))
+    cat(glue::glue("{mssg}   pos_key={pos_key}.{RET}"))
+    cat(glue::glue("{mssg}   chr_str={chr_str}{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   ext_seq={ext_seq}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   iup_seq={iup_seq}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   imp_seq={imp_seq}.{RET}"))
+    cat(glue::glue("{mssg}   ext_seq={ext_seq}.{RET}"))
+    cat(glue::glue("{mssg}   iup_seq={iup_seq}.{RET}"))
+    cat(glue::glue("{mssg}   imp_seq={imp_seq}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   ref_col={ref_col}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   alt_col={alt_col}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   iup_col={iup_col}.{RET}"))
+    cat(glue::glue("{mssg}   ref_col={ref_col}.{RET}"))
+    cat(glue::glue("{mssg}   alt_col={alt_col}.{RET}"))
+    cat(glue::glue("{mssg}   iup_col={iup_col}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -494,7 +508,7 @@ s_improbe_trifecta = function(tib,
     pos_sym  <- rlang::sym(pos_key)
     
     if (verbose>=vt+1)
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Upstream CG ",
+      cat(glue::glue("{mssg}{TAB} Adding Upstream CG ",
                      "Flank Seuqnces({chr_str})...{RET}"))
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -526,7 +540,7 @@ s_improbe_trifecta = function(tib,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     if (verbose>=vt+1)
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Adding Downstream CG ",
+      cat(glue::glue("{mssg}{TAB} Adding Downstream CG ",
                      "Flank Seuqnces({chr_str})...{RET}"))
     
     dns_tib <- NULL
@@ -556,8 +570,8 @@ s_improbe_trifecta = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -572,13 +586,15 @@ load_genome = function(file,
                        verbose=0,vt=3,tc=1,tt=NULL,
                        funcTag='load_genome') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      file={file}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      nrec={nrec}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   chr_key={chr_key}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}      file={file}.{RET}"))
+    cat(glue::glue("{mssg}      nrec={nrec}.{RET}"))
+    cat(glue::glue("{mssg}   chr_key={chr_key}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -595,7 +611,7 @@ load_genome = function(file,
     }
     ret_cnt <- seqs %>% length()
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Loaded {ret_cnt} chromosomes.{RET}"))
+      cat(glue::glue("{mssg} Loaded {ret_cnt} chromosomes.{RET}"))
     if (verbose>=vt+2) print(seqs)
     
     if (ret_map) {
@@ -620,8 +636,8 @@ load_genome = function(file,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
   
   if (ret_map) return(ret_dat)
   
@@ -638,16 +654,18 @@ parse_genomic_seqs = function(tib, seq,
                               verbose=0,vt=3,tc=1,tt=NULL,
                               funcTag='parse_genomic_seqs') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Field Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   srd_str={srd_str}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   pos_key={pos_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   chr_str={chr_str}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   ups_len={ups_len}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   seq_len={seq_len}{RET}"))
+    cat(glue::glue("{mssg} Field Parameters::{RET}"))
+    cat(glue::glue("{mssg}   srd_str={srd_str}{RET}"))
+    cat(glue::glue("{mssg}   pos_key={pos_key}.{RET}"))
+    cat(glue::glue("{mssg}   chr_str={chr_str}{RET}"))
+    cat(glue::glue("{mssg}   ups_len={ups_len}{RET}"))
+    cat(glue::glue("{mssg}   seq_len={seq_len}{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -668,9 +686,9 @@ parse_genomic_seqs = function(tib, seq,
     ends <- begs + seq_len - 1 + (2 * pad_len)
     
     if (verbose>=vt+6) {
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} begs={RET}"))
+      cat(glue::glue("{mssg}{TAB} begs={RET}"))
       begs %>% head() %>% print()
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ends={RET}"))
+      cat(glue::glue("{mssg}{TAB} ends={RET}"))
       ends %>% head() %>% print()
     }
     
@@ -687,15 +705,15 @@ parse_genomic_seqs = function(tib, seq,
     if (srd_str=="R") seq_vec <- seq_vec %>% cmpl()
     
     if (verbose>=vt+4) {
-      cat(glue::glue("[{funcTag}]:{tabsStr} Parsed Sequences({ret_cnt}):{RET}"))
+      cat(glue::glue("{mssg} Parsed Sequences({ret_cnt}):{RET}"))
       seq_vec %>% head(n=2) %>% print()
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
   
   seq_vec
 }
@@ -745,51 +763,53 @@ parse_template_workflow = function(tib,
                                    verbose=0,vt=4,tc=1,tt=NULL,
                                    funcTag='parse_template_workflow') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Genome Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}          nrec={nrec}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       gen_bld={gen_bld}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       gen_fas={gen_fas}.{RET}"))
+    cat(glue::glue("{mssg} Genome Parameters::{RET}"))
+    cat(glue::glue("{mssg}          nrec={nrec}.{RET}"))
+    cat(glue::glue("{mssg}       gen_bld={gen_bld}.{RET}"))
+    cat(glue::glue("{mssg}       gen_fas={gen_fas}.{RET}"))
     cat(glue::glue("{RET}"))
     
-    cat(glue::glue("[{funcTag}]:{tabsStr} Output File Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       seq_csv={seq_csv}{RET}"))
+    cat(glue::glue("{mssg} Output File Parameters::{RET}"))
+    cat(glue::glue("{mssg}       seq_csv={seq_csv}{RET}"))
     cat(glue::glue("{RET}"))
     
-    cat(glue::glue("[{funcTag}]:{tabsStr} Field Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       ids_key={ids_key}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       din_key={din_key}{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       tar_din={tar_din}{RET}"))
+    cat(glue::glue("{mssg} Field Parameters::{RET}"))
+    cat(glue::glue("{mssg}       ids_key={ids_key}{RET}"))
+    cat(glue::glue("{mssg}       din_key={din_key}{RET}"))
+    cat(glue::glue("{mssg}       tar_din={tar_din}{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       ext_seq={ext_seq}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       iup_seq={iup_seq}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       imp_seq={imp_seq}.{RET}"))
+    cat(glue::glue("{mssg}       ext_seq={ext_seq}.{RET}"))
+    cat(glue::glue("{mssg}       iup_seq={iup_seq}.{RET}"))
+    cat(glue::glue("{mssg}       imp_seq={imp_seq}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       srd_str={srd_str}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       pos_key={pos_key}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       chr_key={chr_key}.{RET}"))
+    cat(glue::glue("{mssg}       srd_str={srd_str}.{RET}"))
+    cat(glue::glue("{mssg}       pos_key={pos_key}.{RET}"))
+    cat(glue::glue("{mssg}       chr_key={chr_key}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       ref_col={ref_col}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       alt_col={alt_col}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       iup_col={iup_col}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}         iupac={iupac}.{RET}"))
+    cat(glue::glue("{mssg}       ref_col={ref_col}.{RET}"))
+    cat(glue::glue("{mssg}       alt_col={alt_col}.{RET}"))
+    cat(glue::glue("{mssg}       iup_col={iup_col}.{RET}"))
+    cat(glue::glue("{mssg}         iupac={iupac}.{RET}"))
     cat(glue::glue("{RET}"))
     
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}           del={del}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       ups_len={ups_len}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}       seq_len={seq_len}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}           del={del}.{RET}"))
+    cat(glue::glue("{mssg}       ups_len={ups_len}.{RET}"))
+    cat(glue::glue("{mssg}       seq_len={seq_len}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      subset={subset}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    sub_cols={sub_cols}.{RET}"))
+    cat(glue::glue("{mssg}      subset={subset}.{RET}"))
+    cat(glue::glue("{mssg}    sub_cols={sub_cols}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      reload={reload}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     retData={retData}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    parallel={parallel}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}  add_flanks={add_flanks}.{RET}"))
+    cat(glue::glue("{mssg}      reload={reload}.{RET}"))
+    cat(glue::glue("{mssg}     retData={retData}.{RET}"))
+    cat(glue::glue("{mssg}    parallel={parallel}.{RET}"))
+    cat(glue::glue("{mssg}  add_flanks={add_flanks}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -803,25 +823,26 @@ parse_template_workflow = function(tib,
   if (reload &&
       !purrr::is_null(seq_csv) && file.exists(seq_csv)) {
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Reloading seq_csv{seq_csv}...{RET}"))
+      cat(glue::glue("{mssg} Reloading:: seq_csv{seq_csv}...{RET}"))
     
     stime <- base::system.time({
-      ret_tib <- safe_read(seq_csv)
+      ret_tib <- safe_read(file = seq_csv, funcTag=funcTag,
+                           verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     })
     etime <- stime[3] %>% as.double() %>% round(2)
     if (!is.null(tt)) tt$addTime(stime,funcTag)
     if (verbose>=vt) cat(glue::glue(
-      "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-      "{RET}{tabsStr}{BRK}{RET}{RET}"))
+      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{mssg}{BRK}{RET2}"))
     
-    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_key <- glue::glue("ret-reloaded({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
     return(ret_tib)
   }
   
   stime <- base::system.time({
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Building fresh...{RET}"))
+      cat(glue::glue("{mssg} Building fresh...{RET}"))
     
     # Define symbolic variables::
     #
@@ -865,7 +886,7 @@ parse_template_workflow = function(tib,
     
     if (parallel) {
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Extacting sequence templates ",
+        cat(glue::glue("{mssg}{TAB} Extacting sequence templates ",
                        "from genome (Parallel)...{RET}"))
       
       ret_tib <- foreach (chr_str=chr_names, .combine=rbind) %dopar% {
@@ -880,7 +901,7 @@ parse_template_workflow = function(tib,
       
     } else {
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Extacting sequence templates ",
+        cat(glue::glue("{mssg}{TAB} Extacting sequence templates ",
                        "from genome (Linear)...{RET}"))
       
       for (chr_str in chr_names) {
@@ -902,12 +923,12 @@ parse_template_workflow = function(tib,
                              funcTag, verbose,vt=vt+4,tc=tc+1, n=cur_key)
         
         if (verbose>=vt+1)
-          cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Substring ",
-                         "chr_str={chr_str}.{RET}{RET}"))
+          cat(glue::glue("{mssg}{TAB} Done. Substring ",
+                         "chr_str={chr_str}.{RET2}"))
       }
     }
-    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Done. Extacting sequence templates ",
-                   "from genome.{RET}{RET}"))
+    cat(glue::glue("{mssg}{TAB} Done. Extacting sequence templates ",
+                   "from genome.{RET2}"))
     
     if (retData) ret_dat$seq <- ret_tib
     
@@ -949,7 +970,7 @@ parse_template_workflow = function(tib,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Calculating Summary...{RET}"))
+      cat(glue::glue("{mssg}{TAB} Calculating Summary...{RET}"))
     
     sum_tib <- ret_tib %>% 
       dplyr::group_by(up61,dn61,Des_Din) %>% 
@@ -963,7 +984,7 @@ parse_template_workflow = function(tib,
     
     if (!is.null(seq_csv)) {
       if (verbose>=vt+1)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Writing seq table CSV={seq_csv}...{RET}"))
+        cat(glue::glue("{mssg} Writing seq table CSV={seq_csv}...{RET}"))
       
       sum_csv <- seq_csv %>% 
         stringr::str_remove(".gz$") %>%
@@ -983,8 +1004,8 @@ parse_template_workflow = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET2}"))
   
   if (retData) return(ret_dat)
   

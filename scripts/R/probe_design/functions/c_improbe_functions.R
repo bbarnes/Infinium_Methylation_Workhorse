@@ -28,12 +28,14 @@ template_func = function(tib,
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='template_func') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -48,8 +50,7 @@ template_func = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -63,32 +64,136 @@ template_func = function(tib,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-c_improbe_workflow = function(tib,
-                              verbose=0,vt=3,tc=1,tt=NULL,
+c_improbe_workflow = function(imp_tib = NULL,
+                              imp_tsv = NULL,
+                              out_dir = NULL,
+                              
+                              ids_key = "Prb_Key_Unq",
+                              imp_seq = "Forward_Sequence",                              
+                              pos_key = "Bsp_Pos",
+                              chr_key = "Bsp_Chr",
+                              gen_bld,
+                              
+                              run_name,
+                              doc_image,
+                              doc_shell,
+                              
+                              level   = 3,
+                              add_inf = TRUE, 
+                              
+                              join     = FALSE,
+                              join_new = join_new,
+                              join_old = join_old,
+
+                              prefix,
+                              inp_suffix,
+                              out_suffix,
+                              
+                              reload = FALSE,
+
+                              verbose=0, vt=3,tc=1,tt=NULL,
                               funcTag='c_improbe_workflow') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr} Function Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
     cat(glue::glue("{RET}"))
   }
-  
+
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
     
-    # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    out_dir <- file.path(out_dir,funcTag)
+    if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #
+    #               1.0 Build Input:: Forward Template Sequence
+    #
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    if (!is.null(imp_tsv) && file.exists(imp_tsv)) {
+      if (is.null(out_dir) || !dir.exists(out_dir)) {
+        out_dir = base::dirname(imp_tsv)
+        dir.create(out_dir, recursive = TRUE)
+      }
+    } else {
+      if (!dir.exists(out_dir)) dir.create(out_dir)
+
+      imp_tsv <- file.path(out_dir, paste(prefix,inp_suffix,"tsv.gz", sep='.'))
+      imp_tib <- imp_tib %>% 
+        dplyr::mutate(Genome_Build=!!gen_bld, CpG_Island="FALSE") %>%
+        dplyr::select(dplyr::all_of(c(!!ids_key, !!imp_seq, "Genome_Build", 
+                                      !!chr_key, !!pos_key, "CpG_Island"))) %>%
+        purrr::set_names(imp_col)
+      
+      out_cnt <- safe_write(x=imp_tib, file=imp_tsv, funcTag=funcTag, 
+                            verbose=verbose,vt=vt,tc=tc,append=FALSE)
+    }
+
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #
+    #                 1.1 Run improbe designs:: via docker
+    #                     (improbe = original c++ version)
+    #
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    ret_val <- run_improbe_docker(file   = imp_tsv, 
+                                  name   = run_name, 
+                                  image  = doc_image, 
+                                  shell  = doc_shell,
+                                  reload = reload,
+                                  verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     1.2 Load improbe designs:: filter
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    imp_des_tsv <- imp_tsv %>% 
+      stringr::str_remove(".gz$") %>%
+      stringr::str_remove(".[tc]sv$") %>%
+      stringr::str_remove(".txt$") %>%
+      stringr::str_remove(inp_suffix) %>%
+      paste0(out_suffix)
+      # paste0("improbe-designOutput.tsv.gz") # , sep='.')
+    
+    imp_fin_tsv <- imp_tsv %>% 
+      stringr::str_remove(".gz$") %>%
+      stringr::str_remove(".[tc]sv$") %>%
+      stringr::str_remove(".txt$") %>%
+      stringr::str_remove(inp_suffix) %>%
+      paste0(out_suffix) %>%
+      stringr::str_remove(".gz$") %>%
+      stringr::str_remove(".[tc]sv$") %>%
+      paste0("clean.tsv.gz")
+      # paste0("improbe-designOutput.clean.tsv.gz") # , sep='.')
+    
+    ret_tib <- load_improbe_design(des_tsv = imp_des_tsv, 
+                                   out_tsv = imp_fin_tsv,
+                                   
+                                   level   = level,
+                                   add_inf = add_inf, 
+                                   
+                                   join     = join,
+                                   join_new = join_new,
+                                   join_old = join_old,
+                                   
+                                   verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -97,21 +202,29 @@ c_improbe_workflow = function(tib,
 #                          Docker improbe Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-run_improbe_docker = function(file, out=NULL, name="unk", image, shell,
-                              suffix='improbe-design',
-                              reload=FALSE,
-                              verbose=1,vt=3,tc=1,tt=NULL,
+run_improbe_docker = function(file,
+                              out  = NULL, 
+                              name = "unk", 
+                              image,
+                              shell,
+                              suffix = 'improbe-design',
+                              reload = FALSE,
+                              
+                              verbose=1, vt=3,tc=1,tt=NULL,
                               funcTag = 'run_improbe_docker') {
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
-    cat(glue::glue("[{funcTag}]:{tabsStr} Run Parameters::{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}      out={out}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     file={file}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}     name={name}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    image={image}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}    shell={shell}.{RET}"))
-    cat(glue::glue("[{funcTag}]:{tabsStr}   reload={reload}.{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}      out={out}.{RET}"))
+    cat(glue::glue("{mssg}     file={file}.{RET}"))
+    cat(glue::glue("{mssg}     name={name}.{RET}"))
+    cat(glue::glue("{mssg}    image={image}.{RET}"))
+    cat(glue::glue("{mssg}    shell={shell}.{RET}"))
+    cat(glue::glue("{mssg}   reload={reload}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -130,14 +243,14 @@ run_improbe_docker = function(file, out=NULL, name="unk", image, shell,
       file.mtime(file) <= file.mtime(ret_log) &&
       file.mtime(file) <= file.mtime(ret_tsv)) {
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Reloading...{RET}"))
+      cat(glue::glue("{mssg} Reloading...{RET}"))
     
     ret_cnt <- 0
     etime   <- 0
     if (!is.null(tt)) tt$addTime(stime,funcTag)
     if (verbose>=vt) cat(glue::glue(
-      "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-      "{RET}{tabsStr}{BRK}{RET}{RET}"))
+      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{tabs}{BRK}{RET2}"))
     
     return(ret_cnt)
   }
@@ -152,38 +265,50 @@ run_improbe_docker = function(file, out=NULL, name="unk", image, shell,
     base::system(glue::glue("touch {ret_tsv}"))
     
     imp_doc_cmd <- glue::glue("docker run -i --rm ",
-                              "-v {out_dir}:/input -v {out_dir}:/output -w /work ",
+                              "-v {out_dir}:/input ",
+                              "-v {out_dir}:/output ",
+                              "-w /work ",
                               "{image} {shell} {base_file} {name}")
     
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Running improbe cmd='{imp_doc_cmd}'...{RET}"))
+      cat(glue::glue("{mssg} Running improbe cmd='{imp_doc_cmd}'...{RET}"))
     ret_cnt <- base::system(imp_doc_cmd)
     
     if (ret_cnt != 0) {
-      cat(glue::glue("{RET}[{funcTag}]: ERROR: cmd return={ret_cnt} cmd='{imp_doc_cmd}'!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} ERROR: cmd return={ret_cnt} ",
+                     "cmd='{imp_doc_cmd}'!{RET2}"))
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_cnt
 }
 
-load_improbe_design = function(
-  file, out=NULL, join=NULL, 
-  join_new=c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos","Bsp_FR","Bsp_CO"),
-  join_old=c("Seq_ID","Chromosome","Coordinate","Strand_FR","Strand_CO"),
-  level=0, add_inf=TRUE, verbose=0,vt=3,tc=1,tt=NULL, 
-  funcTag='load_improbe_design') {
+load_improbe_design = function(des_tsv, 
+                               out_tsv = NULL, 
+                               
+                               level = 0,
+                               join = FALSE, 
+                               join_new = c("Aln_Key_Unq","Bsp_Chr",
+                                            "Bsp_Pos","Bsp_FR","Bsp_CO"),
+                               join_old = c("Seq_ID","Chromosome","Coordinate",
+                                            "Strand_FR","Strand_CO"),
+                               add_inf  = TRUE,
+                               
+                               verbose=0, vt=3,tc=1,tt=NULL, 
+                               funcTag='load_improbe_design') {
   
-  tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   
   if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; level={level}...{RET}"))
+    cat(glue::glue("{mssg} Starting; level={level}...{RET}"))
   
   # improbe output original fields::
   #
@@ -262,15 +387,15 @@ load_improbe_design = function(
     
     if (verbose>=vt+6) {
       org_len <- org_cols %>% length()
-      cat(glue::glue("[{funcTag}]:{tabsStr} org_cols(org_len)={RET}"))
+      cat(glue::glue("{mssg} org_cols(org_len)={RET}"))
       print(org_cols)
       
       new_len <- new_cols %>% length()
-      cat(glue::glue("[{funcTag}]:{tabsStr} new_cols(new_len)={RET}"))
+      cat(glue::glue("{mssg} new_cols(new_len)={RET}"))
       print(new_cols)
     }
   } else {
-    cat(glue::glue("[{funcTag}]:{tabsStr} Returning full data (level={level})...{RET}"))
+    cat(glue::glue("{mssg} Returning full data (level={level})...{RET}"))
   }
   
   ret_cnt <- 0
@@ -278,10 +403,10 @@ load_improbe_design = function(
   stime <- system.time({
     
     if (verbose>=vt) 
-      cat(glue::glue("[{funcTag}]:{tabsStr} Loading designs={file}...{RET}"))
+      cat(glue::glue("{mssg} Loading designs={des_tsv}...{RET}"))
     
     ret_tib <- 
-      suppressMessages(suppressWarnings( readr::read_tsv(file) ))
+      suppressMessages(suppressWarnings( readr::read_tsv(des_tsv) ))
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="Raw_Improbe_Data")
     
     # Now subset and rename based on input level::
@@ -339,9 +464,9 @@ load_improbe_design = function(
     }
     
     # Merge data back with BSP results::
-    if (!is.null(join)) {
+    if (join) {
       if (verbose>=vt)
-        cat(glue::glue("[{funcTag}]:{tabsStr} Joining data with improbe data...{RET}"))
+        cat(glue::glue("{mssg} Joining data with improbe data...{RET}"))
       
       ret_tib <- dplyr::left_join(
         join, dplyr::rename_with(ret_tib, ~ join_new, dplyr::all_of(join_old) ),
@@ -349,8 +474,8 @@ load_improbe_design = function(
       )
     }
     
-    out_cnt <- safe_write(x=ret_tib,file=out,funcTag=funcTag,
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    out_cnt <- safe_write(x=ret_tib, file=out_tsv, funcTag=funcTag,
+                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     
     ret_key <- glue::glue("Clean_Improbe_Data({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
@@ -358,8 +483,8 @@ load_improbe_design = function(
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }

@@ -89,6 +89,7 @@ opt$Rscript <- NULL
 
 # BSMAP Parameters::
 opt$bsmap_opt <- "\"-s 10 -v 5 -n 1 -r 2 -V 2\""
+opt$bsmap_opt <- "\"-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R\""
 opt$bsmap_exe <- "/Users/bretbarnes/Documents/tools/programs/BSMAPz/bsmapz"
 
 # Run Parameters::
@@ -290,6 +291,7 @@ if (args.dat[1]=='RStudio') {
   # opt$idatDir <- file.path(par$topDir, 'data/idats')
   
   opt$bsmap_opt <- "\"-s 10 -v 5 -n 1 -r 2 -V 2\""
+  opt$bsmap_opt <- "\"-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R\""
   opt$bsmap_exe <- "/Users/bretbarnes/Documents/tools/programs/BSMAPz/bsmapz"
   
   # Pre-defined local options runTypes::
@@ -1046,16 +1048,22 @@ run$int_seq_tsv <-
 
 # BSMAP Alignment Directory::
 run$bsp_dir <- file.path(opt$outDir, 'bsp')
-run$aqp_prb_bsp  <- file.path(run$bsp_dir, paste(opt$runName,"aqp-pass.address.bsp",  sep='.') )
-run$aqp_bsp_tsv  <- file.path(run$bsp_dir, paste(opt$runName,"aqp-pass.address-bsp.tsv.gz",  sep='.') )
-run$bsp_cgn_csv  <- file.path(run$bsp_dir, paste(opt$runName,"aqp-pass.bsp-cgn.csv.gz",  sep='.') )
+run$bsp_suffix  <- "aqp-pass.probe-bsmap-cgn"
+run$bsp_cgn_csv  <- file.path(run$bsp_dir, paste(opt$runName,run$bsp_suffix,"csv.gz",  sep='.') )
+
+# run$aqp_prb_bsp  <- file.path(run$bsp_dir, paste(opt$runName,"aqp-pass.address.bsp",  sep='.') )
+# run$aqp_bsp_tsv  <- file.path(run$bsp_dir, paste(opt$runName,"aqp-pass.address-bsp.tsv.gz",  sep='.') )
+# run$bsp_cgn_csv  <- file.path(run$bsp_dir, paste(opt$runName,"aqp-pass.bsp-cgn.csv.gz",  sep='.') )
 
 # Improbe Design Directory::
 run$imp_dir <- file.path(opt$outDir, 'imp')
-run$imp_seq_csv  <- file.path(run$imp_dir, paste(opt$runName, 'improbe-sequence.csv.gz', sep='.') )
-run$imp_inp_tsv  <- file.path(run$imp_dir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
-run$imp_des_tsv  <- file.path(run$imp_dir, paste(opt$runName, 'improbe-designOutput.tsv.gz', sep='.') )
-run$imp_fin_tsv  <- file.path(run$imp_dir, paste(opt$runName, 'improbe-designOutput.clean.tsv.gz', sep='.') )
+run$imp_inp_suffix  <- "aqp-pass.improbe-input"
+run$imp_out_suffix  <- "aqp-pass.improbe-output"
+
+# run$imp_seq_csv  <- file.path(run$imp_dir, paste(opt$runName, 'improbe-sequence.csv.gz', sep='.') )
+# run$imp_inp_tsv  <- file.path(run$imp_dir, paste(opt$runName, 'improbe-inputs.tsv.gz', sep='.') )
+# run$imp_des_tsv  <- file.path(run$imp_dir, paste(opt$runName, 'improbe-designOutput.tsv.gz', sep='.') )
+# run$imp_fin_tsv  <- file.path(run$imp_dir, paste(opt$runName, 'improbe-designOutput.clean.tsv.gz', sep='.') )
 
 # Manifest Directory::
 run$man_dir <- file.path(opt$outDir, 'man')
@@ -1089,68 +1097,23 @@ if (!is.null(opt$mans)) {
 #          0.1 Load any pre-defined Noob-Masked Manifest to be added::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ses_ctl_tib <- safe_read(opt$ses_ctl_csv, verbose=opt$verbose)
-
-if (!is.null(opt$noob)) {
-  
-  #
-  # TBD:: Functionize this::
-  #
-  
-  pqc_tib  <- load_aqp_files(opt$aqps, verbose=opt$verbose)
-  noob_tib <- safe_read(opt$noob, verbose=opt$verbose) %>%
-    dplyr::mutate(
-      Probe_Design=dplyr::case_when(
-        DESIGN=="I"  ~ 1,
-        DESIGN=="II" ~ 2,
-        TRUE ~ NA_real_
-      )
-    )
-  
-  pqc_pas_tib <- dplyr::filter(pqc_tib,Decode_Status==0)
-  pqc_mis_tib <- dplyr::filter(pqc_tib,Decode_Status!=0)
-  
-  noob_mis_tib <- dplyr::bind_rows(
-    noob_tib %>% dplyr::filter(!is.na(U)) %>% dplyr::filter(U %in% pqc_mis_tib$Address),
-    noob_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(M %in% pqc_mis_tib$Address)
-  ) %>% dplyr::distinct(Probe_ID, .keep_all = TRUE)
-  
-  noob_pas_tib <- noob_tib %>% dplyr::filter(!Probe_ID %in% noob_mis_tib$Probe_ID)
-  
-  noob_man_tib <- dplyr::bind_rows(
-    noob_pas_tib %>% dplyr::filter(!is.na(U)) %>% dplyr::filter(U %in% pqc_pas_tib$Address),
-    noob_pas_tib %>% dplyr::filter(!is.na(M)) %>% dplyr::filter(M %in% pqc_pas_tib$Address)
-  ) %>% dplyr::distinct(Probe_ID, .keep_all = TRUE)
-  
-  noob_man_sum <- noob_man_tib %>% 
-    dplyr::group_by(SubSet,DESIGN) %>% 
-    dplyr::summarise(Count=n(), .groups="drop")
-  
-  # For everything::
-  noob_man_tib <- noob_tib
-  
-  noob_sel_tib <- noob_man_tib %>%
-    dplyr::filter(SubSet) %>%
-    dplyr::select(-Probe_ID,-SubSet) %>%
-    dplyr::rename(Probe_ID=Hash_ID) %>%
-    dplyr::select(Probe_ID, dplyr::everything()) %>%
-    clean_tibble()
-  
-  # All Noob & GS Controls::
-  #
-  ses_ctl_tib <- dplyr::bind_rows(noob_sel_tib,ses_ctl_tib)
-}
+# noob_ctl_tib <- NULL
+# if (!is.null(opt$noob)) {
+#   noob_ctl_tib <- noob_mask(noob_csv = opt$noob, 
+#                             ctl_csv = opt$ses_ctl_csv, 
+#                             verbose=opt$verbose, tt=pTracker)
+# }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #          0.2 Load any pre-defined dbCGN or improbe data::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-
-
 if (opt$build_manifest) {
   
   stamp_vec <- NULL
   stamp_vec <- c(stamp_vec,opt$time_org_txt)
+  
+  pTracker$addFile(opt$time_org_txt)
   
   par$retData <- TRUE
   par$retData <- FALSE
@@ -1160,18 +1123,16 @@ if (opt$build_manifest) {
   #                1.1 New Manifest Workflow: Design/Match/AQP
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  stamp_vec <- c(stamp_vec,run$aqp_ord_csv)
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
     aqp_ord_tib <- 
       aqp_address_workflow(ord = opt$ords,
                            mat = opt$mats,
                            aqp = opt$aqps,
-                           out = run$ord_dir,
-                           
+
                            prefix = opt$runName,
-                           suffix = run$ord_suffix, 
-                           
+                           suffix = run$ord_suffix,
+
                            prb_key = run$prb_key,
                            add_key = run$add_key,
                            des_key = run$des_key,
@@ -1180,7 +1141,12 @@ if (opt$build_manifest) {
                            
                            del = run$del,
                            
+                           out_dir = opt$outDir,
+                           run_tag = opt$runName,
+                           re_load = TRUE,
+                           pre_tag = pTracker$file_vec,
                            verbose=opt$verbose, tt=pTracker)
+
     
   } else {
     aqp_ord_tib <- safe_read(
@@ -1196,6 +1162,7 @@ if (opt$build_manifest) {
   # NOTE: McMaster10Kselection = 822s
   
   stamp_vec <- c(stamp_vec,run$int_seq_tsv)
+  
 
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
@@ -1224,17 +1191,12 @@ if (opt$build_manifest) {
                            
                            del = run$del,
                            
+                           out_dir = opt$outDir,
+                           run_tag = opt$runName,
+                           re_load = TRUE,
+                           pre_tag = pTracker$file_vec,
                            verbose=opt$verbose, tt=pTracker)
-    
-    
-    # Old Single Version
-    # aqp_seq_tib <- cgn_mapping_workflow_single(
-    #   ref_u49=run$imp_u49_tsv,can_u49=run$aqp_u49_tsv,out_u49=run$int_u49_tsv,
-    #   ref_m49=run$imp_m49_tsv,can_m49=run$aqp_m49_tsv,out_m49=run$int_m49_tsv,
-    #   ord=NULL, out=run$int_seq_tsv,
-    #   idxA=1, idxB=1, reload=opt$reload,
-    #   verbose=opt$verbose,tt=pTracker)
-    
+
   } else {
     aqp_seq_tib <- safe_read(
       run$int_seq_tsv, funcTag="aqp-cgn", clean=TRUE, 
@@ -1246,56 +1208,94 @@ if (opt$build_manifest) {
   #                  3.3 Join Address and Alignment Data:: BSMAP
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
+  # TBD:: Return bsp data and 
   stamp_vec <- c(stamp_vec, run$bsp_cgn_csv)
   if (opt$fresh || !valid_time_stamp(stamp_vec)) {
     
-    aqp_cgn_tib <- bsp_mapping_workflow(
-      ref=run$gen_ref_fas, can=run$aqp_prb_fas, ord=aqp_ord_tib, seq=aqp_seq_tib, 
-      out=run$bsp_dir, exe=opt$bsmap_exe, cgn=run$cgn_bed_tsv,
-      csv=run$bsp_cgn_csv, canonical=run$canonical_csv,
-      sort=TRUE, light=TRUE, reload=opt$reload, full=FALSE, merge=TRUE, 
-      join_key="Aln_Key", join_type="inner", des_key="Ord_Des", din_key="Ord_Din", 
-      verbose=opt$verbose, tt=pTracker)
+    aqp_bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
+                                        ref_tib = all_gen_tib,
+                                        can_fas = NULL,
+                                        can_tib = aqp_ord_tib,
+                                        seq_tib = aqp_seq_tib,
+                                        
+                                        cgn_src = run$cgn_bed_tsv,
+                                        canonical = run$canonical_csv,
+                                        
+                                        ids_key = run$ids_key,
+                                        unq_key = run$unq_key,
+                                        prb_key = run$prb_key,
+                                        des_key = run$des_key,
+                                        din_key = run$din_key,
+                                        
+                                        join_key  = run$ids_key,  # Use to be "Aln_Key"
+                                        join_type = "inner",
+
+                                        sort  = TRUE,
+                                        full  = FALSE,
+                                        merge = FALSE,
+                                        light = TRUE,
+                                        reload = opt$reload,
+                                        
+                                        bsp_exe = opt$bsmap_exe,
+                                        bsp_opt = opt$bsmap_opt,
+                                        
+                                        out_dir = opt$outDir,
+                                        run_tag = opt$runName,
+                                        re_load = TRUE,
+                                        pre_tag = pTracker$file_vec,
+                                        verbose=opt$verbose, tt=pTracker)
+    
     
   } else {
-    aqp_cgn_tib <- safe_read(
+    aqp_bsp_tib <- safe_read(
       run$bsp_cgn_csv, funcTag="aqp-bsp", clean=TRUE, guess_max=100000,
       verbose=opt$verbose,tt=pTracker)
   }
-}
 
-#
-# Workflow:: AQP Manifest Preperation
-#
-#   aqp_address_workflow()
-#   cgn_mapping_workflow()
-#   bsp_mapping_workflow()
-#
-# Workflow:: Probe Design
-#
-#   prb_designs_workflow()
-#     - s_improbe_workflow()
-#     - c_improbe_workflow()
-#     - r_improbe_workflow()
-#
-# Workflow:: Annotation Mapping
-#
-#   prb_annotation_workflow()
-#
-# Workflow:: Manifest Generation
-#
-#   build_sesame_manifest()
-#   build_genome_studio_manifest()
-#
-
-if (TRUE) {
+  #
+  # Workflow:: AQP Manifest Preperation
+  #
+  #   aqp_address_workflow()
+  #   cgn_mapping_workflow()
+  #   bsp_mapping_workflow()
+  #
+  # Workflow:: Probe Design
+  #
+  #   prb_designs_workflow()
+  #     - s_improbe_workflow()
+  #     - c_improbe_workflow()
+  #     - r_improbe_workflow()
+  #
+  # Workflow:: Annotation Mapping
+  #
+  #   prb_annotation_workflow()
+  #
+  # Workflow:: Manifest Generation
+  #
+  #   build_sesame_manifest()
+  #   build_genome_studio_manifest()
+  #
   
+  # TBD:: NEXT::
+  #
+  #   - Minimize aqp_bsp_tib as input to below::
+  #
+  # aqp_prb_tib2 <- aqp_prb_tib
   aqp_prb_tib <- prb_designs_workflow(
-    tib = aqp_cgn_tib, 
+    tib = aqp_bsp_tib %>% 
+      dplyr::select(run$unq_key, run$ids_key, run$add_key, 
+                    run$des_key, run$din_key, 
+                    run$srd_key, run$cos_key,
+                    run$pos_key, run$chr_key), 
     max = 0,
     
     out_dir  = run$seq_dir,
     run_name = opt$runName,
+    
+    imp_level  = 3,
+    imp_prefix = opt$runName,
+    imp_inp_suffix = run$imp_inp_suffix,
+    imp_out_suffix = run$imp_out_suffix,
     
     # imp_inp_tsv = run$imp_inp_tsv,
     # imp_des_tsv = run$imp_des_tsv,
@@ -1309,9 +1309,10 @@ if (TRUE) {
     gen_tib  = all_gen_tib,
     
     # Field Parameters:: general
-    ids_key = run$ids_key, 
+    # ids_key = run$ids_key, 
+    ids_key = run$unq_key, 
     din_key = run$din_key, 
-    pos_key = run$pos_key, 
+    pos_key = run$pos_key,
     chr_key = run$chr_key,
     
     # Field Parameters:: s-improbe
@@ -1332,24 +1333,27 @@ if (TRUE) {
     doc_image = run$doc_image,
     doc_shell = run$doc_shell,
     
-    join_new=c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos","Bsp_FR","Bsp_CO"),
-    join_old=c("Seq_ID","Chromosome","Coordinate","Strand_FR","Strand_CO"),
+    join     = FALSE,
+    join_new = c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos","Bsp_FR","Bsp_CO"),
+    join_old = c("Seq_ID","Chromosome","Coordinate","Strand_FR","Strand_CO"),
     
-    subset=TRUE,
-    sub_cols=NULL,
+    subset   = TRUE,
+    sub_cols = NULL,
     
     # reload=opt$reload,
-    reload=FALSE,
-    retData=TRUE,
+    reload  = TRUE,
+    retData = TRUE,
     # retData=FALSE,
     
     parallel=opt$parallel,
     # parallel=FALSE,
-    r_improbe=TRUE,
-    s_improbe=FALSE,
     
-    add_flanks=TRUE,
-    add_matseq=TRUE,
+    r_improbe = TRUE,
+    s_improbe = FALSE,
+    c_improbe = TRUE,
+    
+    add_flanks = TRUE,
+    add_matseq = TRUE,
     
     verbose=opt$verbose, tt=pTracker
   )

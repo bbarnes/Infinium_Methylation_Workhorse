@@ -97,6 +97,375 @@ list.string.diff<-function(a="ATTCGA-",b="attTGTT",exclude=c("-","?"),ignore.cas
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             FASTA File Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+ord_to_fas = function(tib, 
+                      prb_key = "Prb_Seq", 
+                      add_key = "Address", 
+                      des_key = "Prb_Des", 
+                      din_key = "Prb_Din",
+                      
+                      prb_csv = NULL,
+                      prb_fas = NULL,
+                      
+                      out    = NULL,
+                      prefix = NULL,
+                      suffix = NULL,
+                      pre_len = 0,
+                      
+                      # u49_tsv=NULL,
+                      # m49_tsv=NULL,
+                      del="_",
+                      verbose=0, vt=3,tc=1,tt=NULL, funcTag='ord_to_fas') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    prb_sym <- rlang::sym(prb_key)
+    des_sym <- rlang::sym(des_key)
+    din_sym <- rlang::sym(din_key)
+    aln_vec <- c(add_key,des_key)
+    
+    # aln_vec <- c(des_key,din_key)
+    #
+    # To make all Aln_Key's <=15 characters for improbe we'll 
+    #   unite the Aln_Key in two steps to remove one underscore ("_")
+    #
+    # Old Definition: aln_vec <- c(add_key,des_key,din_key)
+    #
+    
+    # Build Alignment Keys/Seqs and Write Data::
+    #
+    ret_tib <- tib %>% 
+      tidyr::unite(Tmp_Key, dplyr::all_of(aln_vec),sep=del, remove=FALSE) %>%
+      tidyr::unite(Aln_Key, Tmp_Key,!!din_sym,sep="", remove=FALSE) %>%
+      dplyr::select(-Tmp_Key) %>%
+      dplyr::mutate(
+        Aln_Prb=deMs(!!prb_sym, uc=TRUE),
+        Aln_Rev=revCmp(Aln_Prb),
+        Aln_P49=dplyr::case_when(
+          !!des_sym == '2' ~ stringr::str_sub(Aln_Prb, 2),
+          !!des_sym == 'U' ~ stringr::str_remove(Aln_Prb, '[A-Z]$'),
+          !!des_sym == 'M' ~ stringr::str_remove(Aln_Prb, '[A-Z]$'),
+          TRUE ~ NA_character_
+        )
+      ) %>%
+      dplyr::distinct(Aln_Key,Aln_Prb, .keep_all=TRUE) %>%
+      clean_tibble()
+    
+    safe_write(x=ret_tib, file=dat_csv, funcTag=funcTag,
+               verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
+    # Build/Write FASTA File::
+    #
+    if (!is.null(prb_fas))
+      fas_vec <- ret_tib %>%
+      dplyr::mutate(fas_line=paste0(">",Aln_Key,"\n",Aln_Prb) ) %>%
+      dplyr::pull(fas_line)
+    
+    safe_write(x=fas_vec, type="line", file=prb_fas, funcTag=funcTag,
+               verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
+    
+    # Build U49/M49 Sub-sequences and split by 5' two nucelotide prefix into 
+    #  sorted output files. Splitting by prefix makes the join later much 
+    #  faster...
+    #
+    
+    u49_tibs <- NULL
+    if (!is.null(u49_tsv))
+      u49_tib <- ret_tib %>% 
+      dplyr::filter(!!des_sym == '2' | !!des_sym=='U') %>%
+      dplyr::filter(!is.na(Aln_P49)) %>%
+      dplyr::select(Aln_P49,Aln_Key) %>%
+      dplyr::arrange(Aln_P49)
+    
+    m49_tib <- NULL
+    if (!is.null(m49_tsv))
+      m49_tib <- ret_tib %>% 
+      dplyr::filter(!!des_sym=='M') %>%
+      dplyr::filter(!is.na(Aln_P49)) %>%
+      dplyr::select(Aln_P49,Aln_Key) %>%
+      dplyr::arrange(Aln_P49)
+    
+    if (pre_len>0) {
+      u49_tibs <- u49_tib %>% 
+        dplyr::mutate(Pre_Nuc=stringr::str_sub(Aln_P49, 1,pre_len)) %>%
+        split(f=.$Pre_Nuc)
+      
+      for (pre_nuc in names(u49_tibs)) {
+        prb_csv <- file.path(out, paste())
+        
+        prb_tsv <- file.path(out, paste(prefix,suffix,pre_nuc,"U49.tsv.gz", sep='.'))
+        
+        
+      }
+    }
+    
+    
+    
+    safe_write(u49_tib,"tsv",u49_tsv,cols=FALSE, 
+               funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    safe_write(m49_tib,"tsv",m49_tsv,cols=FALSE, 
+               funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabsStr}{BRK}{RET}{RET}"))
+  
+  ret_tib
+}
+
+if (FALSE) {
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       Address To Manifest Methods::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # TBD:: Pretty Sure this can be removed::
+  add_comb = function(tibA, tibB, field,
+                      join,
+                      verbose=0,vt=3,tc=1,tt=NULL) {
+    funcTag <- 'add_comb'
+    tabs <- paste0(rep(TAB, tc), collapse='')   mssg <- glue::glue("[{funcTag}]:{tabs}")
+    if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- base::system.time({
+      
+      ret_tib <- 
+        dplyr::inner_join(
+          tibA, tibB, 
+          by=dplyr::all_of(join),
+          suffix=c("_U","_M")
+        ) # %>%
+      # dplyr::select(dplyr::starts_with(field)) %>%
+      # dplyr::distinct() %>%
+      # purrr::set_names(c("U","M"))
+      
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) cat(glue::glue(
+      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    
+    ret_tib
+  }
+  
+  add_to_man = function(tib, join, runName,
+                        des_key="Ord_Des", pid_key="Ord_Key",
+                        rep_key=NULL, rep_val=NULL,
+                        col_key=NULL, nxb_key=NULL,
+                        csv=NULL, validate=TRUE,
+                        verbose=0,vt=3,tc=1,tt=NULL,
+                        funcTag='add_to_man') {
+    
+    tabs <- paste0(rep(TAB, tc), collapse='')
+    mssg <- glue::glue("[{funcTag}]:{tabs}")
+    
+    if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- base::system.time({
+      
+      des_list <- NULL
+      des_list <- tib %>% split(.[[des_key]])
+      des_cnt  <- des_list %>% names() %>% length()
+      if (verbose>=vt+4) {
+        cat(glue::glue("{mssg} des_list[{des_key}]={RET}"))
+        print(des_list)
+      }
+      
+      # Build Infinium I::
+      ret1_tib <- NULL
+      if (!is.null(des_list[["U"]]) && !is.null(des_list[["M"]])) {
+        ret1_tib <- dplyr::full_join(
+          dplyr::select(des_list[["U"]], -dplyr::all_of(des_key)), 
+          dplyr::select(des_list[["M"]], -dplyr::all_of(des_key)), 
+          by=dplyr::all_of(join),
+          suffix=c("_U","_M")
+        ) %>% dplyr::mutate(Infinium_Design=as.integer(1))
+        # TBD:: We should allow these "singletons" to pass, but under
+        #  a different classification...
+        #
+        if ("Address_U" %in% names(ret1_tib) && 
+            "Address_M" %in% names(ret1_tib)) ret1_tib <- ret1_tib %>% 
+            dplyr::filter(!is.na(Address_U) & !is.na(Address_M))
+      }
+      ret1_cnt <- print_tib(ret1_tib,funcTag, verbose,vt+4,tc, n="InfI")
+      
+      # Build Infinium II::
+      ret2_tib <- NULL
+      if (!is.null(des_list[["2"]])) {
+        ret2_tib <- dplyr::bind_cols(
+          dplyr::select(des_list[["2"]],  dplyr::all_of(join)),
+          dplyr::select(des_list[["2"]], -dplyr::all_of(join)) %>% 
+            purrr::set_names(paste(names(.),"U", sep="_"))
+        ) %>% dplyr::mutate(Infinium_Design=as.integer(2))
+        ret2_cnt <- print_tib(ret2_tib,funcTag, verbose,vt+4,tc, n="InfII")
+      }
+      
+      # Bind Infinium I/II into single manifest::
+      ret_tib <- dplyr::bind_rows(ret1_tib, ret2_tib) %>%
+        dplyr::mutate(
+          # Infinium_Design=dplyr::case_when(
+          #   is.na(Address_M) ~ 2,
+          #   !is.na(Address_M) ~ 1,
+          #   TRUE ~ NA_real_
+          # ) %>% as.integer(),
+          Infinium_Design_Type=dplyr::case_when(
+            Infinium_Design==1 ~ 'I',
+            Infinium_Design==2 ~ 'II',
+            TRUE ~ NA_character_)
+        )
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="InfI+II.0")
+      
+      if (!is.null(col_key)) {
+        col_sym <- rlang::sym(col_key)
+        ret_tib <- ret_tib %>%
+          dplyr::mutate(
+            col=dplyr::case_when(
+              Infinium_Design==1 ~ !!col_sym,
+              TRUE ~ NA_character_),
+            Color_Channel=dplyr::case_when(
+              Infinium_Design==2 ~ 'Both',
+              col=="R" ~ 'Red',
+              col=='G' ~ 'Grn',
+              TRUE ~ NA_character_),
+            Next_Base=dplyr::case_when(
+              col=="R" ~ "A",
+              col=="G" ~ "C",
+              TRUE ~ NA_character_
+            ),
+            Probe_Source=runName
+          )
+      } else if (!is.null(nxb_key)) {
+        nxb_sym <- rlang::sym(nxb_key)
+        
+        ret_tib <- ret_tib %>%
+          dplyr::mutate(
+            Color_Channel=dplyr::case_when(
+              Infinium_Design==2 ~ 'Both',
+              Infinium_Design==1 & (!!nxb_sym=='A' | !!nxb_sym=='T' |
+                                      !!nxb_sym=='a' | !!nxb_sym=='t') ~ 'Red',
+              Infinium_Design==1 & (!!nxb_sym=='C' | !!nxb_sym=='G' |
+                                      !!nxb_sym=='c' | !!nxb_sym=='g') ~ 'Grn',
+              TRUE ~ NA_character_),
+            col=dplyr::case_when(
+              Infinium_Design==2 ~ NA_character_,
+              Infinium_Design==1 ~ stringr::str_sub(Color_Channel, 1,1),
+              TRUE ~ NA_character_),
+            Next_Base=dplyr::case_when(
+              col=="R" ~ !!nxb_sym,
+              col=="G" ~ !!nxb_sym,
+              TRUE ~ NA_character_
+            ),
+            # Next_Base=!!nxb_sym,
+            Probe_Source=runName
+          )
+      } else {
+        # Do nothing for now, but this should not be a standard use case
+        return(NULL)
+      }
+      
+      if (!is.null(pid_key)) {
+        pid_key_sym = rlang::sym(pid_key)
+        ret_tib <- ret_tib %>% dplyr::arrange(pid_key)
+      }
+      
+      if (!is.null(pid_key) && !is.null(rep_key) && !is.null(rep_val)) {
+        rep_key_sym = rlang::sym(rep_key)
+        rep_val_sym = rlang::sym(rep_val)
+        
+        if (verbose>=vt) 
+          cat(glue::glue("{mssg} Adding Probe Replicate({rep_key}/{rep_val})...{RET}"))
+        ret_tib <- ret_tib %>% dplyr::group_by(!!rep_key_sym) %>%
+          dplyr::mutate(!!rep_val_sym := dplyr::row_number(),
+                        !!pid_key_sym := paste0(!!rep_key_sym,!!rep_val_sym)) %>%
+          dplyr::ungroup()
+      }
+      
+      if (!is.null(csv)) {
+        safe_write(ret_tib,"csv",csv,
+                   funcTag=funcTag,verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      }
+      
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="InfI+II")
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) cat(glue::glue(
+      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    
+    ret_tib
+  }
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          BSMAP Conversion Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# This isn't ready yet, but it is another way to validate CG#'s via coordinate
+#   alignment with: 
+#   BED File: /Users/bretbarnes/Documents/data/improbe/scratch/cgnDB/dbSNP_Core4/design-input/GRCh37.cgn.bed.gz
+#
+if (FALSE) {
+  
+  bsmap_to_bed = function(tib,bed,
+                          verbose=0,vt=3,tc=1,tt=NULL,
+                          funcTag='bsmap_to_bed') {
+    
+    tabs <- paste0(rep(TAB, tc), collapse='')
+    mssg <- glue::glue("[{funcTag}]:{tabs}")
+    
+    if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+    
+    ret_cnt <- 0
+    ret_tib <- NULL
+    stime <- base::system.time({
+      
+      
+      
+      safe_write(bed_tib,"tsv",bed,funcTag=funcTag,
+                 vt=vt+1,tc=tc+1,tt=tt)
+      
+      
+      # ret_cnt <- ret_tib %>% base::nrow()
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+    })
+    etime <- stime[3] %>% as.double() %>% round(2)
+    if (!is.null(tt)) tt$addTime(stime,funcTag)
+    if (verbose>=vt) cat(glue::glue(
+      "[{funcTag}]:{tabsStr} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+      "{RET}{tabsStr}{BRK}{RET}{RET}"))
+    
+    ret_tib
+  }
+}
+
 # cgn_mapping_workflow(dir=run$imp_prb_dir, pattern_u="-probe_U49_cgn-table.tsv.gz", pattern_m="-probe_M49_cgn-table.tsv.gz")
 cgn_mapping_workflow = function(tib, dir,
                                 pattern_u,
