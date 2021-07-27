@@ -306,10 +306,10 @@ bsp_mapping_workflow =
 cgn_mapping_workflow = function(ord_tib,
                                 bsp_tib,
                                 seq_tib,
-                                can_csv,
                                 
                                 ids_key,
                                 bsp_csv,
+                                can_csv,
                                 merge = TRUE,
                                 
                                 out_csv=NULL,
@@ -354,8 +354,8 @@ cgn_mapping_workflow = function(ord_tib,
     #
     # TBD:: This function needs serious re-writing!!!!
     #
-    ret_tib <- assign_cgn(ord_tib = can_tib,
-                          bsp_tib = ret_tib,
+    ret_tib <- assign_cgn(ord_tib = ord_tib,
+                          bsp_tib = bsp_tib,
                           seq_tib = seq_tib, 
                           can_csv = canonical,
                           

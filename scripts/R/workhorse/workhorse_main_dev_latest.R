@@ -307,8 +307,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm10'
   par$local_runType <- 'NZT'
   par$local_runType <- 'NZT'
-  par$local_runType <- 'McMaster10Kselection'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'McMaster10Kselection'
   
   opt$parallel <- TRUE
   
@@ -1018,7 +1018,7 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 des_key = run$des_key,
                                 din_key = run$din_key,
                                 
-                                join_key  = run$ids_key,  # Use to be "Aln_Key"
+                                join_key  = run$ids_key,
                                 join_type = "inner",
                                 
                                 sort    = TRUE,
@@ -1026,7 +1026,7 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 merge   = FALSE,
                                 light   = TRUE,
                                 reload  = opt$reload,
-                                retData = TRUE,
+                                retData = FALSE,
                                 
                                 bsp_exe = opt$bsmap_exe,
                                 bsp_opt = opt$bsmap_opt,
@@ -1088,23 +1088,16 @@ cgn_tib <-
   cgn_mapping_workflow(ord_tib = ord_tib,
                        bsp_tib = bsp_tib,
                        seq_tib = seq_tib,
-                       can_csv = can_csv,
-                       
+
                        ids_key = ids_key,
                        bsp_csv = bsp_key,
-                       seq_tib = seq_tib,
-                       
-                       canonical = run$canonical_csv,
-                       
+                       can_csv = run$canonical_csv,
                        merge   = run$merge,
                        
-                       out_csv = NULL,
-                       out_dir,
-                       run_tag,
-                       re_load = FALSE,
-                       pre_tag = NULL,
-                       end_str = 'csv.gz',
-                       sep_chr='.',
+                       out_dir = opt$outDir,
+                       run_tag = opt$runName,
+                       re_load = TRUE,
+                       pre_tag = pTracker$file_vec,
                        
                        verbose=opt$verbose, tt=pTracker)
 
