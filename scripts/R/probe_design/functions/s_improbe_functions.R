@@ -63,10 +63,6 @@ template_func = function(tib,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#               Parse all Forward Genomic Template Sequence::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
 s_improbe_workflow = function(tib, 
                               nrec = 0,
                               gen_bld = "na", 
@@ -93,12 +89,7 @@ s_improbe_workflow = function(tib,
                               
                               ups_len = 60, 
                               seq_len = 122, 
-                              del = "_",
-                              
-                              # NOT USED YET!!!
-                              subset   = FALSE,
-                              sub_cols = NULL,
-                              
+
                               reload  = FALSE,
                               retData = FALSE,
                               
