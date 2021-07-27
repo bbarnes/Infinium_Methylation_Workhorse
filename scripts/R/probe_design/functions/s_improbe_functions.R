@@ -106,7 +106,7 @@ s_improbe_workflow = function(tib,
                               add_flanks = FALSE, 
                               add_probes = FALSE,
                               
-                              out_csv=NULL, out_dir, run_tag, 
+                              out_csv=NULL, out_dir, run_tag,
                               re_load=FALSE, pre_tag=NULL,
                               end_str='csv.gz', sep_chr='.',
                               

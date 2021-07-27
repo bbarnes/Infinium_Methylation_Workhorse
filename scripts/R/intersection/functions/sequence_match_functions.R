@@ -63,7 +63,9 @@ template_func = function(tib,
 #                         CGN Mapping Workflow Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-cgn_mapping_workflow = function(tib, dir,
+seq_mapping_workflow = function(ord_tib,
+                                
+                                seq_dir, 
                                 pattern_u,
                                 pattern_m,
                                 
@@ -77,21 +79,28 @@ cgn_mapping_workflow = function(tib, dir,
                                 prefix = NULL,
                                 suffix = NULL,
                                 
-                                idxA=1, idxB=1,
+                                idxA = 1,
+                                idxB = 1,
+                                
                                 reload   = FALSE,
                                 parallel = FALSE,
                                 
                                 del="_",
                                 
-                                out_csv=NULL, out_dir, run_tag, 
-                                re_load=FALSE, pre_tag=NULL,
-                                end_str='csv.gz', sep_chr='.',
+                                out_csv = NULL, 
+                                out_dir, 
+                                run_tag, 
+                                re_load = FALSE, 
+                                pre_tag = NULL,
+                                end_str = 'csv.gz', 
+                                sep_chr = '.',
+                                
                                 verbose=0,vt=3,tc=1,tt=NULL,
-                                funcTag='cgn_mapping_workflow') {
+                                funcTag='seq_mapping_workflow') {
   
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
-  
+
   out_csv <- redata(out_dir, run_tag, funcTag, re_load, 
                     pre_tag, end_str=end_str, sep=sep_chr,
                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
@@ -101,12 +110,12 @@ cgn_mapping_workflow = function(tib, dir,
     return(out_csv)
   }
   out_dir <- base::dirname(out_csv)
-  
+  out_dir <- base::dirname(out_csv)
+
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
-    cat(glue::glue("{mssg}         dir={dir}.{RET}"))
     cat(glue::glue("{mssg}   pattern_u={pattern_u}.{RET}"))
     cat(glue::glue("{mssg}   pattern_m={pattern_m}.{RET}"))
     cat(glue::glue("{RET}"))
@@ -127,30 +136,30 @@ cgn_mapping_workflow = function(tib, dir,
     cat(glue::glue("{mssg}         del={del}.{RET}"))
     cat(glue::glue("{RET}"))
   }
-  
+
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
-    
+
     ids_sym <- rlang::sym(ids_key)
     prb_sym <- rlang::sym(prb_key)
     des_sym <- rlang::sym(des_key)
     din_sym <- rlang::sym(din_key)
     aln_sym <- rlang::sym(aln_key)
-    
-    # if (!dir.exists(out)) dir.create(out, recursive = TRUE)
+
+    # if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                 Build Candidate Sub-String Probes:: U49/M49
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
+
     #
-    # NOTE: Build U49/M49 Sub-sequences and split by 5' two nucelotide prefix  
-    #  into sorted output files. Splitting by prefix makes the join later much 
+    # NOTE: Build U49/M49 Sub-sequences and split by 5' two nucelotide prefix
+    #  into sorted output files. Splitting by prefix makes the join later much
     #  faster...
     #
-    
-    ret_tib <- tib %>%
+
+    ret_tib <- ord_tib %>%
       dplyr::mutate(
         Aln_Prb = deMs(!!prb_sym, uc=TRUE),
         !!aln_sym := dplyr::case_when(
@@ -162,71 +171,83 @@ cgn_mapping_workflow = function(tib, dir,
       ) %>%
       dplyr::distinct(!!ids_sym,Aln_Prb, .keep_all=TRUE) %>%
       clean_tibble()
-    
+
     ret_key <- glue::glue("add-P49({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
-    
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Intersecting by Probe Sequence:: U49
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    u49_tib <- 
-      intersect_seq_workflow(tib = ret_tib, dir = dir, pattern = pattern_u,
-                             
-                             tar_bsc = "U49", tar_des = c("2","U"), 
-                             
-                             prb_key = prb_key, 
+
+    u49_tib <-
+      intersect_seq_workflow(tib = ret_tib,
+
+                             seq_dir = seq_dir,
+                             tar_bsc = "U49",
+                             tar_des = c("2","U"),
+                             pattern = pattern_u,
+
+                             out_dir = out_dir,
+                             prefix  = prefix,
+                             suffix  = suffix,
+
+                             prb_key = prb_key,
                              des_key = des_key,
                              din_key = din_key,
                              ids_key = ids_key,
                              aln_key = aln_key,
 
-                             idxA = idxA, idxB = idxB, 
-                             out = out_dir, prefix = prefix, suffix = suffix, 
-                             
-                             reload   = reload, parallel = parallel, 
-                             
-                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
+                             idxA = idxA,
+                             idxB = idxB,
+
+                             reload   = reload,
+                             parallel = parallel,
+
+                             verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Intersecting by Probe Sequence:: M49
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    m49_tib <- 
-      intersect_seq_workflow(tib = ret_tib, dir = dir, pattern = pattern_m,
-                             
-                             tar_bsc = "M49", tar_des = c("M"), 
-                             
-                             prb_key = prb_key, 
+
+    m49_tib <-
+      intersect_seq_workflow(tib = ret_tib,
+
+                             seq_dir = seqt_dir,
+                             tar_bsc = "M49",
+                             tar_des = c("M"),
+                             pattern = pattern_m,
+
+                             out_dir = out_dir,
+                             prefix  = prefix,
+                             suffix  = suffix,
+
+                             prb_key = prb_key,
                              des_key = des_key,
                              din_key = din_key,
                              ids_key = ids_key,
                              aln_key = aln_key,
-                             
-                             idxA = idxA, idxB = idxB, 
-                             out = out_dir, prefix = prefix, suffix = suffix, 
-                             
-                             reload   = reload, parallel = parallel, 
-                             
+
+                             idxA = idxA,
+                             idxB = idxB,
+
+                             reload   = reload,
+                             parallel = parallel,
+
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Intersecting by Probe Sequence:: M49
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    ret_tib <- join_seq_intersect(u49 = u49_tib, 
-                                  m49 = m49_tib, 
+
+    ret_tib <- join_seq_intersect(u49 = u49_tib,
+                                  m49 = m49_tib,
                                   ids_key = ids_key,
                                   verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-    # Defined Above::
-    #
-    # out_csv <- 
-    #   file.path(out, paste(prefix,suffix,"intersect.tsv.gz", sep='.'))
-    
+
     out_cnt <- safe_write(ret_tib, file=out_csv, funcTag=funcTag, done=TRUE,
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     tt$addFile(out_csv)
-    
+
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
@@ -235,74 +256,100 @@ cgn_mapping_workflow = function(tib, dir,
   if (verbose>=vt) cat(glue::glue(
     "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
     "{RET}{tabs}{BRK}{RET}{RET}"))
-  
+
   ret_tib
 }
 
-intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
+intersect_seq_workflow = function(tib,
 
-                                  prb_key = "Prb_Seq", 
-                                  des_key = "Prb_Des", 
+                                  seq_dir,
+                                  pattern,
+                                  
+                                  tar_bsc,
+                                  tar_des,
+
+                                  out_dir,
+                                  prefix,
+                                  suffix,
+
+                                  prb_key = "Prb_Seq",
+                                  des_key = "Prb_Des",
                                   din_key = "Prb_Din",
                                   ids_key = "Prb_Key",
                                   aln_key = "Aln_P49",
 
-                                  out, prefix, suffix,
-                                  
                                   idxA=1,idxB=1,
-                                  
-                                  reload=FALSE, parallel=FALSE,
-                                  
+
+                                  reload=FALSE,
+                                  parallel=FALSE,
+
                                   verbose=0,vt=3,tc=1,tt=NULL,
                                   funcTag='intersect_seq_workflow') {
-  
+
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
-  
+
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
-    cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
-    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg}   seq_dir={seq_dir}.{RET}"))
+    cat(glue::glue("{mssg}   pattern={pattern}.{RET}"))
+    cat(glue::glue("{mssg}   prefix={prefix}.{RET}"))
+    cat(glue::glue("{mssg}   suffix={suffix}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}     tar_bsc={tar_bsc}.{RET}"))
+    cat(glue::glue("{mssg}     tar_des={tar_des}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}     prb_key={prb_key}.{RET}"))
+    cat(glue::glue("{mssg}     des_key={des_key}.{RET}"))
+    cat(glue::glue("{mssg}     din_key={din_key}.{RET}"))
+    cat(glue::glue("{mssg}     ids_key={ids_key}.{RET}"))
+    cat(glue::glue("{mssg}     aln_key={aln_key}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}        idxA={idxA}.{RET}"))
+    cat(glue::glue("{mssg}        idxB={idxB}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}      reload={reload}.{RET}"))
+    cat(glue::glue("{mssg}    parallel={parallel}.{RET}"))
     cat(glue::glue("{RET}"))
   }
-  
+
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
-    
+
     prb_sym <- rlang::sym(prb_key)
     des_sym <- rlang::sym(des_key)
     din_sym <- rlang::sym(din_key)
     aln_sym <- rlang::sym(aln_key)
 
     tar_des_str <- paste(tar_des, collapse="-")
-    
-    if (!dir.exists(out)) dir.create(out, recursive = TRUE)
-    
+
+    if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #      Find All Pre-Built Reference Prefix-Partition Files:: U49/M49
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    cgn_tsvs <- get_file_list(dir = dir, 
-                              pattern = pattern, 
+
+    cgn_tsvs <- get_file_list(dir = seq_dir,
+                              pattern = pattern,
                               trim    = pattern,
-                              verbose = opt$verbose)
-    
+                              verbose = verbose)
+
     tsv_cnt <- cgn_tsvs %>% names() %>% length()
     pre_len <- cgn_tsvs %>% names() %>% stringr::str_length() %>% max()
-    
+
     if (verbose>=vt+6) {
       cat(glue::glue("{mssg} Found {tsv_cnt} {tar_bsc}-files, ",
                      "prefix length={pre_len}, tar_des={tar_des_str}.{RET}"))
       cgn_tsvs %>% head(n=3) %>% print()
     }
-    
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Intersecting by Probe Sequence:: U49/M49
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    prb_tibs <- tib %>% 
+
+    prb_tibs <- tib %>%
       dplyr::filter(!!des_sym %in% tar_des) %>%
       dplyr::filter(!is.na(!!aln_sym)) %>%
       dplyr::select(dplyr::all_of(c(aln_key,ids_key)) ) %>%
@@ -321,45 +368,46 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
       ret_key <- glue::glue("{tar_bsc}/{tar_des_str}-{tar_des}-pre2-int-tib({funcTag})")
       ret_cnt <- print_tib(prb_tibs[[2]],funcTag, verbose,vt+6,tc, n=ret_key)
     }
-    
+
     ret_tib <- NULL
     if (parallel) {
-      if (verbose>=vt) 
+      if (verbose>=vt)
         cat(glue::glue("{mssg}{TAB} Intersecting probe sequences ",
                        "{tar_bsc}-{tar_des_str} (Parallel)...{RET}"))
-      
+
       ret_tib <- foreach (pre_nuc=names(prb_tibs), .combine=rbind) %dopar% {
         cur_tib <- prb_tibs[[pre_nuc]] %>% dplyr::select(-Pre_Nuc)
+        
         intersect_seq_strand(
           can = cur_tib, ref = cgn_tsvs[[pre_nuc]],
           bsc_str = tar_bsc, pre_nuc = pre_nuc, idxA = idxA, idxB = idxB,
-          out = out, prefix = prefix, suffix = suffix, reload = reload,
+          out_dir = out_dir, prefix = prefix, suffix = suffix, reload = reload,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
       }
     } else {
-      if (verbose>=vt) 
+      if (verbose>=vt)
         cat(glue::glue("{mssg}{TAB} Intersecting probe sequences ",
                        "{tar_bsc}-{tar_des_str} (Linear)...{RET}"))
-      
+
       for (pre_nuc in names(prb_tibs)) {
         cur_tib <- prb_tibs[[pre_nuc]] %>% dplyr::select(-Pre_Nuc)
-        
+
         prb_tib <- intersect_seq_strand(
           can = cur_tib, ref = cgn_tsvs[[pre_nuc]],
           bsc_str = tar_bsc, pre_nuc = pre_nuc, idxA = idxA, idxB = idxB,
-          out = out, prefix = prefix, suffix = suffix, reload = reload,
+          out_dir = out_dir, prefix = prefix, suffix = suffix, reload = reload,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
         ret_tib <- dplyr::bind_rows(ret_tib, prb_tib)
-        
-        if (verbose>=vt) 
+
+        if (verbose>=vt)
           cat(glue::glue("{mssg}{TAB}{TAB} Done. Intersecting probe ",
                          "sequences {tar_bsc}/{tar_des_str} nuc={pre_nuc}{RET2}"))
       }
     }
-    if (verbose>=vt) 
+    if (verbose>=vt)
       cat(glue::glue("{mssg}{TAB} Done. Intersecting probe sequences ",
                      "{tar_bsc}/{tar_des_str}!{RET2}"))
-    
+
     ret_key <- glue::glue("{tar_bsc}/{tar_des_str}-{tar_des}-int-tib({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
@@ -368,14 +416,24 @@ intersect_seq_workflow = function(tib, dir, pattern, tar_bsc, tar_des,
   if (verbose>=vt) cat(glue::glue(
     "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
     "{RET}{tabs}{BRK}{RET}{RET}"))
-  
+
   ret_tib
 }
 
-intersect_seq_strand = function(can, ref,
-                                bsc_str, pre_nuc, idxA, idxB,
-                                out, prefix, suffix, 
+intersect_seq_strand = function(can, 
+                                ref,
+                                
+                                bsc_str,
+                                pre_nuc,
+                                
+                                idxA, 
+                                idxB,
+                                
+                                out_dir, 
+                                prefix, 
+                                suffix, 
                                 reload = FALSE,
+                                
                                 verbose=0,vt=3,tc=1,tt=NULL,
                                 funcTag='intersect_seq_strand') {
   
@@ -391,7 +449,7 @@ intersect_seq_strand = function(can, ref,
     cat(glue::glue("{mssg}   pre_nuc={pre_nuc}.{RET}"))
     cat(glue::glue("{mssg}      idxA={idxA}.{RET}"))
     cat(glue::glue("{mssg}      idxB={idxB}.{RET}"))
-    cat(glue::glue("{mssg}       out={out}.{RET}"))
+    cat(glue::glue("{mssg}   out_dir={out_dir}.{RET}"))
     cat(glue::glue("{mssg}    prefix={prefix}.{RET}"))
     cat(glue::glue("{mssg}    suffix={suffix}.{RET}"))
     cat(glue::glue("{mssg}    reload={reload}.{RET}"))
@@ -404,16 +462,16 @@ intersect_seq_strand = function(can, ref,
     
     ref_tsv <- ref
     can_tsv <- file.path(
-      out, paste(prefix, suffix,pre_nuc, bsc_str,"tsv.gz", sep='.') )
+      out_dir, paste(prefix, suffix,pre_nuc, bsc_str,"tsv.gz", sep='.') )
     out_tsv <- file.path(
-      out, paste(prefix, suffix,pre_nuc, bsc_str, "intersect.tsv.gz", sep='.') )
+      out_dir, paste(prefix, suffix,pre_nuc, bsc_str, "intersect.tsv.gz", sep='.') )
     
     safe_write(x = can, file = can_tsv, cols = FALSE, 
                funcTag = funcTag, verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     
     ret_tib <- intersect_seq(ref = ref_tsv,
                              can = can_tsv,
-                             out = out_tsv,
+                             out_tsv = out_tsv,
 
                              idxA = idxA,
                              idxB = idxB,
@@ -427,15 +485,17 @@ intersect_seq_strand = function(can, ref,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET}{RET}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET}{RET}"))
   
   ret_tib
 }
 
-intersect_seq = function(ref, can, out, 
-                         idxA=1, idxB=1, 
-                         reload=FALSE,
+intersect_seq = function(ref, 
+                         can,
+                         out_tsv, 
+                         idxA = 1,
+                         idxB = 1, 
+                         reload = FALSE,
                          
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='intersect_seq') {
@@ -445,12 +505,15 @@ intersect_seq = function(ref, can, out,
   
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+4) {
-    cat(glue::glue("{mssg}  ref={ref}{RET}"))
-    cat(glue::glue("{mssg}  can={can}{RET}"))
-    cat(glue::glue("{mssg}  out={out}{RET}"))
-    cat(glue::glue("{mssg} idxA={idxA}{RET}"))
-    cat(glue::glue("{mssg} idxB={idxB}{RET}"))
-    cat(glue::glue("{mssg} reload={reload}{RET}{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} File IO Parameters::{RET}"))
+    cat(glue::glue("{mssg}      ref={ref}{RET}"))
+    cat(glue::glue("{mssg}      can={can}{RET}"))
+    cat(glue::glue("{mssg}  out_tsv={out_tsv}{RET}"))
+    cat(glue::glue("{mssg}     idxA={idxA}{RET}"))
+    cat(glue::glue("{mssg}     idxB={idxB}{RET}"))
+    cat(glue::glue("{mssg}   reload={reload}{RET}{RET}"))
+    cat(glue::glue("{RET}"))
   }
   
   int_seq_cols <-
@@ -472,7 +535,7 @@ intersect_seq = function(ref, can, out,
   ret_tib <- NULL
   stime <- base::system.time({
     
-    if (reload && file.exists(out)) {
+    if (reload && file.exists(out_tsv)) {
       if (verbose>=vt+1) cat(glue::glue("{mssg} Reloading!{RET}"))
     } else {
       clean <- FALSE
@@ -491,7 +554,7 @@ intersect_seq = function(ref, can, out,
         clean <- TRUE
       }
       
-      cmd_str = glue::glue("gzip -dc {ref} | join -t $'\t' -1{idxA} -2{idxB} - {can} | gzip -c - > {out}")
+      cmd_str = glue::glue("gzip -dc {ref} | join -t $'\t' -1{idxA} -2{idxB} - {can} | gzip -c - > {out_tsv}")
       if (verbose>=vt)
         cat(glue::glue("[{funcTag}]: Running cmd={cmd_str}...{RET}"))
       cmd_ret <- system(cmd_str)
@@ -512,10 +575,10 @@ intersect_seq = function(ref, can, out,
     }
     
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: Loading intersection output={out}...{RET}"))
+      cat(glue::glue("[{funcTag}]: Loading intersection out_tsv={out_tsv}...{RET}"))
     
     ret_tib <- suppressMessages(suppressWarnings(
-      readr::read_tsv(out, col_names=names(int_seq_cols$cols),
+      readr::read_tsv(out_tsv, col_names=names(int_seq_cols$cols),
                       col_types=int_seq_cols) )) # %>% clean_tibble()
     
     ret_key <- glue::glue("ret-fin({funcTag})")

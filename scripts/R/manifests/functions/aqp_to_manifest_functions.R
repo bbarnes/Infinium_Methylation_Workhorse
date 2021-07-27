@@ -68,9 +68,6 @@ aqp_address_workflow = function(ord_dat,
                                 mat_dat, 
                                 aqp_dat,
 
-                                prefix  = NULL,
-                                suffix  = NULL,
-                                
                                 prb_key = "Ord_Prb",
                                 add_key = "Address",
                                 des_key = "Ord_Des",
@@ -78,10 +75,15 @@ aqp_address_workflow = function(ord_dat,
                                 ids_key = "Prb_Key",
                                 del = "_",
                                 
-                                out_csv=NULL, out_dir, run_tag, 
-                                re_load=FALSE, pre_tag=NULL,
-                                end_str='csv.gz', sep_chr='.',
-                                verbose=0,vt=3,tc=1,tt=NULL,
+                                out_csv=NULL,
+                                out_dir,
+                                run_tag, 
+                                re_load=FALSE,
+                                pre_tag=NULL,
+                                end_str='csv.gz',
+                                sep_chr='.',
+                                
+                                verbose=0, vt=3,tc=1,tt=NULL,
                                 funcTag='aqp_address_workflow') {
   
   tabs <- paste0(rep(TAB, tc), collapse='')
@@ -104,8 +106,6 @@ aqp_address_workflow = function(ord_dat,
     cat(glue::glue("{mssg}       del={del}.{RET}"))
     cat(glue::glue("{mssg}   out_dir={out_dir}.{RET}"))
     cat(glue::glue("{mssg}   out_csv={out_csv}.{RET}"))
-    cat(glue::glue("{mssg}    prefix={prefix}.{RET}"))
-    cat(glue::glue("{mssg}    suffix={suffix}.{RET}"))
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg}   prb_key={prb_key}.{RET}"))
     cat(glue::glue("{mssg}   add_key={add_key}.{RET}"))

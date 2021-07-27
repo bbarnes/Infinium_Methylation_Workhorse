@@ -99,6 +99,846 @@ list.string.diff<-function(a="ATTCGA-",b="attTGTT",exclude=c("-","?"),ignore.cas
 
 if (FALSE) {
   
+  # assign cgn scratch::
+  #
+  if (FALSE) {
+    
+    #
+    #
+    #
+    #
+    #   LEFT OFF HERE !!!!!!
+    #
+    #
+    #
+    
+    
+    
+    can_tib_bk <- can_tib
+    
+    run$merge <- FALSE
+    cgn_out_csv <- file.path(opt$outDir, "assigned-cgns.csv.gz")
+    ret_dat <- assign_cgn_old(ord_tib = aqp_ord_tib,
+                              bsp_tib = aqp_bsp_tib,
+                              
+                              seq_tib = aqp_seq_tib, 
+                              can_csv = run$canonical,
+                              can_tib = can_tib_bk,
+                              
+                              ids_key = run$ids_key,
+                              
+                              bsp_csv = cgn_out_csv,
+                              merge = run$merge,
+                              
+                              retData = TRUE,
+                              
+                              verbose=opt$verbose+100)
+    
+  }
+  
+
+  
+  
+  ord_des_tib <- aqp_bsp_tib %>% 
+    dplyr::select(run$unq_key, run$ids_key, run$add_key, 
+                  run$des_key, run$din_key, 
+                  run$srd_key, run$cos_key,
+                  run$pos_key, run$chr_key, 
+                  run$prb_key, "Bsp_Str", "Bsp_Tag", "Bsp_Prb_Dir")
+  
+  
+  dplyr::inner_join(ord_des_tib, r_improbe_fwd_tib, by=c("Prb_Key_Unq", "Ord_Din")) %>% 
+    dplyr::filter((Ord_Prb==Prb_1U & Ord_Des=="U") | (Ord_Prb==Prb_1M & Ord_Des=="M") | (Ord_Prb==Prb_2D & Ord_Des=="2")) %>% 
+    dplyr::distinct(Prb_Key_Unq, .keep_all = TRUE) %>% dplyr::group_by(Strand_FR, Strand_CO) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  dplyr::inner_join(ord_des_tib, r_improbe_fwd_tib, by=c("Prb_Key_Unq"="Seq_ID", "Ord_Din")) %>%
+    dplyr::filter((Ord_Prb==PRB1_U_MAT & Ord_Des=="U") | (Ord_Prb==PRB1_M_MAT & Ord_Des=="M") | (Ord_Prb==PRB2_D_MAT & Ord_Des=="2")) %>% 
+    dplyr::distinct(Prb_Key_Unq, .keep_all = TRUE) %>% 
+    dplyr::group_by(Strand_SR, Strand_CO) %>% 
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  
+  
+  
+  
+  
+  # dplyr::inner_join(ord_des_tib, r_improbe_fwd_tib, by=c("Prb_Key_Unq"="Seq_ID", "Ord_Din")) %>% 
+  dplyr::inner_join(ord_des_tib, r_improbe_fwd_tib, by=c("Prb_Key_Unq"="Seq_ID", "Ord_Din")) %>%
+    dplyr::mutate(
+      Ord_Match=dplyr::case_when(
+        Ord_Des=="2" & Ord_Prb == PRB2_D_MAT ~ "D0",
+        Ord_Des=="2" & Ord_Prb != PRB2_D_MAT ~ "D1",
+        
+        Ord_Des=="U" & Ord_Prb == PRB1_U_MAT ~ "U0",
+        Ord_Des=="U" & Ord_Prb != PRB1_U_MAT ~ "U1",
+        
+        Ord_Des=="M" & Ord_Prb == PRB1_M_MAT ~ "M0",
+        Ord_Des=="M" & Ord_Prb != PRB1_M_MAT ~ "M1",
+        
+        TRUE ~ NA_character_
+      )
+    ) %>% dplyr::group_by(Ord_Match) %>% dplyr::summarise(Count=n(), .groups = "drop")
+  
+  
+  
+  
+  dplyr::inner_join(
+    dplyr::select(c_imp_tib, Seq_ID,Strand_Ref_FR,Strand_TB,Strand_CO, Probe_Seq_U,Probe_Seq_M, Top_Sequence),
+    dplyr::select(s_imp_tib_FCM_tb, Raw_TB,Bsp_FR, Top_Key, starts_with("Prb")),
+    by=c("Seq_ID"="Prb_Key_Unq")
+  ) %>% dplyr::filter(Probe_Seq_M == Prb1C) %>%
+    dplyr::select(Top_Sequence, Top_Key)  
+  
+  
+  s_imp_tib_FCN_tb <- readr::read_csv(file_tab %>% dplyr::filter(Alphabet=="dna" & improbe_type=="s" & Strand_CO=="C", Strand_FR=="F" & Strand_BSC=="N") %>% dplyr::pull(Path)) %>%
+    setTopBot_tib(seqKey="Forward_Sequence", srdKey="Raw_TB", topKey = "Top_Key") 
+  
+  dplyr::inner_join(
+    dplyr::select(c_imp_tib, Seq_ID,Strand_Ref_FR,Strand_TB,Strand_CO, Probe_Seq_U,Probe_Seq_M, Top_Sequence),
+    dplyr::select(s_imp_tib_FCN_tb, Raw_TB,Bsp_FR, Top_Key, starts_with("Prb")),
+    by=c("Seq_ID"="Prb_Key_Unq")
+  ) %>% dplyr::filter(Top_Sequence==Top_Key)  
+  
+  
+  
+  s_all_tib <- s_imp_tib %>% dplyr::select(starts_with("Prb")) %>% 
+    dplyr::mutate(Prb1Ccm=cmpl(Prb1C),
+                  Prb2Ccm=cmpl(Prb1C),
+                  Prb1Ocm=cmpl(Prb1C),
+                  PrbwOcm=cmpl(Prb1C),
+                  
+                  Prb1Crc=revCmp(Prb1C),
+                  Prb2Crc=revCmp(Prb1C),
+                  Prb1Orc=revCmp(Prb1C),
+                  PrbwOrc=revCmp(Prb1C),
+                  
+                  Prb1Crv=reverse(Prb1C),
+                  Prb2Crv=reverse(Prb1C),
+                  Prb1Orv=reverse(Prb1C),
+                  PrbwOrv=reverse(Prb1C) )
+  
+  cs_inn <- c_imp_tib %>% dplyr::inner_join(s_all_tib, by=c("Seq_ID"="Prb_Key_Unq"))
+  
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1C)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1C)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1C)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1C)
+  
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Ccm)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Ccm)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Ccm)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Ccm)
+  
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Crc)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Crc)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Crc)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Crc)
+  
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Crv)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Crv)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Crv)
+  cs_inn %>% dplyr::filter(Probe_Seq_M==Prb1Crv)
+  
+  
+  
+  c_imp_tib %>% dplyr::inner_join(
+    r_imp_tib, by=c("Seq_ID"="Prb_Key_Unq", 
+                    "Forward_Sequence", "Probe_Seq_M"="Prb_1M",
+                    "Strand_CO") ) %>%
+    dplyr::select(Strand_FR.x, Strand_FR.y)
+  
+  
+  c_imp_tib %>% dplyr::inner_join(
+    r_imp_tib, by=c("Seq_ID"="Prb_Key_Unq", "Probe_Seq_M"="Prb_1M"), suffix=c("_c","_r"))
+  
+  s_imp_tib %>% dplyr::inner_join(
+    r_imp_tib, by=c("Prb_Key_Unq")) %>% dplyr::filter("Prb1C"=="Prb_1M")
+  
+  s_imp_tib %>% dplyr::inner_join(
+    r_imp_tib, by=c("Prb_Key_Unq")) %>% dplyr::filter("Prb1O"=="Prb_1M")
+  
+  s_imp_tib %>% 
+    dplyr::inner_join(
+      r_imp_tib, by=c("Prb_Key_Unq")) %>% dplyr::select(Prb_Key_Unq, Prb1C, Prb1O, Prb_1M, Prb_2D,
+                                                        Forward_Sequence, 
+                                                        Iupac_Forward_Sequence.x,
+                                                        Iupac_Forward_Sequence.y,
+                                                        Tmp_Pad)
+  
+  
+  
+  
+  # NOTE:: Need to run r_improbe on Forward_Sequence
+  
+  
+  all_dat <- NULL
+  for (imp in names(file_tab_list)) {
+    imp_tib <- NULL
+    for (ii in c(1:base::nrow(file_tab_list[[imp]]))) {
+      cat("ii=",ii,"\n")
+      cur_tib <- safe_read(file_tab[ii, ]$Path) %>% dplyr::mutate(
+        Key=file_tab[ii,]$Key, improbe_type=file_tab[ii,]$improbe_type, 
+        Alpha=file_tab[ii,]$Alphabet, Bsc_Tag=file_tab[ii,]$Bsc_Tag, 
+        FR=file_tab[ii,]$Strand_FR, CO=file_tab[ii,]$Strand_CO, 
+        BSC=file_tab[ii,]$Strand_BSC)
+      
+      imp_tib <- dplyr::bind_rows(imp_tib, cur_tib)
+      
+      print(cur_tib)
+    }
+    all_dat[[imp]] <- imp_tib
+  }
+  
+  dplyr::inner_join(all_dat$c,all_dat$r, 
+                    by=c("Probe_Seq_M"="Prb_1M"), 
+                    suffix=c("_c","_r") ) %>% dplyr::select(starts_with("Strand"))
+  dplyr::group_by(Strand_Ref_FR_c, Strand_TB_c, Strand_CO_c, Strand_FR_c,  Strand_CO_r, Strand_FR_r,
+                  Ord_Din)
+  
+  
+  
+  
+  
+  if (FALSE) {
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #
+    #                         OLD COMPLEX VERSION::
+    #
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    
+    aqp_prb_tib <- prb_designs_workflow_complex(
+      tib = aqp_bsp_tib %>% 
+        dplyr::select(run$unq_key, run$ids_key, run$add_key, 
+                      run$des_key, run$din_key, 
+                      run$srd_key, run$cos_key,
+                      run$pos_key, run$chr_key), 
+      max = 0,
+      
+      out_dir  = run$seq_dir,
+      run_name = opt$runName,
+      
+      imp_level  = 3,
+      
+      # imp_inp_tsv = run$imp_inp_tsv,
+      # imp_des_tsv = run$imp_des_tsv,
+      # imp_fin_tsv = run$imp_fin_tsv,
+      # imp_seq_csv = run$imp_seq_csv,
+      
+      # Genomes Parameters::
+      gen_bld  = opt$genBuild,
+      gen_nrec = run$gen_nrec,
+      gen_key  = run$gen_key,
+      gen_tib  = all_gen_tib,
+      
+      # Field Parameters:: general
+      # ids_key = run$ids_key, 
+      ids_key = run$unq_key, 
+      din_key = run$din_key, 
+      pos_key = run$pos_key,
+      chr_key = run$chr_key,
+      
+      # Field Parameters:: s-improbe
+      ext_seq = run$ext_seq,
+      iup_seq = run$iup_seq,
+      imp_seq = run$imp_seq,
+      
+      # Field Parameters:: r-improbe
+      srsplit = run$srsplit,
+      srd_key = run$srd_key,
+      srd_str = run$srd_str,
+      
+      cosplit = run$cosplit,
+      cos_key = run$cos_key,
+      cos_str = run$cos_str,
+      
+      # Docker Parameters::
+      doc_image = run$doc_image,
+      doc_shell = run$doc_shell,
+      
+      join     = FALSE,
+      join_new = c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos","Bsp_FR","Bsp_CO"),
+      join_old = c("Seq_ID","Chromosome","Coordinate","Strand_FR","Strand_CO"),
+      
+      subset   = TRUE,
+      sub_cols = NULL,
+      
+      # reload=opt$reload,
+      reload  = TRUE,
+      retData = TRUE,
+      # retData=FALSE,
+      
+      parallel=opt$parallel,
+      # parallel=FALSE,
+      
+      r_improbe = TRUE,
+      s_improbe = FALSE,
+      c_improbe = TRUE,
+      
+      add_flanks = TRUE,
+      add_matseq = TRUE,
+      
+      verbose=opt$verbose, tt=pTracker
+    )
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  if (FALSE) {
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                         4.0 improbe fwd design::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    stamp_vec <- c(stamp_vec,
+                   run$imp_inp_tsv,
+                   run$imp_des_tsv,
+                   run$imp_fin_tsv)
+    
+    if (opt$fresh || !valid_time_stamp(stamp_vec)) {
+      
+      # TBD:: Add a safty check for Aln_Key_Unq > 15 characters!!!
+      # TBD:: Add converted genomes and substring probe checking!!!
+      # TBD:: Add r-improbe designer
+      #
+      
+      #    aqp_imp_list <- imp_designs_workflow(
+      aqp_imp_tib_pre <- aqp_imp_tib
+      aqp_imp_tib <- imp_designs_workflow(
+        tib=aqp_cgn_tib, # max=20,
+        
+        imp_inp_tsv=run$imp_inp_tsv,
+        imp_des_tsv=run$imp_des_tsv,
+        imp_fin_tsv=run$imp_fin_tsv,
+        imp_seq_csv=run$imp_seq_csv,
+        
+        # Genomes::
+        gen_bld=opt$genBuild,
+        
+        gen_ref_fas=run$gen_ref_fas,
+        bsc_ref_fas=run$bsc_ref_fas,
+        gen_snp_fas=run$gen_snp_fas,
+        bsc_snp_fas=run$bsc_snp_fas,
+        
+        # Field Parameters::
+        ids_key="Aln_Key_Unq",
+        din_key="Ord_Din",
+        pos_key="Bsp_Pos",
+        chr_key="Bsp_Chr",
+        
+        srsplit=TRUE,
+        srd_key="Bsp_FR",
+        cosplit=TRUE,
+        cos_key="Bsp_CO",
+        
+        # Docker Parameters::
+        run_name=opt$runName,
+        doc_image=image_str,
+        doc_shell=image_ssh,
+        
+        join_new=c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos","Bsp_FR","Bsp_CO"),
+        join_old=c("Seq_ID","Chromosome","Coordinate","Strand_FR","Strand_CO"),
+        
+        subset=TRUE,
+        sub_cols=NULL,
+        
+        # reload=opt$reload,
+        reload=FALSE,
+        retData=TRUE,
+        # retData=FALSE,
+        
+        parallel=opt$parallel,
+        # parallel=FALSE,
+        r_improbe=TRUE,
+        s_improbe=FALSE,
+        
+        add_flanks=TRUE,
+        add_matseq=TRUE,
+        
+        verbose=opt$verbose, tt=pTracker)
+      
+    } else {
+      
+      aqp_imp_tib <- safe_read(
+        run$imp_fin_tsv, funcTag="aqp-imp", clean=TRUE,
+        verbose=opt$verbose,tt=pTracker)
+      
+      if (FALSE) {
+        imp_fmt_tib <- aqp_imp_tib %>% purrr::set_names(
+          c("Imp_Cgn","Imp_Bld","Imp_Chr","Imp_Pos","Imp_Fwd","Imp_Top",
+            "Imp_PrbT","Imp_PrbU","Imp_PrbM",
+            "Imp_FR","Imp_TB","Imp_CO","Imp_Nxt",
+            "Imp_ScrU","Imp_ScrM",
+            "Imp_CpgCnt","Imp_CpgDis","Imp_Scr","Imp_NxbScr",
+            "Imp_ScrMin","Imp_Inf") )
+      }
+    }
+    
+    # Qucik QC::
+    #  aqp_imp_tib %>% dplyr::filter(Inf_Type != 0) %>% dplyr::distinct(Seq_ID)
+    #  aqp_imp_tib %>% dplyr::group_by(Ord_Des,Ord_Din) %>% dplyr::summarise(Count=n(), .groups = "drop")
+    #
+  }
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #
+  #
+  #                              END OF ROUND 1::
+  #
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  
+  # Load Genome::
+  #
+  chr_key <- "Bsp_Chr"
+  gen_ref_fas <- run$gen_ref_fas
+  nrec <- 1
+  
+  
+  dna_dat <- load_genome(file=gen_ref_fas, nrec=nrec,
+                         chr_key=chr_key, ret_map=TRUE,
+                         verbose=opt$verbose)
+  
+  prb_seqs <- min_bsp_tib %>% 
+    dplyr::mutate(Prb_Beg=dplyr::case_when(
+      Bsp_FR=="F" & Bsp_CO=="O" & Ord_Des=="U" ~ Bsp_Pos + 0.0,
+      Bsp_FR=="F" & Bsp_CO=="O" & Ord_Des=="M" ~ Bsp_Pos + 0.0,
+      Bsp_FR=="F" & Bsp_CO=="O" & Ord_Des=="2" ~ Bsp_Pos + 1.0,
+      TRUE ~ NA_real_ ) ) %>%
+    dplyr::filter(Bsp_FR=="F") %>% 
+    dplyr::filter(Bsp_CO=="O") %>% 
+    parse_genomic_seqs(seq = as.character(dna_dat$seqs[1]), 
+                       srd_str = "F",
+                       pos_key = "Prb_Beg",
+                       ups_len = 0,
+                       seq_len = 50,
+                       pad_len = 0,
+                       chr_str = "chr1") %>% revCmp() 
+  
+  dplyr::mutate(Prb_Seq=prb_seqs)
+  
+  #
+  # - fas_to_seq() reference should be moved into bsp workflow
+  # - setTopBot_tib() on reference seqs 
+  # - validate TB calls against improbe
+  #
+  
+  #
+  # - Select Probe Order Design from s_improbe
+  # - Select U/M to compare against improbe
+  #
+  
+  #
+  #  N => r_improbe()
+  # !N => s_improbe()
+  #
+  
+  sel_cols <- c("Aln_Key_Unq", 
+                "Ord_Des","Ord_Din", 
+                "Bsp_Chr","Bsp_Pos","Bsp_Cgn","Bsp_FR","Bsp_CO","Ord_Prb")
+  
+  all_prb_tib <- NULL
+  min_bsp_tib <- aqp_cgn_tib %>% dplyr::select(dplyr::all_of(sel_cols))
+  all_gen_list <- all_gen_tib %>% split(f=all_gen_tib$Genome_Key)
+  #for (ii in c(1:base::nrow(all_gen_tib))) {
+  for (gen_key in names(all_gen_list)) {
+    # gen_key  <- all_gen_tib[[]]$Genome_Key
+    gen_fas  <- all_gen_list[[gen_key]]$Path
+    gen_FR   <- all_gen_list[[gen_key]]$Strand_FR
+    gen_CO   <- all_gen_list[[gen_key]]$Strand_CO
+    gen_BSC  <- all_gen_list[[gen_key]]$Strand_BSC
+    gen_prep <- all_gen_list[[gen_key]]$Alphabet
+    
+    if (gen_prep=="N") r_improbe_val <- TRUE
+    if (gen_prep=="N") s_improbe_val <- FALSE
+    if (gen_prep!="N") r_improbe_val <- FALSE
+    if (gen_prep!="N") s_improbe_val <- TRUE
+    
+    cat(glue::glue("[{par$prgmTag}]: Genome({gen_key})={gen_fas}...{RET}"))
+    
+    gen_key <- "RCM_dna"
+    # all_prb_tib[[gen_key]] <- fas_to_seq(tib=min_bsp_tib,
+    RCM_dna_revCmp_tib <- fas_to_seq(tib=min_bsp_tib, srd_str = "R",
+                                     gen_bld=paste(opt$genBuild,gen_key, sep="_"),
+                                     
+                                     gen_ref_fas=gen_fas,
+                                     # imp_tsv=imp_inp_tsv,
+                                     # seq_csv=imp_seq_csv,
+                                     
+                                     build=c("Prb1C","Prb2C","Prb1O","Prb2O"),
+                                     
+                                     ids_key="Aln_Key_Unq",
+                                     din_key="Ord_Din",
+                                     tar_din="rs",
+                                     pos_key="Bsp_Pos",
+                                     chr_key="Bsp_Chr",
+                                     
+                                     # subset=subset,
+                                     # sub_cols=sub_cols,
+                                     
+                                     reload=FALSE,
+                                     retData=FALSE,
+                                     parallel=opt$parallel,
+                                     r_improbe=r_improbe_val,
+                                     s_improbe=s_improbe_val,
+                                     add_flanks=TRUE,
+                                     
+                                     verbose=opt$verbose+1,tt=pTracker)
+    
+    cat(glue::glue("[{par$prgmTag}]: Genome({gen_key})={gen_fas}...{RET}{RET}"))
+  }
+  
+  
+  
+  
+  pairwiseAlignment(FCN_r_improbe_tib$Prb_1M %>% revCmp(), FCN_r_improbe_tib$DesBscM %>% stringr::str_to_upper(), type="local-global")
+  
+  all_prb_tib$RCM_dna %>% dplyr::filter(Ord_Des=="M") %>% dplyr::select(Aln_Key_Unq, Bsp_FR, Bsp_CO, Ord_Prb, Ord_Prb, Prb1C, Temp, Iupac_Forward_Sequence) %>% head() %>% as.data.frame()
+  RCM_dna_revCmp_tib %>% dplyr::filter(Ord_Des=="M") %>% dplyr::select(Aln_Key_Unq, Bsp_FR, Bsp_CO, Ord_Prb, Ord_Prb, Prb1C, Temp, Iupac_Forward_Sequence) %>% head() %>% as.data.frame()
+  
+  FCN_r_improbe_tib <- r_improbe(tib=aqp_imp_tib$s_ref, ids_key="Aln_Key_Unq", seq_key="Forward_Sequence", din_key="Ord_Din", srsplit = TRUE, srd_key = "Bsp_FR", cosplit = TRUE, cos_key = "Bsp_CO", parallel = TRUE, add_matseq = TRUE, verbose = opt$verbose, tt=pTracker)
+  
+  print_prbs(tib = FCN_r_improbe_tib, 
+             tar_des = "cg", 
+             ids_key = "Aln_Key_Unq", 
+             prb_key = "Ord_Prb",
+             des_key = "Ord_Des", 
+             din_key = "Ord_Din",
+             outDir = file.path(opt$outDir),
+             plotName = "FCN_dna",
+             verbose = opt$verbose+10)
+  
+  FCN_r_improbe_tib %>% head(n=1) %>%
+    dplyr::rename(
+      StrandFR=Strand_FR,
+      StrandCO=Strand_CO,
+    ) %>%
+    prbsToStr(pr="cg", verbose = opt$verbose+5)
+  
+  all_prb_tib$FCM_iupac %>% 
+    cmpInfII_MisMatch(fieldA="Ord_Prb", 
+                      fieldB="Prb1C", 
+                      verbose=opt$verbose) %>% 
+    dplyr::group_by(Ord_Des, Ord_Din, Bsp_FR, Bsp_CO, Man_MisMatch) %>%
+    dplyr::summarise(Count=n(), .groups="drop")
+  
+  
+  
+  
+  
+  
+  
+  
+  aqp_top_tib <- setTopBot_tib(aqp_imp_tib$s_ref, 
+                               seqKey="Forward_Sequence", 
+                               srdKey="Bsp_TB2", 
+                               verbose=opt$verbose,tt=pTracker)
+  
+  aqp_top_tib <- setTopBot_tib(aqp_imp_tib$s_ref, 
+                               seqKey="Forward_Sequence", 
+                               srdKey="Bsp_TB2", 
+                               verbose=opt$verbose,tt=pTracker)
+  
+  imp_top_tib <- setTopBot_tib(aqp_imp_tib$i_imp, 
+                               seqKey="Forward_Sequence_imp", 
+                               srdKey="Bsp_TB2",
+                               verbose=opt$verbose,tt=pTracker)
+  
+  all_top_tib <- setTopBot_tib(aqp_imp_tib$i_imp,
+                               seqKey="Top_Sequence", 
+                               srdKey="Bsp_TB2",
+                               verbose=opt$verbose,tt=pTracker)
+  
+  #
+  # Design Steps::
+  #  gen_ref_fas
+  #    - Don't build probes (--build_prbs=FALSE)
+  #
+  #  r-improbe(Forward_Sequence=Imp_Temp_Seq)
+  #    - Compare Prb1_[U/M] against improbe [U/M]
+  #    - Compare by Ord_Des (2/U/M) against Ord_Prb
+  #
+  #  s-improbe (substring improbe) [BSC U/M/D]
+  #    - Compare Prb1_[U/M] against improbe [U/M]
+  #    - Compare by Ord_Des (2/U/M) against Ord_Prb
+  #
+  # SNP Check::
+  #    - Pos:Iupac (Include Next Base: pos=0)
+  #
+  # Update Probe_ID
+  #    - rs/ch database
+  #    - mu = multiple zero mismatch hits
+  #    - ma = multiple non-zero mismatch hits
+  #    - um = un-paired Infinium I probes
+  #
+  # Extension/Color Summary::
+  #    - Extension Summary (Cpg, Nxb)
+  #    - Color Summary (Red, Grn)
+  #
+  # Clean-Up Steps::
+  #  - Remove/Rename Temp_Seq
+  #  - Remove *_Len
+  #  - Only build probes when nescessary
+  #
+  
+  tmp_join_vec <- c("Aln_Key_Unq", "Address","Ord_Des", "Ord_Din")
+  
+  tmp_join_tib <- dplyr::inner_join(
+    aqp_imp_list$fwd, aqp_imp_list$ret, 
+    by=tmp_join_vec,
+    suffix=c("_fwd","_imp") )
+  
+  
+  
+  
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       1.0 Write improbe input::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  #
+  # TBD:: 
+  #  - Compare designs from r-improbe to substr-BSC-genomes!!!
+  #
+  
+  nrec <- 2
+  
+  fwd_seq_tsv <- file.path(par$topDir, "tmp/imp.fwd-seq.tsv.gz")
+  snp_seq_tsv <- file.path(par$topDir, "tmp/imp.snp-seq.tsv.gz")
+  fwd_des_tsv <- file.path(par$topDir, "tmp/test.improbe-designOutput.tsv.gz")
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                   0.0 Get Order Probes for Comparison::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  ord_imp_tib <- aqp_imp_tib %>% 
+    dplyr::mutate(Seq_ID=Aln_Key_Unq,
+                  Len=stringr::str_length(Seq_ID))
+  # Sanity Check length(Seq_ID) <= 15::
+  ord_imp_tib %>% dplyr::select(Seq_ID, Len) %>% dplyr::arrange(-Len)
+  
+  ord_prb_tib <- ord_imp_tib %>% 
+    dplyr::select(Seq_ID,Ord_Des,Ord_Din, 
+                  Bsp_FR,Strand_Ref_FR,Bsp_CO, Ord_Prb) %>%
+    dplyr::rename(Strand_FR=Strand_Ref_FR,
+                  Strand_CO=Bsp_CO)
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       1.0 Get Templates from Genome::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  fwd_seq_tib <- ord_imp_tib %>% 
+    dplyr::arrange(Bsp_Chr,Bsp_Pos) %>%
+    fas_to_seq(fas=run$gen_ref_fas, file=fwd_seq_tsv, 
+               name="Seq_ID", din="Ord_Din", 
+               gen=opt$genBuild,
+               chr1="Bsp_Chr", pos="Bsp_Pos",
+               nrec=nrec, verbose=opt$verbose)
+  
+  # snp_seq_org <- snp_seq_tib
+  # snp_seq_org2 <- snp_seq_tib
+  
+  snp_seq_tib <- ord_imp_tib %>% 
+    dplyr::arrange(Bsp_Chr,Bsp_Pos) %>%
+    fas_to_seq(fas=run$gen_snp_fas, file=snp_seq_tsv, 
+               name="Seq_ID", din="Ord_Din", 
+               gen=opt$genBuild,
+               chr1="Bsp_Chr", pos="Bsp_Pos",
+               nrec=nrec, verbose=opt$verbose)
+  
+  # Compare probes against designs::
+  #
+  fwd_seq_tib %>% dplyr::filter(Bsp_FR=="F", Bsp_CO=="C") %>% 
+    dplyr::select(Aln_Key_Unq, Probe_Seq_T,Prb1_FC)
+  snp_seq_tib %>% dplyr::filter(Bsp_FR=="F", Bsp_CO=="C") %>% 
+    dplyr::select(Aln_Key_Unq, Probe_Seq_T,Prb1_FC)
+  
+  #
+  # Get Converted Genomes::
+  #
+  
+  cur_gen_dir <- file.path(opt$genDir, opt$genBuild,"Sequence/WholeGenomeFasta")
+  ref_gen_pat <- paste0(opt$genBuild,".genome.[FR]C[MUD].fa.gz$")
+  bsc_gen_pat <- paste0(opt$genBuild,".genome.dbSNP-151.iupac.[FR]C[MUD].fa.gz$")
+  
+  ref_bsc_files <- list.files(cur_gen_dir, pattern=ref_gen_pat, full.names=TRUE)
+  snp_bsc_files <- list.files(cur_gen_dir, pattern=bsc_gen_pat, full.names=TRUE)
+  
+  #
+  # Validate Comparison of difference (i.e. contains SNPs)
+  #
+  if (FALSE) {
+    fwdSnp_seq_tib <- dplyr::inner_join(fwd_seq_tib,snp_seq_tib, 
+                                        by="Seq_ID",
+                                        suffix=c("_fwd","_snp"))
+    
+    fwdSnp_seq_tib %>% 
+      dplyr::filter(Fwd_Temp_Seq_fwd != Fwd_Temp_Seq_snp) %>% 
+      dplyr::select(Fwd_Temp_Seq_fwd,Fwd_Temp_Seq_snp)
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                         2.0 improbe/docker::fwd
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  ret_val <- 
+    run_improbe_docker(
+      file=fwd_seq_tsv, 
+      name="test", image=image_str, shell=image_ssh,
+      verbose=opt$verbose)
+  
+  fwd_ides_tib <-
+    load_improbe_design(
+      file=fwd_des_tsv, join=NULL, out=NULL,
+      level=3, add_inf=TRUE,
+      verbose=opt$verbose)
+  fwd_iprb_tib <- fwd_ides_tib %>% 
+    dplyr::select(Seq_ID,Strand_Ref_FR,Strand_TB,
+                  Strand_CO,Probe_Seq_U,Probe_Seq_M) %>% 
+    dplyr::rename(Strand_FR=Strand_Ref_FR) %>%
+    dplyr::left_join(dplyr::select(ord_imp_tib, Seq_ID,Ord_Des,Ord_Din),
+                     by="Seq_ID", suffix=c("_fwd","_ord")) %>%
+    dplyr::select(Seq_ID,Ord_Des,Ord_Din, dplyr::everything())
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           3.0 r-improbe::fwd
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  fwd_rdes_tib <- desSeq_to_prbs(
+    tib=fwd_seq_tib, 
+    ids_key="Seq_ID", seq_key="Imp_Temp_Seq", prb_key="Ord_Din", 
+    strsSR="FR", strsCO="CO", 
+    parallel=TRUE, verbose=opt$verbose )
+  fwd_rprb_tib <- fwd_rdes_tib %>% 
+    dplyr::select(Seq_ID, Strand_SR,Strand_CO, 
+                  PRB1_U_MAT,PRB1_M_MAT,PRB2_D_MAT) %>%
+    dplyr::rename(Strand_FR=Strand_SR) %>%
+    dplyr::left_join(dplyr::select(ord_imp_tib, Seq_ID,Ord_Des,Ord_Din),
+                     by="Seq_ID", suffix=c("_fwd","_ord")) %>%
+    dplyr::select(Seq_ID,Ord_Des,Ord_Din, dplyr::everything())
+  
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           4.0 r-improbe::snp
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  snp_rdes_tib <- desSeq_to_prbs(
+    tib=snp_seq_tib,
+    ids_key="Seq_ID", seq_key="Iup_Temp_Seq", prb_key="Ord_Din", 
+    strsSR="FR", strsCO="CO", 
+    parallel=TRUE, verbose=opt$verbose )
+  snp_rprb_tib <- snp_rdes_tib %>% 
+    dplyr::select(Seq_ID, Strand_SR,Strand_CO, 
+                  PRB1_U_MAT,PRB1_M_MAT,PRB2_D_MAT) %>%
+    dplyr::rename(Strand_FR=Strand_SR) %>%
+    dplyr::left_join(dplyr::select(ord_imp_tib, Seq_ID,Ord_Des,Ord_Din),
+                     by="Seq_ID", suffix=c("_fwd","_ord")) %>%
+    dplyr::select(Seq_ID,Ord_Des,Ord_Din, dplyr::everything())
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           4.0 Compare Results::
+  #
+  #  - fwd_iprb_tib vs. [fwd_rprb_tib, snp_rprb_tib]
+  #  - ord_prb_tib  vs. [fwd_iprb_tib, fwd_rprb_tib, snp_rprb_tib]
+  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  #
+  # TBD:: Functionize Intersect/Comparison Methods::
+  #
+  
+  bys_vec  <- c("Seq_ID","Ord_Des","Ord_Din","Strand_FR","Strand_CO")
+  grp_vec  <- c("Ord_Des","Ord_Din","Strand_FR","Strand_CO")
+  
+  ref_keys <- c("Probe_Seq_U","Probe_Seq_M")
+  can_keys <- c("PRB1_U_MAT","PRB1_M_MAT")
+  
+  ir_fwd_cmp <- compare_probes(fwd_iprb_tib,fwd_rprb_tib, 
+                               ref_keys=ref_keys, can_keys=can_keys,
+                               by=bys_vec, grp=grp_vec,
+                               retData=TRUE,
+                               verbose=opt$verbose)
+  
+  ref_keys <- c("PRB1_U_MAT","PRB1_M_MAT","PRB2_D_MAT")
+  can_keys <- c("PRB1_U_MAT","PRB1_M_MAT","PRB2_D_MAT")
+  
+  ii_fwdSnp_cmp <- compare_probes(fwd_rprb_tib,snp_rprb_tib,
+                                  ref_keys=ref_keys, can_keys=can_keys,
+                                  by=bys_vec, grp=grp_vec,
+                                  retData=TRUE, pivot=TRUE,
+                                  verbose=opt$verbose)
+  
+  ref_keys <- c("Ord_Prb")
+  can_keys <- c("Probe_Seq")
+  
+  snp_rprb_tab <- dplyr::bind_rows(
+    dplyr::filter(snp_rprb_tib,Ord_Des=="U") %>% dplyr::select(-PRB1_M_MAT,-PRB2_D_MAT) %>% dplyr::rename(Probe_Seq=PRB1_U_MAT),
+    dplyr::filter(snp_rprb_tib,Ord_Des=="M") %>% dplyr::select(-PRB1_U_MAT,-PRB2_D_MAT) %>% dplyr::rename(Probe_Seq=PRB1_M_MAT),
+    dplyr::filter(snp_rprb_tib,Ord_Des=="2") %>% dplyr::select(-PRB1_U_MAT,-PRB1_M_MAT) %>% dplyr::rename(Probe_Seq=PRB2_D_MAT)
+  )
+  
+  oi_ordSnp_cmp <- compare_probes(ord_prb_tib,snp_rprb_tab,
+                                  ref_keys=ref_keys, can_keys=can_keys,
+                                  by=bys_vec, grp=grp_vec,
+                                  retData=TRUE, pivot=TRUE,
+                                  verbose=opt$verbose)
+  
+  
+  
+  snp_rprb_tib_lc <- snp_rprb_tib %>% dplyr::mutate(PRB1_U_MAT=stringr::str_to_lower(PRB1_U_MAT),PRB1_M_MAT=stringr::str_to_lower(PRB1_M_MAT),PRB2_D_MAT=stringr::str_to_lower(PRB2_D_MAT))
+  
+  mapply(list.string.diff, fwd_rprb_tib$PRB1_U_MAT,snp_rprb_tib$PRB1_U_MAT)
+  
+  mapply(list.string.diff, fwd_rprb_tib$PRB1_U_MAT,snp_rprb_tib$PRB1_U_MAT)
+  
+  # Pivot for human viewing::
+  ii_fwdSnp_cmp$cmp %>% 
+    # dplyr::filter(Ord_Des=="M" & Man_MisMatch==3) %>% head() %>% 
+    tidyr::pivot_longer(cols=c("Probe_A","Probe_B"), 
+                        names_to="Prb_Source", values_to="Probe_Seq") %>% 
+    as.data.frame()
+  
+  
+  
+  
+  
+  # r-improbe:: improbe_design_all()
+  #
+  
+  #
+  # TBD::
+  #
+  #  Manifest Generation::
+  #    - Code Clean Up
+  #       - [done] bsp_mapping_workflow()
+  #
+  #    - Calculate extension/color distribution
+  #    - Extract BSC Top/Probe-Design
+  #
+  #    - Join by position
+  #    - Add masked-controls from source
+  #
+  #  Annotation::
+  #    - Incorporate
+  #    - Annotation Summary
+  #    - Implement ftp for missing files
+  #
+  #  Cluster::
+  #    - Transfer all files to cluster
+  #
+  
+  
+  
   
   assign_cgn_old = function(ord_tib,
                             bsp_tib,
