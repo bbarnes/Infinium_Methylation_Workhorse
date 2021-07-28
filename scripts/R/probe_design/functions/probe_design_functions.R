@@ -216,20 +216,24 @@ prb_designs_workflow = function(
   ref_fas_list <- gen_tib %>%
     split(f=.[[gen_key]])
   
+  ret_cnt <- names(ref_fas_list) %>% length()
+  ret_tib <- NULL
+  ret_dat <- NULL
+  
   for (cur_gen_key in names(ref_fas_list)) {
     
     cur_gen_tib <- ref_fas_list[[cur_gen_key]] %>% head(n=1)
-    print(cur_gen_tib)
-    
+
     cur_gen_fas <- cur_gen_tib$Path
     cur_gen_srdFR <- cur_gen_tib$Strand_FR
     cur_gen_cosCO <- cur_gen_tib$Strand_CO
     
     if (verbose>=vt)
       cat(glue::glue("{mssg} Cur Genome({cur_gen_key}) ",
+                     "cur_gen_srdFR={cur_gen_srdFR}, ",
+                     "cur_gen_cosCO={cur_gen_cosCO}, ",
                      "cur_gen_fas={cur_gen_fas}.{RET}"))
     
-    # g_seq_tibs[[cur_gen_key]] <- 
     g_seq_tib <- NULL
     g_seq_tib <- 
       s_improbe_workflow(tib = tib,
@@ -254,10 +258,10 @@ prb_designs_workflow = function(
                          
                          ups_len = 60,
                          seq_len = 122,
-                         del = "_",
                          
-                         subset   = subset,
-                         sub_cols = sub_cols,
+                         # del = "_",
+                         # subset   = subset,
+                         # sub_cols = sub_cols,
                          
                          reload  = reload,
                          # retData = retData,
@@ -299,8 +303,8 @@ prb_designs_workflow = function(
                              ups_len = ups_len,
                              seq_len = seq_len,
                              
-                             subset   = subset,
-                             sub_cols = sub_cols,
+                             # subset   = subset,
+                             # sub_cols = sub_cols,
                              
                              reload     = reload,
                              parallel   = parallel,
@@ -316,6 +320,16 @@ prb_designs_workflow = function(
       }
       
       if (c_improbe && cur_gen_tib$Alphabet == "dna") {
+        
+        #
+        # TBD:: Update g_seq_tib with setTopBot_tib()
+        # TBD:: rename setTopBot_tib() -> set_TopBot_tib() and all params
+        #       This should be done in s_improbe_workflow() with a flag
+        #        for set_TB=TRUE/FALSE and targets imp_seq key.
+        #
+        # TBD:: Validate g_seq_tib.Top_Sequence == c_imp_tibs.Top_Sequence
+        #        inside of c_improbe_workflow() if set_TB==TRUE
+        #
         
         c_imp_tibs <- NULL
         c_imp_tibs <- c_improbe_workflow(imp_tib = g_seq_tib, 
@@ -347,22 +361,24 @@ prb_designs_workflow = function(
                                          
                                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
         
-        # if (retData) ret_dat$c_imp <- c_imp_tibs
+        if (retData) ret_dat$c_imp <- c_imp_tibs
       }
       
-      ret_key <- glue::glue("ret-FIN({funcTag})")
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+      # ret_key <- glue::glue("ret-FIN({funcTag})")
+      # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
     }
     
-    etime <- 0
-    if (verbose>=vt) cat(glue::glue(
-      "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-      "{RET}{tabs}{BRK}{RET2}"))
-    
-    if (retData) return(ret_dat)
-    
-    ret_tib
   }
+  
+  etime <- 0
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
+  
+  if (retData) return(ret_dat)
+  
+  ret_tib
+  
 }
 
 

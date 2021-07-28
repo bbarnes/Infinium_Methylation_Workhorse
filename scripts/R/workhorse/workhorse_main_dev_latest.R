@@ -306,8 +306,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'EWAS'
   par$local_runType <- 'GRCm10'
   par$local_runType <- 'NZT'
-  par$local_runType <- 'McMaster10Kselection'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'McMaster10Kselection'
   
   opt$parallel <- TRUE
   
@@ -321,8 +321,7 @@ if (args.dat[1]=='RStudio') {
   
   opt$run_improbe    <- TRUE
   opt$build_manifest <- TRUE
-  par$load_ann       <- TRUE
-  
+
   if (FALSE) {
     
   } else if (par$local_runType=='McMaster10Kselection') {
@@ -938,10 +937,16 @@ run$unq_col <- c(run$din_key, run$map_key, run$Cgn_Int)
 # Default run parameters by workflow::
 run$bsp_full   <- FALSE
 run$bsp_sort   <- TRUE
+run$bsp_light  <- TRUE
 run$bsp_merge  <- FALSE
 run$cgn_merge  <- FALSE
 run$cgn_join   <- "inner"
 run$seq_suffix <- "probe-subseq"
+run$seq_idxA   <- 1
+run$seq_idxB   <- 1
+run$seq_pattern_U <- "-probe_U49_cgn-table.tsv.gz"
+run$seq_pattern_M <- "-probe_M49_cgn-table.tsv.gz"
+
 
 # Field Parameters:: s-improbe
 run$ext_seq="Ext_Forward_Seq"
@@ -957,9 +962,10 @@ run$cosplit <- TRUE
 run$cos_key <- "Bsp_CO"
 run$cos_str <- "CO"
 
+run$re_load <- TRUE
+
 opt$build_manifest <- FALSE
 opt$run_improbe    <- FALSE
-par$load_ann       <- FALSE
 
 
 
@@ -1014,7 +1020,7 @@ ord_tib <-
                        out_dir = opt$outDir,
                        out_col = run$out_col,
                        run_tag = opt$runName,
-                       re_load = TRUE,
+                       re_load = run$re_load,
                        pre_tag = pTracker$file_vec,
                        
                        verbose=opt$verbose, tt=pTracker)
@@ -1045,7 +1051,7 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 full    = run$bsp_full,
                                 merge   = run$bsp_merge,
                                 
-                                light   = TRUE,
+                                light   = run$bsp_light,
                                 reload  = opt$reload,
                                 retData = FALSE,
                                 
@@ -1055,7 +1061,7 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 out_dir = opt$outDir,
                                 out_col = run$out_col,
                                 run_tag = opt$runName,
-                                re_load = TRUE,
+                                re_load = run$re_load,
                                 pre_tag = pTracker$file_vec,
                                 
                                 verbose=opt$verbose, tt=pTracker)
@@ -1072,8 +1078,8 @@ seq_tib <-
   seq_mapping_workflow(ord_tib = ord_tib,
                        
                        seq_dir   = run$cgn_seq_dir,
-                       pattern_u = "-probe_U49_cgn-table.tsv.gz", 
-                       pattern_m = "-probe_M49_cgn-table.tsv.gz", 
+                       pattern_u = run$seq_pattern_U, 
+                       pattern_m = run$seq_pattern_M,
                        
                        prb_key = run$prb_key,
                        add_key = run$add_key,
@@ -1084,8 +1090,8 @@ seq_tib <-
                        prefix = opt$runName,
                        suffix = run$seq_suffix, 
                        
-                       idxA = 1,
-                       idxB = 1,
+                       idxA = run$seq_idxA,
+                       idxB = run$seq_idxB,
                        
                        reload   = opt$reload,
                        parallel = opt$parallel,
@@ -1095,7 +1101,7 @@ seq_tib <-
                        out_dir = opt$outDir,
                        out_col = run$out_col,
                        run_tag = opt$runName,
-                       re_load = TRUE,
+                       re_load = run$re_load,
                        pre_tag = pTracker$file_vec,
                        
                        verbose=opt$verbose, tt=pTracker)
@@ -1133,7 +1139,7 @@ cgn_tib <-
                        out_col = run$out_col,
                        unq_col = run$unq_col,
                        run_tag = opt$runName,
-                       re_load = TRUE,
+                       re_load = run$re_load,
                        pre_tag = pTracker$file_vec,
                        
                        verbose=opt$verbose, tt=pTracker)
@@ -1145,9 +1151,7 @@ print(cgn_tib)
 
 # - DMAP validation???
 # - Add idat validation
-# - Sperate cgn_mapping_workflow() into its own file
-# - Move *_mapping_workflow()'s under workhorse...
-
+#
 #
 # Workflow:: AQP Manifest Preperation
 #
@@ -1178,10 +1182,9 @@ print(cgn_tib)
 #
 # aqp_prb_tib2 <- aqp_prb_tib
 
-run$re_load <- TRUE
 
-aqp_prb_tib <- prb_designs_workflow(
-  tib = aqp_bsp_tib$bsp_join %>% 
+gen_cnt <- prb_designs_workflow(
+  tib = bsp_tib %>% 
     dplyr::select(run$unq_key, run$ids_key, run$add_key, 
                   run$des_key, run$din_key, 
                   run$srd_key, run$cos_key,
@@ -1237,8 +1240,8 @@ aqp_prb_tib <- prb_designs_workflow(
   join_new = c("Aln_Key_Unq","Bsp_Chr","Bsp_Pos","Bsp_FR","Bsp_CO"),
   join_old = c("Seq_ID","Chromosome","Coordinate","Strand_FR","Strand_CO"),
   
-  subset   = FALSE,
-  sub_cols = NULL,
+  # subset   = FALSE,
+  # sub_cols = NULL,
   
   # reload=opt$reload,
   reload  = TRUE,
@@ -1249,7 +1252,7 @@ aqp_prb_tib <- prb_designs_workflow(
   # parallel=FALSE,
   
   r_improbe = TRUE,
-  s_improbe = FALSE,
+  s_improbe = TRUE,
   c_improbe = TRUE,
   
   add_flanks = TRUE,
