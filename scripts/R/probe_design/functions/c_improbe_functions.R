@@ -84,10 +84,14 @@ c_improbe_workflow = function(imp_tib = NULL,
 
                               reload = FALSE,
                               
-                              out_csv=NULL, out_dir, run_tag, 
-                              re_load=FALSE, pre_tag=NULL,
-                              end_str='tsv.gz', sep_chr='.',
-
+                              out_csv = NULL,
+                              out_dir,
+                              run_tag, 
+                              re_load = FALSE,
+                              pre_tag = NULL,
+                              end_str = 'csv.gz',
+                              sep_chr = '.',
+                              
                               verbose=0, vt=3,tc=1,tt=NULL,
                               funcTag='c_improbe_workflow') {
   

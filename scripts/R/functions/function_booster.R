@@ -53,7 +53,7 @@ template_func = function(tib,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2{tabs}{BRK}{RET2}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -147,7 +147,6 @@ clean_tibble = function(tib,
       utils::type.convert(as.is=TRUE) %>%
       dplyr::mutate(across(where(is.factor), as.character) )
     
-    # ret_cnt <- ret_tib %>% base::nrow()
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
@@ -369,9 +368,13 @@ program_init = function(name,defs=NULL,
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                          Program Command Shell::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  pars$cmd_shell <- file.path(opts$outDir,paste(pars$prgmTag,name,'command.sh', sep='.'))
+  if (pars$prgmTag==name) cmd_shell_name <- name
+  
   pars$cmd_shell <- 
-    optsToCommand(opts=opt_tib, pre=opts$Rscript,exe=pars$exePath, file=pars$cmd_shell, 
+    file.path(opts$outDir,paste(cmd_shell_name,'command.sh', sep='.'))
+  pars$cmd_str <- 
+    optsToCommand(opts=opt_tib, pre=opts$Rscript,exe=pars$exePath, 
+                  file=pars$cmd_shell, 
                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
   
   ret_cnt <- names(opts) %>% length()
@@ -1060,7 +1063,7 @@ guess_file_del = function(file, n_max=100,
     ret_tib <- dplyr::bind_rows(med_tib, sum_tib) %>%
       dplyr::mutate(ret_val=ret_val)
     
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt,tc)
+    ret_cnt <- print_tib(t=ret_tib, f=funcTag, v=verbose,vt=vt+1,tc=tc+1)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -1085,10 +1088,9 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
-  
   if (is.null(file)) {
     stop(glue::glue("{RET}{mssg} file can't be NULL!!{RET2}"))
-    return(file)
+    return(NULL)
   }
   
   ret_cnt <- 0
@@ -1107,7 +1109,7 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
     if (verbose>=vt)
       cat(glue::glue("{mssg} Reading Data (sep='{type}') ",
                      "file='{file}'...{RET}"))
-    
+
     if (type=="line") {
       ret_tib <- suppressMessages(suppressWarnings( 
         readr::read_lines(file=file) ))
@@ -1131,9 +1133,8 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabs} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET2}"))
-  
+    "{mssg}Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+
   ret_tib
 }
 
@@ -1141,15 +1142,15 @@ safe_write = function(x, type=NULL, file=NULL,
                       cols=TRUE, append=FALSE, done=FALSE,
                       verbose=0,vt=5,tc=1,tt=NULL,
                       funcTag="safe_write") {
-  # If file is provided, usually in the case where the user didn't want it written
-  #  simply return invisible and do nothing...
+  # If file is provided, usually in the case where the user didn't want 
+  #  it written simply return invisible and do nothing...
   
   if (is.null(file)) return(base::invisible(NULL))
   
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  # if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabs} Starting type={type}.{RET}"))
+  # if (verbose>=vt) cat(glue::glue("{mssg}Starting type={type}.{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -1171,7 +1172,7 @@ safe_write = function(x, type=NULL, file=NULL,
       }
     }
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]:{tabs} Writing Data {type}={file}...{RET}"))
+      cat(glue::glue("{mssg} Writing Data {type}={file}...{RET}"))
     
     if (purrr::is_vector(x)) ret_cnt <- length(x)
     if (purrr::is_list(x)) ret_cnt <- length(x)
@@ -1186,7 +1187,7 @@ safe_write = function(x, type=NULL, file=NULL,
     } else if (type=="rds") {
       readr::write_rds(x, file, compress="gz")
     } else {
-      stop(cat(glue::glue("{RET}[{funcTag}]: ERROR: Invalid type={type}{RET}")))
+      stop(cat(glue::glue("{mssg} ERROR: Invalid type={type}!{RET}")))
       return(NULL)
     }
     
@@ -1194,7 +1195,7 @@ safe_write = function(x, type=NULL, file=NULL,
       done_file <- paste0(file,".done.txt")
       cmd <- glue::glue("touch {done_file}")
       if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabs} Running cmd='{cmd}'...{RET}"))
+        cat(glue::glue("{mssg}Running cmd='{cmd}'...{RET}"))
       base::system(cmd)
     }
     
@@ -1202,8 +1203,7 @@ safe_write = function(x, type=NULL, file=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "[{funcTag}]:{tabs} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET2}"))
+    "{mssg}Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
   
   ret_cnt
 }
@@ -1214,8 +1214,8 @@ build_file_dir = function(file) {
   invisible(dir)
 }
 
-print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
-  tabs <- paste0(rep(TAB, tc), collapse='')
+print_tib = function(t, f="print_tib",  
+                     v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
   
   tib     <- t
   funcTag=f
@@ -1223,6 +1223,9 @@ print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
   mssg    <- m
   verbose <- v
   
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+
   ret_cnt <- 0
   ret_tib <- NULL
   
@@ -1232,19 +1235,20 @@ print_tib = function(t, f,  v=0,vt=3,tc=1,l=3, n=NULL,m=NULL) {
   
   if (verbose>=vt) {
     if (!is.null(tib) && !is.na(tib)) {
-      if (!is.null(mssg)) cat(glue::glue("[{funcTag}]:{tabs} {mssg}{RET}"))
+      # if (!is.null(mssg)) cat(glue::glue("{mssg} {mssg}{RET}"))
       if (!is.null(name)) {
-        cat(glue::glue("[{funcTag}]:{tabs} tibble({name}) row count=[{ret_cnt}]:{RET}"))
+        cat(glue::glue("{mssg} tibble({name}) row count=[{ret_cnt}]:{RET}"))
       } else {
-        cat(glue::glue("[{funcTag}]:{tabs} tibble row count=[{ret_cnt}]:{RET}"))
+        cat(glue::glue("{mssg} tibble row count=[{ret_cnt}]:{RET}"))
       }
       if (l==0) l <- tib %>% base::nrow()
       print(tib, n=l)
+      cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
     } else {
       if (!is.null(name)) {
-        cat(glue::glue("[{funcTag}]:{tabs} tibble({name}) row count=[NULL]:{RET}"))
+        cat(glue::glue("{mssg} tibble({name}) row count=[NULL]:{RET}"))
       } else {
-        cat(glue::glue("[{funcTag}]:{tabs} tibble row count=[NULL]:{RET}"))
+        cat(glue::glue("{mssg} tibble row count=[NULL]:{RET}"))
       }
     }
   }
@@ -1260,7 +1264,7 @@ splitStrToVec = function(x, del=',', unique=TRUE,
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabs} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg}Starting...{RET}"))
   
   ret_vec <- NULL
   if (!is.null(x)) 

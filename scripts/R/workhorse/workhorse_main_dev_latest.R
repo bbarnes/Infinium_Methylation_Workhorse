@@ -306,9 +306,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'EWAS'
   par$local_runType <- 'GRCm10'
   par$local_runType <- 'NZT'
-  par$local_runType <- 'NZT'
-  par$local_runType <- 'Chicago'
   par$local_runType <- 'McMaster10Kselection'
+  par$local_runType <- 'Chicago'
   
   opt$parallel <- TRUE
   
@@ -864,7 +863,7 @@ stopifnot(dir.exists(run$cgn_seq_dir))
 
 run$cgn_bed_dir <- file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-input/min")
 run$cgn_bed_tsv <- file.path(run$cgn_bed_dir, paste(opt$genBuild,"cgn.min.txt.gz", sep="."))
-run$canonical_csv <- file.path(par$datDir, "manifest/cgnDB/canonical-assignment.cgn-top-grp.csv.gz")
+run$canonical_csv <- file.path(par$datDir, "manifest/cgnDB/canonical.cgn-top-grp.csv.gz")
 
 stopifnot(dir.exists(run$cgn_bed_dir))
 stopifnot(file.exists(run$cgn_bed_tsv))
@@ -912,7 +911,7 @@ if (opt$verbose>=1)
 run$gen_nrec <- 0
 run$gen_key <- "Genome_Key"
 
-# Field Parameters:: general
+# Field (key) Parameters:: general
 run$del     <- "_"
 run$ids_key <- "Prb_Key"
 run$unq_key <- "Prb_Key_Unq"
@@ -920,11 +919,29 @@ run$unq_key <- "Prb_Key_Unq"
 run$add_key <- "Address"
 run$din_key <- "Ord_Din"
 run$des_key <- "Ord_Des"
+run$map_key <- "Ord_Map"
 run$prb_key <- "Ord_Prb"
+
 run$pos_key <- "Bsp_Pos"
 run$chr_key <- "Bsp_Chr"
 
-run$int_suffix <- "probe-subseq"
+run$Cgn_Int <- "Cgn_Int"
+run$Can_Cgn <- "Can_Cgn"
+run$Ord_Cgn <- "Ord_Cgn"
+run$Bsp_Cgn <- "Bsp_Cgn"
+run$Imp_Cgn <- "Imp_Cgn"
+
+run$out_col <- c(run$ids_key, run$add_key, run$des_key,
+                 run$din_key, run$map_key, run$prb_key)
+run$unq_col <- c(run$din_key, run$map_key, run$Cgn_Int)
+
+# Default run parameters by workflow::
+run$bsp_full   <- FALSE
+run$bsp_sort   <- TRUE
+run$bsp_merge  <- FALSE
+run$cgn_merge  <- FALSE
+run$cgn_join   <- "inner"
+run$seq_suffix <- "probe-subseq"
 
 # Field Parameters:: s-improbe
 run$ext_seq="Ext_Forward_Seq"
@@ -943,6 +960,8 @@ run$cos_str <- "CO"
 opt$build_manifest <- FALSE
 opt$run_improbe    <- FALSE
 par$load_ann       <- FALSE
+
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #            0.0 Load any pre-defined Standard Manifest to be added::
@@ -982,7 +1001,7 @@ pTracker$addFile(opt$time_org_txt)
 
 ord_tib <- NULL
 ord_tib <- 
-  aqp_address_workflow(ord = opt$ords,
+  aqp_mapping_workflow(ord = opt$ords,
                        mat = opt$mats,
                        aqp = opt$aqps,
                        
@@ -993,11 +1012,12 @@ ord_tib <-
                        ids_key = run$ids_key,
                        
                        out_dir = opt$outDir,
+                       out_col = run$out_col,
                        run_tag = opt$runName,
                        re_load = TRUE,
                        pre_tag = pTracker$file_vec,
                        
-                       verbose=opt$verbose+100, tt=pTracker)
+                       verbose=opt$verbose, tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -1021,9 +1041,10 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 join_key  = run$ids_key,
                                 join_type = "inner",
                                 
-                                sort    = TRUE,
-                                full    = FALSE,
-                                merge   = FALSE,
+                                sort    = run$bsp_sort,
+                                full    = run$bsp_full,
+                                merge   = run$bsp_merge,
+                                
                                 light   = TRUE,
                                 reload  = opt$reload,
                                 retData = FALSE,
@@ -1032,6 +1053,7 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 bsp_opt = opt$bsmap_opt,
                                 
                                 out_dir = opt$outDir,
+                                out_col = run$out_col,
                                 run_tag = opt$runName,
                                 re_load = TRUE,
                                 pre_tag = pTracker$file_vec,
@@ -1060,7 +1082,7 @@ seq_tib <-
                        ids_key = run$ids_key,
                        
                        prefix = opt$runName,
-                       suffix = run$int_suffix, 
+                       suffix = run$seq_suffix, 
                        
                        idxA = 1,
                        idxB = 1,
@@ -1071,6 +1093,7 @@ seq_tib <-
                        del = run$del,
                        
                        out_dir = opt$outDir,
+                       out_col = run$out_col,
                        run_tag = opt$runName,
                        re_load = TRUE,
                        pre_tag = pTracker$file_vec,
@@ -1088,18 +1111,42 @@ cgn_tib <-
   cgn_mapping_workflow(ord_tib = ord_tib,
                        bsp_tib = bsp_tib,
                        seq_tib = seq_tib,
+                       
+                       ids_key = run$ids_key,
+                       des_key = run$des_key,
+                       din_key = run$din_key,
+                       map_key = run$map_key,
+                       
+                       Cgn_Int = run$Cgn_Int,
+                       Can_Cgn = run$Can_Cgn,
+                       Ord_Cgn = run$Ord_Cgn,
+                       Bsp_Cgn = run$Bsp_Cgn,
+                       Imp_Cgn = run$Imp_Cgn,
 
-                       ids_key = ids_key,
-                       bsp_csv = bsp_key,
                        can_csv = run$canonical_csv,
-                       merge   = run$merge,
+                       
+                       join    = run$cgn_join,
+                       merge   = run$cgn_merge,
+                       retData = FALSE,
                        
                        out_dir = opt$outDir,
+                       out_col = run$out_col,
+                       unq_col = run$unq_col,
                        run_tag = opt$runName,
                        re_load = TRUE,
                        pre_tag = pTracker$file_vec,
                        
                        verbose=opt$verbose, tt=pTracker)
+
+print(ord_tib)
+print(bsp_tib)
+print(seq_tib)
+print(cgn_tib)
+
+# - DMAP validation???
+# - Add idat validation
+# - Sperate cgn_mapping_workflow() into its own file
+# - Move *_mapping_workflow()'s under workhorse...
 
 #
 # Workflow:: AQP Manifest Preperation

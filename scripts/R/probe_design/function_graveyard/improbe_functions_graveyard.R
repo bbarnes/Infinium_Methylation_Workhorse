@@ -99,6 +99,65 @@ list.string.diff<-function(a="ATTCGA-",b="attTGTT",exclude=c("-","?"),ignore.cas
 
 if (FALSE) {
   
+  
+  if (verbose>=vt) {
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    cat(glue::glue("{mssg} names(inf1_tib)={RET}"))
+    inf1_names <- names(inf1_tib)
+    print(inf1_names)
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg} inf1_names ! in selU_cols={RET}"))
+    inf1_names[!inf1_names %in% selU_cols] %>% print()
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg} selU_cols ! in inf1_names={RET}"))
+    selU_cols[!selU_cols %in% inf1_names] %>% print()
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg} selM_cols ! in inf1_names={RET}"))
+    selU_cols[!selM_cols %in% inf1_names] %>% print()
+    cat(glue::glue("{mssg}{RET}"))
+    
+    selU_len <- selU_cols %>% length()
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    cat(glue::glue("{mssg} selU_cols({selU_len})={RET}"))
+    print(selU_cols)
+    # dplyr::select(inf1_tib, dplyr::all_of(selU_cols) ) %>% 
+    #   purrr::set_names("Ord_Map",ids_key,"Cgn","Ord_Des",
+    #                    "Ord_Din","Can_Cnt","Rank") %>% head(n=2) %>% print()
+    
+    selM_len <- selM_cols %>% length()
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    cat(glue::glue("{mssg} selM_cols({selM_len})={RET}"))
+    print(selM_cols)
+    # dplyr::select(inf1_tib, dplyr::all_of(selM_cols) ) %>% 
+    #   purrr::set_names("Ord_Map",ids_key,"Cgn","Ord_Des",
+    #                    "Ord_Din","Can_Cnt","Rank") %>% head(n=2) %>% print()
+    
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    cat(glue::glue("{mssg} names(inf1_tib)={RET}"))
+    inf2_names <- names(inf2_tib)
+    print(inf2_names)
+    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{mssg} inf2_names ! in sel2_cols={RET}"))
+    inf2_names[!inf2_names %in% sel2_cols] %>% print()
+    cat(glue::glue("{mssg} sel2_cols ! in inf2_names={RET}"))
+    sel2_cols[!sel2_cols %in% inf2_names] %>% print()
+    cat(glue::glue("{mssg}{RET}"))
+    
+    sel2_len <- sel2_cols %>% length()
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    cat(glue::glue("{mssg} sel2_cols({sel2_len})={RET}"))
+    print(sel2_cols)
+    # dplyr::select(inf2_tib, dplyr::all_of(sel2_cols) ) %>% head(n=2) %>% print()
+    
+    name_len <- name_cols %>% length()
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+    cat(glue::glue("{mssg} name_cols({name_len})={RET}"))
+    print(name_cols)
+    cat(glue::glue("{mssg}{RET}"))
+    
+    cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))
+  }
+  
   # assign cgn scratch::
   #
   if (FALSE) {

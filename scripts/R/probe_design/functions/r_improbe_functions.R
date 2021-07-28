@@ -89,9 +89,13 @@ r_improbe_workflow = function(tib,
                               parallel   = FALSE,
                               add_matseq = TRUE,
                               
-                              out_csv=NULL, out_dir, run_tag, 
-                              re_load=FALSE, pre_tag=NULL,
-                              end_str='csv.gz', sep_chr='.',
+                              out_csv = NULL,
+                              out_dir,
+                              run_tag, 
+                              re_load = FALSE,
+                              pre_tag = NULL,
+                              end_str = 'csv.gz',
+                              sep_chr = '.',
                               
                               verbose=0,vt=3,tc=1,tt=NULL,
                               funcTag='r_improbe_workflow') {
