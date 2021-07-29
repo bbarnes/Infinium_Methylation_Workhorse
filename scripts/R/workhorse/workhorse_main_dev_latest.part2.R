@@ -849,6 +849,8 @@ error_ledgar <- NULL
 #   from CSV files!!!
 #
 #
+bsp_csv <- list.files(file.path(opt$outDir, "bsp_mapping_workflow"), pattern="GRCh37.bsp_mapping_workflow.csv.gz$", full.names = TRUE)
+bsp_tib <- safe_read(bsp_csv)
 
 print(ord_tib)
 print(bsp_tib)
@@ -1013,10 +1015,6 @@ probes_list <- probes %>% split(.$chr)
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Genomic:: References (Bisulfite and Non-Converted) are loaded into a table now
-#   - Ref
-#   - SNP (dbSNP-151)
-#
 # Genomic:: References (Bisulfite and Non-Converted) are loaded into a table now
 #   - Ref
 #   - SNP (dbSNP-151)
