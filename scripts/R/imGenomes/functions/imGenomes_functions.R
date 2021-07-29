@@ -106,57 +106,69 @@ load_imGenomes_table = function(dir, genome_build, ret_list = TRUE,
       cat(glue::glue("{mssg} Found {fas_count} Fasta File(s)={RET}"))
       print(fas_list)
     }
-
+    
     ret_tib <- fas_list %>% 
       tibble::as_tibble() %>% 
       purrr::set_names(c("Path")) %>%
-      dplyr::mutate(Base_Name=base::basename(Path) %>% stringr::str_remove(".fa.gz$")) %>%
-      dplyr::mutate(Unq_ID=stringr::str_remove(Base_Name, paste(genome_build,"genome.",sep=".")), 
-                    Unq_ID=stringr::str_replace(Unq_ID,"^F",paste(genome_build,"NCBI.dna.F", sep='.') ), 
-                    Unq_ID=stringr::str_replace(Unq_ID,"^R",paste(genome_build,"NCBI.dna.R", sep='.') ),
+      dplyr::mutate(Base_Name=base::basename(Path) %>% 
+                      stringr::str_remove(".fa.gz$")) %>%
+      dplyr::mutate(Unq_ID=stringr::str_remove(Base_Name, 
+                                               paste(genome_build,"genome.",sep=".")), 
+                    Unq_ID=stringr::str_replace(Unq_ID,"^F",
+                                                paste(genome_build,"NCBI.dna.F", sep='.') ), 
+                    Unq_ID=stringr::str_replace(Unq_ID,"^R",
+                                                paste(genome_build,"NCBI.dna.R", sep='.') ),
                     Unq_ID=stringr::str_replace(
-                      Unq_ID, paste(genome_build,"genome$", sep='.'), paste(genome_build,"NCBI.dna.FCN", sep='.') ),
-                    Unq_ID=stringr::str_replace(Unq_ID,"dbSNP-151.iupac$", "dbSNP-151.iupac.FCN"), 
-                    Unq_ID=stringr::str_replace(Unq_ID,"dbSNP-151.iupac",paste0(genome_build,".dbSNP-151.snp")) ) %>%
+                      Unq_ID, paste(genome_build,"genome$", sep='.'), 
+                      paste(genome_build,"NCBI.dna.FCN", sep='.') ),
+                    Unq_ID=stringr::str_replace(Unq_ID,"dbSNP-151.iupac$",
+                                                "dbSNP-151.iupac.FCN"), 
+                    Unq_ID=stringr::str_replace(Unq_ID,"dbSNP-151.iupac",
+                                                paste0(genome_build,".dbSNP-151.snp")) ) %>%
       dplyr::select(-Base_Name)
-
+    
     ret_key <- glue::glue("mid-formatting({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
-
+    
     ret_tib <- ret_tib %>% 
-      tidyr::separate(Unq_ID, into=c("Genome_Build","Source","Alphabet","Genome_Key"), sep="\\.") %>%
-      tidyr::separate(Genome_Key, into=c("Strand_FR","Strand_CO","Strand_BSC"), sep=c(1,2), remove=FALSE) %>%
-      dplyr::mutate(Genome_Key=paste(Genome_Key,Alphabet, sep="_")) %>%
+      tidyr::separate(Unq_ID,
+                      into=c("Genome_Version","Genome_Source",
+                             "Genome_Alphabet","Genome_Key"), sep="\\.") %>%
+      tidyr::separate(Genome_Key, 
+                      into=c("Genome_Strand_FR","Genome_Strand_CO",
+                             "Genome_Strand_BSC"), sep=c(1,2), 
+                      remove=FALSE) %>%
+      dplyr::mutate(Genome_Key=paste(Genome_Key,Genome_Alphabet, sep="_")) %>%
       dplyr::mutate(
-        Alphabet_Int=dplyr::case_when(
-          Alphabet=="dna" ~ 0,
-          Alphabet=="snp" ~ 1,
+        Genome_Alphabet_Int=dplyr::case_when(
+          Genome_Alphabet=="dna" ~ 0,
+          Genome_Alphabet=="snp" ~ 1,
           TRUE ~ 3,
         ) %>% as.integer(),
-        Strand_BSC_Int=dplyr::case_when(
-          Strand_BSC=="N" ~ 0,
-          Strand_BSC=="U" ~ 1,
-          Strand_BSC=="M" ~ 2,
-          Strand_BSC=="D" ~ 3,
+        Genome_Strand_BSC_Int=dplyr::case_when(
+          Genome_Strand_BSC=="N" ~ 0,
+          Genome_Strand_BSC=="U" ~ 1,
+          Genome_Strand_BSC=="M" ~ 2,
+          Genome_Strand_BSC=="D" ~ 3,
           TRUE ~ 4,
         ) %>% as.integer(),
-        Strand_CO_Int=dplyr::case_when(
-          Strand_CO=="C" ~ 0,
-          Strand_CO=="O" ~ 1,
+        Genome_Strand_CO_Int=dplyr::case_when(
+          Genome_Strand_CO=="C" ~ 0,
+          Genome_Strand_CO=="O" ~ 1,
           TRUE ~ 2,
         ) %>% as.integer(),
-        Strand_FR_Int=dplyr::case_when(
-          Strand_FR=="F" ~ 0,
-          Strand_FR=="R" ~ 1,
+        Genome_Strand_FR_Int=dplyr::case_when(
+          Genome_Strand_FR=="F" ~ 0,
+          Genome_Strand_FR=="R" ~ 1,
           TRUE ~ 2
         ) %>% as.integer()
-      ) %>% dplyr::arrange(Alphabet_Int,
-                           Strand_BSC_Int,
-                           Strand_CO_Int,
-                           Strand_FR_Int)
+      ) %>% dplyr::arrange(Genome_Alphabet_Int,
+                           Genome_Strand_BSC_Int,
+                           Genome_Strand_CO_Int,
+                           Genome_Strand_FR_Int)
     
     if (ret_list) ret_dat <- ret_tib %>% split(f=ret_tib$Genome_Key)
-
+    
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
   })

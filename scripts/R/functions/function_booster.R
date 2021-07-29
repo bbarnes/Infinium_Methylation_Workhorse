@@ -62,6 +62,50 @@ template_func = function(tib,
 #                         Reload for Common Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# coerce_tib_to_tab(c_imp_tib, a=c("Probe_Seq_U","Scr_U"), b=c("Probe_Seq_M","Scr_M"), verbose = 10) %>% dplyr::bind_rows() %>% split(f=.$Ord_Des)
+coerce_tib_to_tab = function(tib,
+                             verbose=0,vt=3,tc=1,tt=NULL,
+                             funcTag='coerce_tib_to_tab', ...) {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime <- 0
+  ret_dat <- NULL
+  dots <- list(...)
+  
+  for (i in c(1:length(dots))) {
+    cat("i =",i,"\n")
+    
+    ret_tib <- tib %>% dplyr::select(-dplyr::any_of(dots[[i]]))
+    ret_dat[[i]] <- ret_tib
+
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  }
+
+  # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+  ret_key <- glue::glue("ret-FIN({funcTag})")
+  ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_dat
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Reload for Common Method::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
 redata = function(out_dir, 
                   run_tag, 
                   fun_tag,
@@ -93,7 +137,7 @@ redata = function(out_dir,
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
   out_fns <- paste(run_tag, fun_tag, end_str, sep=sep_chr)
   out_csv <- file.path(out_dir, out_fns)
-
+  
   if (re_load==FALSE) return(out_csv)
   if (!file.exists(out_csv)) return(out_csv)
   pre_tag <- c(pre_tag, out_csv,paste0(out_csv, '.done.txt'))
@@ -121,7 +165,7 @@ redata = function(out_dir,
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
     "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
-
+  
   ret_tib
 }
 
@@ -1109,7 +1153,7 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
     if (verbose>=vt)
       cat(glue::glue("{mssg} Reading Data (sep='{type}') ",
                      "file='{file}'...{RET}"))
-
+    
     if (type=="line") {
       ret_tib <- suppressMessages(suppressWarnings( 
         readr::read_lines(file=file) ))
@@ -1134,7 +1178,7 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
     "{mssg}Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
-
+  
   ret_tib
 }
 
@@ -1225,7 +1269,7 @@ print_tib = function(t, f="print_tib",
   
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
-
+  
   ret_cnt <- 0
   ret_tib <- NULL
   

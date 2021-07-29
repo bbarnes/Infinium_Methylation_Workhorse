@@ -873,7 +873,7 @@ set_topbot_tib = function(tib,
     
     # Make template sequences unique to reduce run time()
     unq_tib <- tib %>% 
-      dplyr::distinct(dplyr::across(dplyr::all_of(seq_key)) )
+      dplyr::distinct(dplyr::across(dplyr::all_of( seq_key)) )
     
     bit_tib <- unq_tib %>%
       dplyr::mutate(
@@ -898,7 +898,8 @@ set_topbot_tib = function(tib,
     bit_key <- glue::glue("bit-tib({funcTag})")
     bit_cnt <- print_tib(bit_tib,funcTag, verbose,vt+4,tc, n=bit_key)
     
-    pre_bit <- bit_tib$pre_seq %>% stringr::str_split('', simplify = TRUE)
+    pre_bit <- bit_tib$pre_seq %>% 
+      stringr::str_split('', simplify = TRUE)
     pre_key <- glue::glue("pre-bit({funcTag})")
     pre_cnt <- print_tib(tibble::as_tibble(pre_bit), funcTag, 
                          verbose,vt+4,tc, n=pre_key)
@@ -1164,6 +1165,38 @@ revCmp = function(x) {
 
 revSeq = function(x) {
   Biostrings::reverse(x)
+}
+
+cmpl_srd = function(x) {
+  if (x=='F' || x == 'f') return('R')
+  if (x=='R' || x == 'r') return('F')
+  if (x=='T' || x == 't') return('B')
+  if (x=='B' || x == 'b') return('T')
+  if (x=='C' || x == 'c') return('O')
+  if (x=='O' || x == 'o') return('C')
+  
+  x
+}
+
+cmpl_FR = function(x) {
+  if (x=='F' || x == 'f') return('R')
+  if (x=='R' || x == 'r') return('F')
+  
+  x
+}
+
+cmpl_TB = function(x) {
+  if (x=='T' || x == 't') return('B')
+  if (x=='B' || x == 'b') return('T')
+  
+  x
+}
+
+cmpl_CO = function(x) {
+  if (x=='C' || x == 'c') return('O')
+  if (x=='O' || x == 'o') return('C')
+  
+  x
 }
 
 cmpl = function(x) {

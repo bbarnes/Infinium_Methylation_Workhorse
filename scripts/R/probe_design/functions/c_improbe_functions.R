@@ -73,6 +73,7 @@ c_improbe_workflow = function(template_tib,
                               fwd_seq = "Forward_Sequence",
                               pos_key = "Bsp_Pos",
                               chr_key = "Bsp_Chr",
+                              gen_key = NULL,
                               
                               doc_image,
                               doc_shell,
@@ -118,6 +119,11 @@ c_improbe_workflow = function(template_tib,
     stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
     paste("improbe-designOutput.tsv.gz", sep=sep_chr)
   
+  if (is.null(gen_key))
+    if (!is.null(imGenome_dat) && !is.null(imGenome_dat$Genome_Version))
+      gen_key <- imGenome_dat$Genome_Version
+  else gen_key <- "x"
+  
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt) {
     cat(glue::glue("{RET}"))
@@ -128,10 +134,10 @@ c_improbe_workflow = function(template_tib,
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Run Parameters::{RET}"))
     cat(glue::glue("{mssg}      ids_key={ids_key}.{RET}"))
-    cat(glue::glue("{mssg}      imp_seq={imp_seq}.{RET}"))
+    cat(glue::glue("{mssg}      fwd_seq={fwd_seq}.{RET}"))
     cat(glue::glue("{mssg}      pos_key={pos_key}.{RET}"))
     cat(glue::glue("{mssg}      chr_key={chr_key}.{RET}"))
-    cat(glue::glue("{mssg}      gen_bld={gen_bld}.{RET}"))
+    cat(glue::glue("{mssg}      gen_key={gen_key}.{RET}"))
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg}       outlevel={outlevel}.{RET}"))
     cat(glue::glue("{mssg}     add_inf={add_inf}.{RET}"))
@@ -166,16 +172,18 @@ c_improbe_workflow = function(template_tib,
                    "Chromosome","Coordinate","CpG_Island")
       
       # imp_tsv <- file.path(out_dir, paste(prefix,inp_suffix,"tsv.gz", sep='.'))
-      imp_tib <- imp_tib %>% 
-        dplyr::mutate(Genome_Build=!!gen_bld, CpG_Island="FALSE") %>%
-        dplyr::select(dplyr::all_of(c(!!ids_key, !!imp_seq, "Genome_Build", 
+      template_tib <- template_tib %>% 
+        dplyr::select(-Genome_Build, -Strand_CO, -Strand_FR) %>%
+        # dplyr::select(-dplyr::any_of("Genome_Build","Strand_CO","Strand_FR")) %>%
+        dplyr::mutate(Genome_Build=!!gen_key, CpG_Island="FALSE") %>%
+        dplyr::select(dplyr::all_of(c(!!ids_key, !!fwd_seq, "Genome_Build", 
                                       !!chr_key, !!pos_key, "CpG_Island"))) %>%
         purrr::set_names(imp_col)
       
-      cat(glue::glue("{mssg}       imp_tsv={imp_tsv}; imp_tib::{RET}"))
-      imp_tib %>% head(n=3) %>% print()
+      cat(glue::glue("{mssg} imp_tsv={imp_tsv}; template_tib::{RET}"))
+      template_tib %>% head(n=3) %>% print()
       
-      out_cnt <- safe_write(x=imp_tib, file=imp_tsv, funcTag=funcTag, 
+      out_cnt <- safe_write(x=template_tib, file=imp_tsv, funcTag=funcTag, 
                             verbose=verbose,vt=vt,tc=tc,append=FALSE)
     }
     
@@ -202,7 +210,7 @@ c_improbe_workflow = function(template_tib,
                                    out_tsv  = out_csv,
                                    imGenome = imGenome,
                                    
-                                   level    = level,
+                                   outlevel = outlevel,
                                    add_inf  = add_inf, 
                                    
                                    re_join  = re_join,
@@ -348,7 +356,7 @@ load_improbe_design = function(des_tsv,
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Run Parameters::{RET}"))
     cat(glue::glue("{mssg}       outlevel={outlevel}.{RET}"))
-    cat(glue::glue("{mssg}        join={join}.{RET}"))
+    cat(glue::glue("{mssg}        re_join={re_join}.{RET}"))
     cat(glue::glue("{mssg}     add_inf={add_inf}.{RET}"))
     cat(glue::glue("{RET}"))
   }
@@ -518,18 +526,21 @@ load_improbe_design = function(des_tsv,
       ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     }
     
+    # NOTE: The more I think of it we should avoid this process of rejoining
+    #   all the data together after each step...
+    #
     # Merge data back with BSP results::
-    if (join) {
-      if (verbose>=vt+2)
-        cat(glue::glue("{mssg} Joining data with improbe data...{RET}"))
-      
-      ret_tib <- dplyr::left_join(
-        join, dplyr::rename_with(ret_tib, ~ new_join, dplyr::all_of(old_join) ),
-        by=new_join, suffix=c("_bsp","_imp")
-      )
-      ret_key <- glue::glue("s-improbe-merging-back-with-input-tib({funcTag})")
-      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
-    }
+    # if (re_join) {
+    #   if (verbose>=vt+2)
+    #     cat(glue::glue("{mssg} Joining data with improbe data...{RET}"))
+    #   
+    #   ret_tib <- dplyr::left_join(
+    #     join, dplyr::rename_with(ret_tib, ~ new_join, dplyr::all_of(old_join) ),
+    #     by=new_join, suffix=c("_bsp","_imp")
+    #   )
+    #   ret_key <- glue::glue("s-improbe-merging-back-with-input-tib({funcTag})")
+    #   ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
+    # }
     
     if (verbose>=vt+2)
       cat(glue::glue("{mssg} Re-extracting Ord_Des/Ord_Din from Seq_ID...{RET}"))
@@ -544,7 +555,10 @@ load_improbe_design = function(des_tsv,
     ret_key <- glue::glue("s-improbe-After-Des/Din-Extraction({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     
-    if (!is.null(gen_tib)) ret_tib <- cbind(imGenome, ret_tib) %>%
+    if (!is.null(imGenome)) ret_tib <- imGenome %>%
+      dplyr::select(-Path, -dplyr::ends_with("_Cnt"), 
+                    -dplyr::ends_with("_Int")) %>% 
+      cbind(ret_tib) %>%
       tibble::as_tibble()
     
     out_cnt <- safe_write(x=ret_tib, file=out_tsv, funcTag=funcTag,

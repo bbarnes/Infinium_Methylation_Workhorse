@@ -827,333 +827,13 @@ run$doc_image <- glue::glue("{run$image_key}.{run$image_ver}")
 #                    Pre-processing:: Pre-defined Files
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Checking pre-defined files.{RET}"))
-
-# Define Pre-built improbe directories and files::
-#   - Using split files now instead of two single large files...
-run$cgn_seq_dir <- 
-  file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-output/prbs-p49-split")
-
-stopifnot(dir.exists(run$cgn_seq_dir))
-
-run$cgn_bed_dir <- file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-input/min")
-run$cgn_bed_tsv <- file.path(run$cgn_bed_dir, paste(opt$genome_build,"cgn.min.txt.gz", sep="."))
-run$canonical_csv <- file.path(par$datDir, "manifest/cgnDB/canonical.cgn-top-grp.csv.gz")
-
-stopifnot(dir.exists(run$cgn_bed_dir))
-stopifnot(file.exists(run$cgn_bed_tsv))
-stopifnot(file.exists(run$canonical_csv))
-
-# Change these to options::
-if (is.null(opt$gs_ctl_csv))
-  opt$gs_ctl_csv  <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
-if (is.null(opt$ses_ctl_csv))
-  opt$ses_ctl_csv <- file.path(par$topDir, "data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.controls-only.csv.gz")
-
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Done. Checking pre-defined files.{RET}{RET}"))
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                    Pre-processing:: Intermediate Files
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Defining Intermediate Run Time Files...{RET}"))
-
-#
-# MOST declaration of intermediate directories is no longer needed
-#   They build themselves....
-#
-
-# Manifest Directory::
-run$man_dir <- file.path(opt$outDir, 'man')
-run$aqp_man_csv  <- file.path(run$man_dir, paste(opt$runName,"aqp-pass.manifest-sesame.csv.gz", sep="."))
-
-# Annotation Directory::
-#
-run$ann_dir <- file.path(opt$outDir, 'ann')
-run$ann_int_csv  <- file.path(run$ann_dir,paste(opt$runName,'cpg-pass.annotation.csv.gz', sep='.'))
-
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Done. Defining Intermediate Run Time Files.{RET}{RET}"))
-
-#
-#
-# Genomes Manifest Generation Parameters::
-#  - TBD:: These should be moved to some config file...
-#
-#
-
 # For accumilating failed probes and why::
 error_ledgar <- NULL
-
-run$gen_nrec <- 0
-run$gen_key <- "Genome_Key"
-
-# Field (key) Parameters:: general
-run$del     <- "_"
-run$ids_key <- "Prb_Key"
-run$unq_key <- "Prb_Key_Unq"
-
-run$add_key <- "Address"
-run$din_key <- "Ord_Din"
-run$des_key <- "Ord_Des"
-run$map_key <- "Ord_Map"
-run$prb_key <- "Ord_Prb"
-
-run$bsp_srd <- "Bsp_FR"
-run$bsp_cos <- "Bsp_CO"
-run$pos_key <- "Bsp_Pos"
-run$chr_key <- "Bsp_Chr"
-
-run$Cgn_Int <- "Cgn_Int"
-run$Can_Cgn <- "Can_Cgn"
-run$Ord_Cgn <- "Ord_Cgn"
-run$Bsp_Cgn <- "Bsp_Cgn"
-run$Imp_Cgn <- "Imp_Cgn"
-
-run$out_col <- c(run$ids_key, run$add_key, run$des_key,
-                 run$din_key, run$map_key, run$prb_key)
-run$unq_col <- c(run$din_key, run$map_key, run$Cgn_Int)
-
-# Default run parameters by workflow::
-run$bsp_full   <- FALSE
-run$bsp_sort   <- TRUE
-run$bsp_light  <- TRUE
-run$bsp_merge  <- FALSE
-run$cgn_merge  <- FALSE
-run$cgn_join   <- "inner"
-run$seq_suffix <- "probe-subseq"
-run$seq_idxA   <- 1
-run$seq_idxB   <- 1
-run$seq_pattern_U <- "-probe_U49_cgn-table.tsv.gz"
-run$seq_pattern_M <- "-probe_M49_cgn-table.tsv.gz"
-
-# Field Parameters:: s-improbe
-run$ext_seq="Ext_Forward_Seq"
-run$iup_seq="Iupac_Forward_Sequence"
-run$imp_seq="Forward_Sequence"
-
-# Field Parameters:: r-improbe
-run$srsplit <- TRUE
-run$srd_key <- "Bsp_FR"
-run$srd_str <- "FR"
-
-run$cosplit <- TRUE
-run$cos_key <- "Bsp_CO"
-run$cos_str <- "CO"
-
-run$re_load <- TRUE
-
-opt$build_manifest <- FALSE
-opt$run_improbe    <- FALSE
-run$imp_level <- 3
-run$add_inf <- TRUE
-
-run$join_new_vec <- c()
-run$join_old_vec <- c()
-
-run$c_improbe <- TRUE
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#            0.0 Load any pre-defined Standard Manifest to be added::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-if (!is.null(opt$mans)) {
-  #
-  # TBD:: User should be able to rebuild an existing or old manifest,
-  #  or add manifests together...
-  #
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#          0.1 Load any pre-defined Noob-Masked Manifest to be added::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# noob_ctl_tib <- NULL
-# if (!is.null(opt$noob)) {
-#   noob_ctl_tib <- noob_mask(noob_csv = opt$noob, 
-#                             ctl_csv = opt$ses_ctl_csv, 
-#                             verbose=opt$verbose, tt=pTracker)
-# }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #                      0.2 Load any other pre-defined data
 #                        dbCGN, improbe, imGenomes data::
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-imGenome_tib <- load_imGenomes_table(dir = opt$gen_dir,
-                                     genome_build = opt$genome_build, 
-                                     ret_list = FALSE,
-                                     verbose = opt$verbose, tt=pTracker)
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#                   1.0 AQP Address Manifest Workflow: 
-#                           Order/Match/AQP/PQC
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-pTracker$addFile(opt$time_org_txt)
-
-ord_tib <- NULL
-ord_tib <- 
-  aqp_mapping_workflow(ord = opt$ords,
-                       mat = opt$mats,
-                       aqp = opt$aqps,
-                       
-                       prb_key = run$prb_key,
-                       add_key = run$add_key,
-                       des_key = run$des_key,
-                       din_key = run$din_key,
-                       ids_key = run$ids_key,
-                       
-                       out_dir = opt$outDir,
-                       out_col = run$out_col,
-                       run_tag = opt$runName,
-                       re_load = run$re_load,
-                       pre_tag = pTracker$file_vec,
-                       
-                       verbose=opt$verbose, tt=pTracker)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#                    2.0 Align All Probe Sequence:: BSMAP
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
-                                ref_tib = imGenome_tib,
-                                can_fas = NULL,
-                                can_tib = ord_tib,
-                                
-                                cgn_src = run$cgn_bed_tsv,
-                                
-                                ids_key = run$ids_key,
-                                unq_key = run$unq_key,
-                                prb_key = run$prb_key,
-                                des_key = run$des_key,
-                                din_key = run$din_key,
-                                
-                                join_key  = run$ids_key,
-                                join_type = "inner",
-                                
-                                sort    = run$bsp_sort,
-                                full    = run$bsp_full,
-                                merge   = run$bsp_merge,
-                                
-                                light   = run$bsp_light,
-                                reload  = opt$reload,
-                                retData = FALSE,
-                                
-                                bsp_exe = opt$bsmap_exe,
-                                bsp_opt = opt$bsmap_opt,
-                                
-                                out_dir = opt$outDir,
-                                out_col = run$out_col,
-                                run_tag = opt$runName,
-                                re_load = run$re_load,
-                                pre_tag = pTracker$file_vec,
-                                
-                                verbose=opt$verbose, tt=pTracker)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#         3.0 Intersect Sequences Address and improbe:: U49/M49
-#                         CGN Mapping Workflow()
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# NOTE: McMaster10Kselection = 822s
-seq_tib <- 
-  seq_mapping_workflow(ord_tib = ord_tib,
-                       
-                       seq_dir   = run$cgn_seq_dir,
-                       pattern_u = run$seq_pattern_U, 
-                       pattern_m = run$seq_pattern_M,
-                       
-                       prb_key = run$prb_key,
-                       add_key = run$add_key,
-                       des_key = run$des_key,
-                       din_key = run$din_key,
-                       ids_key = run$ids_key,
-                       
-                       prefix = opt$runName,
-                       suffix = run$seq_suffix, 
-                       
-                       idxA = run$seq_idxA,
-                       idxB = run$seq_idxB,
-                       
-                       reload   = opt$reload,
-                       parallel = opt$parallel,
-                       
-                       del = run$del,
-                       
-                       out_dir = opt$outDir,
-                       out_col = run$out_col,
-                       run_tag = opt$runName,
-                       re_load = run$re_load,
-                       pre_tag = pTracker$file_vec,
-                       
-                       verbose=opt$verbose, tt=pTracker)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#                       4.0 Analyze and Assign Cgn:: 
-#                      CGN-Map/BSMAP/dbGCGN look-up
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-cgn_tib <- 
-  cgn_mapping_workflow(ord_tib = ord_tib,
-                       bsp_tib = bsp_tib,
-                       seq_tib = seq_tib,
-                       
-                       ids_key = run$ids_key,
-                       des_key = run$des_key,
-                       din_key = run$din_key,
-                       map_key = run$map_key,
-                       
-                       Cgn_Int = run$Cgn_Int,
-                       Can_Cgn = run$Can_Cgn,
-                       Ord_Cgn = run$Ord_Cgn,
-                       Bsp_Cgn = run$Bsp_Cgn,
-                       Imp_Cgn = run$Imp_Cgn,
-                       
-                       can_csv = run$canonical_csv,
-                       
-                       join    = run$cgn_join,
-                       merge   = run$cgn_merge,
-                       retData = FALSE,
-                       
-                       out_dir = opt$outDir,
-                       out_col = run$out_col,
-                       unq_col = run$unq_col,
-                       run_tag = opt$runName,
-                       re_load = run$re_load,
-                       pre_tag = pTracker$file_vec,
-                       
-                       verbose=opt$verbose, tt=pTracker)
-
-
-
-print(ord_tib)
-print(bsp_tib)
-print(seq_tib)
-print(cgn_tib)
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#
-# Ending the first of this script here and developing the second half in a 
-#   completely speparte script. This is due to some naming convention 
-#   updates. Its just easier to keep them separated!!!
-#
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -1163,6 +843,17 @@ print(cgn_tib)
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+#
+#
+# NOTE:: Should load files from the first half of this program directly from
+#   from CSV files!!!
+#
+#
+
+print(ord_tib)
+print(bsp_tib)
+print(seq_tib)
+print(cgn_tib)
 
 #
 # Build individual parts of the template sequence:: 
@@ -1330,6 +1021,11 @@ probes_list <- probes %>% split(.$chr)
 #   - Ref
 #   - SNP (dbSNP-151)
 #
+imGenome_tib <- load_imGenomes_table(dir = opt$gen_dir,
+                                     genome_build = opt$genome_build, 
+                                     ret_list = FALSE,
+                                     verbose = opt$verbose, tt=pTracker)
+
 imGenome_list <- imGenome_tib %>% split(f=imGenome_tib$Genome_Key)
 
 # Implement once we're on the cluster
@@ -1428,7 +1124,7 @@ for (imGenome in imGenome_tib$Genome_Key) {
                           run$bsp_chr_key, run$bsp_pos_key,
                           run$ord_prb_seq, run$ord_prb_aln,
                           run$tmp_tbs_key, run$tmp_fwd_seq, run$tmp_top_seq )
-
+        
         key_cols <- c( run$bsp_tbs_key, run$bsp_cos_key, run$ord_inf_key )
         
         top_template_tib <- fwd_template_tib %>% 

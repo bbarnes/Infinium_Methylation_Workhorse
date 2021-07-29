@@ -66,11 +66,15 @@ template_func = function(tib,
 
 r_improbe_workflow = function(tib,
                               
-                              gen_tib = NULL,
+                              imGenome = NULL, # imGenome table that contains
+                                               #  genome strand, conversion and
+                                               #  alphabet used.
                               
-                              ids_key,
-                              seq_key,
-                              din_key,
+                              ids_key,  # Unique identifier for probe family
+                              seq_key,  # Column name of fwd template sequence
+                              din_key,  # Probe DiNucleotide type: cg,ch,rs,etc.
+                                        #   This lets the program know how to 
+                                        #   design the probes...
                               
                               top_col = NULL,
                               top_key = NULL,
@@ -222,7 +226,7 @@ r_improbe_workflow = function(tib,
                       stringr::str_sub(1,1),
                     improbe_type="r")
     
-    if (!is.null(gen_tib)) ret_tib <- cbind(gen_tib, ret_tib) %>%
+    if (!is.null(imGenome)) ret_tib <- cbind(imGenome, ret_tib) %>%
       tibble::as_tibble()
     
     out_cnt <- safe_write(x=ret_tib, file=out_csv, funcTag=funcTag, done=TRUE,
