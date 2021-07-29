@@ -63,29 +63,37 @@ template_func = function(tib,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-s_improbe_workflow = function(tib, 
+s_improbe_workflow = function(prb_tib, 
+                              gen_tib,
+
+                              # srd_key,  # F/R -- Not sure if this is needed
+                              pos_key,  # "Bsp_Pos/Coordinate",
+                              chr_key,  # "Bsp_Chr/Chromosome",
+                              
                               nrec = 0,
-                              gen_bld = "na", 
-                              gen_fas,
                               
-                              ids_key = "Aln_Key_Unq",
-                              din_key = "Ord_Din",
-                              tar_din = "rs",
+                              # Probe Info::
+                              ids_vec = NULL,  # c(ids_key="Aln_Key_Unq", des_key="Ord_Des", din_key="Ord_Din")
+                              prb_srd = NULL,  # "Strand_FR/Bsp_FR",
+                              prb_cos = NULL,  # "Strand_CO/Bsp_CO",
+                              prb_tbs = NULL,  # "Strand_TB"
                               
-                              srd_str = "F",
-                              pos_key = "Coordinate",
-                              chr_key = "Chromosome",
+                              query_n= NULL, # IUPAC insertion nucleotides
                               
-                              ext_seq = "Ext_Forward_Seq",
-                              iup_seq = "Iupac_Forward_Sequence",
-                              imp_seq = "Forward_Sequence",
-                              iupac = NULL,
+                              tri_din = NULL, # "rs" tri-fecta search type
                               
-                              ref_col = "Ref",
-                              alt_col = "Alt",
-                              iup_col = "Iupac",
+                              build=c("Prb_1C","Prb_2C","Prb_1O","Prb_2O"),
                               
-                              build=c("Prb1C","Prb2C","Prb1O","Prb2O"),
+                              
+                              # imp_seq = "Template_Sequence",
+                              # ext_seq = "Ext_Template_Seq",
+                              # iup_seq = "Iupac_Forward_Sequence",
+                              # iupac = NULL,
+                              
+                              # ref_col = "Ref",
+                              # alt_col = "Alt",
+                              # iup_col = "Iupac",
+                              
                               
                               ups_len = 60, 
                               seq_len = 122, 
@@ -125,13 +133,16 @@ s_improbe_workflow = function(tib,
     stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
     paste("summary.csv.gz", sep=sep_chr)
   
+  prb_cnt <- prb_tib %>% base::nrow()
+  gen_cnt <- gen_tib %>% base::nrow()
+
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Genome Parameters::{RET}"))
     cat(glue::glue("{mssg}          nrec={nrec}.{RET}"))
-    cat(glue::glue("{mssg}       gen_bld={gen_bld}.{RET}"))
-    cat(glue::glue("{mssg}       gen_fas={gen_fas}.{RET}"))
+    cat(glue::glue("{mssg}       prb_cnt={prb_cnt}.{RET}"))
+    cat(glue::glue("{mssg}       gen_cnt={gen_cnt}.{RET}"))
     cat(glue::glue("{RET}"))
     
     cat(glue::glue("{mssg} Output File Parameters::{RET}"))
@@ -139,36 +150,40 @@ s_improbe_workflow = function(tib,
     cat(glue::glue("{RET}"))
     
     cat(glue::glue("{mssg} Field Parameters::{RET}"))
-    cat(glue::glue("{mssg}       ids_key={ids_key}{RET}"))
-    cat(glue::glue("{mssg}       din_key={din_key}{RET}"))
+    # cat(glue::glue("{mssg}       ids_key={ids_key}{RET}"))
+    # cat(glue::glue("{mssg}       des_key={des_key}{RET}"))
+    # cat(glue::glue("{mssg}       din_key={din_key}{RET}"))
+    # cat(glue::glue("{mssg}       srd_key={srd_key}{RET}"))
+    # cat(glue::glue("{mssg}       cos_key={cos_key}{RET}"))
     cat(glue::glue("{mssg}       tar_din={tar_din}{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}       ext_seq={ext_seq}.{RET}"))
-    cat(glue::glue("{mssg}       iup_seq={iup_seq}.{RET}"))
-    cat(glue::glue("{mssg}       imp_seq={imp_seq}.{RET}"))
+    # cat(glue::glue("{mssg}       ext_seq={ext_seq}.{RET}"))
+    # cat(glue::glue("{mssg}       iup_seq={iup_seq}.{RET}"))
+    # cat(glue::glue("{mssg}       imp_seq={imp_seq}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}       srd_str={srd_str}.{RET}"))
+    # cat(glue::glue("{mssg}       srd_str={srd_str}.{RET}"))
     cat(glue::glue("{mssg}       pos_key={pos_key}.{RET}"))
     cat(glue::glue("{mssg}       chr_key={chr_key}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}       ref_col={ref_col}.{RET}"))
-    cat(glue::glue("{mssg}       alt_col={alt_col}.{RET}"))
-    cat(glue::glue("{mssg}       iup_col={iup_col}.{RET}"))
-    cat(glue::glue("{mssg}         iupac={iupac}.{RET}"))
+    # cat(glue::glue("{mssg}       ref_col={ref_col}.{RET}"))
+    # cat(glue::glue("{mssg}       alt_col={alt_col}.{RET}"))
+    # cat(glue::glue("{mssg}       iup_col={iup_col}.{RET}"))
+    cat(glue::glue("{mssg}         query_n={query_n}.{RET}"))
     cat(glue::glue("{RET}"))
     
     cat(glue::glue("{mssg} Run Parameters::{RET}"))
-    cat(glue::glue("{mssg}           del={del}.{RET}"))
+    # cat(glue::glue("{mssg}           del={del}.{RET}"))
     cat(glue::glue("{mssg}       ups_len={ups_len}.{RET}"))
     cat(glue::glue("{mssg}       seq_len={seq_len}.{RET}"))
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}      subset={subset}.{RET}"))
-    cat(glue::glue("{mssg}    sub_cols={sub_cols}.{RET}"))
+    # cat(glue::glue("{mssg}      subset={subset}.{RET}"))
+    # cat(glue::glue("{mssg}    sub_cols={sub_cols}.{RET}"))
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg}      reload={reload}.{RET}"))
     cat(glue::glue("{mssg}     retData={retData}.{RET}"))
     cat(glue::glue("{mssg}    parallel={parallel}.{RET}"))
     cat(glue::glue("{mssg}  add_flanks={add_flanks}.{RET}"))
+    cat(glue::glue("{mssg}  add_probes={add_probes}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -183,21 +198,21 @@ s_improbe_workflow = function(tib,
     
     # Define symbolic variables::
     #
-    ids_sym  <- rlang::sym(ids_key)
-    ext_sym  <- rlang::sym(ext_seq)
-    iup_sym  <- rlang::sym(iup_seq)
-    imp_sym  <- rlang::sym(imp_seq)
+    # ids_sym  <- rlang::sym(ids_key)
+    # ext_sym  <- rlang::sym(ext_seq)
+    # iup_sym  <- rlang::sym(iup_seq)
+    # imp_sym  <- rlang::sym(imp_seq)
     
     pos_sym  <- rlang::sym(pos_key)
     chr_sym  <- rlang::sym(chr_key)
     
-    ref_col_sym  <- rlang::sym(ref_col)
-    alt_col_sym  <- rlang::sym(alt_col)
-    iup_col_sym  <- rlang::sym(iup_col)
+    # ref_col_sym  <- rlang::sym(ref_col)
+    # alt_col_sym  <- rlang::sym(alt_col)
+    # iup_col_sym  <- rlang::sym(iup_col)
     
     # Load Genome::
     #
-    seq_dat <- load_genome(file=gen_fas,
+    gen_chr_dat <- load_genome(file=gen_fas,
                            nrec=nrec,
                            chr_key=chr_key,
                            ret_map=TRUE,
@@ -206,27 +221,21 @@ s_improbe_workflow = function(tib,
     if (retData) ret_dat$gen <- seq_dat
     
     # Split Data by Chromosome::
-    #
-    chr_list <- tib %>% 
+    prb_chroms_list <- prb_tib %>% 
       dplyr::arrange(!!chr_sym,!!pos_sym) %>%
       split(.[[chr_key]])
     
-    chr_maps <- seq_dat$maps %>%
+    gen_chroms_list <- gen_chr_dat$maps %>%
       split(.[[chr_key]])
     
-    # Process each chromosome::
-    #  TBD:: Add parallel computing over chromosomes
-    #
-    chr_vec_1 <- names(chr_list)
-    chr_vec_2 <- names(chr_maps)
-    chr_names <- chr_vec_1[chr_vec_1 %in% chr_vec_2]
+    chrom_names <- intersect(names(prb_chroms_list), names(gen_chroms_list))
     
-    if (parallel) {
+    if (FALSE && parallel) {
       if (verbose>=vt) 
         cat(glue::glue("{mssg}{TAB} Extacting sequence templates ",
                        "from genome (Parallel)...{RET}"))
       
-      ret_tib <- foreach (chr_str=chr_names, .combine=rbind) %dopar% {
+      ret_tib <- foreach (chrom=chrom_names, .combine=rbind) %dopar% {
         chr_idx <- chr_maps[[chr_str]] %>% head(n=1) %>% pull(Idx) %>% as.integer()
         s_improbe_template_workflow(
           tib=chr_list[[chr_str]], seq=seq_dat$seqs[[chr_idx]],
@@ -241,8 +250,10 @@ s_improbe_workflow = function(tib,
         cat(glue::glue("{mssg}{TAB} Extacting sequence templates ",
                        "from genome (Linear)...{RET}"))
       
-      for (chr_str in chr_names) {
+      for (chrom in chrom_names) {
         chr_idx <- chr_maps[[chr_str]] %>% head(n=1) %>% pull(Idx) %>% as.integer()
+        
+        
         cur_tib <- s_improbe_template_workflow(
           tib=chr_list[[chr_str]], seq=seq_dat$seqs[[chr_idx]], 
           srd_str=srd_str, pos_key=pos_key, chr_key=chr_key, chr_str=chr_str,
@@ -306,7 +317,12 @@ s_improbe_workflow = function(tib,
       prb_tib <- NULL
       prb_tib <- s_improbe(tib = ret_tib,
                            ids_key = ids_key,
+                           
+                           des_key = des_key,
                            din_key = din_key,
+                           srd_key = srd_key,
+                           cos_key = cos_key,
+                           
                            pos_key = pos_key,
                            chr_key = chr_key,
                            build   = build, 
@@ -322,6 +338,21 @@ s_improbe_workflow = function(tib,
     }
     
     ret_tib <- ret_tib %>% dplyr::arrange(!!ids_sym)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     Rename Strands To Match Standards::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    ret_tib <- ret_tib %>% 
+      dplyr::mutate(improbe_type = "s") %>%
+      dplyr::rename(Strand_FR = dplyr::all_of(srd_key),
+                    Strand_CO = dplyr::all_of(cos_key) )
+    
+    if (!is.null(gen_tib)) ret_tib <- cbind(gen_tib, ret_tib) %>% 
+      tibble::as_tibble()
+
+    ret_key <- glue::glue("After-gen-tib-cbind({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                        Calculate Data Summary:: CSV
@@ -368,7 +399,7 @@ s_improbe_workflow = function(tib,
 
 s_improbe_workflow_old = function(tib,
                               
-                              build=c("Prb1C","Prb2C","Prb1O","Prb2O"),
+                              build=c("Prb_1C","Prb_2C","Prb_1O","Prb_2O"),
                               
                               out_csv=NULL, out_dir, run_tag, 
                               re_load=FALSE, pre_tag=NULL,
@@ -434,7 +465,12 @@ s_improbe_workflow_old = function(tib,
 s_improbe = function(tib, 
                      
                      ids_key,
+                     
+                     des_key,
                      din_key,
+                     srd_key,
+                     cos_key,
+                     
                      pos_key,
                      chr_key,
                      
@@ -447,9 +483,19 @@ s_improbe = function(tib,
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
-  if (verbose>=vt+2) {
-    cat(glue::glue("{mssg} Run Parameters::{RET}"))
-    cat(glue::glue("{mssg}   build={build}{RET}"))
+  if (verbose>=vt+2-2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Field Parameters::{RET}"))
+    cat(glue::glue("{mssg}       ids_key={ids_key}{RET}"))
+    cat(glue::glue("{mssg}       des_key={des_key}{RET}"))
+    cat(glue::glue("{mssg}       din_key={din_key}{RET}"))
+    cat(glue::glue("{mssg}       srd_key={srd_key}{RET}"))
+    cat(glue::glue("{mssg}       cos_key={cos_key}{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}       pos_key={pos_key}{RET}"))
+    cat(glue::glue("{mssg}       chr_key={chr_key}{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}         build={build}{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -478,51 +524,50 @@ s_improbe = function(tib,
     # Build requested sub-string probes::
     #
     sel_cols <- c(ids_key,din_key,pos_key,chr_key,
-                  "Prb1C","Nxb1C","Len1C",
-                  "Prb2C","Nxb2C","Len2C",
-                  "Prb1O","Nxb1O","Len1O",
-                  "Prb2O","Nxb2O","Len2O",
+                  "Prb_1C","Nxb_1C","Len_1C",
+                  "Prb_2C","Nxb_2C","Len_2C",
+                  "Prb_1O","Nxb_1O","Len_1O",
+                  "Prb_2O","Nxb_2O","Len_2O",
                   "Tmp_Seq","Tmp_Len","Tmp_Pad")
     
-    
     ret_tib <- tib
-    if ("Prb1C" %in% build)
+    if ("Prb_1C" %in% build)
       ret_tib <- ret_tib %>% dplyr::mutate(
-        Prb1C=paste0(iupac,dn61,dn60,dn59,dn58) %>% revCmp(),
-        Nxb1C=paste0(up60) %>% cmpl(),
-        Len1C=stringr::str_length(Prb1C) )
+        Prb_1C=paste0(iupac,dn61,dn60,dn59,dn58) %>% revCmp(),
+        Nxb_1C=paste0(up60) %>% cmpl(),
+        Len_1C=stringr::str_length(Prb_1C) )
     
-    if ("Prb2C" %in% build)
+    if ("Prb_2C" %in% build)
       ret_tib <- ret_tib %>% dplyr::mutate(
-        Prb2C=paste0(dn61,dn60,dn59,dn58,dn12) %>% revCmp(),
-        Nxb2C=paste0(iupac) %>% cmpl(),
-        Len2C=stringr::str_length(Prb2C))
+        Prb_2C=paste0(dn61,dn60,dn59,dn58,dn12) %>% revCmp(),
+        Nxb_2C=paste0(iupac) %>% cmpl(),
+        Len_2C=stringr::str_length(Prb_2C))
     
-    if ("Prb1O" %in% build)
+    if ("Prb_1O" %in% build)
       ret_tib <- ret_tib %>% dplyr::mutate(
-        Prb1O=paste0(up12,up58,up59,up60,iupac) %>% revCmp(),
-        Nxb1O=paste0(dn61) %>% cmpl(),
-        Len1O=stringr::str_length(Prb1O) )
+        Prb_1O=paste0(up12,up58,up59,up60,iupac) %>% revCmp(),
+        Nxb_1O=paste0(dn61) %>% cmpl(),
+        Len_1O=stringr::str_length(Prb_1O) )
     
-    if ("Prb2O" %in% build)
+    if ("Prb_2O" %in% build)
       ret_tib <- ret_tib %>% dplyr::mutate(
-        Prb2O=paste0(up11,up12,up58,up59,up60) %>% revCmp(),
-        Nxb2O=paste0(iupac) %>% cmpl(),
-        Len2O=stringr::str_length(Prb2O))
-    
-    # NOTE:: I think you can ignore FR strand since the template sequence
-    #   should already be 5' -> 3' for the strand of interest
-    #
-    # if ("Prb2_RC" %in% build)
-    #   ret_tib <- ret_tib %>% dplyr::mutate(
-    #     Prb2_RC=paste0(up12,up58,up59,up60,up61), 
-    #     Prb2_RC_Len=stringr::str_length(Prb2_RC))
-    # 
-    # if ("Prb1_RC" %in% build)
-    #   ret_tib <- ret_tib %>% dplyr::mutate(
-    #     Prb1_RC=paste0(up58,up59,up60,up61,iupac), 
-    #     Prb1_RC_Len=stringr::str_length(Prb1_RC))
-    
+        Prb_2O=paste0(up11,up12,up58,up59,up60) %>% revCmp(),
+        Nxb_2O=paste0(iupac) %>% cmpl(),
+        Len_2O=stringr::str_length(Prb_2O))
+
+      # NOTE:: I think you can ignore FR strand since the template sequence
+      #   should already be 5' -> 3' for the strand of interest
+      #
+      # if ("Prb2_RC" %in% build)
+      #   ret_tib <- ret_tib %>% dplyr::mutate(
+      #     Prb2_RC=paste0(up12,up58,up59,up60,up61), 
+      #     Prb2_RC_Len=stringr::str_length(Prb2_RC))
+      # 
+      # if ("Prb1_RC" %in% build)
+      #   ret_tib <- ret_tib %>% dplyr::mutate(
+      #     Prb1_RC=paste0(up58,up59,up60,up61,iupac), 
+      #     Prb1_RC_Len=stringr::str_length(Prb1_RC))
+
     # NOTE::This is just for graphical sanity checks and should be removed
     #   once its validated...
     #
@@ -925,10 +970,11 @@ s_improbe_trifecta = function(tib,
 #                           Genome FASTA Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-load_genome = function(file, 
-                       chr_key="Chromosome", 
-                       nrec=0, ret_map=TRUE,
-                       verbose=0,vt=3,tc=1,tt=NULL,
+load_genome = function(chr_fas,
+                       chr_max,
+                       ret_map = TRUE,
+                       chr_key = "Chrom",
+                       verbose=0 ,vt=3,tc=1,tt=NULL,
                        funcTag='load_genome') {
   
   tabs <- paste0(rep(TAB, tc), collapse='')
@@ -936,30 +982,35 @@ load_genome = function(file,
   
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
-    cat(glue::glue("{mssg}      file={file}.{RET}"))
-    cat(glue::glue("{mssg}      nrec={nrec}.{RET}"))
-    cat(glue::glue("{mssg}   chr_key={chr_key}.{RET}"))
+    cat(glue::glue("{mssg}   chr_fas = {chr_fas}.{RET}"))
+    cat(glue::glue("{mssg}   chr_max = {chr_max}.{RET}"))
+    cat(glue::glue("{mssg}   chr_key = {chr_key}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
   ret_cnt <- 0
   ret_tib <- NULL
   ret_dat <- NULL
+  
   stime <- base::system.time({
     
-    if (nrec==0) {
-      seqs <- Biostrings::readDNAStringSet(filepath=file, format="fasta")
+    if (chr_max==0) {
+      seqs <- Biostrings::readDNAStringSet(filepath=chr_fas, format="fasta")
     } else {
-      seqs <-  Biostrings::readDNAStringSet(filepath=file, format="fasta", 
+      seqs <-  Biostrings::readDNAStringSet(filepath=chr_fas, format="fasta", 
                                             nrec=nrec)
     }
+    
     ret_cnt <- seqs %>% length()
     if (verbose>=vt) 
       cat(glue::glue("{mssg} Loaded {ret_cnt} chromosomes.{RET}"))
+    
     if (verbose>=vt+2) print(seqs)
     
     if (ret_map) {
+      
       chr_sym <- rlang::sym(chr_key)
       
       ret_tib <- seqs %>% 

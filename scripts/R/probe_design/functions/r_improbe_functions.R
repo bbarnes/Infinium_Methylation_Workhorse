@@ -66,13 +66,18 @@ template_func = function(tib,
 
 r_improbe_workflow = function(tib,
                               
+                              gen_tib = NULL,
+                              
                               ids_key,
                               seq_key,
                               din_key,
                               
+                              top_col = NULL,
+                              top_key = NULL,
+                              
                               srsplit = FALSE,
                               srd_key = NULL,
-                              srd_str = "FR", 
+                              srd_str = "FR",
                               
                               cosplit = FALSE,
                               cos_key = NULL,
@@ -88,6 +93,7 @@ r_improbe_workflow = function(tib,
                               reload     = FALSE,
                               parallel   = FALSE,
                               add_matseq = TRUE,
+                              add_topseq = FALSE,
                               
                               out_csv = NULL,
                               out_dir,
@@ -128,6 +134,8 @@ r_improbe_workflow = function(tib,
     cat(glue::glue("{mssg}      ids_key={ids_key}.{RET}"))
     cat(glue::glue("{mssg}      din_key={din_key}.{RET}"))
     cat(glue::glue("{mssg}      seq_key={seq_key}.{RET}"))
+    cat(glue::glue("{mssg}      top_col={top_col}.{RET}"))
+    cat(glue::glue("{mssg}      top_key={top_key}.{RET}"))
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg}      srsplit={srsplit}.{RET}"))
     cat(glue::glue("{mssg}      srd_key={srd_key}.{RET}"))
@@ -147,6 +155,7 @@ r_improbe_workflow = function(tib,
     cat(glue::glue("{mssg}       reload={reload}.{RET}"))
     cat(glue::glue("{mssg}     parallel={parallel}.{RET}"))
     cat(glue::glue("{mssg}   add_matseq={add_matseq}.{RET}"))
+    cat(glue::glue("{mssg}   add_topseq={add_topseq}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -203,12 +212,18 @@ r_improbe_workflow = function(tib,
                 
                 parallel   = parallel, 
                 add_matseq = add_matseq,
-                
-                # out_csv=NULL, out_dir, run_tag, 
-                # re_load=FALSE, pre_tag=NULL,
-                # end_str='csv.gz', sep_chr='.',
-                
+                add_topseq = add_topseq,
+
                 verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_tib <- ret_tib %>% 
+      dplyr::mutate(Ord_Des=Prb_Key_Unq %>%
+                      stringr::str_remove("^[^_]+_") %>% 
+                      stringr::str_sub(1,1),
+                    improbe_type="r")
+    
+    if (!is.null(gen_tib)) ret_tib <- cbind(gen_tib, ret_tib) %>%
+      tibble::as_tibble()
     
     out_cnt <- safe_write(x=ret_tib, file=out_csv, funcTag=funcTag, done=TRUE,
                           verbose=verbose, vt=vt,tc=tc,append=FALSE)
@@ -242,6 +257,9 @@ r_improbe = function(tib,
                      seq_key, 
                      din_key,
                      
+                     top_col = NULL,
+                     top_key = NULL,
+                     
                      srsplit=FALSE,
                      srd_key=NULL,
                      srd_str='FR',
@@ -259,6 +277,7 @@ r_improbe = function(tib,
                      
                      parallel   = FALSE,
                      add_matseq = TRUE,
+                     add_topseq = FALSE,
                      
                      del='_',
                      max=0,
@@ -273,8 +292,9 @@ r_improbe = function(tib,
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Run Parameters::{RET}"))
     cat(glue::glue("{mssg}      ids_key={ids_key}.{RET}"))
-    cat(glue::glue("{mssg}      din_key={din_key}.{RET}"))
     cat(glue::glue("{mssg}      seq_key={seq_key}.{RET}"))
+    cat(glue::glue("{mssg}      top_col={top_col}.{RET}"))
+    cat(glue::glue("{mssg}      top_key={top_key}.{RET}"))
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg}      srsplit={srsplit}.{RET}"))
     cat(glue::glue("{mssg}      srd_key={srd_key}.{RET}"))
@@ -293,6 +313,7 @@ r_improbe = function(tib,
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg}     parallel={parallel}.{RET}"))
     cat(glue::glue("{mssg}   add_matseq={add_matseq}.{RET}"))
+    cat(glue::glue("{mssg}   add_topseq={add_topseq}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -327,31 +348,36 @@ r_improbe = function(tib,
                             !!srd_key,!!cos_key))) %>% print()
         
         cur_tib <- NULL
-        cur_tib <- r_improbe(tib=tib_list[[srd]], 
-                             srd_str=srd_str, 
-                             cos_str=cos_str,
+        cur_tib <- r_improbe(tib = tib_list[[srd]], 
+                             srd_str = srd_str, 
+                             cos_str = cos_str,
                              
-                             ids_key=ids_key,
-                             seq_key=seq_key,
-                             din_key=din_key,
+                             ids_key = ids_key,
+                             seq_key = seq_key,
+                             din_key = din_key,
                              
-                             srsplit=FALSE,
-                             srd_key=srd_key,
-                             cosplit=cosplit,
-                             cos_key=cos_key,
+                             top_col = NULL,
+                             top_key = NULL,
+
+                             srsplit = FALSE,
+                             srd_key = srd_key,
+                             cosplit = cosplit,
+                             cos_key = cos_key,
                              
-                             ups_len=ups_len, 
-                             seq_len=seq_len, 
+                             ups_len = ups_len, 
+                             seq_len = seq_len, 
                              
-                             join=join,
-                             subset=subset,
-                             sub_cols=sub_cols,
+                             join = join,
+                             subset = subset,
+                             sub_cols = sub_cols,
                              
-                             parallel=parallel, 
-                             add_matseq=add_matseq,
+                             parallel = parallel, 
+                             add_matseq = add_matseq,
+                             add_topseq = add_topseq,
+
+                             del = del,
+                             max = max,
                              
-                             del=del, 
-                             max=max, 
                              verbose=verbose,vt=vt,tc=tc+1,tt=tt)
         ret_tib <- dplyr::bind_rows(ret_tib, cur_tib)
         
@@ -372,32 +398,35 @@ r_improbe = function(tib,
                             !!srd_key,!!cos_key))) %>% print()
         
         cur_tib <- NULL
-        cur_tib <- r_improbe(tib=tib_list[[srd]], 
-                             srd_str=srd_str, 
-                             cos_str=cos_str,
+        cur_tib <- r_improbe(tib = tib_list[[srd]], 
+                             srd_str = srd_str, 
+                             cos_str = cos_str,
                              
-                             ids_key=ids_key, 
-                             seq_key=seq_key, 
-                             din_key=din_key,
+                             ids_key = ids_key, 
+                             seq_key = seq_key, 
+                             din_key = din_key,
                              
-                             srsplit=srsplit,
-                             srd_key=srd_key,
+                             top_col = NULL,
+                             top_key = NULL,
                              
-                             cosplit=FALSE,
-                             cos_key=cos_key,
+                             srsplit = srsplit,
+                             srd_key = srd_key,
+                             cosplit = FALSE,
+                             cos_key = cos_key,
                              
-                             ups_len=ups_len, 
-                             seq_len=seq_len, 
+                             ups_len = ups_len, 
+                             seq_len = seq_len, 
                              
-                             join=join,
-                             subset=subset,
-                             sub_cols=sub_cols,
+                             join = join,
+                             subset = subset,
+                             sub_cols = sub_cols,
                              
-                             parallel=parallel, 
-                             add_matseq=add_matseq,
-                             
-                             del=del, 
-                             max=max,
+                             parallel = parallel, 
+                             add_matseq = add_matseq,
+                             add_topseq = add_topseq,
+
+                             del = del,
+                             max = max,
                              
                              verbose=verbose,vt=vt,tc=tc+1,tt=tt)
         ret_tib <- dplyr::bind_rows(ret_tib, cur_tib)
@@ -595,10 +624,15 @@ r_improbe = function(tib,
       sub_cols <- c(sub_cols,ids_unq_key,ids_key,din_key,
                     sr_out_str,co_out_str,seq_key)
       
-      # Add match probe sequences
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                    Add Formatted Match Probe Sequences::
+      #                       Upper Case, Non-cryptic Names....
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
       if (add_matseq) {
         if (verbose>=vt) 
-          cat(glue::glue("{mssg}{TAB} Adding match probe sequences...{RET}"))
+          cat(glue::glue("{mssg}{TAB} Formatting Match Probe Sequences...{RET}"))
+        
         ret_tib <- ret_tib %>% 
           dplyr::mutate(!!prb1U_sym:=stringr::str_to_upper(PRB1_U),
                         !!prb1M_sym:=stringr::str_to_upper(PRB1_M),
@@ -607,6 +641,22 @@ r_improbe = function(tib,
         sub_cols <- c(sub_cols, prb1U_str,prb1M_str,prb2D_str)
       } else {
         sub_cols <- c(sub_cols, "PRB1_U","PRB1_M","PRB2_D")
+      }
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                       Add Top-Sequence Designation::
+      #
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      if (add_topseq && !is.null(top_col)) {
+        if (verbose>=vt) 
+          cat(glue::glue("{mssg}{TAB} Adding Top-Sequences Designation...{RET}"))
+        
+        ret_tib <- ret_tib %>% 
+          set_topbot_tib(seq_key=seq_key, 
+                         srd_key=top_col,
+                         top_key=top_key, 
+                         verbose=verbose, vt=vt+4,tc=tc+1)
       }
       
       # Order and subset output::

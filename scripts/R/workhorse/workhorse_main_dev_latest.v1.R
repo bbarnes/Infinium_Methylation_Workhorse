@@ -109,7 +109,7 @@ opt$canonical_csv <- NULL
 opt$outDir  <- NULL
 opt$impDir  <- NULL
 opt$annDir  <- NULL
-opt$gen_dir  <- NULL
+opt$genDir  <- NULL
 opt$manDir  <- NULL
 
 # Manufacturing Files:: Required
@@ -134,7 +134,7 @@ opt$ses_ctl_csv <- NULL
 opt$idat <- NULL
 
 # Platform/Method Options::
-opt$genome_build <- NULL
+opt$genBuild <- NULL
 opt$platform <- NULL
 opt$version  <- NULL
 
@@ -289,7 +289,7 @@ if (args.dat[1]=='RStudio') {
   opt$impDir  <- file.path(par$topDir, 'data/improbe')
   opt$annDir  <- file.path(par$topDir, 'data/annotation')
   opt$manDir  <- file.path(par$topDir, 'data/manifests')
-  opt$gen_dir  <- file.path(par$topDir, 'data/iGenomes/Homo_sapiens/NCBI')
+  opt$genDir  <- file.path(par$topDir, 'data/iGenomes/Homo_sapiens/NCBI')
   # opt$idatDir <- file.path(par$topDir, 'data/idats')
   
   opt$bsmap_opt <- "\"-s 10 -v 5 -n 1 -r 2 -V 2\""
@@ -321,13 +321,13 @@ if (args.dat[1]=='RStudio') {
   
   opt$run_improbe    <- TRUE
   opt$build_manifest <- TRUE
-  
+
   if (FALSE) {
     
   } else if (par$local_runType=='McMaster10Kselection') {
-    opt$genome_build <- 'GRCh37'
+    opt$genBuild <- 'GRCh37'
     opt$platform <- 'MCM'
-    opt$version  <- 'v2'
+    opt$version  <- 'v1'
     opt$Species  <- "Human"
     
     par$aqpDir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2")
@@ -379,7 +379,7 @@ if (args.dat[1]=='RStudio') {
     opt$aqpn <- paste(1, sep=",")
     
   } else if (par$local_runType=='EWAS') {
-    opt$genome_build <- 'GRCh37'
+    opt$genBuild <- 'GRCh37'
     opt$platform <- 'EWAS'
     opt$version  <- 'A1'
     opt$version  <- 'A2'
@@ -446,7 +446,7 @@ if (args.dat[1]=='RStudio') {
     #   sep=',')
     
   } else if (par$local_runType=='TruDx') {
-    opt$genome_build <- 'GRCh37'
+    opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
     opt$version  <- 'A4'
     opt$Species  <- "Human"
@@ -468,7 +468,7 @@ if (args.dat[1]=='RStudio') {
       sep=',')
     
   } else if (par$local_runType=='HM450') {
-    opt$genome_build <- 'GRCh37'
+    opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
     opt$version  <- 'A2'
     opt$Species  <- "Human"
@@ -481,7 +481,7 @@ if (args.dat[1]=='RStudio') {
       sep=',')
     
   } else if (par$local_runType=='GSA') {
-    opt$genome_build <- 'GRCh37'
+    opt$genBuild <- 'GRCh37'
     opt$platform <- 'GSA'
     opt$version  <- 'A2'
     opt$Species  <- "Human"
@@ -494,8 +494,8 @@ if (args.dat[1]=='RStudio') {
     #   sep=',')
     
   } else if (par$local_runType=='Chicago') {
-    opt$genome_build <- 'GRCh38'
-    opt$genome_build <- 'GRCh37'
+    opt$genBuild <- 'GRCh38'
+    opt$genBuild <- 'GRCh37'
     opt$platform <- 'EPIC'
     opt$Species  <- "Human"
     opt$version  <- 'B1'
@@ -525,9 +525,9 @@ if (args.dat[1]=='RStudio') {
     par$ord_pos_csv <- file.path(par$topDir, "data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz")
     
   } else if (par$local_runType=='COVIC') {
-    opt$genome_build <- 'GRCh36'
-    opt$genome_build <- 'GRCh38'
-    opt$genome_build <- 'GRCh37'
+    opt$genBuild <- 'GRCh36'
+    opt$genBuild <- 'GRCh38'
+    opt$genBuild <- 'GRCh37'
     opt$platform <- 'COVIC'
     opt$Species  <- "Human"
     opt$version  <- 'C0'
@@ -553,12 +553,12 @@ if (args.dat[1]=='RStudio') {
     
   } else if (par$local_runType=='GRCm10') {
     opt$platform <- 'LEGX'
-    opt$genome_build <- 'GRCm38'
-    opt$genome_build <- 'GRCm10'
+    opt$genBuild <- 'GRCm38'
+    opt$genBuild <- 'GRCm10'
     opt$Species  <- "Mouse"
     opt$version  <- 'M0'
     
-    opt$gen_dir <- file.path(par$topDir, 'data/iGenomes/Mus_musculus/NCBI')
+    opt$genDir <- file.path(par$topDir, 'data/iGenomes/Mus_musculus/NCBI')
     par$aqpDir <- file.path(par$topDir, 'data/CustomContent/LifeEpigentics/AQP')
     opt$ords <- paste(
       file.path(par$aqpDir, 'orders/Mus_musculus.order_BP1.csv.gz'),
@@ -593,9 +593,9 @@ if (args.dat[1]=='RStudio') {
     opt$bpns <- paste(1,2,2,3, sep=",")
     
   } else if (par$local_runType=='NZT') {
-    opt$genome_build <- 'GRCh36'
-    opt$genome_build <- 'GRCh38'
-    opt$genome_build <- 'GRCh37'
+    opt$genBuild <- 'GRCh36'
+    opt$genBuild <- 'GRCh38'
+    opt$genBuild <- 'GRCh37'
     opt$platform <- 'NZT'
     opt$Species  <- "Human"
     opt$version  <- 'N0'
@@ -648,7 +648,7 @@ if (args.dat[1]=='RStudio') {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
   
-  opt$runName <- paste(par$local_runType,opt$platform,opt$version,opt$genome_build, sep='-')
+  opt$runName <- paste(par$local_runType,opt$platform,opt$version,opt$genBuild, sep='-')
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -700,7 +700,7 @@ if (args.dat[1]=='RStudio') {
                 help="improbe data directory [default= %default]", metavar="character"),
     make_option(c("--annDir"), type="character", default=opt$iannDir, 
                 help="Annotation data directory [default= %default]", metavar="character"),
-    make_option(c("--gen_dir"), type="character", default=opt$gen_dir, 
+    make_option(c("--genDir"), type="character", default=opt$genDir, 
                 help="Genomic data directory [default= %default]", metavar="character"),
     make_option(c("--manDir"), type="character", default=opt$manDir, 
                 help="Pre-built Manifest data directory [default= %default]", metavar="character"),
@@ -740,7 +740,7 @@ if (args.dat[1]=='RStudio') {
                 help="idat directories (comma seperated) [default= %default]", metavar="character"),
     
     # Platform/Method Options::
-    make_option(c("--genome_build"), type="character", default=opt$genome_build, 
+    make_option(c("--genBuild"), type="character", default=opt$genBuild, 
                 help="Genome Build (e.g. GRCh36, GRCh37, GRCh38, GRCm38) [default= %default]", metavar="character"),
     make_option(c("--platform"), type="character", default=opt$platform, 
                 help="Platform (e.g. HM450, EPIC, LEGX, NZT, COVIC) [default= %default]", metavar="character"),
@@ -791,7 +791,7 @@ if (args.dat[1]=='RStudio') {
 
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
 opt_reqs <- c('outDir','impDir','Species',
-              'genome_build','platform','version','bsmap_exe',
+              'genBuild','platform','version','bsmap_exe',
               'Rscript','verbose')
 
 par$gen_src_dir <- load_source_files(dir=par$scrDir, verbose=opt$verbose)
@@ -830,6 +830,29 @@ run$doc_image <- glue::glue("{run$image_key}.{run$image_ver}")
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Checking pre-defined files.{RET}"))
 
+# Genomic:: References (Bisulfite and Non-Converted) are loaded into a table now
+#   - Ref
+#   - SNP (dbSNP-151)
+# TBD:: Functionalize this...
+run$gen_dir <- file.path(opt$genDir, opt$genBuild,"Sequence/WholeGenomeFasta")
+all_gen_pat <- paste0(opt$genBuild,".genome.*.fa.gz$")
+all_gen_tib <- list.files(run$gen_dir, pattern=all_gen_pat, full.names=TRUE) %>% 
+  tibble::as_tibble() %>% 
+  purrr::set_names(c("Path")) %>%
+  dplyr::mutate(Base_Name=base::basename(Path) %>% stringr::str_remove(".fa.gz$")) %>%
+  dplyr::mutate(Unq_ID=stringr::str_remove(Base_Name, paste(opt$genBuild,"genome.",sep=".")), 
+                Unq_ID=stringr::str_replace(Unq_ID,"^F",paste(opt$genBuild,"NCBI.dna.F", sep='.') ), 
+                Unq_ID=stringr::str_replace(Unq_ID,"^R",paste(opt$genBuild,"NCBI.dna.R", sep='.') ),
+                Unq_ID=stringr::str_replace(
+                  Unq_ID, paste(opt$genBuild,"genome$", sep='.'), paste(opt$genBuild,"NCBI.dna.FCN", sep='.') ),
+                Unq_ID=stringr::str_replace(Unq_ID,"dbSNP-151.iupac$", "dbSNP-151.iupac.FCN"), 
+                Unq_ID=stringr::str_replace(Unq_ID,"dbSNP-151.iupac",paste0(opt$genBuild,".dbSNP-151.snp"))
+  ) %>%
+  dplyr::select(-Base_Name) %>% 
+  tidyr::separate(Unq_ID, into=c("Genome_Build","Source","Alphabet","Genome_Key"), sep="\\.") %>%
+  tidyr::separate(Genome_Key, into=c("Strand_FR","Strand_CO","Strand_BSC"), sep=c(1,2), remove=FALSE) %>%
+  dplyr::mutate(Genome_Key=paste(Genome_Key,Alphabet, sep="_"))
+
 # Define Pre-built improbe directories and files::
 #   - Using split files now instead of two single large files...
 run$cgn_seq_dir <- 
@@ -838,7 +861,7 @@ run$cgn_seq_dir <-
 stopifnot(dir.exists(run$cgn_seq_dir))
 
 run$cgn_bed_dir <- file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-input/min")
-run$cgn_bed_tsv <- file.path(run$cgn_bed_dir, paste(opt$genome_build,"cgn.min.txt.gz", sep="."))
+run$cgn_bed_tsv <- file.path(run$cgn_bed_dir, paste(opt$genBuild,"cgn.min.txt.gz", sep="."))
 run$canonical_csv <- file.path(par$datDir, "manifest/cgnDB/canonical.cgn-top-grp.csv.gz")
 
 stopifnot(dir.exists(run$cgn_bed_dir))
@@ -884,10 +907,6 @@ if (opt$verbose>=1)
 #  - TBD:: These should be moved to some config file...
 #
 #
-
-# For accumilating failed probes and why::
-error_ledgar <- NULL
-
 run$gen_nrec <- 0
 run$gen_key <- "Genome_Key"
 
@@ -949,11 +968,6 @@ run$re_load <- TRUE
 
 opt$build_manifest <- FALSE
 opt$run_improbe    <- FALSE
-run$imp_level <- 3
-run$add_inf <- TRUE
-
-run$join_new_vec <- c()
-run$join_old_vec <- c()
 
 
 
@@ -1116,7 +1130,7 @@ cgn_tib <-
                        Ord_Cgn = run$Ord_Cgn,
                        Bsp_Cgn = run$Bsp_Cgn,
                        Imp_Cgn = run$Imp_Cgn,
-                       
+
                        can_csv = run$canonical_csv,
                        
                        join    = run$cgn_join,
@@ -1136,475 +1150,6 @@ print(ord_tib)
 print(bsp_tib)
 print(seq_tib)
 print(cgn_tib)
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#                   5.0 Probe Design Validation via imGenome:: 
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-
-#
-# Build individual parts of the template sequence:: 
-#
-#                                            iupac
-#     up01.up02...up11.up12.up58...up59.up60.up61.dn61.dn60.dn59...dn58...dn12.dn11.dn02.dn01
-#                                       Nxb [  C   G  ] Nxb
-#
-# Probe Design Formulas::
-#
-# Inf1C                               Nxb60* up61------------------dn58
-# Inf2C                                     ext61* dn61-------------------dn12
-#
-# Inf1O                up12------------------up61 Nxb61*
-# Inf2O           up11------------------up60 ext61*
-#
-#
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#         Initialize Probe Data Structures and Design Params::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# TBD:: Functionalize this::
-fr1_vec <- c("F","R")
-fr2_vec <- c("R","F")
-tbs_vec <- c("T","B")
-cos_vec <- c("C","O")
-des_vec <- c("1","2")
-
-probe_offset_tib <- 
-  expand.grid(tbs_vec, cos_vec, des_vec) %>% 
-  tibble::as_tibble() %>% 
-  purrr::set_names("TB", "CO", "Des") %>% 
-  dplyr::mutate(Offset=c( 0,-49,-50,1,1,0,-51,2),
-                Length=rep(50,8),
-                NxbPos=c(-1,  1,-50,0,0,1,  0,1) ) %>%
-  dplyr::mutate(FR1 = rep(fr1_vec, 4), 
-                FR2 = rep(fr2_vec, 4),
-                Srd_Key = paste0(TB, CO, Des),
-                FR1_Key = paste0(FR1, CO, Des),
-                FR2_Key = paste0(FR2, CO, Des)) %>%
-  dplyr::select(Srd_Key, FR1_Key, FR2_Key, FR1, FR2, 
-                dplyr::everything())
-print(probe_offset_tib)
-
-template_offset_tib <- 
-  tibble::tibble(
-    dns_pad =  -2,
-    dns_len = -60,
-    din_len =   2,
-    ups_len =  60,
-    ups_pad =   2,
-    tmp_len = 
-      base::abs(dns_len) +
-      din_len + ups_len,
-    ext_len = 
-      base::abs(dns_pad) +
-      base::abs(dns_len) + 
-      base::abs(din_len) +
-      base::abs(ups_len) +
-      base::abs(ups_pad) )
-
-print(template_offset_tib)
-
-template_flank_len <- 60
-template_flank_ext <- 2
-dinucleotide_len   <- 2
-
-upstream_offset  <- template_flank_len + template_flank_ext
-dnstream_offset  <- template_flank_len + template_flank_ext + dinucleotide_len
-template_ext_len <- upstream_offset + dnstream_offset
-
-run$ids_key <- "Prb_Key_Unq"
-run$des_key <- "Ord_Des"
-run$din_key <- "Ord_Din"
-run$inf_key <- "Ord_Inf"
-run$frs_key <- "Bsp_FR"
-run$cos_key <- "Bsp_CO"
-run$chr_key <- "Bsp_Chr"
-run$pos_key <- "Bsp_Pos"
-
-run$srd_key <- "Srd_Key"
-run$tbs_key <- "Strand_TB"
-run$fwd_seq <- "Forward_Sequence"
-run$top_seq <- "Top_Sequence"
-
-run$prb_seq <- "Probe_Sequence"
-
-ids_sym <- rlang::sym(run$ids_key)
-des_sym <- rlang::sym(run$des_key)
-din_sym <- rlang::sym(run$din_key)
-inf_sym <- rlang::sym(run$inf_key)
-chr_sym <- rlang::sym(run$chr_key)
-pos_sym <- rlang::sym(run$pos_key)
-srd_sym <- rlang::sym(run$frs_key)
-cos_sym <- rlang::sym(run$cos_key)
-
-probe_cols <- c(run$ids_key, 
-                run$des_key, run$din_key,
-                run$frs_key, run$cos_key,
-                run$chr_key, run$pos_key )
-
-probes <- bsp_tib %>% 
-  dplyr::select( dplyr::all_of( probe_cols) ) %>% 
-  dplyr::mutate( !!inf_sym := 
-                   dplyr::case_when(
-                     !!des_sym == "2" ~ 2,
-                     !!des_sym == "U" ~ 1,
-                     !!des_sym == "M" ~ 1,
-                     TRUE ~ NA_real_
-                   ) %>% as.integer(),
-                 chr=stringr::str_remove(!!chr_sym, "^chr"),
-                 template_beg = !!pos_sym + 
-                   template_offset_tib$dns_len,
-                 template_len = 
-                   base::abs(template_offset_tib$dns_len) +
-                   base::abs(template_offset_tib$din_len) +
-                   base::abs(template_offset_tib$ups_len),
-                 template_end = !!pos_sym + 
-                   template_offset_tib$din_len +
-                   template_offset_tib$ups_len,
-                 ext_temp_beg = !!pos_sym +
-                   template_offset_tib$dns_len +
-                   template_offset_tib$dns_pad,
-                 ext_temp_len = 
-                   base::abs(template_offset_tib$dns_pad) +
-                   base::abs(template_offset_tib$dns_len) +
-                   base::abs(template_offset_tib$din_len) +
-                   base::abs(template_offset_tib$ups_len) +
-                   base::abs(template_offset_tib$ups_pad),
-                 ext_temp_end = !!pos_sym + 
-                   template_offset_tib$din_len +
-                   template_offset_tib$ups_len +
-                   template_offset_tib$ups_pad)
-
-stopifnot(probes$template_end - probes$template_beg == probes$template_len)
-stopifnot(probes$ext_temp_end - probes$ext_temp_beg == probes$ext_temp_len)
-
-probes_list <- probes %>% split(.$chr)
-
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#
-#                   5.1 Pass Over all imGenomes Builds:: 
-#
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# Genomic:: References (Bisulfite and Non-Converted) are loaded into a table now
-#   - Ref
-#   - SNP (dbSNP-151)
-#
-imGenome_tib <- load_imGenomes_table(dir = opt$gen_dir,
-                                     genome_build = opt$genome_build, 
-                                     ret_list = FALSE,
-                                     verbose = opt$verbose, tt=pTracker)
-
-imGenome_list <- imGenome_tib %>% split(f=imGenome_tib$Genome_Key)
-
-# Implement once we're on the cluster
-# if (opt$parallel) {
-# } else {
-# }
-
-for (imGenome in imGenome_tib$Genome_Key) {
-
-  imGenome_dat <- imGenome_list[[imGenome]][1,]
-  imGenome_Fas <- imGenome_dat %>% dplyr::pull("Path")
-  imGenome_Src <- imGenome_dat %>% dplyr::pull("Source")
-  imGenome_GnB <- imGenome_dat %>% dplyr::pull("Genome_Build")
-  
-  imGenome_FR  <- imGenome_dat %>% dplyr::pull("Strand_FR")
-  imGenome_CO  <- imGenome_dat %>% dplyr::pull("Strand_CO")
-  imGenome_BSC <- imGenome_dat %>% dplyr::pull("Strand_BSC")
-  imGenome_Dna <- imGenome_dat %>% dplyr::pull("Alphabet")
-  
-  chrom_seqs <- Biostrings::readDNAStringSet(filepath=imGenome_Fas, 
-                                             format="fasta")
-  chrom_names <- intersect( names(probes_list), names(chrom_seqs) )
-
-
-  # if (opt$parallel) {
-  # } else {
-  # }
-  
-  for (chr in chrom_names) {
-    if (opt$verbose>=0) cat(glue::glue("Parsing {chr}...{RET}"))
-    
-    chr_probes_cnt <- probes_list[[chr]] %>% base::nrow()
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                        Extended Template Sequences::
-    #               Meant for Tri-fecta Probe Identification/Discovery::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    opt$check_trifecta_flanks <- FALSE
-    if (opt$check_trifecta_flanks) {
-      # Note: This can be done on any genome input. 
-      
-      ext_template_ranges <- 
-        IRanges::IRanges( start = probes_list[[chr]]$ext_temp_beg, 
-                          width = probes_list[[chr]]$ext_temp_len,
-                          names = probes_list[[chr]] %>% dplyr::pull(run$ids_key) %>% 
-                            paste("ext_fwd_template", sep="_") )
-      
-      ext_fwd_template_seqs <- 
-        Biostrings::extractAt( chrom_seqs[[chr]], at = ext_template_ranges )
-    }
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                    Standard Forward Template Sequences::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    fwd_template_ranges <- 
-      IRanges::IRanges( start = probes_list[[chr]]$template_beg, 
-                        width = probes_list[[chr]]$template_len,
-                        names = probes_list[[chr]] %>% dplyr::pull(run$ids_key) )
-    
-    fwd_template_seqs <- 
-      Biostrings::extractAt( chrom_seqs[[chr]], at = fwd_template_ranges )
-    
-    fwd_template_tib <- as.character( fwd_template_seqs ) %>% cbind() %>% 
-      tibble::as.tibble( rownames = run$ids_key ) %>% 
-      purrr::set_names( run$ids_key, run$fwd_seq )
-
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                           Only Call Top/Bot on 
-    #                         Forward/non-snp/non-bsc 
-    #                           Reference Templates
-    #
-    #       Only c_improbe on Forward/non-snp/non-bsc Reference Templates
-    #
-    #            Both Top/Bot calling and Thermodynamic Calculations 
-    #               assume there there is only four bases. 
-    #
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    if (imGenome_Dna=="dna") {
-      
-      if (imGenome_BSC=="N") {
-        
-        fwd_top_cols <- 
-          c(run$srd_key, probe_cols, run$tbs_key, run$fwd_seq, run$top_seq)
-        
-        key_cols <- c( run$tbs_key, run$cos_key, run$inf_key )
-        
-        top_template_tib <- fwd_template_tib %>% 
-          dplyr::mutate( Forward_Sequence=add_brac(Forward_Sequence) ) %>%
-          set_topbot_tib( seq_key = run$fwd_seq, 
-                          top_col = run$tbs_key, 
-                          top_key = run$top_seq ) %>%
-          dplyr::right_join( probes_list[[chr]], by=c(run$ids_key) ) %>%
-          tidyr::unite( !!run$srd_key, dplyr::all_of( key_cols ), 
-                        sep='', remove=FALSE ) %>%
-          dplyr::select( dplyr::all_of( fwd_top_cols ), dplyr::everything() )
-        
-        
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        #
-        #                Infinium Methylation Probe Design Methods::
-        #             c-improbe = c++ improbe (traditional) via docker image
-        #                    Includes Thermodynamic Calculations
-        #                   Only Designs Infinium I U/M Probes 
-        #
-        # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-        
-        if (c_improbe) {
-          
-          # TBD:: Validate that the Top Sequence Calcualtions are the same!
-          
-          c_imp_tib <- NULL
-          c_imp_tib <- c_improbe_workflow(template_tib = top_template_tib,
-                                          
-                                          # Add genome source row::
-                                          imGenome = imGenome_dat,
-                                          
-                                          ids_key = run$ids_key,
-                                          fwd_seq = run$fwd_seq,                              
-                                          pos_key = run$pos_key,
-                                          chr_key = run$chr_key,
-
-                                          doc_image = run$doc_image,
-                                          doc_shell = run$doc_shell,
-                                          
-                                          outlevel = run$imp_level,
-                                          add_inf  = run$add_inf,
-                                          
-                                          re_join  = run$rejoin,
-                                          new_join = run$join_new_vec,
-                                          old_join = run$join_old_vec,
-                                          
-                                          reload = run$reload,
-                                          
-                                          out_dir = out_dir,
-                                          run_tag = paste(run_tag,
-                                                          cur_gen_key,
-                                                          sep='-'),
-                                          re_load = run$re_load,
-                                          pre_tag = tt$file_vec,
-                                          end_str = 'tsv.gz',
-                                          
-                                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-        }
-      }
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #
-      #                Infinium Methylation Probe Design Methods::
-      #                        r-improbe re-implemented
-      #                    Allows All Probe Designs:: cg,ch,rs 
-      #
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      if (r_improbe) {
-    
-        # If dna calculation Top Sequence
-        # If snp do NOT calculation Top Sequence
-        
-        top_col <- "Strand_TB"
-        top_key <- "Top_Sequence"
-        add_topseq <- FALSE
-        if (cur_gen_tib$Gen_Alphabet=="dna")
-          add_topseq <- TRUE
-        
-        r_imp_tib <- NULL
-        r_imp_tib <- 
-          r_improbe_workflow(tib = s_imp_tib,
-                             
-                             # Add genome source row::
-                             gen_tib = cur_gen_tib,
-                             
-                             ids_key = ids_key,
-                             seq_key = imp_seq,
-                             din_key = din_key,
-                             
-                             top_col = top_col,
-                             top_key = top_key,
-                             
-                             srsplit = srsplit,
-                             srd_key = "Strand_FR",
-                             srd_str = srd_str,
-                             
-                             cosplit = cosplit,
-                             cos_key = "Strand_CO",
-                             cos_str = cos_str,
-                             
-                             ups_len = ups_len,
-                             seq_len = seq_len,
-                             
-                             # subset   = subset,
-                             # sub_cols = sub_cols,
-                             
-                             reload     = reload,
-                             parallel   = parallel,
-                             add_matseq = add_matseq,
-                             add_topseq = add_topseq,
-                             
-                             out_dir = out_dir,
-                             run_tag = paste(run_tag,cur_gen_key,sep='-'),
-                             re_load = TRUE,
-                             pre_tag = tt$file_vec,
-                             
-                             verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-        
-      }
-
-      
-    
-    }
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #
-    #                          Extract Probes Sequences:: 
-    #                           Targeted or Design All
-    #                               s_improbe()
-    #
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    cur_probe_tib <- NULL
-    
-    cur_offset_tib <- 
-      dplyr::right_join( probe_offset_tib, fwd_top_tib, by=run$srd_key ) %>% 
-      split(f=dplyr::pull(., run$srd_key) )
-    
-    for ( key in names(cur_offset_tib) ) {
-      
-      # - Can't pull probe sequences from dna, must be bsc!!!
-      #
-      # - We can run r_improbe & c_improbe
-      #
-      
-      probe_ranges <-
-        IRanges::IRanges( 
-          start = 
-            cur_offset_tib[[key]] %>% dplyr::pull( run$pos_key ) +
-            cur_offset_tib[[key]] %>% dplyr::pull( Offset ),
-          width = cur_offset_tib[[key]] %>% dplyr::pull( Length ),
-          names = cur_offset_tib[[key]] %>% dplyr::pull( run$ids_key ) )
-      
-      probe_seqs <- 
-        Biostrings::extractAt( chrom_seqs[[chr]], at = probe_ranges ) %>%
-        as.character( ) %>% cbind() %>% 
-        tibble::as_tibble( rownames = run$ids_key ) %>% 
-        purrr::set_names( run$ids_key, run$prb_seq ) %>% 
-        dplyr::right_join(cur_offset_tib[[key]], by=c(run$ids_key) )
-      
-      key_cols <- c( run$ids_key, run$chr_key, run$pos_key,
-                     run$frs_key, run$tbs_key, run$cos_key, 
-                     run$inf_key )
-      
-      c_dna_tib %>% dplyr::select(Seq_ID, Chromosome, Coordinate, 
-                                  Forward_Sequence, Top_Sequence, 
-                                  Probe_Seq_U, Probe_Seq_M, 
-                                  Strand_FR, Strand_TB, Strand_CO, 
-                                  Ord_Din, Ord_Des ) %>% 
-        dplyr::inner_join(probe_seqs , by=c("Seq_ID"="Prb_Key_Unq", 
-                                            "Chromosome"="Bsp_Chr",
-                                            "Coordinate"="Bsp_Pos",
-                                            "Strand_FR"="Bsp_FR",
-                                            "Strand_CO"="Bsp_CO") ) %>%
-        dplyr::mutate(
-          Match=dplyr::case_when(
-            Ord_Des=="U" & Probe_Seq_U==Probe_Sequence ~ 0,
-            Ord_Des=="U" & Probe_Seq_U==Probe_Sequence ~ 1,
-            Ord_Des=="M" & Probe_Seq_M==Probe_Sequence ~ 0,
-            Ord_Des=="M" & Probe_Seq_M==Probe_Sequence ~ 1,
-          )
-        )
-      
-      break
-    }
-    
-    break
-  }
-  
-  break
-}
-
-template_ranges <- 
-  IRanges::IRanges( start = template_beg_vec, 
-                    width = template_ext_len,
-                    names = probes[[chr]]$Prb_Key )
-
-template_beg_vec <- dplyr::pull( probes[[chr]], pos_key ) - upstream_offset
-template_ranges <- 
-  IRanges::IRanges( start = template_beg_vec, 
-                    width = template_ext_len,
-                    names = probes[[chr]]$Prb_Key )
-
-begs <- NULL
-ends <- NULL
-begs <- tib %>% dplyr::pull(!!pos_sym) - ups_len - pad_len
-ends <- begs + seq_len - 1 + (2 * pad_len)
-
-
-seq_vec <- stringr::str_sub( as.character(seq), begs, ends ) %>%
-  stringr::str_to_upper()
-ret_cnt <- seq_vec %>% length()
-
-
-
-
 
 # - DMAP validation???
 # - Add idat validation
@@ -1657,7 +1202,7 @@ gen_cnt <- prb_designs_workflow(
   imp_level  = 3,
   
   # Genomes Parameters::
-  gen_bld  = opt$genome_build,
+  gen_bld  = opt$genBuild,
   gen_nrec = run$gen_nrec,
   gen_key  = run$gen_key,
   gen_tib  = all_gen_tib,
@@ -1777,7 +1322,7 @@ if (FALSE) {
     if ((file_tab[i,]$improbe_type=="s" & 
          file_tab[i,]$Alphabet=="dna" & 
          file_tab[i,]$Strand_BSC != "N")) {
-      
+
       cur_gen_tib <- file_tab[i,] %>% 
         dplyr::select(-Path) %>%
         dplyr::rename(Gen_Strand_FR=Strand_FR,
@@ -1798,7 +1343,7 @@ if (FALSE) {
           )
         )
       )
-      
+        
       cat(glue::glue("[{par$prgmTag}]: Done.{RET2}"))
       
     }
@@ -1840,7 +1385,7 @@ if (FALSE) {
   #  s vs.   c   (Ref-dna) - Sanity Check: Are you getting the same coordinates???
   #  s vs.   r   (Ref-dna) - Sanity Check: Are you getting the same coordinates???
   #
-  
+
   # Add improbe_type = [c,r,s]
   # Add Tmp_FR for everything!!!
   # s:: rename Strand_FR=BSP_FR, Strand_CO=CO
@@ -1887,7 +1432,7 @@ if (FALSE) {
                          "Tmp_FR","Tmp_CO","Tmp_BC","Tmp_AB", 
                          "Auto_Top_Sequence", "Forward_Sequence")) %>%
     dplyr::filter(Top_Sequence==Auto_Top_Sequence)
-  
+
   #
   # Recombine s_improbe:: two-steps
   #  NOTE:: This should actually be done in the s_improbe function...
@@ -1924,7 +1469,7 @@ if (FALSE) {
     dplyr::mutate(Tmp_FR="F") %>% 
     dplyr::rename(Prb_1MC=Prb1C, Prb_2MC=Prb2C, Prb_1MO=Prb1O, Prb_2MO=Prb2O)
   
-  
+
   
   file_dat[[4]] %>% 
     dplyr::select(Prb_Key_Unq, Ord_Des,Ord_Din, 
@@ -2218,7 +1763,7 @@ if (FALSE) {
 #                        6.0 Annotate Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (opt$genome_build=="GRCh37" || opt$genome_build=="GRCh38") {
+if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #              6.1 Load Annotations:: EPIC_CORE/UPDATE_CORE/CHROM_HMM
@@ -2266,10 +1811,10 @@ if (opt$genome_build=="GRCh37" || opt$genome_build=="GRCh38") {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       6.0 Annotation Conformation::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-# if (opt$genome_build=="GRCh37" || opt$genome_build=="GRCh38") {
+# if (opt$genBuild=="GRCh37" || opt$genBuild=="GRCh38") {
 if (FALSE) {
   
-  core_anno_dir <- file.path(par$topDir, "data/annotation", opt$genome_build)
+  core_anno_dir <- file.path(par$topDir, "data/annotation", opt$genBuild)
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       6.2 Load Annotation:: EPIC_CORE
@@ -2317,9 +1862,9 @@ if (FALSE) {
   #                       6.3 Load Annotation:: NCBI/UCSC
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  ncib_gene_tsv <- file.path(core_anno_dir, "NCBI", paste(opt$genome_build,"ncbi.RefSeqGenes.tsv.gz", sep='.'))
-  ucsc_gene_tsv <- file.path(core_anno_dir, "UCSC", paste(opt$genome_build,"ucsc.knownGene.tsv.gz", sep='.'))
-  ucsc_cpgs_tsv <- file.path(core_anno_dir, "UCSC", paste(opt$genome_build,"ucsc.CpG-Islands.tsv.gz", sep='.'))
+  ncib_gene_tsv <- file.path(core_anno_dir, "NCBI", paste(opt$genBuild,"ncbi.RefSeqGenes.tsv.gz", sep='.'))
+  ucsc_gene_tsv <- file.path(core_anno_dir, "UCSC", paste(opt$genBuild,"ucsc.knownGene.tsv.gz", sep='.'))
+  ucsc_cpgs_tsv <- file.path(core_anno_dir, "UCSC", paste(opt$genBuild,"ucsc.CpG-Islands.tsv.gz", sep='.'))
   
   ncbi_gene_tib <- load_ncbi_gene(file=ncib_gene_tsv, verbose=opt$verbose, tt=pTracker)
   ucsc_gene_tib <- load_ucsc_gene(file=ucsc_gene_tsv, verbose=opt$verbose, tt=pTracker)
@@ -2400,7 +1945,7 @@ if (FALSE) {
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                       6.4 Load Annotation:: Chrom HMM
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  hmm_ann_drn <- paste("GRCh36",opt$genome_build, sep='-')
+  hmm_ann_drn <- paste("GRCh36",opt$genBuild, sep='-')
   hmm_ann_dir <- file.path(par$topDir, "data/annotation/liftOver/chrom_hmm/wgEncodeBroadHmm/ucsc_liftover_main",hmm_ann_drn)
   hmm_ann_fns <- list.files(hmm_ann_dir, pattern=".map.bed.gz$", full.names=TRUE, recursive=FALSE)
   
@@ -2519,8 +2064,8 @@ if (par$validateSesame) {
   # Load Sesame equivlent and compare coordinates and names by sequence
   #
   par$sesBuild <- NULL
-  if (opt$genome_build=="GRCh37") par$sesBuild <- "hg19"
-  if (opt$genome_build=="GRCh38") par$sesBuild <- "hg18"
+  if (opt$genBuild=="GRCh37") par$sesBuild <- "hg19"
+  if (opt$genBuild=="GRCh38") par$sesBuild <- "hg18"
   ses_man_grs <- sesameData::sesameDataGet(paste("EPIC",par$sesBuild,"manifest", sep='.'))
   ses_man_tib <- ses_man_grs %>% as.data.frame() %>% 
     tibble::rownames_to_column(var="Ses_Cgn") %>%

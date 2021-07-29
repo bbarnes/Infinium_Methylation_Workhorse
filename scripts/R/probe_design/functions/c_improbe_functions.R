@@ -64,32 +64,33 @@ template_func = function(tib,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-c_improbe_workflow = function(imp_tib = NULL,
-
+c_improbe_workflow = function(template_tib,
+                              
+                              # Add genome source row::
+                              imGenome = NULL,
+                              
                               ids_key = "Prb_Key_Unq",
-                              imp_seq = "Forward_Sequence",                              
+                              fwd_seq = "Forward_Sequence",
                               pos_key = "Bsp_Pos",
                               chr_key = "Bsp_Chr",
-                              gen_bld,
                               
                               doc_image,
                               doc_shell,
                               
-                              level   = 3,
-                              add_inf = TRUE, 
+                              outlevel = 0,
+                              add_inf  = FALSE,
                               
-                              join     = FALSE,
-                              join_new = join_new,
-                              join_old = join_old,
-
-                              reload = FALSE,
+                              re_join  = FALSE,
+                              new_join = NULL,
+                              old_join = NULL,
                               
-                              out_csv = NULL,
+                              reload   = FALSE,
+                              
                               out_dir,
-                              run_tag, 
+                              run_tag,
                               re_load = FALSE,
                               pre_tag = NULL,
-                              end_str = 'csv.gz',
+                              end_str = 'tsv.gz',
                               sep_chr = '.',
                               
                               verbose=0, vt=3,tc=1,tt=NULL,
@@ -98,6 +99,7 @@ c_improbe_workflow = function(imp_tib = NULL,
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
+  out_csv <- NULL
   out_csv <- redata(out_dir, run_tag, funcTag, re_load, 
                     pre_tag, end_str=end_str, sep=sep_chr,
                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
@@ -115,17 +117,33 @@ c_improbe_workflow = function(imp_tib = NULL,
   imp_des_tsv <- out_csv %>% 
     stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
     paste("improbe-designOutput.tsv.gz", sep=sep_chr)
-
+  
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt) {
     cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg} File IO Parameters::{RET}"))
     cat(glue::glue("{mssg}       out_csv={out_csv}.{RET}"))
     cat(glue::glue("{mssg}       imp_tsv={imp_tsv}.{RET}"))
     cat(glue::glue("{mssg}   imp_des_tsv={imp_des_tsv}.{RET}"))
     cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}      ids_key={ids_key}.{RET}"))
+    cat(glue::glue("{mssg}      imp_seq={imp_seq}.{RET}"))
+    cat(glue::glue("{mssg}      pos_key={pos_key}.{RET}"))
+    cat(glue::glue("{mssg}      chr_key={chr_key}.{RET}"))
+    cat(glue::glue("{mssg}      gen_bld={gen_bld}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}       outlevel={outlevel}.{RET}"))
+    cat(glue::glue("{mssg}     add_inf={add_inf}.{RET}"))
+    cat(glue::glue("{mssg}        re_join={re_join}.{RET}"))
+    cat(glue::glue("{mssg}      reload={reload}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Docker Parameters::{RET}"))
+    cat(glue::glue("{mssg}     doc_image={doc_image}.{RET}"))
+    cat(glue::glue("{mssg}     doc_shell={doc_shell}.{RET}"))
+    cat(glue::glue("{RET}"))
   }
-
+  
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
@@ -146,7 +164,7 @@ c_improbe_workflow = function(imp_tib = NULL,
       
       imp_col <- c("Seq_ID","Sequence","Genome_Build",
                    "Chromosome","Coordinate","CpG_Island")
-
+      
       # imp_tsv <- file.path(out_dir, paste(prefix,inp_suffix,"tsv.gz", sep='.'))
       imp_tib <- imp_tib %>% 
         dplyr::mutate(Genome_Build=!!gen_bld, CpG_Island="FALSE") %>%
@@ -160,7 +178,7 @@ c_improbe_workflow = function(imp_tib = NULL,
       out_cnt <- safe_write(x=imp_tib, file=imp_tsv, funcTag=funcTag, 
                             verbose=verbose,vt=vt,tc=tc,append=FALSE)
     }
-
+    
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #
     #                 1.1 Run improbe designs:: via docker
@@ -168,6 +186,7 @@ c_improbe_workflow = function(imp_tib = NULL,
     #
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
+    # TBD:: Make Docker Options more descriptive...
     ret_val <- run_improbe_docker(file   = imp_tsv, 
                                   name   = paste(run_tag,funcTag, sep=sep_chr),
                                   image  = doc_image, 
@@ -179,34 +198,16 @@ c_improbe_workflow = function(imp_tib = NULL,
     #                     1.2 Load improbe designs:: filter
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    # imp_des_tsv <- imp_tsv %>% 
-    #   stringr::str_remove(".gz$") %>%
-    #   stringr::str_remove(".[tc]sv$") %>%
-    #   stringr::str_remove(".txt$") %>%
-    #   stringr::str_remove(inp_suffix) %>%
-    #   paste0(out_suffix)
-    #   # paste0("improbe-designOutput.tsv.gz") # , sep='.')
-    # 
-    # imp_fin_tsv <- imp_tsv %>% 
-    #   stringr::str_remove(".gz$") %>%
-    #   stringr::str_remove(".[tc]sv$") %>%
-    #   stringr::str_remove(".txt$") %>%
-    #   stringr::str_remove(inp_suffix) %>%
-    #   paste0(out_suffix) %>%
-    #   stringr::str_remove(".gz$") %>%
-    #   stringr::str_remove(".[tc]sv$") %>%
-    #   paste0("clean.tsv.gz")
-    #   # paste0("improbe-designOutput.clean.tsv.gz") # , sep='.')
-    
-    ret_tib <- load_improbe_design(des_tsv = imp_des_tsv, 
-                                   out_tsv = out_csv,
+    ret_tib <- load_improbe_design(des_tsv  = imp_des_tsv, 
+                                   out_tsv  = out_csv,
+                                   imGenome = imGenome,
                                    
-                                   level   = level,
-                                   add_inf = add_inf, 
+                                   level    = level,
+                                   add_inf  = add_inf, 
                                    
-                                   join     = join,
-                                   join_new = join_new,
-                                   join_old = join_old,
+                                   re_join  = re_join,
+                                   new_join = new_join,
+                                   old_join = old_join,
                                    
                                    verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     
@@ -216,8 +217,7 @@ c_improbe_workflow = function(imp_tib = NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET2}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -297,6 +297,7 @@ run_improbe_docker = function(file,
     base::system(glue::glue("touch {ret_log}"))
     base::system(glue::glue("touch {ret_tsv}"))
     
+    # TBD:: Update Docker with more options::
     imp_doc_cmd <- glue::glue("docker run -i --rm ",
                               "-v {out_dir}:/input ",
                               "-v {out_dir}:/output ",
@@ -309,26 +310,26 @@ run_improbe_docker = function(file,
     
     if (ret_cnt != 0) {
       stop(glue::glue("{RET}{mssg} ERROR: cmd return={ret_cnt} ",
-                     "cmd='{imp_doc_cmd}'!{RET2}"))
+                      "cmd='{imp_doc_cmd}'!{RET2}"))
     }
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET2}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
   
   ret_cnt
 }
 
 load_improbe_design = function(des_tsv, 
                                out_tsv, 
+                               imGenome = NULL,
                                
-                               level = 0,
-                               join = FALSE, 
-                               join_new = c("Aln_Key_Unq","Bsp_Chr",
+                               outlevel = 0,
+                               re_join = FALSE, 
+                               new_join = c("Aln_Key_Unq","Bsp_Chr",
                                             "Bsp_Pos","Bsp_FR","Bsp_CO"),
-                               join_old = c("Seq_ID","Chromosome","Coordinate",
+                               old_join = c("Seq_ID","Chromosome","Coordinate",
                                             "Strand_FR","Strand_CO"),
                                add_inf  = TRUE,
                                
@@ -339,34 +340,43 @@ load_improbe_design = function(des_tsv,
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
-  
-  if (verbose>=vt)
-    cat(glue::glue("{mssg} Starting; level={level}...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} File IO Parameters::{RET}"))
+    cat(glue::glue("{mssg}      des_tsv={des_tsv}.{RET}"))
+    cat(glue::glue("{mssg}      out_tsv={out_tsv}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}       outlevel={outlevel}.{RET}"))
+    cat(glue::glue("{mssg}        join={join}.{RET}"))
+    cat(glue::glue("{mssg}     add_inf={add_inf}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
   
   # improbe output original fields::
   #
   org_cols <- NULL
   new_cols <- NULL
-  if (level>0) {
-    # Level 1::
+  if (outlevel>0) {
+    # outlevel 1::
     ids_org_cols <- c("Seq_ID", "Genome_Build", "Chromosome", "Coordinate")
     seq_org_cols <- c("Forward_Sequence", "Top_Sequence")
     prb_org_cols <- c("Methyl_Probe_Covered_Top_Sequence", "UnMethyl_Probe_Sequence", "Methyl_Probe_Sequence")
     srd_org_cols <- c("Methyl_Allele_FR_Strand", "Methyl_Allele_TB_Strand", "Methyl_Allele_CO_Strand", "Methyl_Next_Base")
     
-    # Level 2:: Final Scores::
+    # outlevel 2:: Final Scores::
     scrF_org_cols <- c("UnMethyl_Final_Score", "Methyl_Final_Score")
     
-    # Level 3:: Both Metric/Score::
+    # outlevel 3:: Both Metric/Score::
     rawB_org_cols <- c("Methyl_Underlying_CpG_Count", "Methyl_Underlying_CpG_Min_Dist")
     scrB_org_cols <- c("Methyl_Underlying_CpG_Score", "Methyl_Next_Base_Score")
     
-    # Level 4:: Metrics
+    # outlevel 4:: Metrics
     rawM_org_cols <- c("Methyl_Tm",    "Methyl_GC_Percent", "Methyl_13mer_Count", "Methyl_Address_Count",
                        "Methyl_Self_Complementarity",       "Methyl_Mono_Run",    "Methyl_Ectopic_Count")
     rawU_org_cols <- paste0("Un",rawM_org_cols)
     
-    # Level 5:: Scores
+    # outlevel 5:: Scores
     scrM_org_cols <- c("Methyl_Tm_Score","Methyl_GC_Score",   "Methyl_13mer_Score",  "Methyl_Address_Score",
                        "Methyl_Self_Complementarity_Score", "Methyl_Mono_Run_Score", "Methyl_Ectopic_Score")
     scrU_org_cols <- paste0("Un",scrM_org_cols)
@@ -378,42 +388,42 @@ load_improbe_design = function(des_tsv,
     prb_new_cols <- c("Probe_Seq_T", "Probe_Seq_U", "Probe_Seq_M")
     srd_new_cols <- c("Strand_FR", "Strand_TB", "Strand_CO", "Next_Base")
     
-    # Level 2:: Final Scores
+    # outlevel 2:: Final Scores
     scrF_new_cols <- c("Scr_U", "Scr_M")
     
-    # Level 3: Both Metric/Score::
+    # outlevel 3: Both Metric/Score::
     rawB_new_cols <- c("Cpg_Cnt", "Cpg_Dis")
     scrB_new_cols <- c("Cpg_Scr", "Nxb_Scr")
     
-    # Level 4:: New Metrics::
+    # outlevel 4:: New Metrics::
     met_new_cols  <- c("Tm", "GC", "Mer13", "Address", "SelfCmpl", "Mono", "Ectopic")
     rawU_new_cols <- paste(met_new_cols, "Raw_U", sep="_")
     rawM_new_cols <- paste(met_new_cols, "Raw_M", sep="_")
     
-    # Level 5:: New Metrics::
+    # outlevel 5:: New Metrics::
     scrU_new_cols <- paste(met_new_cols, "Scr_U", sep="_")
     scrM_new_cols <- paste(met_new_cols, "Scr_M", sep="_")
     
     #
     # Old/New Field Names to Select/Return::
     #
-    if (level>=1) {
+    if (outlevel>=1) {
       org_cols <- c(org_cols, ids_org_cols,seq_org_cols,prb_org_cols,srd_org_cols)
       new_cols <- c(new_cols, ids_new_cols,seq_new_cols,prb_new_cols,srd_new_cols)
     }
-    if (level>=2) {
+    if (outlevel>=2) {
       org_cols <- c(org_cols, scrF_org_cols)
       new_cols <- c(new_cols, scrF_new_cols)
     }
-    if (level>=3) {
+    if (outlevel>=3) {
       org_cols <- c(org_cols, rawB_org_cols,scrB_org_cols)
       new_cols <- c(new_cols, rawB_new_cols,scrB_new_cols)
     }
-    if (level>=4) {
+    if (outlevel>=4) {
       org_cols <- c(org_cols, rawU_org_cols,rawM_org_cols)
       new_cols <- c(new_cols, rawU_new_cols,rawM_new_cols)
     }
-    if (level>=5) {
+    if (outlevel>=5) {
       org_cols <- c(org_cols, scrU_org_cols,scrM_org_cols)
       new_cols <- c(new_cols, scrU_new_cols,scrM_new_cols)
     }
@@ -428,7 +438,7 @@ load_improbe_design = function(des_tsv,
       print(new_cols)
     }
   } else {
-    cat(glue::glue("{mssg} Returning full data (level={level})...{RET}"))
+    cat(glue::glue("{mssg} Returning full data (outlevel={outlevel})...{RET}"))
   }
   
   ret_cnt <- 0
@@ -440,20 +450,30 @@ load_improbe_design = function(des_tsv,
     
     ret_tib <- 
       suppressMessages(suppressWarnings( readr::read_tsv(des_tsv) ))
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="Raw_Improbe_Data")
+    ret_key <- glue::glue("s-improbe-Raw-Improbe-Data-tib({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     
-    # Now subset and rename based on input level::
+    # Now subset and rename based on input outlevel::
     #
     if (!is.null(org_cols) && !is.null(new_cols)) {
+      if (verbose>=vt+2)
+        cat(glue::glue("{mssg} Subseting and renaming based on outlevel={outlevel} ",
+                       "input...{RET}"))
+      
       ret_tib <- ret_tib %>% 
         dplyr::select(dplyr::all_of(org_cols)) %>%
-        dplyr::mutate(Methyl_Allele_TB_Strand=stringr::str_sub(Methyl_Allele_TB_Strand, 1,1)) %>%
+        dplyr::mutate(Methyl_Allele_TB_Strand=
+                        stringr::str_sub(Methyl_Allele_TB_Strand, 1,1)) %>%
         purrr::set_names(new_cols)
     }
     ret_tib <- ret_tib %>% clean_tibble()
+    ret_key <- glue::glue("s-improbe-subset/renaming-tib({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     
-    if (add_inf && level>=3) {
-      #
+    if (add_inf && outlevel>=3) {
+      if (verbose>=vt+2)
+        cat(glue::glue("{mssg} Adding Infinium Preference outlevel={outlevel}.{RET}"))
+      
       # Adding some extra required fields for matching later::
       #
       ret_tib <- ret_tib %>%
@@ -494,32 +514,49 @@ load_improbe_design = function(des_tsv,
             TRUE ~ NA_character_
           )
         )
+      ret_key <- glue::glue("s-improbe-after-Infinium-Preference({funcTag})")
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     }
     
     # Merge data back with BSP results::
     if (join) {
-      if (verbose>=vt)
+      if (verbose>=vt+2)
         cat(glue::glue("{mssg} Joining data with improbe data...{RET}"))
       
       ret_tib <- dplyr::left_join(
-        join, dplyr::rename_with(ret_tib, ~ join_new, dplyr::all_of(join_old) ),
-        by=join_new, suffix=c("_bsp","_imp")
+        join, dplyr::rename_with(ret_tib, ~ new_join, dplyr::all_of(old_join) ),
+        by=new_join, suffix=c("_bsp","_imp")
       )
+      ret_key <- glue::glue("s-improbe-merging-back-with-input-tib({funcTag})")
+      ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     }
+    
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Re-extracting Ord_Des/Ord_Din from Seq_ID...{RET}"))
+    
+    ret_tib <- ret_tib %>% dplyr::mutate(
+      Info=Seq_ID %>% 
+        stringr::str_remove("^[^_]+_") %>% 
+        stringr::str_remove("_.*$"),
+      improbe_type="c") %>% 
+      tidyr::separate(Info, into=c("Ord_Des","Ord_Din"), sep=c(1), remove=TRUE)
+    
+    ret_key <- glue::glue("s-improbe-After-Des/Din-Extraction({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
+    
+    if (!is.null(gen_tib)) ret_tib <- cbind(imGenome, ret_tib) %>%
+      tibble::as_tibble()
     
     out_cnt <- safe_write(x=ret_tib, file=out_tsv, funcTag=funcTag,
                           verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-    
-    # tt$addFile(out_csv)
 
-    ret_key <- glue::glue("Clean_Improbe_Data({funcTag})")
+    ret_key <- glue::glue("Clean-Improbe-Data({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET2}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }

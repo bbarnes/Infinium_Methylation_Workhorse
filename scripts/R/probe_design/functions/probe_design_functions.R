@@ -56,6 +56,112 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#             Basic Functions to Loop Over Probe Design Results::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+compare_seqs = function(i,j, t, d) {
+  tabA_tib <- t[i, ]
+  tabB_tib <- t[j, ]
+  
+  keyA <- tabA_tib$Key
+  keyB <- tabB_tib$Key
+  
+  cat(glue::glue("[{par$prgmTag}]: Current i={i}, keyA={keyA}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]: Current j={j}, keyB={keyB}.{RET}"))
+  cat(glue::glue("[{par$prgmTag}]:{RET}"))
+  
+  datA_tib <- d[[keyA]]
+  datB_tib <- d[[keyB]]
+  
+  # rnA_cnt <- base::nrow(datA_tib[[keyA]])
+  # rnB_cnt <- base::nrow(datA_tib[[keyB]])
+  rnA_cnt <- base::nrow(datA_tib)
+  rnB_cnt <- base::nrow(datB_tib)
+  max_cnt <- max(rnA_cnt, rnB_cnt)
+  
+  # cat(glue::glue("[{par$prgmTag}]: datA_tib={RET}"))
+  # datA_tib %>% print(n=3)
+  # cat(glue::glue("[{par$prgmTag}]:{RET}"))
+  # 
+  # cat(glue::glue("[{par$prgmTag}]: datB_tib={RET}"))
+  # datB_tib %>% print(n=3)
+  # cat(glue::glue("[{par$prgmTag}]:{RET2}"))
+  
+  seqA_keys <- NULL
+  if (tabA_tib$improbe_type=="c") {
+    seqA_keys <- c("Probe_Seq_U","Probe_Seq_M")
+  }
+  if (tabA_tib$improbe_type=="r") {
+    seqA_keys <- c("Prb_1U","Prb_1M","Prb_2D")
+  }
+  if (tabA_tib$improbe_type=="s") {
+    seqA_keys <- c("Prb1C","Prb2C","Prb1O","Prb2O")
+  }
+  
+  seqB_keys <- NULL
+  if (tabA_tib$improbe_type=="c") {
+    seqB_keys <- c("Probe_Seq_U","Probe_Seq_M")
+  }
+  if (tabB_tib$improbe_type=="r") {
+    seqB_keys <- c("Prb_1U","Prb_1M","Prb_2D")
+  }
+  if (tabB_tib$improbe_type=="s") {
+    seqB_keys <- c("Prb1C","Prb2C","Prb1O","Prb2O")
+  }
+  
+  keysA_len <- seqA_keys %>% length()
+  keysB_len <- seqB_keys %>% length()
+  
+  for (seqA in seqA_keys) {
+    cat(glue::glue("[{par$prgmTag}]: keyA={keyA}({keysA_len}) vs. keyB={keyB}({keysB_len}).{RET}"))
+    
+    for (seqB in seqB_keys) {
+      # cat(glue::glue("[{par$prgmTag}]:{TAB}SeqA={seqA}={RET}"))
+      # datA_tib[[seqA]] %>% head(n=3) %>% print()
+      
+      # cat(glue::glue("[{par$prgmTag}]:{TAB}SeqB={seqB}={RET}"))
+      # datB_tib[[seqB]] %>% head(n=3) %>% print()
+      # cat("\t\tIntersection=\n")
+      
+      per_mat_cnt <-  -1
+      per_mat_cnt <- which(datA_tib[[seqA]] %in% datB_tib[[seqB]] == TRUE) %>% length()
+      per_mat_per <- round(100*per_mat_cnt/max_cnt)
+      
+      cat(glue::glue("[{par$prgmTag}]: ",
+                     "match_cnt={per_mat_cnt}{TAB}",
+                     "match_per={per_mat_per}{TAB}",
+                     "rnA_cnt={rnA_cnt}{TAB}",
+                     "rnB_cnt={rnB_cnt}{TAB}",
+                     "max_cnt={max_cnt}{TAB}"))
+      cat(glue::glue("{seqA}{TAB}{seqB}{RET}"))
+    }
+    cat(glue::glue("[{par$prgmTag}]:{RET}"))
+  }
+  
+  cat(glue::glue("[{par$prgmTag}]:{RET}"))
+}
+
+files_to_tib = function(dir, pat) {
+  
+  list.files(dir, pattern = pat, full.names = TRUE) %>% 
+    tibble::as_tibble() %>% purrr::set_names("Path") %>%  
+    dplyr::mutate(Base_Name=base::basename(Path) %>% 
+                    stringr::str_remove(".[ct]sv.gz$")) %>%
+    tidyr::separate(Base_Name, into=c("Run_Tag","improbe_type"), sep="\\.",
+                    remove = FALSE) %>% 
+    dplyr::mutate(Alphabet=stringr::str_remove(Run_Tag, "^.*_"),
+                  Bsc_Tag=stringr::str_remove(Run_Tag, "^.*-") %>%
+                    stringr::str_remove("_.*$")) %>% 
+    tidyr::separate(Bsc_Tag, into=c("Strand_FR","Strand_CO", "Strand_BSC"),
+                    sep=c(1,2), remove=FALSE) %>% 
+    dplyr::mutate(improbe_type=improbe_type %>% 
+                    stringr::str_remove("_improbe_workflow$"),
+                  Key=paste(improbe_type, Alphabet, Bsc_Tag, sep='_')) %>%
+    dplyr::select(Key, improbe_type, Alphabet, Bsc_Tag, 
+                  Strand_FR, Strand_CO, Strand_BSC, Path)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Loop Over Genomes Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -89,8 +195,12 @@ prb_designs_workflow = function(
   gen_tib  = NULL,
   
   # Field Parameters:: general
-  ids_key = "Aln_Key_Unq", 
+  ids_key = "Prb_Key",
+  des_key = "Ord_Des",
   din_key = "Ord_Din", 
+  
+  # bsp_srd = "Bsp_FR",
+  # bsp_cos = "Bsp_CO",
   pos_key = "Bsp_Pos", 
   chr_key = "Bsp_Chr", 
   
@@ -159,10 +269,19 @@ prb_designs_workflow = function(
     cat(glue::glue("{mssg}       gen_nrec={gen_nrec}.{RET}"))
     cat(glue::glue("{mssg}        gen_key={gen_nrec}.{RET}"))
     print_tib(gen_tib, funcTag, verbose,vt=vt+8, n="gen_tib")
+    # cat(glue::glue("{RET}"))
+    # cat(glue::glue("{mssg}   Tmp_Strand_FR={Tmp_Strand_FR}.{RET}"))
+    # cat(glue::glue("{mssg}   Tmp_Strand_CO={Tmp_Strand_CO}.{RET}"))
+    # cat(glue::glue("{mssg}   Tmp_Strand_BC={Tmp_Strand_BC}.{RET}"))
+    # cat(glue::glue("{mssg}   Tmp_Char_Code={Tmp_Char_Code}.{RET}"))
+    # cat(glue::glue("{RET}"))
     
     cat(glue::glue("{mssg} Field Parameters::{RET}"))
     cat(glue::glue("{mssg}        ids_key={ids_key}.{RET}"))
+    cat(glue::glue("{mssg}        des_key={des_key}.{RET}"))
     cat(glue::glue("{mssg}        din_key={din_key}.{RET}"))
+    # cat(glue::glue("{mssg}        bsp_srd={bsp_srd}.{RET}"))
+    # cat(glue::glue("{mssg}        bsp_cos={bsp_cos}.{RET}"))
     cat(glue::glue("{mssg}        pos_key={pos_key}.{RET}"))
     cat(glue::glue("{mssg}        chr_key={chr_key}.{RET}"))
     cat(glue::glue("{RET}"))
@@ -223,27 +342,54 @@ prb_designs_workflow = function(
   for (cur_gen_key in names(ref_fas_list)) {
     
     cur_gen_tib <- ref_fas_list[[cur_gen_key]] %>% head(n=1)
-
+    
     cur_gen_fas <- cur_gen_tib$Path
-    cur_gen_srdFR <- cur_gen_tib$Strand_FR
-    cur_gen_cosCO <- cur_gen_tib$Strand_CO
+    cur_gen_srdFR <- cur_gen_tib$Strand_FR  %>% as.character()
+    cur_gen_cosCO <- cur_gen_tib$Strand_CO  %>% as.character()
+    cur_gen_bscBC <- cur_gen_tib$Strand_BSC %>% as.character()
+    cur_gen_Alpha <- cur_gen_tib$Alphabet   %>% as.character()
     
-    if (verbose>=vt)
-      cat(glue::glue("{mssg} Cur Genome({cur_gen_key}) ",
-                     "cur_gen_srdFR={cur_gen_srdFR}, ",
-                     "cur_gen_cosCO={cur_gen_cosCO}, ",
-                     "cur_gen_fas={cur_gen_fas}.{RET}"))
+    cur_gen_tib <- cur_gen_tib %>% 
+      dplyr::select(-Path) %>%
+      dplyr::rename(Gen_Strand_FR=Strand_FR,
+                    Gen_Strand_CO=Strand_CO,
+                    Gen_Strand_BSC=Strand_BSC,
+                    Gen_Alphabet=Alphabet,
+                    Gen_Source=Source,
+                    Gen_Genome_Build=Genome_Build)
     
-    g_seq_tib <- NULL
-    g_seq_tib <- 
+    if (verbose>=vt) {
+      cat(glue::glue("{mssg} cur_gen_srdFR={cur_gen_srdFR}.{RET}"))
+      cat(glue::glue("{mssg} cur_gen_cosCO={cur_gen_cosCO}.{RET}"))
+      cat(glue::glue("{mssg} cur_gen_bscBC={cur_gen_bscBC}.{RET}"))
+      cat(glue::glue("{mssg} cur_gen_Alpha={cur_gen_Alpha}.{RET}"))
+      cat(glue::glue("{mssg}   cur_gen_key={cur_gen_key}.{RET}"))
+      cat(glue::glue("{mssg}   cur_gen_fas={cur_gen_fas}.{RET}"))
+      cat(glue::glue("{RET}"))
+    }
+    
+    if (is.null(cur_gen_srdFR)) {
+      stop(glue::glue("{RET}{mssg} cur_gen_srdFR is NULL!{RET2}"))
+      return(ret_tib)
+    }
+    
+    s_imp_tib <- NULL
+    s_imp_tib <- 
       s_improbe_workflow(tib = tib,
-                         gen_bld = gen_bld,
                          
-                         # gen_fas = ref_fas_list[[cur_gen_key]]$Path,
+                         # Add genome source row::
+                         gen_tib = cur_gen_tib,
+                         
+                         gen_bld = gen_bld,
                          gen_fas = cur_gen_fas,
                          
                          ids_key = ids_key,
+                         des_key = des_key,
                          din_key = din_key,
+                         
+                         srd_key = srd_key,
+                         cos_key = cos_key,
+                         
                          tar_din = "rs",
                          
                          # srd_str = "F",
@@ -279,25 +425,42 @@ prb_designs_workflow = function(
                          
                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     
-    if (cur_gen_tib$Strand_BSC=="N") {
+    if (cur_gen_tib$Gen_Strand_BSC=="N") {
       
       if (r_improbe) {
         #
         # When pulling from only forward strand we must fix the Forward FR Strand!!!
         #
+        
+        # If dna calculation Top Sequence
+        # If snp do NOT calculation Top Sequence
+        
+        top_col <- "Strand_TB"
+        top_key <- "Top_Sequence"
+        add_topseq <- FALSE
+        if (cur_gen_tib$Gen_Alphabet=="dna") 
+          add_topseq <- TRUE
+        
         r_imp_tib <- NULL
         r_imp_tib <- 
-          r_improbe_workflow(tib = g_seq_tib, # g_seq_tibs[[cur_gen_key]],
+          r_improbe_workflow(tib = s_imp_tib,
+                             
+                             # Add genome source row::
+                             gen_tib = cur_gen_tib,
+                             
                              ids_key = ids_key,
                              seq_key = imp_seq,
                              din_key = din_key,
                              
+                             top_col = top_col,
+                             top_key = top_key,
+                             
                              srsplit = srsplit,
-                             srd_key = srd_key,
+                             srd_key = "Strand_FR",
                              srd_str = srd_str,
                              
                              cosplit = cosplit,
-                             cos_key = cos_key,
+                             cos_key = "Strand_CO",
                              cos_str = cos_str,
                              
                              ups_len = ups_len,
@@ -309,6 +472,7 @@ prb_designs_workflow = function(
                              reload     = reload,
                              parallel   = parallel,
                              add_matseq = add_matseq,
+                             add_topseq = add_topseq,
                              
                              out_dir = out_dir,
                              run_tag = paste(run_tag,cur_gen_key,sep='-'),
@@ -316,52 +480,53 @@ prb_designs_workflow = function(
                              pre_tag = tt$file_vec,
                              
                              verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-        
       }
       
-      if (c_improbe && cur_gen_tib$Alphabet == "dna") {
+      if (c_improbe && cur_gen_tib$Gen_Alphabet == "dna") {
         
         #
-        # TBD:: Update g_seq_tib with setTopBot_tib()
+        # TBD:: Update s_imp_tib with setTopBot_tib()
         # TBD:: rename setTopBot_tib() -> set_TopBot_tib() and all params
         #       This should be done in s_improbe_workflow() with a flag
         #        for set_TB=TRUE/FALSE and targets imp_seq key.
         #
-        # TBD:: Validate g_seq_tib.Top_Sequence == c_imp_tibs.Top_Sequence
+        # TBD:: Validate s_imp_tib.Top_Sequence == c_imp_tib.Top_Sequence
         #        inside of c_improbe_workflow() if set_TB==TRUE
         #
         
-        c_imp_tibs <- NULL
-        c_imp_tibs <- c_improbe_workflow(imp_tib = g_seq_tib, 
-                                         # g_seq_tibs[["FCN_dna"]],
-                                         
-                                         ids_key = ids_key,
-                                         imp_seq = imp_seq,                              
-                                         pos_key = pos_key,
-                                         chr_key = chr_key,
-                                         gen_bld = gen_bld,
-                                         
-                                         doc_image = doc_image,
-                                         doc_shell = doc_shell,
-                                         
-                                         level   = imp_level,
-                                         add_inf = add_inf, 
-                                         
-                                         join     = join,
-                                         join_new = join_new,
-                                         join_old = join_old,
-                                         
-                                         reload = reload,
-                                         
-                                         out_dir = out_dir,
-                                         run_tag = paste(run_tag,cur_gen_key,sep='-'),
-                                         re_load = TRUE,
-                                         pre_tag = tt$file_vec,
-                                         end_str = 'tsv.gz',
-                                         
-                                         verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+        c_imp_tib <- NULL
+        c_imp_tib <- c_improbe_workflow(imp_tib = s_imp_tib, 
+                                        
+                                        # Add genome source row::
+                                        gen_tib = cur_gen_tib,
+                                        
+                                        ids_key = ids_key,
+                                        imp_seq = imp_seq,                              
+                                        pos_key = pos_key,
+                                        chr_key = chr_key,
+                                        gen_bld = gen_bld,
+                                        
+                                        doc_image = doc_image,
+                                        doc_shell = doc_shell,
+                                        
+                                        level   = imp_level,
+                                        add_inf = add_inf, 
+                                        
+                                        join     = join,
+                                        join_new = join_new,
+                                        join_old = join_old,
+                                        
+                                        reload = reload,
+                                        
+                                        out_dir = out_dir,
+                                        run_tag = paste(run_tag,cur_gen_key,sep='-'),
+                                        re_load = TRUE,
+                                        pre_tag = tt$file_vec,
+                                        end_str = 'tsv.gz',
+                                        
+                                        verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
         
-        if (retData) ret_dat$c_imp <- c_imp_tibs
+        if (retData) ret_dat$c_imp <- c_imp_tib
       }
       
       # ret_key <- glue::glue("ret-FIN({funcTag})")
@@ -672,33 +837,48 @@ cmpInfII = function(tib, fieldA, fieldB, mu='D', del='_',
 #                     Illumina Strand Methods:: TOP/BOT
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-setTopBot_tib = function(tib, seqKey, srdKey, topKey=NULL, max=0,
-                         verbose=0,vt=4,tc=1,tt=NULL, 
-                         funcTag='setTopBot_tib') {
+# Formally called:: setTopBot_tib()
+set_topbot_tib = function(tib, 
+                          seq_key, 
+                          top_col, 
+                          top_key = NULL, 
+                          max = 0,
+                          
+                          verbose=0, vt=4,tc=1,tt=NULL, 
+                          funcTag='set_topbot_tib') {
   
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
-    cat(glue::glue("{mssg}{RET}"))
-    cat(glue::glue("{mssg} Starting; seqKey={seqKey}.{RET}"))
-    cat(glue::glue("{mssg} Starting; srdKey={srdKey}.{RET}"))
-    cat(glue::glue("{mssg}{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Run Parameters::{RET}"))
+    cat(glue::glue("{mssg}      seq_key={seq_key}.{RET}"))
+    cat(glue::glue("{mssg}      top_col={top_col}.{RET}"))
+    cat(glue::glue("{mssg}      top_key={top_key}.{RET}"))
+    cat(glue::glue("{mssg}          max={max}.{RET}"))
+    cat(glue::glue("{RET}"))
   }
-  seqKey <- rlang::sym(seqKey)
-  srdKey <- rlang::sym(srdKey)
-  if (!is.null(topKey)) topKey <- rlang::sym(topKey)
+  seq_key_sym <- rlang::sym(seq_key)
+  top_col_sym <- rlang::sym(top_col)
+  if (!is.null(top_key)) top_key_sym <- rlang::sym(top_key)
   
-  # TBD:: Should remove any seqKey that is na or not the correct length...
-  
+  # TBD:: Should remove any seq_key that is na or not the correct length...
+  etime <- 0
+  ret_cnt <- 0
   ret_tib <- NULL
   stime <- system.time({
     if (max!=0) tib <- tib %>% head(n=max)
     
-    bit_tib <- tib %>% 
+    # Make template sequences unique to reduce run time()
+    unq_tib <- tib %>% 
+      dplyr::distinct(dplyr::across(dplyr::all_of(seq_key)) )
+    
+    bit_tib <- unq_tib %>%
       dplyr::mutate(
-        pre_seq = !!seqKey %>% stringr::str_remove('\\[.*$') %>% 
+        pre_seq = !!seq_key_sym %>% 
+          stringr::str_remove('\\[.*$') %>% 
           Biostrings::reverse() %>%
           stringr::str_to_upper() %>% 
           stringr::str_replace_all('A', '1') %>% 
@@ -706,57 +886,78 @@ setTopBot_tib = function(tib, seqKey, srdKey, topKey=NULL, max=0,
           stringr::str_replace_all('C', '2') %>% 
           stringr::str_replace_all('G', '2'),
         
-        pos_seq = !!seqKey %>% stringr::str_remove('^.*\\]') %>%
+        pos_seq = !!seq_key_sym %>% 
+          stringr::str_remove('^.*\\]') %>%
           stringr::str_to_upper() %>% 
           stringr::str_replace_all('A', '1') %>% 
           stringr::str_replace_all('T', '1') %>% 
           stringr::str_replace_all('C', '2') %>% 
           stringr::str_replace_all('G', '2')
-      ) %>% dplyr::select(pre_seq, pos_seq)
+      )
+    
+    bit_key <- glue::glue("bit-tib({funcTag})")
+    bit_cnt <- print_tib(bit_tib,funcTag, verbose,vt+4,tc, n=bit_key)
     
     pre_bit <- bit_tib$pre_seq %>% stringr::str_split('', simplify = TRUE)
+    pre_key <- glue::glue("pre-bit({funcTag})")
+    pre_cnt <- print_tib(tibble::as_tibble(pre_bit), funcTag, 
+                         verbose,vt+4,tc, n=pre_key)
+    
     pos_bit <- bit_tib$pos_seq %>% stringr::str_split('', simplify = TRUE)
+    pos_key <- glue::glue("pos-bit({funcTag})")
+    pos_cnt <- print_tib(tibble::as_tibble(pos_bit), funcTag, 
+                         verbose,vt+4,tc, n=pos_key)
     
     pre_mat <- pre_bit %>% as.data.frame() %>% data.matrix()
     pos_mat <- pos_bit %>% as.data.frame() %>% data.matrix()
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("{mssg} dim(pre_mat) = {dim(pre_mat)}{RET}"))
+      cat(glue::glue("{RET}"))
+      cat(glue::glue("{mssg} dim(pos_mat) = {dim(pos_mat)}{RET}"))
+      cat(glue::glue("{RET}"))
+    }
+    
     dif_mat <- pre_mat-pos_mat
     dif_mat <- dif_mat %>% cbind(rep(2, dim(dif_mat)[1]))
-    if (verbose>=vt+4) cat(glue::glue("{mssg}{TAB} dif_mat={RET}"))
-    if (verbose>=vt+4) print(dif_mat)
+    
+    if (verbose>=vt+4) {
+      cat(glue::glue("{mssg} dim(dif_mat) = {dim(dif_mat)}{RET}"))
+      cat(glue::glue("{mssg} dif_mat = "))
+      dif_mat %>% head(n=2) %>% print()
+      cat(glue::glue("{RET}"))
+    }
     
     # This is just for a sanity check...
     #  dif_mat[1,1:60] = 0
-    
     bit_vec <- apply(dif_mat,1, function(x) head(x[x!=0],1)) + 1
-    if (verbose>=vt+4) cat(glue::glue("{mssg}{TAB} bit_vec={RET}"))
-    if (verbose>=vt+4) print(bit_vec)
-    
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}{TAB} bit_vec = {head(bit_vec,n=3)}{RET}"))
+
     # Convert numeric values back to characters (T=TOP,B=BOT,U=Unknown)
-    tb_vec <- bit_vec %>% as.character() %>% 
+    tb_vec <- bit_vec %>% 
+      as.character() %>% 
       stringr::str_replace('0', 'T') %>% 
       stringr::str_replace('2', 'B') %>%
       stringr::str_replace('3', 'U')
     
-    if (verbose>=vt+4) cat(glue::glue("{mssg}{TAB} tb_vec={RET}"))
-    if (verbose>=vt+4) print(tb_vec)
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}{TAB} tb_vec = {head(tb_vec,n=3)}{RET}"))
     
-    ret_tib <- tib %>% dplyr::mutate(!!srdKey := tb_vec)
-    
-    if (!is.null(topKey)) {
-      revCmp_vec <- ret_tib %>% 
-        dplyr::pull(!!seqKey) %>% 
-        shearBrac() %>% 
-        revCmp() %>% 
-        addBrac()
-      ret_tib <- ret_tib %>% dplyr::mutate(TMP_REVCMP_SEQ=revCmp_vec)
+    unq_tib <- unq_tib %>% dplyr::mutate(!!top_col := tb_vec)
       
-      ret_tib <- ret_tib %>% dplyr::mutate(
-        !!topKey:=dplyr::case_when(
-          !!srdKey=='T' ~ !!seqKey,
-          !!srdKey=='B' ~ TMP_REVCMP_SEQ,
-          TRUE ~ NA_character_)
-      ) %>% dplyr::select(-TMP_REVCMP_SEQ)
+    if (!is.null(top_key)) {
+      unq_tib <- unq_tib %>% 
+        dplyr::mutate(
+          rev_seq = shearBrac(!!seq_key_sym) %>%
+            revCmp() %>% addBrac(),
+          !!top_key_sym := dplyr::case_when(
+            !!top_col_sym=='T' ~ !!seq_key_sym,
+            !!top_col_sym=='B' ~ rev_seq,
+            TRUE ~ NA_character_)
+        ) %>% dplyr::select(-rev_seq)
     }
+    ret_tib <- dplyr::left_join(tib, unq_tib, by=c(seq_key))
     
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n=ret_key)
@@ -764,8 +965,7 @@ setTopBot_tib = function(tib, seqKey, srdKey, topKey=NULL, max=0,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET2}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -903,6 +1103,33 @@ cmpIUPACs = function(x) {
 
 shearBrac = function(x) {
   x %>% stringr::str_remove('\\[') %>% stringr::str_remove('\\]')
+}
+
+shear_brac = function(x) {
+  x %>% stringr::str_remove('\\[') %>% stringr::str_remove('\\]')
+}
+
+add_brac = function(seq) {
+  seq_len <- stringr::str_length(seq)
+  mid_len <- 2
+  snp_idx <- as.integer(seq_len / 2)
+  
+  pre_beg <- 1
+  pre_end <- snp_idx-1
+  
+  mid_beg <- snp_idx
+  mid_end <- mid_beg+mid_len-1
+  
+  pos_beg <- mid_end+1
+  pos_end <- seq_len
+  
+  pre_seq <- seq %>% stringr::str_sub(pre_beg,pre_end)
+  mid_seq <- seq %>% stringr::str_sub(mid_beg,mid_end)
+  pos_seq <- seq %>% stringr::str_sub(pos_beg,pos_end)
+  
+  new_seq <- paste0(pre_seq,'[',mid_seq,']',pos_seq)
+  
+  new_seq
 }
 
 addBrac = function(seq) {
