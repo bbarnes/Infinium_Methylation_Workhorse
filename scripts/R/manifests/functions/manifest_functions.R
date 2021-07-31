@@ -59,21 +59,20 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                             Noob Probe_ID Masking::
+#                       Sesame Manifest IO Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 load_sesame_repo_address = function(
   name,
-  
   add_decoy = FALSE,
   add_masks = FALSE,
   normalize = TRUE,
   old_cols = c("Probe_ID", "seqnames", "start", "end", "strand", "designType", 
-                "channel", "nextBase", "nextBaseRef", "probeType", "gene", "
-                 gene_HGNC"),
+               "channel", "nextBase", "nextBaseRef", "probeType", "gene",
+               "gene_HGNC"),
   new_cols = c("Probe_ID", "Chromosome", "Coordinate", "CoordinateG", 
-                "Strand_FR", "Infinium_Design_Type", "Color", "Prb_Nxb", 
-                "Prb_Nxb_Ref", "Prb_Din", "gene", "gene_HGNC"),
+               "Strand_FR", "Infinium_Design_Type", "Color", "Prb_Nxb", 
+               "Prb_Nxb_Ref", "Prb_Din", "gene", "gene_HGNC"),
   
   verbose=0,vt=3,tc=1,tt=NULL,
   funcTag='load_sesame_repo_manifest') {
@@ -85,8 +84,18 @@ load_sesame_repo_address = function(
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
-    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{mssg}        name={name}.{RET}"))
+    cat(glue::glue("{mssg}   add_decoy={add_decoy}.{RET}"))
+    cat(glue::glue("{mssg}   add_masks={add_masks}.{RET}"))
     cat(glue::glue("{RET}"))
+    if (verbose>=vt+4) {
+      cat(glue::glue("{mssg} Old Sesame Columns::{RET}"))
+      cat(glue::glue("{mssg}    old_cols={old_cols}.{RET}"))
+      cat(glue::glue("{RET}"))
+      cat(glue::glue("{mssg} New Sesame Columns::{RET}"))
+      cat(glue::glue("{mssg}    new_cols={new_cols}.{RET}"))
+      cat(glue::glue("{RET}"))
+    }
   }
   
   ret_cnt <- 0
@@ -102,16 +111,21 @@ load_sesame_repo_address = function(
       tibble::rownames_to_column(var="Probe_ID") %>% 
       tibble::as_tibble()
     man_key <- glue::glue("man-tib({funcTag})")
-    man_cnt <- print_tib(man_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=man_key)
+    man_cnt <- print_tib(man_tib,funcTag, verbose, vt=vt+4,tc=tc+1, n=man_key)
     
-    # Split Probes into A/B
+    mask_cols <- NULL
+    if (add_masks) man_tib %>% dplyr::select(dplyr::starts_with("MASK_"))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                          Extract/Format Probe A::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
     prb_key <- "A"
-    oldA_cols <- 
-      man_tib %>% 
+    old_prbA_cols <- man_tib %>% 
       dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>% 
       dplyr::select(-dplyr::starts_with("wDecoy_")) %>% 
       names()
-    newA_cols <- oldA_names %>% 
+    new_prbA_cols <- old_prbA_cols %>% 
       stringr::str_remove(paste0("_",prb_key,"$")) %>% 
       stringr::str_to_title() %>%
       paste("Prb",., sep="_") %>%
@@ -119,13 +133,153 @@ load_sesame_repo_address = function(
       stringr::str_replace("Prb_Probeseq", "Prb_Seq") %>%
       stringr::str_replace("Prb_Chrm", "Prb_Chr")
     
-    mask_cols <- NULL
-    if (add_masks) man_tib %>% dplyr::select(dplyr::starts_with("MASK_"))
+    old_decoyA_cols <- NULL
+    new_decoyA_cols <- NULL
+    if (add_decoy) {
+      old_decoyA_cols <- man_tib %>%
+        dplyr::select(dplyr::starts_with("wDecoy_")) %>%
+        dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>%
+        names()
+      
+      new_decoyA_cols <- old_decoyA_cols %>%
+        stringr::str_remove(paste0("_",prb_key,"$")) %>% 
+        stringr::str_remove("^wDecoy_") %>% 
+        stringr::str_to_title() %>%
+        stringr::str_replace("Chrm", "Chr") %>%
+        paste("Prb_Decoy",., sep="_")
+    }
     
-    selA_cols <- c(old_cols, oldA_cols, mask_cols)
+    oldA_cols <- c(old_cols, old_prbA_cols, old_decoyA_cols, mask_cols)
+    newA_cols <- c(new_cols, new_prbA_cols, new_decoyA_cols, mask_cols)
     
+    oldA_cnt <- oldA_cols %>% length()
+    newA_cnt <- newA_cols %>% length()
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Old Sesame Columns:: Probe A({oldA_cnt}).{RET}"))
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}    oldA_cols={oldA_cols}.{RET2}"))
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} New Sesame Columns:: Probe A({newA_cnt}).{RET}"))
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}    newA_cols={newA_cols}.{RET2}"))
     
-    # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    addA_tib <- NULL
+    addA_tib <- man_tib %>% 
+      dplyr::select(dplyr::all_of(oldA_cols)) %>%
+      purrr::set_names(newA_cols) %>% 
+      dplyr::mutate(Prb_Des=dplyr::case_when(
+        Infinium_Design_Type=="I"  ~ "U",
+        Infinium_Design_Type=="II" ~ "2",
+        TRUE ~ NA_character_)
+      )
+    
+    addA_cnt <- addA_tib %>% base::nrow()
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Probe Set A: I/U Count={addA_cnt}.{RET2}"))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                          Extract/Format Probe B::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    prb_key <- "B"
+    old_prbB_cols <- man_tib %>% 
+      dplyr::filter(designType=="I") %>%
+      dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>% 
+      dplyr::select(-dplyr::starts_with("wDecoy_")) %>% 
+      names()
+    new_prbB_cols <- old_prbB_cols %>% 
+      stringr::str_remove(paste0("_",prb_key,"$")) %>% 
+      stringr::str_to_title() %>%
+      paste("Prb",., sep="_") %>%
+      stringr::str_replace("Prb_Address", "Address") %>%
+      stringr::str_replace("Prb_Probeseq", "Prb_Seq") %>%
+      stringr::str_replace("Prb_Chrm", "Prb_Chr")
+    
+    old_decoyB_cols <- NULL
+    new_decoyB_cols <- NULL
+    if (add_decoy) {
+      old_decoyB_cols <- man_tib %>%
+        dplyr::filter(designType=="I") %>%
+        dplyr::select(dplyr::starts_with("wDecoy_")) %>%
+        dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>%
+        names()
+      
+      new_decoyB_cols <- old_decoyB_cols %>%
+        stringr::str_remove(paste0("_",prb_key,"$")) %>% 
+        stringr::str_remove("^wDecoy_") %>% 
+        stringr::str_to_title() %>%
+        stringr::str_replace("Chrm", "Chr") %>%
+        paste("Prb_Decoy",., sep="_")
+    }
+    
+    oldB_cols <- c(old_cols, old_prbB_cols, old_decoyB_cols, mask_cols)
+    newB_cols <- c(new_cols, new_prbB_cols, new_decoyB_cols, mask_cols)
+    
+    oldB_cnt <- oldB_cols %>% length()
+    newB_cnt <- newB_cols %>% length()
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Old Sesame Columns:: Probe B({oldB_cnt}){RET}"))
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}    oldB_cols={oldB_cols}.{RET2}"))
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} New Sesame Columns:: Probe B({newB_cnt}){RET}"))
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}    newB_cols={newB_cols}.{RET2}"))
+    
+    addB_tib <- NULL
+    addB_tib <- man_tib %>% 
+      dplyr::filter(designType=="I") %>%
+      dplyr::select(dplyr::all_of(oldB_cols)) %>%
+      purrr::set_names(newB_cols) %>% 
+      dplyr::mutate(Prb_Des="M")
+    
+    addB_cnt <- addB_tib %>% base::nrow()
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Probe Set B: M Count={addB_cnt}.{RET2}"))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                           Stack Probe Designs:: A/B
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    ret_tib <- dplyr::bind_rows(addA_tib,addB_tib) %>%
+      dplyr::mutate(
+        Strand_FR=dplyr::case_when(
+          Strand_FR=="+" ~ "F",
+          Strand_FR=="-" ~ "R",
+          TRUE ~ NA_character_),
+        Prb_Nxb=stringr::str_remove_all(Prb_Nxb,"[^a-zA-Z]") %>% mapDIs(),
+        Prb_Inf=dplyr::case_when(
+          Infinium_Design_Type=="I"  ~ 1,
+          Infinium_Design_Type=="II" ~ 2,
+          TRUE ~ NA_real_
+        ) %>% as.integer()
+      )  %>% dplyr::arrange(Probe_ID)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                       Summary and Sanity Checks::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    # This better be zero::
+    dup_cnt <- ret_tib %>% 
+      dplyr::arrange(Address) %>% 
+      dplyr::add_count(Address, name="Add_Cnt") %>% 
+      dplyr::filter(Add_Cnt!=1) %>% base::nrow()
+    if (dup_cnt != 0) {
+      stop(glue::glue("{mssg} ERROR: Duplicates Found = {dup_cnt}!{RET2}"))
+      return(NULL)
+    }
+    if (verbose>=vt+1)
+      cat(glue::glue("{mssg} No duplicates detected = {dup_cnt}.{RET}"))
+    
+    if (verbose>=vt+2) {
+      cat(glue::glue("{mssg} Probe Design Coverage={RET}"))
+      sum_tib <- ret_tib %>% 
+        dplyr::group_by(Prb_Des) %>% 
+        dplyr::summarise(Count=n(), .groups = "drop")
+      sum_tib %>% print(n=base::nrow(sum_tib))
+      cat(glue::glue("{RET}"))
+    }
+    
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
   })
@@ -140,6 +294,221 @@ load_sesame_repo_address = function(
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                             Manifest I/O::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+load_genome_studio_address = function(
+  file,
+  load_clean     = TRUE,
+  load_controls  = FALSE,
+  write_clean    = TRUE,
+  overwrite      = FALSE,
+  add_annotation = FALSE,
+  ret_data       = FALSE,
+  old_cols = c("IlmnID", "Name", 
+               "AddressA_ID", "AlleleA_ProbeSeq", 
+               "AddressB_ID", "AlleleB_ProbeSeq",
+               "Color_Channel", "CHR", "MAPINFO", "Strand"),
+  new_cols = c("Probe_ID", "Prb_Cgn", 
+               "Address_A", "Prb_Seq_A", "Address_B", "Prb_Seq_B",
+               "Color", "Chromosome", "Coordinate", "Strand_FR"),
+  non_ann_cols = c("Infinium_Design_Type", "Next_Base", "Forward_Sequence",
+                   "Genome_Build", "SourceSeq"),
+  
+  verbose=0, vt=3,tc=1,tt=NULL,
+  funcTag='load_genome_studio_address') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}          file={file}.{RET}"))
+    cat(glue::glue("{mssg}    load_clean={load_clean}.{RET}"))
+    cat(glue::glue("{mssg}   write_clean={write_clean}.{RET}"))
+    cat(glue::glue("{mssg}     overwrite={overwrite}.{RET}"))
+    cat(glue::glue("{mssg}      ret_data={ret_data}.{RET}"))
+    cat(glue::glue("{RET}"))
+    if (verbose>=vt+4) {
+      old_cnt <- old_cols %>% length()
+      new_cnt <- new_cols %>% length()
+      cat(glue::glue("{mssg} Old Genome Studio Columns({old_cnt})::{RET}"))
+      cat(glue::glue("{mssg}    old_cols={old_cols}.{RET}"))
+      cat(glue::glue("{RET}"))
+      cat(glue::glue("{mssg} New Genome Studio Columns({new_cnt})::{RET}"))
+      cat(glue::glue("{mssg}    new_cols={new_cols}.{RET}"))
+      cat(glue::glue("{RET}"))
+    }
+  }  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    man_tib <-
+      load_genome_studio_manifest(file = file,
+                                  load_clean    = load_clean,
+                                  load_controls = load_controls,
+                                  write_clean   = write_clean,
+                                  overwrite     = overwrite,
+                                  ret_data      = ret_data,
+                                  verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
+    man_cnt <- man_tib %>% base::nrow()
+    if (verbose>=vt+1)
+      cat(glue::glue("{mssg} Loaded Genome Studio manifest({man_cnt})!{RET2}"))
+    
+    if (is.null(man_tib) || !tibble::is_tibble(man_tib)) {
+      stop(glue::glue("{RET}{mssg} ERROR: Failed to load Genome Studio ",
+                      "manifest!{RET2}"))
+      return(ret_tib)
+    }
+    man_key <- glue::glue("genome-studio-manifest-1({funcTag})")
+    man_cnt <- print_tib(man_tib,funcTag, verbose, vt=vt+4,tc=tc+1, n=man_key)
+
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Swap Old/New Column Names::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    man_tib <- dplyr::rename_with(man_tib, ~ new_cols, dplyr::all_of(old_cols) )
+    
+    man_key <- glue::glue("genome-studio-manifest-renamed-2({funcTag})")
+    man_cnt <- print_tib(man_tib,funcTag, verbose, vt=vt+4,tc=tc+1, n=man_key)
+    
+    if (!add_annotation) {
+      man_tib <- man_tib %>% 
+        dplyr::select(dplyr::any_of( c(new_cols,non_ann_cols) ))
+    }
+    
+    man_key <- glue::glue("genome-studio-manifest-annotation-3({funcTag})")
+    man_cnt <- print_tib(man_tib,funcTag, verbose, vt=vt+4,tc=tc+1, n=man_key)
+
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                          Extract/Format Probe A::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    prb_key <- "A"
+    old_prbA_cols <- man_tib %>% 
+      dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>% 
+      names()
+    new_prbA_cols <- old_prbA_cols %>%
+      stringr::str_remove(paste0("_",prb_key,"$"))
+    
+    oldA_cnt <- old_prbA_cols %>% length()
+    newA_cnt <- new_prbA_cols %>% length()
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Old Sesame Columns:: Probe A({oldA_cnt}){RET}"))
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}    old_prbA_cols={old_prbA_cols}.{RET2}"))
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} New Sesame Columns:: Probe A({newA_cnt}){RET}"))
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}    new_prbA_cols={new_prbA_cols}.{RET2}"))
+    
+    prb_key <- "B"
+    addA_tib <- NULL
+    addA_tib <- man_tib %>% 
+      dplyr::select(-dplyr::ends_with(paste0("_",prb_key))) %>% 
+      dplyr::rename_with( ~ new_prbA_cols, dplyr::all_of(old_prbA_cols) ) %>%
+      dplyr::mutate(Prb_Des=dplyr::case_when(
+        Infinium_Design_Type=="I"  ~ "U",
+        Infinium_Design_Type=="II" ~ "2",
+        TRUE ~ NA_character_)
+      )
+    
+    addA_cnt <- addA_tib %>% base::nrow()
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Probe Set A: I/U Count={addA_cnt}.{RET2}"))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                          Extract/Format Probe B::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    prb_key <- "B"
+    old_prbB_cols <- man_tib %>% 
+      dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>% 
+      names()
+    new_prbB_cols <- old_prbB_cols %>%
+      stringr::str_remove(paste0("_",prb_key,"$"))
+    
+    oldB_cnt <- old_prbB_cols %>% length()
+    newB_cnt <- new_prbB_cols %>% length()
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Old Sesame Columns:: Probe B({oldB_cnt}){RET}"))
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}    old_prbB_cols={old_prbB_cols}.{RET2}"))
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} New Sesame Columns:: Probe B({newB_cnt}){RET}"))
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg}    new_prbB_cols={new_prbB_cols}.{RET2}"))
+    
+    prb_key <- "A"
+    addB_tib <- NULL
+    addB_tib <- man_tib %>% 
+      dplyr::filter(Infinium_Design_Type=="I") %>%
+      dplyr::select(-dplyr::ends_with(paste0("_",prb_key))) %>% 
+      dplyr::rename_with( ~ new_prbB_cols, dplyr::all_of(old_prbB_cols) ) %>% 
+      dplyr::mutate(Prb_Des="M")
+    
+    addB_cnt <- addB_tib %>% base::nrow()
+    if (verbose>=vt+2)
+      cat(glue::glue("{mssg} Probe Set B: M Count={addB_cnt}.{RET2}"))
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                           Stack Probe Designs:: A/B
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    ret_tib <- dplyr::bind_rows(addA_tib,addB_tib) %>%
+      dplyr::mutate(
+        Prb_Inf=dplyr::case_when(
+          Infinium_Design_Type=="I"  ~ 1,
+          Infinium_Design_Type=="II" ~ 2,
+          TRUE ~ NA_real_
+        ) %>% as.integer(),
+        Prb_Din = Probe_ID %>%
+          stringr::str_sub(1,2),
+        Prb_Cgn = Prb_Cgn %>%
+          stringr::str_remove("^ch.[0-9A-Z]+.") %>%
+          stringr::str_remove("[A-Z]+$") %>%
+          stringr::str_remove("^[^0-9]+") %>%
+          stringr::str_remove("^0+") %>%
+          as.integer()
+      ) %>% dplyr::arrange(Probe_ID)
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                       Summary and Sanity Checks::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    # This better be zero::
+    dup_cnt <- ret_tib %>% 
+      dplyr::arrange(Address) %>% 
+      dplyr::add_count(Address, name="Add_Cnt") %>% 
+      dplyr::filter(Add_Cnt!=1) %>% base::nrow()
+    if (dup_cnt != 0) {
+      stop(glue::glue("{mssg} ERROR: Duplicates Found = {dup_cnt}!{RET2}"))
+      return(NULL)
+    }
+    if (verbose>=vt+1)
+      cat(glue::glue("{mssg} No duplicates detected = {dup_cnt}.{RET}"))
+
+    if (verbose>=vt+2) {
+      cat(glue::glue("{mssg} Probe Design Coverage={RET}"))
+      sum_tib <- ret_tib %>% 
+        dplyr::group_by(Prb_Des) %>% 
+        dplyr::summarise(Count=n(), .groups = "drop")
+      sum_tib %>% print(n=base::nrow(sum_tib))
+      cat(glue::glue("{RET}"))
+    }
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_tib
+}
 
 #
 # epic_gst_dat <- 
@@ -236,7 +605,7 @@ load_genome_studio_manifest = function(file,
         
         probes_type_cols <- readr::read_rds(clean_col_rds)
         probes_tib  <- readr::read_csv(clean_prb_csv,
-                                       col_names = names(probes_type_cols$cols),
+                                       # col_names = names(probes_type_cols$cols),
                                        col_types = probes_type_cols)
       } else {
         if (verbose>=vt+2)
@@ -320,7 +689,7 @@ load_genome_studio_manifest = function(file,
           probes_type_cols <- readr::read_rds(clean_col_rds)
           
           probes_tib  <- readr::read_csv(clean_prb_csv,
-                                         col_names = names(probes_type_cols$cols),
+                                         # col_names = names(probes_type_cols$cols),
                                          col_types = probes_type_cols)
         } else {
           if (verbose>=vt+2) 
@@ -458,6 +827,8 @@ load_genome_studio_manifest = function(file,
         }
       }
     }
+    
+    probes_tib <- probes_tib %>% dplyr::arrange(IlmnID)
     
     if (load_controls && is.null(controls_tib)) {
       ret_dat$probes   <- probes_tib

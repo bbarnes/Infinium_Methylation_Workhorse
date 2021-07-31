@@ -877,6 +877,7 @@ get_file_list = function(dir       = NULL,
                          recursive = FALSE, 
                          files     = NULL,
                          trim      = NULL,
+                         alpha_numeric = FALSE,
                          max = 0,
                          del = COM,
                          
@@ -917,6 +918,9 @@ get_file_list = function(dir       = NULL,
         name_vec <- stringr::str_remove(name_vec, t)
       }
     }
+    
+    if (alpha_numeric)
+      name_vec <- name_vec %>% stringr::str_replace_all("[^[:alnum:]]","_")
     
     ret_tib <- stats::setNames(as.list(file_vec), name_vec)
     ret_cnt <- ret_tib %>% names() %>% length()

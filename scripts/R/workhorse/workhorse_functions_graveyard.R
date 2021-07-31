@@ -12,6 +12,86 @@
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 
+
+
+
+# TBD:: Write load_genome_studio_address()
+# TBD:: Test with annotation!!!
+
+old_cols <- c("IlmnID", "Name", 
+              "AddressA_ID", "AlleleA_ProbeSeq", "AddressB_ID", "AlleleB_ProbeSeq",
+              "Color_Channel", "CHR", "MAPINFO", "Strand")
+new_cols <- c("Probe_ID", "Prb_Cgn", 
+              "Address_A", "Prb_Seq_A", "Address_B", "Prb_Seq_B",
+              "Color", "Chromosome", "Coordinate", "Strand_FR")
+
+# genome_manifest_vec  <- splitStrToVec(opt$genome_manifest_csv)
+genome_manifest_list <- get_file_list(files=opt$genome_manifest_csv,
+                                      trim = c(".csv.gz"), 
+                                      alpha_numeric = TRUE, del = COM)
+
+genome_manifest_dat <- lapply(genome_manifest_list, load_genome_studio_manifest,
+                              load_clean    = TRUE,
+                              load_controls = TRUE,
+                              write_clean   = TRUE,
+                              overwrite     = TRUE,
+                              ret_data      = FALSE,
+                              verbose = opt$verbose, tt = pTracker)
+
+
+genome_manifest_vec  <- splitStrToVec(opt$genome_manifest_csv)
+
+genome_address_dat <- 
+  load_genome_studio_address(file = genome_manifest_vec[1],
+                             load_clean     = TRUE,
+                             load_controls  = TRUE,
+                             write_clean    = TRUE,
+                             overwrite      = TRUE, 
+                             add_annotation = TRUE,
+                             ret_data       = FALSE,
+                             verbose = opt$verbose+10, tt = pTracker)
+
+
+
+#
+# Get Sesame Data::
+#
+sesame_data_keys  <- sesameData::sesameDataList()
+
+sesameDataCache("EPIC")
+sesameDataCache("HM450")
+sesameDataCacheAll()
+
+sesame_manifest_vec  <- splitStrToVec(opt$sesame_manifest_dat)
+sesmae_manifest_list <- lapply(sesame_manifest_vec, sesameData::sesameDataGet)
+
+hm450_probeInfo_key <- "HM450.probeInfo"
+hm450_hg19_man_key  <- "HM450.hg19.manifest"
+hm450_probeInfo_dat <- sesameData::sesameDataGet( hm450_probeInfo_key )
+hm450_hg19_man_grs  <- sesameData::sesameDataGet( hm450_hg19_man_key )
+hm450_hg19_man_tib  <- hm450_hg19_man_grs %>% as.data.frame() %>% 
+  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+
+epic_probeInfo_key <- "EPIC.probeInfo"
+epic_hg19_man_key  <- "EPIC.hg19.manifest"
+epic_probeInfo_dat <- sesameData::sesameDataGet( epic_probeInfo_key )
+epic_hg19_man_grs  <- sesameData::sesameDataGet( epic_hg19_man_key )
+epic_hg19_man_tib  <- epic_hg19_man_grs %>% as.data.frame() %>% 
+  tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+
+gen_info_hg19_key   <- "genomeInfo.hg19"
+gen_info_hg19_dat   <- sesameData::sesameDataGet( gen_info_hg19_key )
+
+sesame_address_list <- get_file_list(files=opt$sesame_manifest_dat,
+                                     trim = c(".csv.gz"), del = COM)
+
+
+hm450_ses_add_tib <- load_sesame_repo_address(hm450_hg19_man_key, 
+                                              verbose=opt$verbose+10, tt=pTracker)
+
+epic_ses_add_tib <- load_sesame_repo_address(epic_hg19_man_key, 
+                                             verbose=opt$verbose, tt=pTracker)
+
 epic_hg19_gst_man_csv <- file.path(par$topDir, "data/manifests/methylation/GenomeStudio/MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz")
 # epic_hg19_gst_out_csv <- file.path(par$topDir, "data/manifests/methylation/GenomeStudio/MethylationEPIC_v-1-0_B4-Beadpool_ID.analytical-only.csv.gz")
 
@@ -21,6 +101,91 @@ beg_idx <- which( stringr::str_starts(head(epic_hg19_gst_man_lines, n=20), "Ilmn
 con_idx <- which( stringr::str_starts(epic_hg19_gst_man_lines, "\\[Controls\\]" ) )
 end_idx <- epic_hg19_gst_man_lines %>% length()
 
+
+if (FALSE) {
+  
+  epic_ses_add_tib %>% 
+    dplyr::arrange(Address) %>% 
+    dplyr::add_count(Address, name="Add_Cnt") %>% 
+    dplyr::filter(Add_Cnt!=1) %>% 
+    head() %>% as.data.frame()
+  
+  epic_ses_add_tib %>% 
+    dplyr::group_by(Prb_Des) %>% 
+    dplyr::summarise(Count=n(), .groups = "drop")
+  
+  #
+  # Consolidate 450k and EPIC Sesame data::
+  #
+  # epic_hg19_man_tib %>% dplyr::select(Probe_ID, seqnames, start, end, strand, address_A, ProbeSeq_A, address_B, ProbeSeq_B, )
+  
+  old_names <- c("Probe_ID", "seqnames", "start", "end", "strand", "designType", "channel",
+                 "nextBase", "nextBaseRef", "probeType", "gene", "gene_HGNC")
+  new_names <- c("Probe_ID", "Chromosome", "Coordinate", "CoordinateG", "Strand_FR", "Infinium_Design_Type", "Color",
+                 "Prb_Nxb", "Prb_Nxb_Ref", "Prb_Din", "gene", "gene_HGNC")
+  
+  prb_key <- "A"
+  oldA_names <- 
+    epic_hg19_man_tib %>% 
+    dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>% 
+    dplyr::select(-dplyr::starts_with("wDecoy_")) %>% 
+    names()
+  newA_names <- oldA_names %>% 
+    stringr::str_remove(paste0("_",prb_key,"$")) %>% 
+    stringr::str_to_title() %>%
+    paste("Prb",., sep="_") %>%
+    stringr::str_replace("Prb_Address", "Address") %>%
+    stringr::str_replace("Prb_Probeseq", "Prb_Seq") %>%
+    stringr::str_replace("Prb_Chrm", "Prb_Chr")
+  
+  epic_hg19_man_tib %>% 
+    dplyr::select(dplyr::starts_with("wDecoy_")) %>%
+    dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>%
+    names() %>%
+    stringr::str_remove(paste0("_",prb_key,"$")) %>% 
+    stringr::str_remove("^wDecoy_") %>% 
+    stringr::str_to_title() %>%
+    stringr::str_replace("Chrm", "Chr") %>%
+    paste("Prb_Decoy",., sep="_")
+  
+  ses_epic_man_tib <- epic_hg19_man_tib %>%
+    dplyr::select(Probe_ID, seqnames, start, end, strand, designType, channel,
+                  nextBase, nextBaseRef, probeType, gene, gene_HGNC,
+                  dplyr::ends_with("_A"), dplyr::starts_with("MASK_") ) %>%
+    dplyr::select(-dplyr::starts_with("wDecoy_")) %>%
+    dplyr::rename(Chromosome=seqnames, Coordinate=start, CoordinateG=end,
+                  Strand_FR=strand, Infinium_Design_Type=designType,
+                  Color=channel, Prb_Nxb=nextBase, Prb_Nxb_Ref=nextBaseRef, 
+                  Prb_Din=probeType, 
+                  
+                  Address=address_A, Prb_Seq=ProbeSeq_A, 
+                  Prb_Chr=chrm_A, Prb_Beg=beg_A, Prb_Flag=flag_A, 
+                  Prb_MapQ=mapQ_A, Prb_Cigar=cigar_A, Prb_NM=NM_A) %>%
+    
+    dplyr::mutate(Strand_FR=dplyr::case_when(
+      Strand_FR=="+" ~ "F",
+      Strand_FR=="-" ~ "R",
+      TRUE ~ NA_character_),
+      Prb_Nxb=stringr::str_remove_all(Prb_Nxb,"[^a-zA-Z]") %>% mapDIs(),
+      Prb_Inf=dplyr::case_when(
+        Infinium_Design_Type=="I"  ~ 1,
+        Infinium_Design_Type=="II" ~ 2,
+        TRUE ~ NA_real_
+      ) %>% as.integer()
+    )
+  
+  ses_epic_man_tib %>% 
+    dplyr::group_by(Prb_Inf, Prb_Nxb, Prb_Nxb_Ref, Color) %>% 
+    dplyr::summarise(Count=n(), .groups = "drop")
+  
+  #
+  # Load Genome Studio Manifests::
+  #
+  # epic_hg19_gst_man_csv <- file.path(par$topDir, "data/manifests/methylation/GenomeStudio/MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz")
+  # epic_hg19_test_man_csv <- "/Users/bretbarnes/Documents/tmp/MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"
+  
+  
+}
 
 if (FALSE) {
   
