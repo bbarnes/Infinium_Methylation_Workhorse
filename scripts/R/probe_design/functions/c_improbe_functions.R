@@ -79,7 +79,7 @@ c_improbe_workflow = function(template_tib,
                               doc_shell,
                               
                               outlevel = 0,
-                              add_inf  = FALSE,
+                              call_inf = FALSE,
                               
                               re_join  = FALSE,
                               new_join = NULL,
@@ -140,7 +140,7 @@ c_improbe_workflow = function(template_tib,
     cat(glue::glue("{mssg}      gen_key={gen_key}.{RET}"))
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg}       outlevel={outlevel}.{RET}"))
-    cat(glue::glue("{mssg}     add_inf={add_inf}.{RET}"))
+    cat(glue::glue("{mssg}     call_inf={call_inf}.{RET}"))
     cat(glue::glue("{mssg}        re_join={re_join}.{RET}"))
     cat(glue::glue("{mssg}      reload={reload}.{RET}"))
     cat(glue::glue("{RET}"))
@@ -173,7 +173,7 @@ c_improbe_workflow = function(template_tib,
       
       # imp_tsv <- file.path(out_dir, paste(prefix,inp_suffix,"tsv.gz", sep='.'))
       template_tib <- template_tib %>% 
-        dplyr::select(-Genome_Build, -Strand_CO, -Strand_FR) %>%
+        # dplyr::select(-Genome_Build, -Strand_CO, -Strand_FR) %>%
         # dplyr::select(-dplyr::any_of("Genome_Build","Strand_CO","Strand_FR")) %>%
         dplyr::mutate(Genome_Build=!!gen_key, CpG_Island="FALSE") %>%
         dplyr::select(dplyr::all_of(c(!!ids_key, !!fwd_seq, "Genome_Build", 
@@ -211,7 +211,7 @@ c_improbe_workflow = function(template_tib,
                                    imGenome = imGenome,
                                    
                                    outlevel = outlevel,
-                                   add_inf  = add_inf, 
+                                   call_inf  = call_inf, 
                                    
                                    re_join  = re_join,
                                    new_join = new_join,
@@ -339,7 +339,7 @@ load_improbe_design = function(des_tsv,
                                             "Bsp_Pos","Bsp_FR","Bsp_CO"),
                                old_join = c("Seq_ID","Chromosome","Coordinate",
                                             "Strand_FR","Strand_CO"),
-                               add_inf  = TRUE,
+                               call_inf  = TRUE,
                                
                                verbose=0, vt=3,tc=1,tt=NULL, 
                                funcTag='load_improbe_design') {
@@ -351,13 +351,13 @@ load_improbe_design = function(des_tsv,
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} File IO Parameters::{RET}"))
-    cat(glue::glue("{mssg}      des_tsv={des_tsv}.{RET}"))
-    cat(glue::glue("{mssg}      out_tsv={out_tsv}.{RET}"))
+    cat(glue::glue("{mssg}    des_tsv={des_tsv}.{RET}"))
+    cat(glue::glue("{mssg}    out_tsv={out_tsv}.{RET}"))
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Run Parameters::{RET}"))
-    cat(glue::glue("{mssg}       outlevel={outlevel}.{RET}"))
-    cat(glue::glue("{mssg}        re_join={re_join}.{RET}"))
-    cat(glue::glue("{mssg}     add_inf={add_inf}.{RET}"))
+    cat(glue::glue("{mssg}    re_join={re_join}.{RET}"))
+    cat(glue::glue("{mssg}    call_inf={call_inf}.{RET}"))
+    cat(glue::glue("{mssg}   outlevel={outlevel}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -461,7 +461,7 @@ load_improbe_design = function(des_tsv,
     ret_key <- glue::glue("s-improbe-Raw-Improbe-Data-tib({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     
-    # Now subset and rename based on input outlevel::
+    # Now subset and rename based on input out-level::
     #
     if (!is.null(org_cols) && !is.null(new_cols)) {
       if (verbose>=vt+2)
@@ -478,7 +478,7 @@ load_improbe_design = function(des_tsv,
     ret_key <- glue::glue("s-improbe-subset/renaming-tib({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n=ret_key)
     
-    if (add_inf && outlevel>=3) {
+    if (call_inf && outlevel>=3) {
       if (verbose>=vt+2)
         cat(glue::glue("{mssg} Adding Infinium Preference outlevel={outlevel}.{RET}"))
       

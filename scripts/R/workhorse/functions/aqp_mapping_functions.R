@@ -26,6 +26,9 @@ BRK  <- paste0("# ",
                paste(rep("-----",6),collapse=" "),"|",
                paste(rep("-----",6),collapse=" ")," #")
 
+# NOTE:: spec() will return you with the cols() needed to load a file 
+#  rapidly...
+
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                          Standard Function Template::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

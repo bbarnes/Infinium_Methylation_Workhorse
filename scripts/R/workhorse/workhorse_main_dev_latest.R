@@ -5,22 +5,30 @@
 
 rm(list=ls(all=TRUE))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("GenomicRanges",quietly=TRUE) ))
-
 suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
-
 suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("stringi") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("data.table") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
+
+# TBD:: This might break; Pretty sure we don't need this anymore...
+#  suppressWarnings(suppressPackageStartupMessages( base::require("R.utils") ))
+
+# The packages below should be loaded in their required sub-modules::
+
+# Tidyvers Packages???
+# suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
+# suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
+# suppressWarnings(suppressPackageStartupMessages( base::require("stringi") ))
+# suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+
+# Matrix/Data Frame Packages
+# suppressWarnings(suppressPackageStartupMessages( base::require("data.table") ))
+# suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
+# suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
+
+# Genomic Ranges::
+# suppressWarnings(suppressPackageStartupMessages( base::require("GenomicRanges",quietly=TRUE) ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -30,109 +38,126 @@ doParallel::registerDoParallel()
 num_cores   <- detectCores()
 num_workers <- getDoParWorkers()
 
-COM <- ","
-TAB <- "\t"
-RET <- "\n"
-BNG <- "|"
+COM  <- ","
+TAB  <- "\t"
+RET  <- "\n"
+RET2 <- "\n\n"
+BNG  <- "|"
+BRK  <- paste0("# ",
+               paste(rep("-----",6),collapse=" "),"|",
+               paste(rep("-----",6),collapse=" ")," #")
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Define Default Params and Options::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-opt <- NULL
-par <- NULL
-run <- NULL
 
-# Illumina based directories::
+opt <- NULL  # List of user options
+par <- NULL  # List of static program parameters (NOT accessible to user)
+run <- NULL  # List of non-static run-time program parameters
+
 par$date    <- Sys.Date() %>% as.character()
 par$runMode <- ''
 par$maxTest <- NULL
+
+# Default local Mac/sd-isilon directories for ease of use::
 par$macDir1 <- '/Users/bbarnes/Documents/Projects/methylation'
 par$macDir2 <- '/Users/bretbarnes/Documents'
 par$lixDir1 <- '/illumina/scratch/darkmatter'
 par$lixDir  <- '/illumina/scratch/darkmatter'
 
-# Program Parameters::
+# Program Name Parameters::
 par$codeDir <- 'Infinium_Methylation_Workhorse'
 par$prgmDir <- 'workhorse'
 par$prgmTag <- 'workhorse_main_dev_latest'
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Run Time Version Options:: 
+#                       Platform, Genome Build, etc
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Executables::
-opt$Rscript <- NULL
+opt$run_name     <- NULL
+opt$platform     <- NULL
+opt$version      <- NULL
+opt$genome_build <- NULL
 
-# BSMAP Parameters::
-opt$bsmap_opt <- "\"-s 10 -v 5 -n 1 -r 2 -V 2\""
-opt$bsmap_opt <- "\"-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R\""
-opt$bsmap_exe <- "/Users/bretbarnes/Documents/tools/programs/BSMAPz/bsmapz"
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Run Time User Input Directories:: 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Run Parameters::
-opt$runName    <- NULL
-opt$Species    <- NULL
+opt$out_dir <- NULL
 
-# Null Place Holders::
-opt$cpg_top_tsv <- NULL
-opt$cpg_pos_tsv <- NULL
-opt$cph_pos_tsv <- NULL
-opt$snp_pos_tsv <- NULL
-opt$ord_des_csv <- NULL
-opt$canonical_csv <- NULL
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                        Run Time User Input Files:: 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Directories::
-opt$outDir  <- NULL
-opt$impDir  <- NULL
-opt$annDir  <- NULL
-opt$gen_dir  <- NULL
-opt$manDir  <- NULL
-
-# Manufacturing Files:: Required
-opt$ords <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
+opt$ords <- NULL
 opt$mats <- NULL
 opt$aqps <- NULL
 
-opt$mans <- NULL  # Manifest of probes to be added
-opt$noob <- NULL  # Manifest of probes to be noob masked
-opt$vcfs <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
-opt$beds <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
-opt$snps <- NULL  # -> prb_tib -> bsp_tib -> fwd_tib -> des_tib -> man_tib
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Run Time User Input Executable(s):: 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Manufacturing Info:: Required
-opt$bpns <- NULL
-opt$aqpn <- NULL
+opt$Rscript   <- NULL
+opt$bsmap_opt <- NULL
+opt$bsmap_exe <- NULL
 
-# Pre-defined files (Controls & IDAT Validation):: Optional
-opt$gs_ctl_csv  <- NULL
-opt$ses_ctl_csv <- NULL
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Pre-defined Static Data Directories:: 
+#            improbe, Annotation, Genomic, Manifest, Validation Idats
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-opt$idat <- NULL
+opt$imp_dir  <- NULL
+opt$ann_dir  <- NULL
+opt$gen_dir  <- NULL
+opt$man_dir  <- NULL
+opt$idat_dir <- NULL
 
-# Platform/Method Options::
-opt$genome_build <- NULL
-opt$platform <- NULL
-opt$version  <- NULL
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                  Pre-defined Static External File Options:: 
+#                   Manifest, Controls, Design Coordinates
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# Process Parallel/Cluster Parameters::
-opt$single   <- FALSE
-opt$parallel <- TRUE
-opt$cluster  <- FALSE
+opt$sesame_manfiest_dat   <- NULL
+opt$sesame_manifest_csv   <- NULL
+opt$genome_manifest_csv   <- NULL
 
-# Run-time Files
-opt$opt_csv  <- NULL
-opt$par_csv  <- NULL
-opt$time_csv <- NULL
+opt$sesame_controls_csv   <- NULL
+opt$genome_controls_csv   <- NULL
+opt$noob_controls_csv     <- NULL
+
+opt$source_coordinate_csv <- NULL
+opt$canonical_cgn_csv     <- NULL
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Run Time File Options:: Time Stamps
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 opt$time_org_txt <- NULL
 
-# Run-time Options::
-opt$fresh  <- FALSE
-opt$reload <- FALSE
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Run Time Mode Options::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# verbose Options::
-opt$verbose <- 3
+opt$single    <- FALSE
+opt$parallel  <- FALSE
+opt$cluster   <- FALSE
+
+opt$trackTime <- NULL
+opt$fresh     <- FALSE
+opt$reload    <- FALSE
+
+opt$verbose   <- 3
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                    Order/Match/AQP/PQC Expected Columns::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+# NEW SOLUTION FOR FILE HEADERS::
+#  - Store all file headers in a single rData (rds) file. They're 
+#    minature, but required for files without headers and they 
+#    massively speed up reading of very large data files since
+#    variable types can be expected!
 #
 # TBD:: This is copied in the code, so it should be removed from here
 #   or moved to a config file... Maybe a single r-data structure (RDS)
@@ -258,16 +283,19 @@ if (args.dat[1]=='RStudio') {
   # End of local parameter definitions::
   #
   
-  opt$outDir  <- file.path(par$topDir, 'scratch')
-  opt$impDir  <- file.path(par$topDir, 'data/improbe')
-  opt$annDir  <- file.path(par$topDir, 'data/annotation')
-  opt$manDir  <- file.path(par$topDir, 'data/manifests')
+  opt$out_dir  <- file.path(par$topDir, 'scratch')
+  opt$imp_dir  <- file.path(par$topDir, 'data/improbe')
+  opt$ann_dir  <- file.path(par$topDir, 'data/annotation')
+  opt$man_dir  <- file.path(par$topDir, 'data/manifests')
   opt$gen_dir  <- file.path(par$topDir, 'data/iGenomes/Homo_sapiens/NCBI')
-  # opt$idatDir <- file.path(par$topDir, 'data/idats')
+  opt$idat_dir <- file.path(par$topDir, 'data/idats')
   
   opt$bsmap_opt <- "\"-s 10 -v 5 -n 1 -r 2 -V 2\""
   opt$bsmap_opt <- "\"-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R\""
   opt$bsmap_exe <- "/Users/bretbarnes/Documents/tools/programs/BSMAPz/bsmapz"
+  
+  # opt$genome_controls_csv <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
+  # opt$sesame_manifest_csv <- file.path(par$topDir,"data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.controls-only.csv.gz")
   
   # Pre-defined local options runTypes::
   #
@@ -276,11 +304,12 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GSA'
   par$local_runType <- 'HM450'
   par$local_runType <- 'TruDx'
-  par$local_runType <- 'EWAS'
   par$local_runType <- 'GRCm10'
   par$local_runType <- 'NZT'
-  par$local_runType <- 'Chicago'
   par$local_runType <- 'McMaster10Kselection'
+  par$local_runType <- 'Chicago'
+  par$local_runType <- 'EWAS'
+  par$local_runType <- 'EPIC_v2'
   
   opt$parallel <- TRUE
   
@@ -292,16 +321,27 @@ if (args.dat[1]=='RStudio') {
   opt$fresh  <- FALSE
   opt$reload <- TRUE
   
-  opt$run_improbe    <- TRUE
-  opt$build_manifest <- TRUE
-  
   if (FALSE) {
+    
+  } else if (par$local_runType=='EPIC_v2') {
+    opt$genome_build <- 'GRCh37'
+    opt$platform <- 'EPIC'
+    opt$version  <- 'v2'
+    
+    
+    
+    opt$sesame_manifest_dat <- "HM450.hg19.manifest,EPIC.hg19.manifest"
+    genome_manifest_dir <- file.path(par$topDir, "data/manifests/methylation/GenomeStudio")
+    opt$genome_manifest_csv <- paste(
+      file.path(genome_manifest_dir, "MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"),
+      file.path(genome_manifest_dir, "HumanMethylation450_15017482_v.1.2.csv.gz"),
+      sep = ","
+    )
     
   } else if (par$local_runType=='McMaster10Kselection') {
     opt$genome_build <- 'GRCh37'
     opt$platform <- 'MCM'
     opt$version  <- 'v2'
-    opt$Species  <- "Human"
     
     par$aqpDir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2")
     opt$ords <- paste(
@@ -331,14 +371,35 @@ if (args.dat[1]=='RStudio') {
       file.path(par$topDir, "data/CustomContent/transfer/updated_manifest.csv.gz"),
       sep=',')
     
-    opt$bpns <- paste(1, sep=",")
-    opt$aqpn <- paste(1, sep=",")
+  } else if (par$local_runType=='Chicago') {
+    opt$genome_build <- 'GRCh38'
+    opt$genome_build <- 'GRCh37'
+    opt$platform <- 'EPIC'
+    opt$version  <- 'B3'
+    
+    opt$idat   <- NULL
+    par$aqpDir <- file.path(par$topDir, 'data/CustomContent/UnivChicago/latest')
+    
+    opt$ords <- paste(
+      file.path(par$aqpDir, 'UofChicago-A_A_Array-CpG-order-FINAL.csv'),
+      sep=',')
+    
+    opt$mats <- paste(
+      file.path(par$aqpDir, '20504790_probes.match.tsv'),
+      sep=',')
+    
+    opt$aqps <- paste(
+      file.path(par$aqpDir, '329922X374054_A_ProductQC.txt'),
+      sep=',')
+    
+    # Use this later in the process for picking coordinates::
+    par$ord_pos_csv <- file.path(par$topDir, "data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz")
     
   } else {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
   
-  opt$runName <- paste(par$local_runType,opt$platform,opt$version,opt$genome_build, sep='-')
+  opt$run_name <- paste(par$local_runType,opt$platform,opt$version,opt$genome_build, sep='-')
   
 } else {
   par$runMode    <- 'CommandLine'
@@ -350,129 +411,242 @@ if (args.dat[1]=='RStudio') {
   par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
   par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
   
-  args.dat <- commandArgs(trailingOnly = TRUE)
+  args.dat <- base::commandArgs(trailingOnly = TRUE)
   option_list = list(
-    # Executables::
-    make_option(c("--Rscript"), type="character", default=opt$Rscript, 
-                help="Rscript path [default= %default]", metavar="character"),
-    
-    make_option(c("--bsmap_opt"), type="character", default=opt$bsmap_opt, 
-                help="BSMAP Options [default= %default]", metavar="character"),
-    make_option(c("--bsmap_exe"), type="character", default=opt$bsmap_exe, 
-                help="BSMAP Executable path [default= %default]", metavar="character"),
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Run Time Version Options:: 
+    #                       Platform, Genome Build, etc
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     # Run Parameters::
-    make_option(c("--runName"), type="character", default=opt$runName, 
-                help="Run Name [default= %default]", metavar="character"),
-    make_option(c("--Species"), type="character", default=opt$Species, 
-                help="Target Species Name [default= %default]", metavar="character"),
-    make_option(c("--pre_man_csv"), type="character", default=opt$pre_man_csv, 
-                help="Previously defined manifest [default= %default]", metavar="character"),
-    
-    make_option(c("--cpg_pos_tsv"), type="character", default=opt$cpg_pos_tsv, 
-                help="Null value for passing arguments [default= %default]", metavar="character"),
-    make_option(c("--cpg_top_tsv"), type="character", default=opt$cpg_top_tsv, 
-                help="Null value for passing arguments [default= %default]", metavar="character"),
-    make_option(c("--cph_pos_tsv"), type="character", default=opt$cph_pos_tsv, 
-                help="Null value for passing arguments [default= %default]", metavar="character"),
-    make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv, 
-                help="Null value for passing arguments [default= %default]", metavar="character"),
-    make_option(c("--ord_des_csv"), type="character", default=opt$ord_des_csv, 
-                help="Original design file used for canonical position selection. [default= %default]", metavar="character"),
-    make_option(c("--canonical_csv"), type="character", default=opt$canonical_csv, 
-                help="Canonical CGN names from previous products. [default= %default]", metavar="character"),
-    
-    # Directories::
-    make_option(c("-o", "--outDir"), type="character", default=opt$outDir, 
-                help="Output directory [default= %default]", metavar="character"),
-    
-    make_option(c("--impDir"), type="character", default=opt$impDir, 
-                help="improbe data directory [default= %default]", metavar="character"),
-    make_option(c("--annDir"), type="character", default=opt$iannDir, 
-                help="Annotation data directory [default= %default]", metavar="character"),
-    make_option(c("--gen_dir"), type="character", default=opt$gen_dir, 
-                help="Genomic data directory [default= %default]", metavar="character"),
-    make_option(c("--manDir"), type="character", default=opt$manDir, 
-                help="Pre-built Manifest data directory [default= %default]", metavar="character"),
-    
-    # Manufacturing Files:: Required
-    make_option(c("--ords"), type="character", default=opt$ords, 
-                help="Order file(s) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--mats"), type="character", default=opt$mats, 
-                help="Match (format 1 or 2) file(s) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--aqps"), type="character", default=opt$aqps, 
-                help="AQP file(s) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--mans"), type="character", default=opt$mans,
-                help="Manifest CSV file(s) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--noob"), type="character", default=opt$noob, 
-                help="Manifest of probes to be added and noob-masked CSV file(s) (comma seperated) [default= %default]", metavar="character"),
-    
-    # Not fully supported yet::
-    make_option(c("--vcfs"), type="character", default=opt$vcfs, 
-                help="Target Design VCF file(s) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--beds"), type="character", default=opt$beds, 
-                help="Target Design Coordinate BED file(s) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--snps"), type="character", default=opt$snps, 
-                help="Target Design Coordinate SNP file(s) (comma seperated) [default= %default]", metavar="character"),
-    
-    # Manufacturing Info:: Required
-    make_option(c("--bpns"), type="character", default=opt$bpns, 
-                help="Bead Pool Numbers (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--aqpn"), type="character", default=opt$aqpn, 
-                help="AQP Numbers (comma seperated) [default= %default]", metavar="character"),
-    
-    # Pre-defined files (Controls & IDAT Validation):: Optional
-    make_option(c("--gs_ctl_csv"), type="character", default=opt$gs_ctl_csv, 
-                help="Pre-Defined Infinium Methylation Controls (Genome Studio) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--ses_ctl_csv"), type="character", default=opt$ses_ctl_csv, 
-                help="Pre-Defined Infinium Methylation Controls (Sesame) (comma seperated) [default= %default]", metavar="character"),
-    make_option(c("--idat"), type="character", default=opt$idat, 
-                help="idat directories (comma seperated) [default= %default]", metavar="character"),
+    optparse::make_option(
+      c("--run_name"), type="character", default=opt$run_name, 
+      help="Run Name [default= %default]", 
+      metavar="character"),
     
     # Platform/Method Options::
-    make_option(c("--genome_build"), type="character", default=opt$genome_build, 
-                help="Genome Build (e.g. GRCh36, GRCh37, GRCh38, GRCm38) [default= %default]", metavar="character"),
-    make_option(c("--platform"), type="character", default=opt$platform, 
-                help="Platform (e.g. HM450, EPIC, LEGX, NZT, COVIC) [default= %default]", metavar="character"),
-    make_option(c("--version"), type="character", default=opt$version, 
-                help="Manifest Version (e.g. B0,B1,B2,B3,B4,C0) [default= %default]", metavar="character"),
+    optparse::make_option(
+      c("--platform"), type="character", default=opt$platform, 
+      help=paste0("Platform (e.g. HM450, EPIC, LEGX, NZT, ",
+                  "COVIC) [default= %default]"), 
+      metavar="character"),
+    optparse::make_option(
+      c("--version"), type="character", default=opt$version, 
+      help="Manifest Version (e.g. B0,B1,B2,B3,B4,C0) [default= %default]", 
+      metavar="character"),
+    optparse::make_option(
+      c("--genome_build"), type="character", default=opt$genome_build, 
+      help="Genome Build (e.g. GRCh37, GRCh38, GRCm38) [default= %default]", 
+      metavar="character"),
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                       Run Time User Input Directories:: 
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    optparse::make_option(
+      c("--out_dir"), type="character", default=opt$out_dir, 
+      help="Output directory [default= %default]", 
+      metavar="character"),
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                        Run Time User Input Files:: 
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    # Manufacturing Files:: Required
+    optparse::make_option(
+      c("--ords"), type="character", default=opt$ords, 
+      help="Order file(s) (comma seperated) [default= %default]", 
+      metavar="character"),
+    optparse::make_option(
+      c("--mats"), type="character", default=opt$mats, 
+      help="Biziprobe Match file(s) (comma seperated) [default= %default]", 
+      metavar="character"),
+    optparse::make_option(
+      c("--aqps"), type="character", default=opt$aqps, 
+      help="AQP/PQC file(s) (comma seperated) [default= %default]", 
+      metavar="character"),
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     Run Time User Input Executable(s):: 
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    optparse::make_option(
+      c("--Rscript"), type="character", default=opt$Rscript, 
+      help="Rscript path [default= %default]", 
+      metavar="character"),
+    
+    optparse::make_option(
+      c("--bsmap_opt"), type="character", default=opt$bsmap_opt, 
+      help="BSMAP Options [default= %default]", 
+      metavar="character"),
+    optparse::make_option(
+      c("--bsmap_exe"), type="character", default=opt$bsmap_exe, 
+      help="BSMAP Executable path [default= %default]", 
+      metavar="character"),
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                     Pre-defined Static Data Directories:: 
+    #            improbe, Annotation, Genomic, Manifest, Validation Idats
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    optparse::make_option(
+      c("--imp_dir"), type="character", default=opt$imp_dir, 
+      help="improbe data directory [default= %default]", 
+      metavar="character"),
+    optparse::make_option(
+      c("--ann_dir"), type="character", default=opt$ann_dir, 
+      help="Annotation data directory [default= %default]", 
+      metavar="character"),
+    optparse::make_option(
+      c("--gen_dir"), type="character", default=opt$gen_dir, 
+      help="Genomic data directory [default= %default]", 
+      metavar="character"),
+    optparse::make_option(
+      c("--man_dir"), type="character", default=opt$man_dir, 
+      help="Pre-built Manifest data directory [default= %default]", 
+      metavar="character"),
+    
+    # Validation existing idats directory to confirm Addresses against::
+    optparse::make_option(
+      c("--idat_dir"), type="character", default=opt$idat_dir, 
+      help=paste0("Validation existing idats directory ",
+                  "to confirm Addresses against. ",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                  Pre-defined Static External File Options:: 
+    #                   Manifest, Controls, Design Coordinates
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    # Pre-defined manifest(s) to be re-built and/or added to new manifest
+    #  from Sesame Repo::
+    optparse::make_option(
+      c("--sesame_manfiest_dat"), type="character", 
+      default=opt$sesame_manfiest_dat,
+      help=paste0("Sesame Manifest(s) to be re-built and/or added to ",
+                  "new manifest from Sesame Repo. ",
+                  "Example = 'HM450.hg19.manifest,EPIC.hg19.manifest",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    
+    # Pre-defined manifest(s) to be re-built and/or added to new manifest::
+    optparse::make_option(
+      c("--sesame_manifest_csv"), type="character", 
+      default=opt$sesame_manifest_csv,
+      help=paste0("Sesame Manifest(s) to be re-built and/or added ",
+                  "to new manifest. Probe Seq required! ",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    optparse::make_option(
+      c("--genome_manifest_csv"), type="character", 
+      default=opt$genome_manifest_csv,
+      help=paste0("Genome Studio Manifest(s) to be re-built and/or ",
+                  "added to new manifest. Probe Seq required! ",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    
+    # Pre-defined manifest control(s) to be added to new manifest::
+    optparse::make_option(
+      c("--sesame_controls_csv"), type="character", 
+      default=opt$sesame_controls_csv, 
+      help=paste0("Sesame Pre-defined manifest control(s)  ",
+                  "to be added to new manifest. ",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    optparse::make_option(
+      c("--genome_controls_csv"), type="character", 
+      default=opt$genome_controls_csv, 
+      help=paste0("Genome Studio Pre-defined manifest control(s)  ",
+                  "to be added to new manifest. ",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    
+    # Pre-defined noob-masked control(s) to be added to new manifest::
+    optparse::make_option(
+      c("--noob_controls_csv"), type="character", 
+      default=opt$noob_controls_csv, 
+      help=paste0("Noob-Masked Pre-defined control(s) ",
+                  "to be added to new manifest. ",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    
+    # Original source design file used for canonical position selection.::
+    optparse::make_option(
+      c("--source_coordinate_csv"), type="character", 
+      default=opt$source_coordinate_csv, 
+      help=paste0("Original source design file used for canonical ",
+                  "position selection. ",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    optparse::make_option(
+      c("--canonical_cgn_csv"), type="character", 
+      default=opt$canonical_cgn_csv, 
+      help=paste0("Pre-defined canonical cg-numbers file used for ",
+                  "cg number resolution assignment.",
+                  "CSV file(s) (comma seperated) [default= %default]"), 
+      metavar="character"),
+    
+    # optparse::make_option(c("--cpg_pos_tsv"), type="character", default=opt$cpg_pos_tsv, 
+    #             help="Null value for passing arguments [default= %default]", metavar="character"),
+    # optparse::make_option(c("--cpg_top_tsv"), type="character", default=opt$cpg_top_tsv, 
+    #             help="Null value for passing arguments [default= %default]", metavar="character"),
+    # optparse::make_option(c("--cph_pos_tsv"), type="character", default=opt$cph_pos_tsv, 
+    #             help="Null value for passing arguments [default= %default]", metavar="character"),
+    # optparse::make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv, 
+    #             help="Null value for passing arguments [default= %default]", metavar="character"),
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                    Run Time File Options:: Time Stamps
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    
+    optparse::make_option(
+      c("--time_org_txt"), type="character", default=opt$time_org_txt, 
+      help="Unused variable time_org_txt [default= %default]", 
+      metavar="character"),
+    
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    #                          Run Time Mode Options::
+    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     # Process Parallel/Cluster Parameters::
-    make_option(c("--build_manifest"), action="store_true", default=opt$build_manifest, 
-                help="Boolean variable to build basic manifest [default= %default]", metavar="boolean"),
-    make_option(c("--run_improbe"), action="store_true", default=opt$run_improbe, 
-                help="Boolean variable to run improbe [default= %default]", metavar="boolean"),
-    
-    # Process Parallel/Cluster Parameters::
-    make_option(c("--single"), action="store_true", default=opt$single, 
-                help="Boolean variable to run a single sample on a single-core [default= %default]", metavar="boolean"),
-    make_option(c("--parallel"), action="store_true", default=opt$parallel, 
-                help="Boolean variable to run parallel on multi-core [default= %default]", metavar="boolean"),
-    make_option(c("--cluster"), action="store_true", default=opt$cluster,
-                help="Boolean variable to run jobs on cluster by chip [default= %default]", metavar="boolean"),
-    
-    # Run-time Files::
-    make_option(c("--opt_csv"), type="character", default=opt$opt_csv, 
-                help="Unused variable opt_csv [default= %default]", metavar="character"),
-    make_option(c("--par_csv"), type="character", default=opt$par_csv, 
-                help="Unused variable par_csv [default= %default]", metavar="character"),
-    make_option(c("--time_csv"), type="character", default=opt$time_csv, 
-                help="Unused variable time_csv [default= %default]", metavar="character"),
-    make_option(c("--time_org_txt"), type="character", default=opt$time_org_txt, 
-                help="Unused variable time_org_txt [default= %default]", metavar="character"),
+    optparse::make_option(
+      c("--single"), action="store_true", default=opt$single, 
+      help=paste0("Boolean variable to run a single sample on a single-core ",
+                  "[default= %default]"),
+      metavar="boolean"),
+    optparse::make_option(
+      c("--parallel"), action="store_true", default=opt$parallel, 
+      help="Boolean variable to run parallel on multi-core [default= %default]", 
+      metavar="boolean"),
+    optparse::make_option(
+      c("--cluster"), action="store_true", default=opt$cluster,
+      help="Boolean variable to run jobs on cluster by chip [default= %default]",
+      metavar="boolean"),
     
     # Run=time Options::
-    make_option(c("--fresh"), action="store_true", default=opt$fresh, 
-                help="Boolean variable to run a fresh build [default= %default]", metavar="boolean"),
-    make_option(c("--reload"), action="store_true", default=opt$reload, 
-                help="Boolean variable reload intermediate files (for testing). [default= %default]", metavar="boolean"),
+    optparse::make_option(
+      c("--trackTime"), action="store_true", default=opt$trackTime,
+      help="Boolean variable tack run times [default= %default]",
+      metavar="boolean"),
+    optparse::make_option(
+      c("--fresh"), action="store_true", default=opt$fresh, 
+      help="Boolean variable to run a fresh build [default= %default]",
+      metavar="boolean"),
+    optparse::make_option(
+      c("--reload"), action="store_true", default=opt$reload, 
+      help=paste0("Boolean variable reload intermediate files (for testing). ",
+                  "[default= %default]"),
+      metavar="boolean"),
     
-    # verbose::
-    make_option(c("-v", "--verbose"), type="integer", default=opt$verbose, 
-                help="0-5 (5 is very verbose) [default= %default]", metavar="integer")
+    # Verbosity level::
+    optparse::make_option(
+      c("-v", "--verbose"), type="integer", default=opt$verbose, 
+      help=paste0("Verbosity level: 0-5 (5 is very verbose) [default= %default]"), 
+      metavar="integer")
   )
-  opt_parser = OptionParser(option_list=option_list)
-  opt = parse_args(opt_parser)
+  opt_parser = optparse::OptionParser(option_list=option_list)
+  opt = optparse::parse_args(opt_parser)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -480,7 +654,7 @@ if (args.dat[1]=='RStudio') {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
-opt_reqs <- c('outDir','impDir','Species',
+opt_reqs <- c('out_dir','imp_dir',
               'genome_build','platform','version','bsmap_exe',
               'Rscript','verbose')
 
@@ -523,23 +697,17 @@ if (opt$verbose>=1)
 # Define Pre-built improbe directories and files::
 #   - Using split files now instead of two single large files...
 run$cgn_seq_dir <- 
-  file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-output/prbs-p49-split")
+  file.path(opt$imp_dir, "scratch/cgnDB/dbSNP_Core4/design-output/prbs-p49-split")
 
 stopifnot(dir.exists(run$cgn_seq_dir))
 
-run$cgn_bed_dir <- file.path(opt$impDir, "scratch/cgnDB/dbSNP_Core4/design-input/min")
-run$cgn_bed_tsv <- file.path(run$cgn_bed_dir, paste(opt$genome_build,"cgn.min.txt.gz", sep="."))
+run$cgn_bed_dir   <- file.path(opt$imp_dir, "scratch/cgnDB/dbSNP_Core4/design-input/min")
+run$cgn_bed_tsv   <- file.path(run$cgn_bed_dir, paste(opt$genome_build,"cgn.min.txt.gz", sep="."))
 run$canonical_csv <- file.path(par$datDir, "manifest/cgnDB/canonical.cgn-top-grp.csv.gz")
 
-stopifnot(dir.exists(run$cgn_bed_dir))
-stopifnot(file.exists(run$cgn_bed_tsv))
-stopifnot(file.exists(run$canonical_csv))
-
-# Change these to options::
-if (is.null(opt$gs_ctl_csv))
-  opt$gs_ctl_csv  <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
-if (is.null(opt$ses_ctl_csv))
-  opt$ses_ctl_csv <- file.path(par$topDir, "data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.controls-only.csv.gz")
+stopifnot(  dir.exists(run$cgn_bed_dir) )
+stopifnot( file.exists(run$cgn_bed_tsv) )
+stopifnot( file.exists(run$canonical_csv) )
 
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Done. Checking pre-defined files.{RET}{RET}"))
@@ -551,38 +719,10 @@ if (opt$verbose>=1)
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgmTag}]: Defining Intermediate Run Time Files...{RET}"))
 
-#
-# MOST declaration of intermediate directories is no longer needed
-#   They build themselves....
-#
-
-# Manifest Directory::
-run$man_dir <- file.path(opt$outDir, 'man')
-run$aqp_man_csv  <- file.path(run$man_dir, paste(opt$runName,"aqp-pass.manifest-sesame.csv.gz", sep="."))
-
-# Annotation Directory::
-#
-run$ann_dir <- file.path(opt$outDir, 'ann')
-run$ann_int_csv  <- file.path(run$ann_dir,paste(opt$runName,'cpg-pass.annotation.csv.gz', sep='.'))
-
-if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Done. Defining Intermediate Run Time Files.{RET}{RET}"))
-
-#
-#
-# Genomes Manifest Generation Parameters::
-#  - TBD:: These should be moved to some config file...
-#
-#
-
-# For accumilating failed probes and why::
-error_ledgar <- NULL
-
-run$gen_nrec <- 0
-run$gen_key <- "Genome_Key"
+# For error ledger for accumulating failed probes and why::
+error_ledger <- NULL
 
 # Field (key) Parameters:: general
-run$del     <- "_"
 run$ids_key <- "Prb_Key"
 run$unq_key <- "Prb_Key_Unq"
 
@@ -620,43 +760,166 @@ run$seq_idxB   <- 1
 run$seq_pattern_U <- "-probe_U49_cgn-table.tsv.gz"
 run$seq_pattern_M <- "-probe_M49_cgn-table.tsv.gz"
 
-# Field Parameters:: s-improbe
-run$ext_seq="Ext_Forward_Seq"
-run$iup_seq="Iupac_Forward_Sequence"
-run$imp_seq="Forward_Sequence"
-
-# Field Parameters:: r-improbe
-run$srsplit <- TRUE
-run$srd_key <- "Bsp_FR"
-run$srd_str <- "FR"
-
-run$cosplit <- TRUE
-run$cos_key <- "Bsp_CO"
-run$cos_str <- "CO"
-
 run$re_load <- TRUE
-
-opt$build_manifest <- FALSE
-opt$run_improbe    <- FALSE
-run$imp_level <- 3
-run$add_inf <- TRUE
-
-run$join_new_vec <- c()
-run$join_old_vec <- c()
-
-run$c_improbe <- TRUE
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #            0.0 Load any pre-defined Standard Manifest to be added::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-if (!is.null(opt$mans)) {
+if (!is.null(opt$sesame_manifest_dat)) {
   #
-  # TBD:: User should be able to rebuild an existing or old manifest,
-  #  or add manifests together...
+  # Get EPIC v2 Orders::
   #
+  epic_v2_dir <- file.path(par$topDir, "data/CustomContent/EPIC_v2/11102020/csv")
+  epic_v2_ords <- list.files(epic_v2_dir, pattern=".order.csv.gz", full.names = TRUE)
+  
+  epic_ord_tib <- 
+    load_aqp_files(epic_v2_ords, verbose = opt$verbose, tt = pTracker)
+  
+  #
+  # Get EWAS Orders::
+  #
+  ewas_dir <- file.path(par$topDir, "data/CustomContent/EWAS/orders")
+  ewas_v1_dir <- file.path(ewas_dir, "round1")
+  ewas_v2_dir <- file.path(ewas_dir, "round2")
+  
+  ewas_ords <- c(
+    list.files(ewas_v1_dir, pattern = ".order.csv.gz$", full.names = TRUE),
+    list.files(ewas_v2_dir, pattern = ".order.csv.gz$", full.names = TRUE) )
+  
+  ewas_ord_tib <- 
+    load_aqp_files(ewas_ords, verbose = opt$verbose, tt = pTracker)
+  
+  # These should be zero::
+  ewas_epic_overlap_cnt <- 
+    ewas_ord_tib %>% dplyr::filter(Ord_Key %in% epic_ord_tib$Ord_Key) %>%
+    base::nrow()
+  epic_ewas_overlap_cnt <- 
+    epic_ord_tib %>% dplyr::filter(Ord_Key %in% ewas_ord_tib$Ord_Key) %>%
+    base::nrow()
+  
+  if (opt$verbose>=1) cat(glue::glue(
+    "[{par$prgmTag}]: ewas_epic_overlap_cnt = {ewas_epic_overlap_cnt}.{RET}"))
+  if (opt$verbose>=1) cat(glue::glue(
+    "[{par$prgmTag}]: epic_ewas_overlap_cnt = {epic_ewas_overlap_cnt}.{RET}"))
+  
+  #
+  # Get Sesame Data::
+  #
+  sesame_data_keys  <- sesameData::sesameDataList()
+  
+  sesameDataCache("EPIC")
+  sesameDataCache("HM450")
+  sesameDataCacheAll()
+  
+  sesame_manifest_vec  <- splitStrToVec(opt$sesame_manifest_dat)
+  sesmae_manifest_list <- lapply(sesame_manifest_vec, sesameData::sesameDataGet)
+  
+  hm450_probeInfo_key <- "HM450.probeInfo"
+  hm450_hg19_man_key  <- "HM450.hg19.manifest"
+  hm450_probeInfo_dat <- sesameData::sesameDataGet( hm450_probeInfo_key )
+  hm450_hg19_man_grs  <- sesameData::sesameDataGet( hm450_hg19_man_key )
+  hm450_hg19_man_tib  <- hm450_hg19_man_grs %>% as.data.frame() %>% 
+    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+  
+  epic_probeInfo_key <- "EPIC.probeInfo"
+  epic_hg19_man_key  <- "EPIC.hg19.manifest"
+  epic_probeInfo_dat <- sesameData::sesameDataGet( epic_probeInfo_key )
+  epic_hg19_man_grs  <- sesameData::sesameDataGet( epic_hg19_man_key )
+  epic_hg19_man_tib  <- epic_hg19_man_grs %>% as.data.frame() %>% 
+    tibble::rownames_to_column(var="Probe_ID") %>% tibble::as_tibble()
+  
+  gen_info_hg19_key   <- "genomeInfo.hg19"
+  gen_info_hg19_dat   <- sesameData::sesameDataGet( gen_info_hg19_key )
+  
+  #
+  # Consolidate 450k and EPIC Sesame data::
+  #
+  # epic_hg19_man_tib %>% dplyr::select(Probe_ID, seqnames, start, end, strand, address_A, ProbeSeq_A, address_B, ProbeSeq_B, )
+  
+  old_names <- c("Probe_ID", "seqnames", "start", "end", "strand", "designType", "channel",
+                 "nextBase", "nextBaseRef", "probeType", "gene", "gene_HGNC")
+  new_names <- c("Probe_ID", "Chromosome", "Coordinate", "CoordinateG", "Strand_FR", "Infinium_Design_Type", "Color",
+                 "Prb_Nxb", "Prb_Nxb_Ref", "Prb_Din", "gene", "gene_HGNC")
+  
+  prb_key <- "A"
+  oldA_names <- 
+    epic_hg19_man_tib %>% 
+    dplyr::select(dplyr::ends_with(paste0("_",prb_key))) %>% 
+    dplyr::select(-dplyr::starts_with("wDecoy_")) %>% 
+    names()
+  newA_names <- oldA_names %>% 
+    stringr::str_remove(paste0("_",prb_key,"$")) %>% 
+    stringr::str_to_title() %>%
+    paste("Prb",., sep="_") %>%
+    stringr::str_replace("Prb_Address", "Address") %>%
+    stringr::str_replace("Prb_Probeseq", "Prb_Seq") %>%
+    stringr::str_replace("Prb_Chrm", "Prb_Chr")
+    
+  
+  
+  ses_epic_man_tib <- epic_hg19_man_tib %>%
+    dplyr::select(Probe_ID, seqnames, start, end, strand, designType, channel,
+                  nextBase, nextBaseRef, probeType, gene, gene_HGNC,
+                  dplyr::ends_with("_A"), dplyr::starts_with("MASK_") ) %>%
+    dplyr::select(-dplyr::starts_with("wDecoy_")) %>%
+    dplyr::rename(Chromosome=seqnames, Coordinate=start, CoordinateG=end,
+                  Strand_FR=strand, Infinium_Design_Type=designType,
+                  Color=channel, Prb_Nxb=nextBase, Prb_Nxb_Ref=nextBaseRef, 
+                  Prb_Din=probeType, 
+                  
+                  Address=address_A, Prb_Seq=ProbeSeq_A, 
+                  Prb_Chr=chrm_A, Prb_Beg=beg_A, Prb_Flag=flag_A, 
+                  Prb_MapQ=mapQ_A, Prb_Cigar=cigar_A, Prb_NM=NM_A) %>%
+    
+    dplyr::mutate(Strand_FR=dplyr::case_when(
+      Strand_FR=="+" ~ "F",
+      Strand_FR=="-" ~ "R",
+      TRUE ~ NA_character_),
+      Prb_Nxb=stringr::str_remove_all(Prb_Nxb,"[^a-zA-Z]") %>% mapDIs(),
+      Prb_Inf=dplyr::case_when(
+        Infinium_Design_Type=="I"  ~ 1,
+        Infinium_Design_Type=="II" ~ 2,
+        TRUE ~ NA_real_
+      ) %>% as.integer()
+    )
+  
+  ses_epic_man_tib %>% 
+    dplyr::group_by(Prb_Inf, Prb_Nxb, Prb_Nxb_Ref, Color) %>% 
+    dplyr::summarise(Count=n(), .groups = "drop")
+  
+  #
+  # Load Genome Studio Manifests::
+  #
+  # epic_hg19_gst_man_csv <- file.path(par$topDir, "data/manifests/methylation/GenomeStudio/MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz")
+  # epic_hg19_test_man_csv <- "/Users/bretbarnes/Documents/tmp/MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"
+  
+  
 }
+
+if (!is.null(opt$genome_manifest_csv)) {
+  
+  # genome_manifest_vec  <- splitStrToVec(opt$genome_manifest_csv)
+  genome_manifest_list <- get_file_list(files=opt$genome_manifest_csv,
+                                        trim = c(".csv.gz"), del = COM)
+
+  epic_gst_dat <- lapply(genome_manifest_list, load_genome_studio_manifest,
+                         load_clean    = TRUE,
+                         load_controls = TRUE,
+                         write_clean   = TRUE,
+                         overwrite     = TRUE,
+                         ret_data      = FALSE,
+                         verbose = opt$verbose, tt = pTracker)
+}
+
+
+
+
+
+#
+# TBD:: User should be able to rebuild an existing or old manifest,
+#  or add manifests together...
+#
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #          0.1 Load any pre-defined Noob-Masked Manifest to be added::
@@ -665,7 +928,7 @@ if (!is.null(opt$mans)) {
 # noob_ctl_tib <- NULL
 # if (!is.null(opt$noob)) {
 #   noob_ctl_tib <- noob_mask(noob_csv = opt$noob, 
-#                             ctl_csv = opt$ses_ctl_csv, 
+#                             ctl_csv = opt$sesame_manifest_csv, 
 #                             verbose=opt$verbose, tt=pTracker)
 # }
 
@@ -680,7 +943,6 @@ imGenome_tib <- load_imGenomes_table(dir = opt$gen_dir,
                                      genome_build = opt$genome_build, 
                                      ret_list = FALSE,
                                      verbose = opt$verbose, tt=pTracker)
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -703,9 +965,9 @@ ord_tib <-
                        din_key = run$din_key,
                        ids_key = run$ids_key,
                        
-                       out_dir = opt$outDir,
+                       out_dir = opt$out_dir,
                        out_col = run$out_col,
-                       run_tag = opt$runName,
+                       run_tag = opt$run_name,
                        re_load = run$re_load,
                        pre_tag = pTracker$file_vec,
                        
@@ -716,6 +978,11 @@ ord_tib <-
 #                    2.0 Align All Probe Sequence:: BSMAP
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+#
+# TBD:: Plot normalized intensity x individual chr hits x binding energy
+# TBD:: Add sub-directories for Genome/Chromosome alignments
+#
 
 bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 ref_tib = imGenome_tib,
@@ -744,9 +1011,9 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 bsp_exe = opt$bsmap_exe,
                                 bsp_opt = opt$bsmap_opt,
                                 
-                                out_dir = opt$outDir,
+                                out_dir = opt$out_dir,
                                 out_col = run$out_col,
-                                run_tag = opt$runName,
+                                run_tag = opt$run_name,
                                 re_load = run$re_load,
                                 pre_tag = pTracker$file_vec,
                                 
@@ -773,7 +1040,7 @@ seq_tib <-
                        din_key = run$din_key,
                        ids_key = run$ids_key,
                        
-                       prefix = opt$runName,
+                       prefix = opt$run_name,
                        suffix = run$seq_suffix, 
                        
                        idxA = run$seq_idxA,
@@ -782,11 +1049,9 @@ seq_tib <-
                        reload   = opt$reload,
                        parallel = opt$parallel,
                        
-                       del = run$del,
-                       
-                       out_dir = opt$outDir,
+                       out_dir = opt$out_dir,
                        out_col = run$out_col,
-                       run_tag = opt$runName,
+                       run_tag = opt$run_name,
                        re_load = run$re_load,
                        pre_tag = pTracker$file_vec,
                        
@@ -821,27 +1086,27 @@ cgn_tib <-
                        merge   = run$cgn_merge,
                        retData = FALSE,
                        
-                       out_dir = opt$outDir,
+                       out_dir = opt$out_dir,
                        out_col = run$out_col,
                        unq_col = run$unq_col,
-                       run_tag = opt$runName,
+                       run_tag = opt$run_name,
                        re_load = run$re_load,
                        pre_tag = pTracker$file_vec,
                        
                        verbose=opt$verbose, tt=pTracker)
 
-
-
-print(ord_tib)
-print(bsp_tib)
-print(seq_tib)
-print(cgn_tib)
+if (FALSE) {
+  print(ord_tib)
+  print(bsp_tib)
+  print(seq_tib)
+  print(cgn_tib)
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #
 # Ending the first of this script here and developing the second half in a 
-#   completely speparte script. This is due to some naming convention 
+#   completely separate script. This is due to some naming convention 
 #   updates. Its just easier to keep them separated!!!
 #
 #

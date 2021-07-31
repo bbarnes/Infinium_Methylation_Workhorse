@@ -79,7 +79,7 @@ bsp_mapping_workflow =
            des_key = "Ord_Des",
            din_key = "Ord_Din",
            
-           join_key="Prb_Key",  # Previously Aln_Key
+           join_key="Prb_Key",
            join_type="inner",
            
            sort   = TRUE, 
@@ -190,11 +190,14 @@ bsp_mapping_workflow =
       
       if (is.null(ref_fas) || !file.exists(ref_fas)) {
         ref_fas <- ref_tib %>%
-          dplyr::filter( Alphabet=="dna" & Strand_BSC=="N" & Strand_FR=="F") %>% 
-          head(n=1) %>% dplyr::pull(Path)
+          dplyr::filter( Genome_Alphabet=="dna" & 
+                           Genome_Strand_BSC=="N" & 
+                           Genome_Strand_FR=="F") %>% 
+          # head(n=1) %>% 
+          dplyr::pull(Path)
         
         if (is.null(ref_fas) || !file.exists(ref_fas)) {
-          cat(glue::glue("{RET}{mssg} ERROR: Failed to find ref_fas from ",
+          stop(glue::glue("{RET}{mssg} ERROR: Failed to find ref_fas from ",
                          "user input or reference genome tibble!{RETs}"))
           print(ref_tib)
           return(ret_tib)
@@ -224,15 +227,29 @@ bsp_mapping_workflow =
       #                      Probe Alignment:: BSMAP
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      ret_tib <- run_bsmap(ref_fas = ref_fas,
-                          can_fas = can_fas,
-                          out_dir=out_dir,
-                          bsp_exe=bsp_exe,
-                          sort=sort,
-                          light=light, 
-                          reload=reload,
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      
+      fas_len <- ref_fas %>% length()
+      cat(glue::glue("{mssg}{TAB}Fas Len={fas_len}{RET}"))
+      for (cur_fas in ref_fas) {
+        cat(glue::glue("{mssg}{TAB}Cur Ref Fas={cur_fas}{RET}"))
+                       
+        fas_out <- file.path(out_dir, base::basename(cur_fas) %>% 
+                               stringr::str_remove(".fa.gz$") )
+        
+        cat(glue::glue("{mssg}{TAB}Cur Out Dir={fas_out}{RET}"))
+
+        cur_tib <- NULL
+        cur_tib <- run_bsmap(ref_fas = cur_fas,
+                             can_fas = can_fas,
+                             out_dir = fas_out, # out_dir,
+                             bsp_exe = bsp_exe,
+                             sort = sort,
+                             light = light, 
+                             reload = reload,
+                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+        
+        ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
+        cat(glue::glue("{RET2}{tabs}{TAB}{BRK}{RET2}"))
+      }
       if (retData) ret_dat$bsp_raw <- ret_tib
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -266,9 +283,7 @@ bsp_mapping_workflow =
       # Multiple Hit Summmary::
       bsp_hit_sum <- ret_tib %>% 
         dplyr::group_by(Address) %>% 
-        dplyr::summarise(Count=n(), .groups="drop")
-      print(bsp_hit_sum)
-      bsp_hit_sum2 <- bsp_hit_sum %>%
+        dplyr::summarise(Count=n(), .groups="drop") %>%
         dplyr::group_by(Count) %>% 
         dplyr::summarise(His_Count=n(), .groups="drop")
       hit_key <- glue::glue("bsp_hit_sum({funcTag})")

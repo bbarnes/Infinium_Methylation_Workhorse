@@ -99,6 +99,168 @@ list.string.diff<-function(a="ATTCGA-",b="attTGTT",exclude=c("-","?"),ignore.cas
 
 if (FALSE) {
   
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                        Run Time Version Options:: 
+  #                       Platform, Genome Build, etc
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+  opt$run_name     <- NULL
+  opt$platform     <- NULL
+  opt$version      <- NULL
+  opt$genome_build <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       Run Time User Input Directories:: 
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opt$out_dir <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                        Run Time User Input Files:: 
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opt$ords <- NULL
+  opt$mats <- NULL
+  opt$aqps <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Run Time User Input Executable(s):: 
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opt$Rscript   <- NULL
+  opt$bsmap_opt <- NULL
+  opt$bsmap_exe <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                     Pre-defined Static Data Directories:: 
+  #            improbe, Annotation, Genomic, Manifest, Validation Idats
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opt$imp_dir  <- NULL
+  opt$ann_dir  <- NULL
+  opt$gen_dir  <- NULL
+  opt$man_dir  <- NULL
+  opt$idat_dir <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                  Pre-defined Static External File Options:: 
+  #                   Manifest, Controls, Design Coordinates
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opt$load_sesame_manfiest  <- FALSE
+  opt$sesame_manifest_csv   <- NULL
+  opt$genome_manifest_csv   <- NULL
+  opt$sesame_controls_csv   <- NULL
+  opt$genome_controlst_csv  <- NULL
+  opt$noob_controls_csv     <- NULL
+  opt$source_coordinate_csv <- NULL
+  opt$canonical_cgn_csv     <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                    Run Time File Options:: Time Stamps
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  opt$time_org_txt <- NULL
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                          Run Time Mode Options::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  opt$single    <- FALSE
+  opt$parallel  <- FALSE
+  opt$cluster   <- FALSE
+  opt$trackTime <- FALSE
+  opt$fresh     <- FALSE
+  opt$reload    <- FALSE
+  
+  opt$verbose   <- 3
+  
+
+  #
+  #
+  # Old Options Definitions::
+  #
+  #
+  
+  
+  # Executable::
+  opt$Rscript <- NULL
+  
+  # BSMAP Parameters::
+  opt$bsmap_opt <- "\"-s 10 -v 5 -n 1 -r 2 -V 2\""
+  opt$bsmap_opt <- "\"-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R\""
+  opt$bsmap_exe <- "/Users/bretbarnes/Documents/tools/programs/BSMAPz/bsmapz"
+  
+  # Run Parameters::
+  opt$run_name    <- NULL
+  
+  # Null Place Holders::
+  # opt$cpg_top_tsv <- NULL
+  # opt$cpg_pos_tsv <- NULL
+  # opt$cph_pos_tsv <- NULL
+  # opt$snp_pos_tsv <- NULL
+  # opt$ord_des_csv <- NULL
+  
+  # Directories::
+  opt$out_dir  <- NULL
+  opt$imp_dir  <- NULL
+  opt$ann_dir  <- NULL
+  opt$gen_dir  <- NULL
+  opt$man_dir  <- NULL
+  
+  # Manufacturing Files:: Required
+  opt$ords <- NULL
+  opt$mats <- NULL
+  opt$aqps <- NULL
+  
+  # Boolean Flag to load pre-defined Sesame manifest from Sesame source
+  opt$load_sesame_manfiest <- FALSE
+  
+  # Pre-defined manifest(s) to be re-built and/or added to new manifest::
+  opt$sesame_manifest_csv <- NULL
+  opt$genome_manifest_csv <- NULL
+  
+  # Pre-defined manifest control(s) to be added to new manifest::
+  opt$sesame_controls_csv <- NULL
+  opt$genome_controls_csv <- NULL
+  
+  # Pre-defined noob-masked control(s) to be added to new manifest::
+  opt$noob_controls_csv <- NULL
+  
+  # Validation existing idats directory to confirm Addresses against::
+  opt$idat_dir <- NULL
+  
+  # Original source design file used for canonical position selection.::
+  opt$source_coordinate_csv <- NULL
+  
+  # Validation existing idats directory to confirm Addresses against::
+  opt$canonical_cgn_csv <- NULL
+  
+  # Platform/Method Options::
+  opt$genome_build <- NULL
+  opt$platform <- NULL
+  opt$version  <- NULL
+  
+  # Run-time Files
+  opt$time_org_txt <- NULL
+  
+  # Process Parallel/Cluster Parameters::
+  opt$single   <- FALSE
+  opt$parallel <- TRUE
+  opt$cluster  <- FALSE
+  
+  # Run-time Options::
+  opt$trackTime    <- FALSE
+  opt$fresh  <- FALSE
+  opt$reload <- FALSE
+  
+  # verbose Options::
+  opt$verbose <- 3
+  
+  
+  
+  
+  
+  
   
   if (verbose>=vt) {
     cat(glue::glue("{mssg}{RET}{mssg}{BRK}{RET2}"))

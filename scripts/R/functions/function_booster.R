@@ -82,10 +82,11 @@ coerce_tib_to_tab = function(tib,
   ret_dat <- NULL
   dots <- list(...)
   
-  for (i in c(1:length(dots))) {
-    cat("i =",i,"\n")
+  tot <- length(dots)
+  for (i in c(1:tot)) {
+    cat(glue::glue("{mssg} ii={ii} out of {tot} list items...{RET}"))
     
-    ret_tib <- tib %>% dplyr::select(-dplyr::any_of(dots[[i]]))
+    new_tib <- tib %>% dplyr::select(-dplyr::any_of(dots[[i]]))
     ret_dat[[i]] <- ret_tib
 
     ret_key <- glue::glue("ret-FIN({funcTag})")
@@ -189,6 +190,7 @@ clean_tibble = function(tib,
     ret_tib <- tib %>%
       select(where(~sum(!is.na(.x)) > 0)) %>%
       utils::type.convert(as.is=TRUE) %>%
+      # readr::type_convert() %>%
       dplyr::mutate(across(where(is.factor), as.character) )
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
@@ -353,7 +355,7 @@ program_init = function(name,defs=NULL,
                        verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
   }
   
-  stopifnot(!is.null(opts[['outDir']]))
+  stopifnot(!is.null(opts[['out_dir']]))
   stopifnot(!is.null(pars[['prgmTag']]))
   stopifnot(!is.null(pars[['exePath']]))
   
@@ -384,27 +386,26 @@ program_init = function(name,defs=NULL,
   #                            Build Directories::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  # opts$outDir <- file.path(opts$outDir, pars$prgmDir, name)
-  opts$outDir <- file.path(opts$outDir, name)
-  if (!is.null(opts$runName)) opts$outDir <- file.path(opts$outDir, opts$runName)
-  if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
+  # opts$out_dir <- file.path(opts$out_dir, pars$prgmDir, name)
+  opts$out_dir <- file.path(opts$out_dir, name)
+  if (!is.null(opts$run_name)) opts$out_dir <- file.path(opts$out_dir, opts$run_name)
+  if (!dir.exists(opts$out_dir)) dir.create(opts$out_dir, recursive=TRUE)
   if (verbose>=vt)
-    cat(glue::glue("[{funcTag}]: Output Directory (TOP)={opts$outDir}...{RET}"))
+    cat(glue::glue("[{funcTag}]: Output Directory (TOP)={opts$out_dir}...{RET}"))
   
   if (!is.null(opts[['fresh']]) && opts$fresh)
-    unlink(list.files(opts$outDir, full.names=TRUE))
+    unlink(list.files(opts$out_dir, full.names=TRUE))
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                         Program Start Time Stamp::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  opts$time_org_txt <- file.path(opts$outDir,paste(name,'time_stamp-org.txt', sep='.'))
+  opts$time_org_txt <- file.path(opts$out_dir,paste(name,'time_stamp-org.txt', sep='.'))
   if (!file.exists(opts$time_org_txt) || (!is.null(opts[['fresh']]) && opts$fresh) )
     readr::write_lines(x=date(),file=opts$time_org_txt,sep='\n',append=FALSE)
   
-  opts$opt_csv  <- file.path(opts$outDir, paste(pars$prgmTag,'program-options.csv', sep='.') )
-  opts$par_csv  <- file.path(opts$outDir, paste(pars$prgmTag,'program-parameters.csv', sep='.') )
-  opts$time_csv <- file.path(opts$outDir, paste(pars$prgmTag,'time-tracker.csv.gz', sep='.') )
-  
+  opts$opt_csv  <- file.path(opts$out_dir, paste(pars$prgmTag,'program-options.csv', sep='.') )
+  opts$par_csv  <- file.path(opts$out_dir, paste(pars$prgmTag,'program-parameters.csv', sep='.') )
+  opts$time_csv <- file.path(opts$out_dir, paste(pars$prgmTag,'time-tracker.csv.gz', sep='.') )
   if (file.exists(opts$opt_csv))  unlink(opts$opt_csv)
   if (file.exists(opts$par_csv))  unlink(opts$par_csv)
   if (file.exists(opts$time_csv)) unlink(opts$time_csv)
@@ -415,7 +416,7 @@ program_init = function(name,defs=NULL,
   if (pars$prgmTag==name) cmd_shell_name <- name
   
   pars$cmd_shell <- 
-    file.path(opts$outDir,paste(cmd_shell_name,'command.sh', sep='.'))
+    file.path(opts$out_dir,paste(cmd_shell_name,'command.sh', sep='.'))
   pars$cmd_str <- 
     optsToCommand(opts=opt_tib, pre=opts$Rscript,exe=pars$exePath, 
                   file=pars$cmd_shell, 
@@ -432,7 +433,7 @@ program_init = function(name,defs=NULL,
   opts
 }
 
-program_done = function(opts,pars,
+program_done = function(opts, pars,
                         verbose=0,vt=3,tc=1,tt,
                         funcTag='program_done') {
   
@@ -615,7 +616,7 @@ valid_time_stamp = function(files,
 
 # This function is out of date replacing with simpler function above::
 #  valid_time_stamp()
-check_timeStamps = function(name,outDir,origin=NULL,files,
+check_timeStamps = function(name,out_dir,origin=NULL,files,
                             verbose=0,vt=3,tc=1,tt=NULL,
                             funcTag='check_timeStamps') {
   
@@ -630,9 +631,9 @@ check_timeStamps = function(name,outDir,origin=NULL,files,
   end_txt <- NULL
   isValid <- TRUE
   stime <- system.time({
-    if (!dir.exists(outDir)) dir.create(outDir, recursive=TRUE)
-    beg_txt <- file.path(outDir,paste(name,'time-stamp-beg.txt', sep='.') )
-    end_txt <- file.path(outDir,paste(name,'time-stamp-end.txt', sep='.') )
+    if (!dir.exists(out_dir)) dir.create(out_dir, recursive=TRUE)
+    beg_txt <- file.path(out_dir,paste(name,'time-stamp-beg.txt', sep='.') )
+    end_txt <- file.path(out_dir,paste(name,'time-stamp-end.txt', sep='.') )
     
     ret_tib <- tibble::tibble(
       valid=isValid,
@@ -871,8 +872,14 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL,
 #                          File Searching Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-get_file_list = function(dir, pattern, trim=NULL,
-                         max=0, recursive=FALSE, 
+get_file_list = function(dir       = NULL,
+                         pattern   = NULL,
+                         recursive = FALSE, 
+                         files     = NULL,
+                         trim      = NULL,
+                         max = 0,
+                         del = COM,
+                         
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='get_file_list') {
   
@@ -883,10 +890,26 @@ get_file_list = function(dir, pattern, trim=NULL,
   
   ret_cnt <- 0
   ret_tib <- NULL
+  
+  if (!is.null(dir) && !is.null(pattern) && !is.null(files)) {
+    stop(glue::glue("{RET}{mssg} ERROR: Not all three dir,pattern and ",
+                    "files can be NULL!{RET2}"))
+    return(ret_tib)
+  }
+  if (is.null(files) & (is.null(dir) || is.null(pattern))) {
+    stop(glue::glue("{RET}{mssg} ERROR: If files is NULL then dir and pattern ",
+                    "can NOT be NULL!{RET2}"))
+    return(ret_tib)
+  }
+  
   stime <- base::system.time({
     
-    file_vec <- list.files(dir, pattern=pattern, full.names=TRUE, 
-                           recursive=recursive)
+    if (!is.null(files)) {
+      file_vec <- splitStrToVec(files, del = del)
+    } else {
+      file_vec <- list.files(dir, pattern=pattern, full.names=TRUE, 
+                             recursive=recursive)
+    }
     name_vec <- file_vec %>% base::basename()
     
     if (!is.null(trim)) {
@@ -901,8 +924,7 @@ get_file_list = function(dir, pattern, trim=NULL,
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
   if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{tabs}{BRK}{RET2}"))
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
   
   ret_tib
 }
@@ -1182,8 +1204,13 @@ safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,
   ret_tib
 }
 
-safe_write = function(x, type=NULL, file=NULL, 
-                      cols=TRUE, append=FALSE, done=FALSE,
+safe_write = function(x, 
+                      type   = NULL,
+                      file   = NULL,
+                      cols   = TRUE,
+                      append = FALSE,
+                      done   = FALSE,
+                      
                       verbose=0,vt=5,tc=1,tt=NULL,
                       funcTag="safe_write") {
   # If file is provided, usually in the case where the user didn't want 
@@ -1336,5 +1363,111 @@ as.num = function(x, na.strings = "NA") {
   # x[na] = NA_real_
   x
 }
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Estimate Object/Files Sizes::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+size.write.table <- function(x,...) {
+  x <- as.data.frame(x); ## write.table() coerces to data.frame
+  args <- list(...);
+  defaults <- formals(write.table);
+  ## get write specs as locals
+  for (name in names(defaults)[-1])
+    assign(name,if (is.null(args[[name]])) defaults[[name]] else args[[name]]);
+  ## normalize quote arg to logical, quoteIndexes as columns to quote
+  ## note: regardless of qmethod, does not touch characters other than double-quote, and only adds one byte per embedded double-quote for either qmethod
+  quoteIndexesGiven <- F; ## assumption
+  if (is.logical(quote) && quote) {
+    quoteIndexes <- seq_along(x);
+  } else if (is.numeric(quote)) {
+    quoteIndexes <- quote;
+    quote <- T;
+    quoteIndexesGiven <- T;
+  }; ## end if
+  ## normalize col.names arg to logical T/F, colNames as actual column names
+  emptyColNameForRowNames <- F; ## assumption
+  if (is.logical(col.names)) {
+    if (is.na(col.names)) {
+      emptyColNameForRowNames <- T;
+      col.names <- T;
+    }; ## end if
+    if (col.names) colNames <- names(x);
+  } else {
+    colNames <- as.character(col.names);
+    col.names <- T;
+  }; ## end if
+  ## normalize row.names arg to logical, rowNames as actual row names
+  if (is.logical(row.names)) {
+    if (row.names) rowNames <- rownames(x);
+  } else {
+    rowNames <- as.character(row.names);
+    row.names <- T;
+  }; ## end if (else must be F)
+  ## start building up file size
+  size <- 0L;
+  ## 1: column header
+  if (col.names) {
+    ## special case for zero columns: write.table() behaves as if there's one empty-string column name, weirdly
+    if (ncol(x)==0L) {
+      if (quote) size <- size + 2L;
+    } else {
+      if (emptyColNameForRowNames) {
+        if (quote) size <- size + 2L; ## two double-quotes
+        size <- size + nchar(sep,'bytes'); ## separator
+      }; ## end if
+      size <- size + sum(nchar(colNames,'bytes')); ## names (note: NA works with this; nchar() returns 2)
+      if (quote) size <- size + ncol(x)*2L + sum(do.call(c,gregexpr(perl=T,'"',colNames[quoteIndexes]))>0L); ## quotes and escapes
+      size <- size + nchar(sep,'bytes')*(ncol(x)-1L); ## separators
+    }; ## end if
+    size <- size + nchar(eol,'bytes'); ## eol; applies to both zero-columns special case and otherwise
+  }; ## end if
+  ## 2: row names
+  if (row.names) {
+    ## note: missing values are not allowed in row names
+    size <- size + sum(nchar(rowNames,'bytes')); ## names
+    size <- size + nchar(sep,'bytes')*nrow(x); ## separator (note: always present after row names, even for zero-column data.frame)
+    if (quote) size <- size + nrow(x)*2L + sum(do.call(c,gregexpr(perl=T,'"',rowNames))>0L); ## quotes and escapes (can ignore quoteIndexes, since row names are always quoted if any column is quoted)
+  }; ## end if
+  ## 3: column content
+  for (ci in seq_along(x)) {
+    ## calc depends on class
+    cl <- class(x[[ci]]);
+    ## normalize date/time classes
+    if (identical(cl,c('POSIXct','POSIXt')) || identical(cl,c('POSIXlt','POSIXt')))
+      cl <- 'POSIXt';
+    ## branch on normalized class
+    ## note: can't write list type to file, so don't bother supporting list columns
+    if (length(cl)==1L && cl=='raw') {
+      size <- size + nrow(x)*2L;
+      ## note: cannot have raw NAs
+    } else { ## remaining types can have NAs
+      size <- size + sum(is.na(x[[ci]]))*nchar(na,'bytes'); ## NAs
+      if (length(cl)==1L && cl=='logical') {
+        size <- size + sum((5:4)[na.omit(x[[ci]])+1L]); ## non-NAs
+      } else if (length(cl)==1L && cl%in%c('integer','numeric','complex','ts')) {
+        size <- size + sum(nchar(as.character(na.omit(x[[ci]])),'bytes')); ## non-NAs
+      } else if (length(cl)==1L && cl%in%c('character','factor')) {
+        size <- size + sum(nchar(as.character(na.omit(x[[ci]])),'bytes')); ## non-NAs, values -- as.character() required for factors to work
+        if (quote && ci%in%quoteIndexes) size <- size + sum(!is.na(x[[ci]]))*2L + sum(do.call(c,gregexpr(perl=T,'"',na.omit(x[[ci]])))>0L); ## quotes and escapes
+      } else if (length(cl)==1L && cl=='POSIXt') {
+        size <- size + sum(nchar(as.character(na.omit(x[[ci]])),'bytes')); ## non-NAs
+        ## special case for POSIXt: only quoted if explicitly specified by index in quote arg
+        if (quoteIndexesGiven && ci%in%quoteIndexes) size <- size + sum(!is.na(x[[ci]]))*2L; ## quotes (can't be any escapes)
+      } else {
+        stop(sprintf('unsupported class(es) %s.',paste(collapse=',',cl)));
+      }; ## end if
+    }; ## end if
+  }; ## end for
+  ## 4: separators between columns
+  size <- size + nchar(sep,'bytes')*(ncol(x)-1L)*nrow(x);
+  ## 5: eols
+  size <- size + nchar(eol,'bytes')*nrow(x);
+  size;
+}; ## end size.write.table()
+## note: documentation should say "col.names to NA if row.names = TRUE (the default) or given as a character vector" for csv functions
+size.write.csv <- function(x,...) do.call(size.write.table,c(list(x),sep=',',dec='.',qmethod='double',col.names={ row.names <- list(...)$row.names; if (!identical(F,row.names)) NA else T; },list(...)));
+size.write.csv2 <- function(x,...) do.call(size.write.table,c(list(x),sep=';',dec=',',qmethod='double',col.names={ row.names <- list(...)$row.names; if (!identical(F,row.names)) NA else T; },list(...)));
+
 
 # End of file

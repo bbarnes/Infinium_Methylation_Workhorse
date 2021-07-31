@@ -165,7 +165,48 @@ load_imGenomes_table = function(dir, genome_build, ret_list = TRUE,
       ) %>% dplyr::arrange(Genome_Alphabet_Int,
                            Genome_Strand_BSC_Int,
                            Genome_Strand_CO_Int,
-                           Genome_Strand_FR_Int)
+                           Genome_Strand_FR_Int) %>%
+      dplyr::mutate(Molecule_Type="Whole_Genome")
+    
+    chr_tib <- NULL
+    chr_dir <- NULL
+    chr_dir <- file.path(dir, genome_build,"Sequence/Chromosomes")
+    if (!is.null(chr_dir) && dir.exists(chr_dir)) {
+      cat(glue::glue("{mssg} Will load individual chromosomes={chr_dir}...{RET}"))
+      chr_pattern <- paste0(".fa.gz$")
+
+      fas_list <- list.files(chr_dir, pattern=chr_pattern, full.names=TRUE)
+      fas_count <- fas_list %>% length()
+      
+      chr_tib <- fas_list %>% 
+        tibble::as_tibble() %>% 
+        purrr::set_names(c("Path")) %>%
+        dplyr::mutate(Base_Name=base::basename(Path) %>% 
+                        stringr::str_remove(".fa.gz$")) %>% 
+        dplyr::rename(Chromosome=Base_Name) %>%
+        dplyr::mutate(Genome_Version=opt$genome_build,
+                      Genome_Source="NCBI",
+                      Genome_Alphabet="dna",Genome_Key="FCN_dna",
+                      Genome_Strand_FR="F", Genome_Strand_CO="CO",
+                      Genome_Strand_BSC="N",Molecule_Type="Chrom")
+      
+      chr_tib <- chr_tib %>%
+        dplyr::mutate(
+
+          Chr_Str_Len=Chromosome %>% stringr::str_remove("^chr") %>% stringr::str_remove("^[0-9XYM]+") %>% stringr::str_length(),
+          Is_Full_Chromosome=dplyr::case_when(
+            Chr_Str_Len==0 ~ TRUE,
+            TRUE ~ FALSE),
+            Molecule_Type=dplyr::case_when(
+              Chr_Str_Len>0 ~ "Partial_Chrom",
+              TRUE ~ "Whole_Chrom")
+          )
+
+      cat(glue::glue("{mssg} Found {fas_count} Fasta File(s)={RET}"))
+      print(fas_list)
+    }
+    
+    ret_tib <- dplyr::bind_rows(ret_tib, chr_tib)
     
     if (ret_list) ret_dat <- ret_tib %>% split(f=ret_tib$Genome_Key)
     

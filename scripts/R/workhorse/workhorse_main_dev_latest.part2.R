@@ -327,7 +327,7 @@ if (args.dat[1]=='RStudio') {
   } else if (par$local_runType=='McMaster10Kselection') {
     opt$genome_build <- 'GRCh37'
     opt$platform <- 'MCM'
-    opt$version  <- 'v2'
+    opt$version  <- 'v2.5'
     opt$Species  <- "Human"
     
     par$aqpDir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2")
@@ -849,13 +849,22 @@ error_ledgar <- NULL
 #   from CSV files!!!
 #
 #
-bsp_csv <- list.files(file.path(opt$outDir, "bsp_mapping_workflow"), pattern="GRCh37.bsp_mapping_workflow.csv.gz$", full.names = TRUE)
+bsp_dir <- file.path(opt$outDir, "../McMaster10Kselection-MCM-v2-GRCh37")
+bsp_csv <- list.files(file.path(bsp_dir, "bsp_mapping_workflow"), pattern="GRCh37.bsp_mapping_workflow.csv.gz$", full.names = TRUE)
 bsp_tib <- safe_read(bsp_csv)
 
-print(ord_tib)
+imp_tsv <- file.path(
+  par$topDir,"scratch/workhorse_main_dev_latest/McMaster10Kselection-MCM-v2.5-GRCh37",
+  "c_improbe_workflow/McMaster10Kselection-MCM-v2.5-GRCh37-FCN_dna.c_improbe_workflow.improbe-designOutput.tsv.gz")
+imp_tib <- readr::read_tsv(imp_tsv)
+
+large_tsv <- "/Users/bretbarnes/Documents/data/improbe/scratch/cgnDB/dbSNP_Core4/design-input/min/GRCh37.cgn.min.txt.gz"
+large_tib <- 
+
+# print(ord_tib)
 print(bsp_tib)
-print(seq_tib)
-print(cgn_tib)
+# print(seq_tib)
+# print(cgn_tib)
 
 #
 # Build individual parts of the template sequence:: 
@@ -938,6 +947,11 @@ run$bsp_cos_key <- "Bsp_CO"
 run$bsp_tbs_key <- "Bsp_TB"
 run$bsp_chr_key <- "Bsp_Chr"
 run$bsp_pos_key <- "Bsp_Pos"
+
+run$imp_chr_key <- "Chromosome"
+run$imp_pos_key <- "Coordinate"
+run$imp_level   <- 3
+run$call_inf    <- TRUE
 
 run$des_srd_key <- "Srd_Key"
 run$tmp_tbs_key <- "Temp_Strand_TB"
@@ -1143,6 +1157,16 @@ for (imGenome in imGenome_tib$Genome_Key) {
                         sep='', remove=FALSE ) %>%
           dplyr::select( dplyr::all_of( fwd_top_cols ), dplyr::everything() )
         
+        # Warning message caused by topBot code::
+        #
+        # Warning message:
+        #   The `x` argument of `as_tibble.matrix()` must have unique 
+        #     column names if `.name_repair` is omitted as of tibble 2.0.0.
+        # Using compatibility `.name_repair`.
+        # This warning is displayed once every 8 hours.
+        # Call `lifecycle::last_warnings()` to see where this warning was 
+        #   generated. 
+        #
         
         # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
         #
@@ -1190,9 +1214,50 @@ for (imGenome in imGenome_tib$Genome_Key) {
         #   dplyr::select(-dplyr::starts_with("Genome_Strand") ) %>% 
         #   dplyr::filter(Strand_CO==Bsp_CO & Strand_Ref_FR==Bsp_FR)
         
+        # This one makes sense!!!!!
+        #
+            # c_imp_tib %>% 
+            #   dplyr::filter(Inf_Type==1) %>% 
+            #   dplyr::mutate(Scr_M=as.character(Scr_M), 
+            #                 Scr_U=as.character(Scr_U)) %>% 
+            #   dplyr::select(Seq_ID, Chromosome, Coordinate,
+            #                 Probe_Seq_U,Probe_Seq_M,
+            #                 Scr_U,Scr_M,
+            #                 Imp_U49, Imp_M49) %>% 
+            #   dplyr::rename(Probe_U=Probe_Seq_U, 
+            #                 Probe_M=Probe_Seq_M) %>% 
+            #   tidyr::pivot_longer(cols = c("Probe_U","Probe_M"), 
+            #                       names_to = c("MUD"), 
+            #                       values_to="Probes", 
+            #                       names_prefix = "Probe_") %>%
+            #   tidyr::pivot_longer(cols = c("Scr_U","Scr_M"), 
+            #                       names_to = c("MUD1"),
+            #                       values_to = "Scores") %>%
+            #   tidyr::pivot_longer(cols = c("Imp_U49","Imp_M49"), 
+            #                       names_to = c("MUD2"),
+            #                       values_to="Probes_Aln49")
+            # 
+        
+        #
+        # - Generalized Comparison Method
+        # - build all s_improbe & r_improbe
+        # - Gneralized Summary Stats (alignment, nxt/ext base, SNPs, color balance)
+        # - Implement name prefix optimization cg -> mu, etc.
+        # - Support singletons (unpaired reads)
+        # - Support swifthoof annotation coverage summary files
+        # - Look into Minfi support
+        # - VCF Output???
+        #
+        
         if (run$c_improbe) {
           
-          # TBD:: Validate that the Top Sequence Calcualtions are the same!
+          run$re_load <- FALSE
+          
+          # TBD:: Validate that the Top Sequence Calculations are the same!
+          #
+          # TBD:: Option to return a table rather than tibble, i.e. one probe
+          #   per line!
+          #
           
           c_imp_tib <- NULL
           c_imp_tib <- top_template_tib %>% 
@@ -1204,14 +1269,18 @@ for (imGenome in imGenome_tib$Genome_Key) {
                                
                                ids_key = run$ord_ids_key,
                                fwd_seq = run$tmp_fwd_seq,                              
-                               pos_key = run$bsp_pos_key,
-                               chr_key = run$bsp_chr_key,
+                               pos_key = run$imp_pos_key,  # run$bsp_pos_key,
+                               chr_key = run$imp_chr_key,  # run$bsp_chr_key,
                                
                                doc_image = run$doc_image,
                                doc_shell = run$doc_shell,
                                
-                               outlevel = run$imp_level,
-                               add_inf  = run$add_inf,
+                                                         # Flag to tell the prg
+                                                         #  to make an Infinium 
+                                                         #  I/II call based on 
+                               call_inf = run$call_inf,  #  scores/cpg-counts
+                               
+                               outlevel = run$imp_level, # Output verbosity level
                                
                                re_join  = run$rejoin,
                                new_join = run$join_new_vec,
