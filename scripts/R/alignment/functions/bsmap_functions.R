@@ -64,15 +64,14 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 bsp_mapping_workflow = 
-  function(ref_fas, 
+  function(ref_fas = NULL, 
            ref_tib = NULL,
+           
            can_fas = NULL,
-           can_tib = NULL,
-           seq_tib = NULL,
+           can_tib,
            
            cgn_src = NULL,
-           canonical = NULL,
-           
+
            ids_key = "Prb_Key",
            unq_key = "Unq_Key",
            prb_key = "Prb_Seq",
@@ -118,6 +117,10 @@ bsp_mapping_workflow =
     }
     out_dir <- base::dirname(out_csv)
     
+    can_fas <- out_csv %>%
+      stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
+      paste("bsp-probes.fa.gz", sep=sep_chr)
+    
     bsp_hit_csv <- out_csv %>% 
       stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
       paste("bsp-alignment-histogram.csv.gz", sep=sep_chr)
@@ -138,7 +141,6 @@ bsp_mapping_workflow =
       cat(glue::glue("{mssg}          out_csv={out_csv}.{RET}"))
       cat(glue::glue("{mssg}      bsp_hit_csv={bsp_hit_csv}.{RET}"))
       cat(glue::glue("{mssg}      top_hit_csv={top_hit_csv}.{RET}"))
-      cat(glue::glue("{mssg}    canonical={canonical}.{RET}"))
       cat(glue::glue("{RET}"))
       
       cat(glue::glue("{mssg} BSMAP Parameters::{RET}"))
@@ -169,86 +171,72 @@ bsp_mapping_workflow =
     ret_tib <- NULL
     ret_dat <- NULL
     
-    if (!is.null(ref_fas) && !is.null(ref_tib)) {
-      cat(glue::glue("{RET}{mssg} Both ref_fas AND ref_tib can NOT be NULL!{RETs}"))
+    if (is.null(ref_fas) && is.null(ref_tib)) {
+      cat(glue::glue("{RET}{mssg} Both ref_fas AND ref_tib can NOT be NULL!{RET2}"))
       return(ret_tib)
     }
     
-    if (!is.null(can_fas) && !is.null(can_tib)) {
-      cat(glue::glue("{RET}{mssg} Both can_fas AND can_tib can NOT be NULL!{RETs}"))
+    if (is.null(can_fas) && is.null(can_tib)) {
+      cat(glue::glue("{RET}{mssg} Both can_fas AND can_tib can NOT be NULL!{RET2}"))
       return(ret_tib)
     }
     
     stime <- base::system.time({
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                    Pre-processing:: Write FASTA if Needed
+      #                        Pre-processing BSMAP Inputs:: 
+      #                       Reference/Candidate Fasta Files
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      ids_sym <- rlang::sym(ids_key)
-      prb_sym <- rlang::sym(prb_key)
+      ref_tib <- format_reference_bsmap(fas = ref_fas,
+                                        tib = ref_tib,
+                                        
+                                        out_dir = out_dir,
+                                        bsc_key = "N", 
+                                        frs_key = "F", 
+                                        alphabet_key = "dna",
+                                        
+                                        verbose=verbose, vt=vt+1,tc=tc+1,tt=tt )
       
-      if (is.null(ref_fas) || !file.exists(ref_fas)) {
-        ref_fas <- ref_tib %>%
-          dplyr::filter( Genome_Alphabet=="dna" & 
-                           Genome_Strand_BSC=="N" & 
-                           Genome_Strand_FR=="F") %>% 
-          # head(n=1) %>% 
-          dplyr::pull(Path)
+      can_tib <- format_candidate_bsmap(fas = can_fas, 
+                                        tib = can_tib,
+                                        
+                                        ids_key = ids_key,
+                                        prb_key = prb_key,
+                                        aln_key = "Aln_Prb", 
+                                        rev_key = "Aln_Rev",
+                                        
+                                        verbose=verbose, vt=vt+1,tc=tc+1,tt=tt )
         
-        if (is.null(ref_fas) || !file.exists(ref_fas)) {
-          stop(glue::glue("{RET}{mssg} ERROR: Failed to find ref_fas from ",
-                         "user input or reference genome tibble!{RETs}"))
-          print(ref_tib)
-          return(ret_tib)
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #         Align Candidate Probes Against all Reference Fastas:: BSMAP
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      ref_cnt <- ref_tib %>% base::nrow()
+      if (verbose>=vt+2)
+        cat(glue::glue("{mssg} Will align candidate fasta={can_fas} against ",
+                       "{ref_cnt} reference fasta files...{RET}"))
+        
+      for (ref_idx in c(1:ref_cnt)) {
+        cur_ref_fas <- ref_tib$Path[ref_idx]
+        cur_out_dir <- ref_tib$Out_Dir[ref_idx]
+        
+        if (verbose>=vt+2) {
+          cat(glue::glue("{mssg}{TAB} Current Ref Fas = {cur_ref_fas}.{RET}"))
+          cat(glue::glue("{mssg}{TAB} Current Out Dir = {cur_out_dir}.{RET}"))
         }
-      }
-      
-      # Ensure we have Aln_Prb/Aln_Rev::
-      can_tib <- can_tib %>%
-        dplyr::mutate(Aln_Prb=deMs(!!prb_sym, uc=TRUE),
-                      Aln_Rev=revCmp(Aln_Prb) )
-      
-      if (is.null(can_fas) || !file.exists(can_fas)) {
-        fas_vec <- can_tib %>%
-          dplyr::mutate( fas_line=paste0(">",!!ids_sym,"\n",Aln_Prb) ) %>%
-          dplyr::pull(fas_line)
         
-        can_fas <- out_csv %>% 
-          stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
-          paste("fa.gz", sep=sep_chr)
-        
-        safe_write(x=fas_vec, type="line", file=can_fas, funcTag=funcTag,
-                   verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-        
-      }
-      
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      #                      Probe Alignment:: BSMAP
-      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-      
-      fas_len <- ref_fas %>% length()
-      cat(glue::glue("{mssg}{TAB}Fas Len={fas_len}{RET}"))
-      for (cur_fas in ref_fas) {
-        cat(glue::glue("{mssg}{TAB}Cur Ref Fas={cur_fas}{RET}"))
-                       
-        fas_out <- file.path(out_dir, base::basename(cur_fas) %>% 
-                               stringr::str_remove(".fa.gz$") )
-        
-        cat(glue::glue("{mssg}{TAB}Cur Out Dir={fas_out}{RET}"))
-
         cur_tib <- NULL
-        cur_tib <- run_bsmap(ref_fas = cur_fas,
+        cur_tib <- run_bsmap(ref_fas = cur_ref_fas,
                              can_fas = can_fas,
-                             out_dir = fas_out, # out_dir,
+                             out_dir = cur_out_dir,
                              bsp_exe = bsp_exe,
                              sort = sort,
                              light = light, 
                              reload = reload,
-                             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                             verbose=verbose, vt=vt+1,tc=tc+1,tt=tt )
         
         ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
-        cat(glue::glue("{RET2}{tabs}{TAB}{BRK}{RET2}"))
       }
       if (retData) ret_dat$bsp_raw <- ret_tib
       
@@ -272,7 +260,7 @@ bsp_mapping_workflow =
                             sort = sort,
                             full = full,
                             
-                            verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                            verbose=verbose, vt=vt+1,tc=tc+1,tt=tt )
       
       if (retData) ret_dat$bsp_join <- ret_tib
 
@@ -280,7 +268,7 @@ bsp_mapping_workflow =
       #                           Alignment Summary::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      # Multiple Hit Summmary::
+      # Multiple Hit Summary::
       bsp_hit_sum <- ret_tib %>% 
         dplyr::group_by(Address) %>% 
         dplyr::summarise(Count=n(), .groups="drop") %>%
@@ -289,7 +277,7 @@ bsp_mapping_workflow =
       hit_key <- glue::glue("bsp_hit_sum({funcTag})")
       hit_cnt <- print_tib(bsp_hit_sum, funcTag, verbose,vt=vt+4,tc=tc+1, n=hit_key)
       
-      # Top Ranked Offfenders::
+      # Top Ranked Offenders::
       top_hit_sum <- ret_tib %>% 
         dplyr::group_by(Address) %>% 
         dplyr::summarise(Count=n(), .groups="drop") %>%
@@ -323,6 +311,158 @@ bsp_mapping_workflow =
     
     ret_tib
   }
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Pre-processing BSMAP Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+format_reference_bsmap = function(fas = NULL,
+                                  tib = NULL,
+                                  
+                                  out_dir,
+                                  bsc_key = "N",
+                                  frs_key = "F",
+                                  alphabet_key = "dna",
+                                  
+                                  verbose=0, vt=3,tc=1,tt=NULL,
+                                  funcTag='format_reference_bsmap') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}            fas = {fas}.{RET}"))
+    cat(glue::glue("{mssg}        bsc_key = {bsc_key}.{RET}"))
+    cat(glue::glue("{mssg}        frs_key = {frs_key}.{RET}"))
+    cat(glue::glue("{mssg}   alphabet_key = {alphabet_key}.{RET}"))
+    # if (verbose>=vt+4) {
+    #   cat(glue::glue("{RET}"))
+    #   cat(glue::glue("{mssg}   tib = {tib}.{RET}"))
+    # }
+    cat(glue::glue("{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    if (!is.null(fas) && file.exists(fas)) {
+      ret_tib <- tibble::tibble(
+        Path=fas,
+        Genome_Base_Name = base::basename(Path) %>% 
+          stringr::str_remove(".fa.gz"),
+        Genome_Version = "Unknown",
+        Molecule_Type  = "Whole_Genome",
+        Out_Dir = file.path(
+          out_dir,
+          Genome_Version,
+          Molecule_Type,
+          Genome_Base_Name) 
+      )
+    }
+    
+    if (!is.null(tib)) {
+      ret_tib <- tib %>%
+        dplyr::filter( 
+          Genome_Alphabet==alphabet_key & 
+            Genome_Strand_BSC == bsc_key & 
+            Genome_Strand_FR  == frs_key) %>%
+        dplyr::mutate(
+          Out_Dir=file.path(
+            out_dir,
+            Genome_Version,
+            Molecule_Type,
+            Genome_Base_Name)
+        ) %>% dplyr::bind_rows(ret_tib)
+    }
+    
+    # Validate that each fasta path exists::
+    for (cur_fas in ret_tib$Path) {
+      if (is.null(cur_fas) || !file.exists(cur_fas)) {
+        stop(glue::glue("{RET}{mssg} ERROR: Failed to find fasta={cur_fas}! ",
+                        "user input or reference genome tibble!{RET2}"))
+        print(ret_tib)
+        return(NULL)
+      }
+    }
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_tib
+}
+
+format_candidate_bsmap = function(fas,
+                                  tib,
+                                  
+                                  ids_key,
+                                  prb_key,
+                                  aln_key,
+                                  rev_key,
+                                  
+                                  verbose=0, vt=3,tc=1,tt=NULL,
+                                  funcTag='format_candidate_bsmap') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}       fas = {fas}.{RET}"))
+    cat(glue::glue("{mssg}   ids_key = {ids_key}.{RET}"))
+    cat(glue::glue("{mssg}   prb_key = {prb_key}.{RET}"))
+    cat(glue::glue("{mssg}   aln_key = {aln_key}.{RET}"))
+    cat(glue::glue("{mssg}   rev_key = {rev_key}.{RET}"))
+    # if (verbose>=vt+4) {
+    #   cat(glue::glue("{RET}"))
+    #   cat(glue::glue("{mssg}   tib = {tib}.{RET}"))
+    # }
+    cat(glue::glue("{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    ids_sym <- rlang::sym(ids_key)
+    prb_sym <- rlang::sym(prb_key)
+    aln_sym <- rlang::sym(aln_key)
+    rev_sym <- rlang::sym(rev_key)
+    
+    # Ensure we have Aln_Prb/Aln_Rev::
+    ret_tib <- tib %>%
+      dplyr::mutate(!!aln_sym := deMs(!!prb_sym, uc=TRUE),
+                    !!rev_sym := revCmp(!!aln_sym) )
+    
+    fas_vec <- ret_tib %>%
+      dplyr::mutate( fas_line=paste0(">",!!ids_sym,"\n", !!aln_sym) ) %>%
+      dplyr::pull(fas_line)
+    
+    safe_write(x=fas_vec, type="line", file=fas,
+               funcTag=funcTag, done = TRUE,
+               verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_tib
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Execute BSMAP Methods::

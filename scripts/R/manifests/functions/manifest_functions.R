@@ -59,6 +59,102 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Manifest Comparison Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+manifest_column_agreement = function(a, b, source_a, source_b,
+                                     
+                                     join_cols = c("Probe_ID","Prb_Des","Prb_Din"),
+                                     
+                                     verbose=0,vt=3,tc=1,tt=NULL,
+                                     funcTag='manifest_column_agreement') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}    source_a={source_a}.{RET}"))
+    cat(glue::glue("{mssg}    source_b={source_b}.{RET}"))
+    cat(glue::glue("{mssg}   join_cols={join_cols}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    int_cols <- 
+      intersect( names(a), names(b) )
+    
+    dif_cols <-
+      setdiff( names(a), names(b) )
+    join_cols <- intersect(join_cols, int_cols)
+    
+    if (verbose>=vt) {
+      cat(glue::glue("{mssg} SetDiff Columns::{RET}"))
+      cat(glue::glue("{mssg}   dif_cols={dif_cols}.{RET}"))
+      cat(glue::glue("{RET}"))
+      cat(glue::glue("{mssg} Intersect Columns::{RET}"))
+      cat(glue::glue("{mssg}   dif_cols={dif_cols}.{RET}"))
+      cat(glue::glue("{RET}"))
+    }
+    
+    int_tibs <- dplyr::inner_join(
+      a %>% dplyr::select(dplyr::all_of(int_cols)),
+      b %>% dplyr::select(dplyr::all_of(int_cols)),
+      by=join_cols,
+      suffix=c("_a","_b")
+    )
+    int_key <- glue::glue("int-tib({funcTag})")
+    int_cnt <- print_tib(int_tibs,funcTag, verbose,vt=vt+4,tc=tc+1, n=int_key)
+
+    ret_tib <- NULL
+    for (col_key in int_cols) {
+      if (col_key %in% join_cols) next
+      
+      if (verbose>=vt+1)
+        cat(glue::glue("{mssg} Comparing column = {col_key}...{RET}"))
+      
+      colA_key <- paste0(col_key,"_a")
+      colB_key <- paste0(col_key,"_b")
+      
+      colA_sym <- rlang::sym(colA_key)
+      colB_sym <- rlang::sym(colB_key)
+      
+      cur_tib <- int_tibs %>% 
+        dplyr::select(dplyr::all_of( c(colA_key,colB_key) ) ) %>%
+        dplyr::summarise(
+          Mat_Cnt=sum(!!colA_sym == !!colB_sym, na.rm = TRUE),
+          Mis_Cnt=sum(!!colA_sym != !!colB_sym, na.rm = TRUE),
+          Total=sum(!is.na(!!colA_sym) & !is.na(!!colB_sym) ),
+          Mat_Per=round(100*Mat_Cnt/Total, 2),
+          Mis_Per=round(100*Mis_Cnt/Total, 2)
+        ) %>% 
+        dplyr::mutate(Column = col_key,
+                      Source_A = source_a,
+                      Source_B = source_b)
+      
+      cur_key <- glue::glue("cur-key({funcTag})")
+      cur_cnt <- print_tib(cur_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=cur_key)
+
+      ret_tib <- ret_tib %>% dplyr::bind_rows(cur_tib)
+    }
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Sesame Manifest IO Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -252,7 +348,10 @@ load_sesame_repo_address = function(
           Infinium_Design_Type=="I"  ~ 1,
           Infinium_Design_Type=="II" ~ 2,
           TRUE ~ NA_real_
-        ) %>% as.integer()
+        ) %>% as.integer(),
+        Color=dplyr::case_when(
+          Color=="Both" ~ NA_character_,
+          TRUE ~ Color)
       )  %>% dplyr::arrange(Probe_ID)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -305,12 +404,12 @@ load_genome_studio_address = function(
   ret_data       = FALSE,
   old_cols = c("IlmnID", "Name", 
                "AddressA_ID", "AlleleA_ProbeSeq", 
-               "AddressB_ID", "AlleleB_ProbeSeq",
+               "AddressB_ID", "AlleleB_ProbeSeq", "Next_Base",
                "Color_Channel", "CHR", "MAPINFO", "Strand"),
   new_cols = c("Probe_ID", "Prb_Cgn", 
                "Address_A", "Prb_Seq_A", "Address_B", "Prb_Seq_B",
-               "Color", "Chromosome", "Coordinate", "Strand_FR"),
-  non_ann_cols = c("Infinium_Design_Type", "Next_Base", "Forward_Sequence",
+               "Prb_Nxb", "Color", "Chromosome", "Coordinate", "Strand_FR"),
+  non_ann_cols = c("Infinium_Design_Type", "Forward_Sequence",
                    "Genome_Build", "SourceSeq"),
   
   verbose=0, vt=3,tc=1,tt=NULL,
@@ -471,7 +570,10 @@ load_genome_studio_address = function(
           stringr::str_remove("[A-Z]+$") %>%
           stringr::str_remove("^[^0-9]+") %>%
           stringr::str_remove("^0+") %>%
-          as.integer()
+          as.integer(),
+        Chromosome=Chromosome %>%
+          stringr::str_remove("^chr") %>%
+          paste0("chr",.)
       ) %>% dplyr::arrange(Probe_ID)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

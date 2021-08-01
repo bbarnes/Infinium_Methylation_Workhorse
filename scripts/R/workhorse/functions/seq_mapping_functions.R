@@ -61,7 +61,6 @@ template_func = function(tib,
   ret_tib
 }
 
-
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #         3.0 Intersect Sequences Address and improbe:: U49/M49

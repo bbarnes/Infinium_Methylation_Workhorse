@@ -82,6 +82,7 @@ aqp_mapping_workflow = function(ord_dat,
                                 des_key = "Ord_Des",
                                 din_key = "Ord_Din",
                                 ids_key = "Prb_Key",
+
                                 del = "_",
                                 
                                 out_csv = NULL,
@@ -223,7 +224,7 @@ aqp_mapping_workflow = function(ord_dat,
       dplyr::select(Address,Ord_Des,Ord_Din,Ord_Map,Ord_Prb,Ord_Par,
                     Ord_Key,Ord_Col,Ord_Idx,Mat_Idx,Aqp_Idx,Mat_Tan,
                     dplyr::everything())
-    
+
     prb_dup_cnt <- ret_tib %>% 
       dplyr::add_count(Address, name="Add_Cnt") %>% 
       dplyr::filter(Add_Cnt!=1) %>% base::nrow()
@@ -267,6 +268,125 @@ aqp_mapping_workflow = function(ord_dat,
   
   ret_tib
 }
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Input Parameter Validation::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+valid_dir_files = function(dir, csv, type,
+
+                           verbose=0,vt=6,tc=1,tt=NULL,
+                           funcTag='valid_dir_files') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  etime   <- 0
+  ret_cnt <- 0
+  ret_tib <- NULL
+  ret_vec <- NULL
+  
+  dir_vec <- splitStrToVec(dir)
+  csv_vec <- splitStrToVec(csv)
+  dir_len <- length(dir_vec)
+  csv_len <- length(csv_vec)
+  
+  if (dir_len != 1 && dir_len != csv_len) {
+    stop(glue::glue(
+      "{RET}{mssg} ERROR: Must provide either a single {type} directory that ",
+      "contains all {type} files, or provide an individual {type} directory ",
+      "for each {type} file. dir_len={dir_len}; csv_len={csv_len}.{RET}"))
+    return(ret_tib)
+  }
+  ret_vec <- paste(dir_vec, csv_vec, sep="/")
+  for (file in ret_vec) {
+    if (!file.exists(file)) {
+      cat(glue::glue("{RET}{mssg} ERROR: Failed to find {type} ",
+                     "file={file}! Please check your inputs.{RET2}"))
+      return(ret_tib)
+    }
+  }
+  ret_str <- paste(ret_vec, sep=",")
+
+  ret_str
+}
+
+valid_aqp_inputs = function(ord_dir, ord_csv,
+                            mat_dir, mat_tsv,
+                            aqp_dir, aqp_tsv,
+                            
+                            verbose=0,vt=3,tc=1,tt=NULL,
+                            funcTag='valid_aqp_inputs') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} File IO Parameters::{RET}"))
+    cat(glue::glue("{mssg}   ord_dir={ord_dir}.{RET}"))
+    cat(glue::glue("{mssg}   ord_csv={ord_csv}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}   mat_dir={mat_dir}.{RET}"))
+    cat(glue::glue("{mssg}   mat_tsv={mat_tsv}.{RET}"))
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg}   aqp_dir={aqp_dir}.{RET}"))
+    cat(glue::glue("{mssg}   aqp_tsv={aqp_tsv}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+
+  ret_dat <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                         Validate Order Files::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  type <- "order"
+  ord_str <- 
+    valid_dir_files(ord_dir, ord_csv, type, verbose=verbose, vt=vt+1,tc=tc+1)
+  
+  if (is.null(ord_str)) {
+    stop(glue::glue("{RET}{mssg} ERROR: Failed type={type}!{RET2}"))
+    return(ret_dat)
+  }
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                         Validate Match Files::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  type <- "match"
+  mat_str <- 
+    valid_dir_files(mat_dir, mat_tsv, type, verbose=verbose, vt=vt+1,tc=tc+1)
+  
+  if (is.null(mat_str)) {
+    stop(glue::glue("{RET}{mssg} ERROR: Failed type={type}!{RET2}"))
+    return(ret_dat)
+  }
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                        Validate AQP/PQC Files::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  type <- "AQP/PQC"
+  aqp_str <- 
+    valid_dir_files(aqp_dir, aqp_tsv, type, verbose=verbose, vt=vt+1,tc=tc+1)
+
+  if (is.null(aqp_str)) {
+    stop(glue::glue("{RET}{mssg} ERROR: Failed type={type}!{RET2}"))
+    return(ret_dat)
+  }
+  
+  ret_dat$ord_str <- ord_str
+  ret_dat$mat_str <- mat_str
+  ret_dat$aqp_str <- aqp_str
+  
+  return(ret_dat)
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                   Order, Match, AQP/PQC File IO Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 load_aqp_files = function(file,
                           verbose=0,vt=3,tc=1,tt=NULL,

@@ -51,7 +51,44 @@ genome_address_dat <-
                              ret_data       = FALSE,
                              verbose = opt$verbose+10, tt = pTracker)
 
+join_cols <- c("Probe_ID","Prb_Des","Prb_Din")
+int_cols <- 
+  intersect( names(genome_manifest_dat[[1]]), names(genome_manifest_dat[[2]]) )
 
+int_tibs <- dplyr::inner_join(
+  genome_manifest_dat[[1]] %>% dplyr::select(dplyr::all_of(int_cols)),
+  genome_manifest_dat[[2]] %>% dplyr::select(dplyr::all_of(int_cols)),
+  by=join_cols,
+  suffix=c("_a","_b")
+)
+
+cmp_tib <- NULL
+for (col_key in int_cols) {
+  if (col_key %in% join_cols) next
+  cat(glue::glue("col_key={col_key}.{RET}"))
+  
+  colA_key <- paste0(col_key,"_a")
+  colB_key <- paste0(col_key,"_b")
+  
+  colA_sym <- rlang::sym(colA_key)
+  colB_sym <- rlang::sym(colB_key)
+  
+  cur_tib <- int_tibs %>% 
+    dplyr::select(dplyr::all_of( c(colA_key,colB_key) ) ) %>%
+    dplyr::summarise(
+      Mat_Cnt=sum(!!colA_sym == !!colB_sym, na.rm = TRUE),
+      Mis_Cnt=sum(!!colA_sym != !!colB_sym, na.rm = TRUE),
+      # Mat_Cnt=sum(!!colA_key == !!colB_key),
+      # Mis_Cnt=sum(!!colA_key != !!colB_key), 
+      Total=sum(!is.na(!!colA_sym) & !is.na(!!colB_sym) ),
+      Mat_Per=round(100*Mat_Cnt/Total, 2),
+      Mis_Per=round(100*Mis_Cnt/Total, 2)
+    ) %>% dplyr::mutate(Column=col_key)
+  
+  cmp_tib %>% print()
+  
+  cmp_tib <- cmp_tib %>% dplyr::bind_rows(cur_tib)
+}
 
 #
 # Get Sesame Data::

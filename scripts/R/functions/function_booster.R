@@ -383,6 +383,22 @@ program_init = function(name,defs=NULL,
   if (opts$verbose>=1) par_tib %>% base::print(n=base::nrow(par_tib) )
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                       Set Common Defaults:: docker, etc.
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  if ( is.null(opts[["image_key"]]) )
+    opts$image_key <- "bbarnesimdocker/im_workhorse:Infinium_Methylation_Workhorse_Centos"
+  
+  if ( is.null(opts[["image_ver"]]) )
+    opts$image_ver <- "v.1.25"
+  
+  if ( is.null(opts[["doc_shell"]]) )
+    opts$doc_shell <- "run_improbe.sh"
+  
+  if ( is.null(opts[["doc_image"]]) )
+    opts$doc_image <- glue::glue("{opts$image_key}.{opts$image_ver}")
+
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                            Build Directories::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
@@ -823,6 +839,7 @@ optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL,
   # Merge Options::
   if (!is.null(opts)) {
     opt_str <- opts %>% dplyr::arrange(!!key) %>%
+      dplyr::mutate(!!val := paste0('"',!!val,'"')) %>%
       tidyr::unite(Param, !!key, !!val, sep='=') %>%
       dplyr::mutate(Param=stringr::str_c('--',Param)) %>% 
       dplyr::pull(Param) %>%
