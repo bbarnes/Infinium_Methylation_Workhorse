@@ -105,7 +105,7 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   opts$Rscript   <- NULL
-  opts$bsmap_opt <- NULL
+  opts$bsmap_opt <- "-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
   opts$bsmap_exe <- NULL
   opts$align_chroms <- FALSE
   
