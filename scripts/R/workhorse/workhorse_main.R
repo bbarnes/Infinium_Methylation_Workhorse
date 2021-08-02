@@ -37,7 +37,7 @@ par <- NULL  # List of static program parameters (NOT accessible to user)
 run <- NULL  # List of non-static run-time program parameters
 
 par$date    <- Sys.Date() %>% as.character()
-par$runMode <- ''
+par$run_mode <- ''
 par$maxTest <- NULL
 
 # Default local Mac/sd-isilon directories for ease of use::
@@ -47,205 +47,63 @@ par$lixDir1 <- '/illumina/scratch/darkmatter'
 par$lixDir  <- '/illumina/scratch/darkmatter'
 
 # Program Name Parameters::
-par$codeDir <- 'Infinium_Methylation_Workhorse'
-par$prgmDir <- 'workhorse'
-par$prgmTag <- 'workhorse_main_dev_latest'
-cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
+par$code_dir <- 'Infinium_Methylation_Workhorse'
+par$prgm_dir <- 'workhorse'
+par$prgm_tag <- 'workhorse_main'
+cat(glue::glue("[{par$prgm_tag}]: Starting; {par$prgm_tag}.{RET2}"))
 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        Run Time Version Options:: 
-#                       Platform, Genome Build, etc
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-opt$run_name     <- NULL
-opt$platform     <- NULL
-opt$version      <- NULL
-opt$genome_build <- NULL
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                       Run Time User Input Directories:: 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-opt$out_dir <- NULL
-
-opt$ord_dir <- NULL
-opt$mat_dir <- NULL
-opt$aqp_dir <- NULL
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                        Run Time User Input Files:: 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-opt$ord_csv <- NULL
-opt$mat_tsv <- NULL
-opt$aqp_tsv <- NULL
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     Run Time User Input Executable(s):: 
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-opt$Rscript   <- NULL
-opt$bsmap_opt <- NULL
-opt$bsmap_exe <- NULL
-opt$align_chroms <- FALSE
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                     Pre-defined Static Data Directories:: 
-#            improbe, Annotation, Genomic, Manifest, Validation Idats
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-opt$imp_dir  <- NULL
-opt$ann_dir  <- NULL
-opt$gen_dir  <- NULL
-opt$man_dir  <- NULL
-opt$idat_dir <- NULL
-
-opt$cgn_seq_dir <- NULL
-opt$cgn_bed_dir <- NULL
-
-opt$canonical_cgn_dir <- NULL
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                  Pre-defined Static External File Options:: 
-#                   Manifest, Controls, Design Coordinates
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-opt$sesame_manfiest_dat   <- NULL
-opt$sesame_manifest_csv   <- NULL
-opt$genome_manifest_csv   <- NULL
-
-opt$sesame_controls_csv   <- NULL
-opt$genome_controls_csv   <- NULL
-opt$noob_controls_csv     <- NULL
-
-opt$source_coordinate_csv <- NULL
-opt$canonical_cgn_csv     <- NULL
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                    Run Time File Options:: Time Stamps
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-opt$time_org_txt <- NULL
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                          Run Time Mode Options::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-opt$single    <- FALSE
-opt$parallel  <- FALSE
-opt$cluster   <- FALSE
-
-opt$trackTime <- NULL
-opt$fresh     <- FALSE
-opt$reload    <- FALSE
-
-opt$verbose   <- 3
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                    Order/Match/AQP/PQC Expected Columns::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# NEW SOLUTION FOR FILE HEADERS::
-#  - Store all file headers in a single rData (rds) file. They're 
-#    minature, but required for files without headers and they 
-#    massively speed up reading of very large data files since
-#    variable types can be expected!
-#
-# TBD:: This is copied in the code, so it should be removed from here
-#   or moved to a config file... Maybe a single r-data structure (RDS)
-#   for manifest parameter defaults is the way to go...
-#
-
-# par_cols <- list()
-# par_cols$ord <- 
-#   cols(
-#     Assay_Design_Id        = col_character(),
-#     AlleleA_Probe_Id       = col_character(),
-#     AlleleA_Probe_Sequence = col_character(),
-#     AlleleB_Probe_Id       = col_character(),
-#     AlleleB_Probe_Sequence = col_character(),
-#     Normalization_Bin      = col_character()
-#   )
-# 
-# par_cols$mat <- 
-#   cols(
-#     Plate    = col_character(),
-#     Row      = col_character(),
-#     Col      = col_integer(),
-#     Address  = col_integer(),
-#     Mod5     = col_character(),
-#     Sequence = col_character(),
-#     Mod3     = col_character(),
-#     Comments = col_character()
-#   )
-# 
-# par_cols$ma2 <- 
-#   cols(
-#     address_names = col_integer(),
-#     probe_id      = col_character(),
-#     sequence      = col_character(),
-#     type_b        = col_character(),
-#     address_name  = col_integer(),
-#     bo_seq        = col_character()
-#   )
-# 
-# par_cols$aqp <- 
-#   cols(
-#     Address           = col_integer(),
-#     Decode_Status     = col_integer(),
-#     Decode_Error_Code = col_integer(),
-#     Decode_Score      = col_integer(),
-#     Func_Status       = col_integer(),
-#     Func_Error_Code   = col_integer(),
-#     QC_Action         = col_integer()
-#   )
-# 
-# par_cols$pqc <- 
-#   cols(
-#     Address      = col_integer(),
-#     Status       = col_integer(),
-#     Eval_Code    = col_integer(),
-#     Average_Rep  = col_integer(),
-#     Expected_Rep = col_integer()
-#   )
-# 
-# par$ord_col <- par_cols$ord$cols %>% names()
-# 
-# par$mat_col <- par_cols$mat$cols %>% names()
-# par$ma2_col <- par_cols$ma2$cols %>% names()
-# 
-# par$aqp_col <- par_cols$aqp$cols %>% names()
-# par$pqc_col <- par_cols$pqc$cols %>% names()
+opt$verbose <- 3
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                               Local Functions::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-load_source_files = function(dir, prgm, verbose, funcTag="load_source_files") {
-  gen_src_dir <- file.path(dir, 'functions')
-  if (!dir.exists(gen_src_dir))
-    stop(glue::glue("[{funcTag}]: General Source={gen_src_dir} ",
-                    "does not exist!!!{RET}{RET}"))
+load_source_files = function(pars, verbose = 0, funcTag = "load_source_files") {
   
-  for (sfile in list.files(path=gen_src_dir, pattern='.R$', 
-                           full.names=TRUE, recursive=TRUE)) base::source(sfile)
+  pars$prgm_tag   <- base::basename( stringr::str_remove( pars$exe_path, ".R$"))
+  pars$prgm_dir   <- base::dirname( base::normalizePath( pars$exe_path ) )
+  pars$source_dir <- base::dirname( pars$prgm_dir )
+  pars$script_dir <- base::dirname( pars$source_dir )
+  pars$dat_dir    <- 
+    file.path(base::dirname(base::normalizePath(pars$script_dir)), 'dat')
+  
+  if (verbose>0) {
+    cat(glue::glue("[{funcTag}]:   exe_path = {pars$exe_path}.{RET}"))
+    cat(glue::glue("[{funcTag}]:   prgm_tag = {pars$prgm_tag}.{RET}"))
+    cat(glue::glue("[{funcTag}]:   prgm_dir = {pars$prgm_dir}.{RET}"))
+    cat(glue::glue("[{funcTag}]: source_dir = {pars$source_dir}.{RET}"))
+    cat(glue::glue("[{funcTag}]: script_dir = {pars$script_dir}.{RET}"))
+    cat(glue::glue("[{funcTag}]:    dat_dir = {pars$dat_dir}.{RET}"))
+    cat(glue::glue("[{funcTag}]:{RET}"))
+  }
+  
+  func_dir <- file.path(pars$source_dir, 'functions')
+  if (!dir.exists(func_dir)) {
+    stop(glue::glue("{RET}[{funcTag}]: ERROR: General Source {func_dir} ",
+                    "does NOT exist!!!{RET2}"))
+    return(NULL)
+  }
+  
+  for (sfile in list.files(path=func_dir, pattern='.R$', full.names=TRUE)) 
+    base::source(sfile)
   
   if (verbose>0)
-    cat(glue::glue("[{funcTag}]: Done. Loading Source Files form ",
-                   "General Source={gen_src_dir}!{RET}{RET}") )
+    cat(glue::glue("[{funcTag}]: Done. Loading Source Files from ",
+                   "General Source = '{func_dir}'!{RET}") )
   
-  prg_src_dir <- file.path(dir, prgm, 'functions')
-  if (!dir.exists(prg_src_dir))
-    stop(glue::glue("[{funcTag}]: General Source={prg_src_dir} ",
-                    "does not exist!!!{RET}{RET}"))
-  
-  for (sfile in list.files(path=prg_src_dir, pattern='.R$', 
-                           full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  
+  opts_source <- 
+    file.path(pars$prgm_dir, 'functions', paste0(pars$prgm_tag,"_options.R"))
+  if (!file.exists(opts_source)) {
+    stop(glue::glue("{RET}[{funcTag}]: ERROR: Program Options Source File ",
+                    "{opts_source} does NOT exist!{RET2}"))
+    return(NULL)
+  }
+  base::source(opts_source)
   if (verbose>0)
-    cat(glue::glue("[{funcTag}]: Done. Loading Source Files form ",
-                   "Program ({prgm}) Source={prg_src_dir}!{RET}{RET}") )
+    cat(glue::glue("[{funcTag}]: Done. Loading Options Source File for ",
+                   "Program ({pars$prgm_tag}) Source = '{opts_source}'!{RET2}"))
   
-  gen_src_dir
+  pars
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -255,31 +113,21 @@ load_source_files = function(dir, prgm, verbose, funcTag="load_source_files") {
 args.dat <- commandArgs(trailingOnly = FALSE)
 if (args.dat[1]=='RStudio') {
   
-  if (dir.exists(par$macDir1)) par$topDir <- par$macDir1
-  if (dir.exists(par$macDir2)) par$topDir <- par$macDir2
-  if (dir.exists(par$lixDir1)) par$topDir <- par$lixDir1
-  if (dir.exists(par$lixDir))  par$topDir <- par$lixDir
-  
-  if (!dir.exists(par$topDir)) dir.create(par$topDir, recursive=TRUE)
-  
-  par$runMode    <- args.dat[1]
-  cat(glue::glue("[{par$prgmTag}]: Local args.dat[1]={args.dat[1]}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: Local      runMode={par$runMode}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: Local       topDir={par$topDir}.{RET}"))
+  if (dir.exists(par$macDir1)) par$top_dir <- par$macDir1
+  if (dir.exists(par$macDir2)) par$top_dir <- par$macDir2
+  if (dir.exists(par$lixDir1)) par$top_dir <- par$lixDir1
+  if (dir.exists(par$lixDir))  par$top_dir <- par$lixDir
+
+  par$run_mode    <- args.dat[1]
+  cat(glue::glue("[{par$prgm_tag}]: Local args.dat[1]={args.dat[1]}.{RET}"))
+  cat(glue::glue("[{par$prgm_tag}]: Local    run_mode={par$run_mode}.{RET}"))
+  cat(glue::glue("[{par$prgm_tag}]: Local      top_dir={par$top_dir}.{RET}"))
   
   # Default Parameters for local Mac::
-  par$srcDir     <- file.path(par$topDir, 'tools', par$codeDir)
-  par$scrDir     <- file.path(par$srcDir, 'scripts')
-  par$exePath    <- file.path(par$scrDir, 'R', par$prgmDir, paste0(par$prgmTag,'.R'))
-  
-  par$prgmTag <- base::sub('\\.R$', '', base::basename(par$exePath))
-  par$locPath <- base::dirname(par$exePath)
-  par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
-  par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
-  par$datDir  <- file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
-  
-  par$gen_src_dir <- 
-    load_source_files(dir=par$scrDir, prgm=par$prgmDir, verbose=opt$verbose)
+  par$exe_path <- file.path(par$top_dir, 'tools', par$code_dir, 'scripts/R', 
+                            par$prgm_dir, paste0(par$prgm_tag,'.R') )
+  par <- load_source_files(pars = par, verbose = opt$verbose)
+  opt <- program_default_options(verbose = opt$verbose)
   
   # Default Options for local Mac::
   opt$Rscript  <- 'Rscript'
@@ -291,15 +139,12 @@ if (args.dat[1]=='RStudio') {
   # End of local parameter definitions::
   #
   
-  opt$out_dir  <- file.path(par$topDir, 'scratch')
-  opt$imp_dir  <- file.path(par$topDir, 'data/improbe')
-  opt$ann_dir  <- file.path(par$topDir, 'data/annotation')
-  opt$man_dir  <- file.path(par$topDir, 'data/manifests')
-  opt$gen_dir  <- file.path(par$topDir, 'data/iGenomes/Homo_sapiens/NCBI')
-  opt$idat_dir <- file.path(par$topDir, 'data/idats')
-  
-  # opt$bsmap_opt <- "\"-s 10 -v 5 -n 1 -r 2 -V 2\""
-  # opt$bsmap_opt <- "\"-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R\""
+  opt$out_dir  <- file.path(par$top_dir, 'scratch')
+  opt$imp_dir  <- file.path(par$top_dir, 'data/improbe')
+  opt$ann_dir  <- file.path(par$top_dir, 'data/annotation')
+  opt$man_dir  <- file.path(par$top_dir, 'data/manifests')
+  opt$gen_dir  <- file.path(par$top_dir, 'data/iGenomes/Homo_sapiens/NCBI')
+  opt$idat_dir <- file.path(par$top_dir, 'data/idats')
   
   opt$bsmap_opt <- "-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
   opt$bsmap_exe <- "/Users/bretbarnes/Documents/tools/programs/BSMAPz/bsmapz"
@@ -308,11 +153,11 @@ if (args.dat[1]=='RStudio') {
   opt$cgn_bed_dir <- 
     file.path(opt$imp_dir, "scratch/cgnDB/dbSNP_Core4/design-input/min")
   
-  opt$canonical_cgn_dir <- file.path(par$datDir, "manifest/cgnDB")
+  opt$canonical_cgn_dir <- file.path(par$dat_dir, "manifest/cgnDB")
   opt$canonical_cgn_csv <- "canonical.cgn-top-grp.csv.gz"
   
-  # opt$genome_controls_csv <- file.path(par$datDir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
-  # opt$sesame_manifest_csv <- file.path(par$topDir,"data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.controls-only.csv.gz")
+  # opt$genome_controls_csv <- file.path(par$dat_dir,'manifest/controls/Infinium_Methylation_Controls_15_1983_manifest.noHeader.csv.gz')
+  # opt$sesame_manifest_csv <- file.path(par$top_dir,"data/manifests/methylation/Sesame/EPIC-B4-BP4.manifest.sesame-base.controls-only.csv.gz")
   
   # Pre-defined local options runTypes::
   #
@@ -323,16 +168,17 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'TruDx'
   par$local_runType <- 'GRCm10'
   par$local_runType <- 'NZT'
-  par$local_runType <- 'EWAS'
-  par$local_runType <- 'EPIC_v2'
   par$local_runType <- 'Chicago'
   par$local_runType <- 'McMaster10Kselection'
+  par$local_runType <- 'EWAS'
+  par$local_runType <- 'EPIC_v2'
   
   opt$parallel <- TRUE
   
   opt$verbose <- 10
   opt$verbose <- 3
   opt$verbose <- 5
+  opt$verbose <- 200
   
   opt$fresh  <- TRUE
   opt$fresh  <- FALSE
@@ -340,27 +186,89 @@ if (args.dat[1]=='RStudio') {
   
   if (FALSE) {
     
-  } else if (par$local_runType=='EPIC_v2') {
-    opt$genome_build <- 'GRCh37'
-    opt$platform <- 'EPIC'
-    opt$version  <- 'v4'
+  } else if (par$local_runType=='EPIC_v2' ||
+             par$local_runType=='EWAS') {
     
-    opt$sesame_manifest_dat <- "EPIC.hg19.manifest,HM450.hg19.manifest"
-    genome_manifest_dir <- file.path(par$topDir, "data/manifests/methylation/GenomeStudio")
-    opt$genome_manifest_csv <- paste(
-      file.path(genome_manifest_dir, "MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"),
-      file.path(genome_manifest_dir, "HumanMethylation450_15017482_v.1.2.csv.gz"),
-      sep = ","
-    )
+    map_col <- c("Bead_Pool", "MN", "Match_Num", "Bead_Pool_Name", "Bucket_Name", "Order_Path", "AQP1_Num", "AQP2_Num")
+    top_dir <- "/Users/bretbarnes/Documents/data/CustomContent/EPIC_v2/AQP-Files-EPIC_and_EWAS-Content"
+    ord_dir <- file.path(top_dir, "order")
+    mat_dir <- file.path(top_dir, "match")
+    aqp_dir <- file.path(top_dir, "aqp")
+    
+    EWAS_bucket <- c("EWAS_01", "EWAS_02", "EPICv2_EWAS_1-7_SI")
+    EPIC_bucket <- c("EWAS_01", "EWAS_02")
+    
+    map_csv <- file.path(top_dir, "EPICv2EWAS_screening_master-Input-for-Elisa-V4.csv")
+    map_tib <- readr::read_csv(map_csv) %>% 
+      purrr::set_names(map_col) %>% 
+      tibble::as_tibble() %>% 
+      dplyr::filter(!is.na(AQP1_Num)) %>%
+      dplyr::mutate(Order_Path=Order_Path %>% 
+                      stringr::str_remove("^.*\\\\") %>% 
+                      paste0(ord_dir,'/',.,".gz"),
+                    Match_Path=dplyr::case_when(
+                      AQP2_Num != "-" ~ paste0(mat_dir,"/AQP2-",Match_Num,"_probes.match.gz"),
+                      TRUE ~ paste0(mat_dir,"/",Match_Num,"_probes.match.gz")
+                    ),
+                    AQP_Path=dplyr::case_when(
+                      AQP2_Num != "-" ~ paste0(aqp_dir,"/",AQP2_Num,".txt.gz"),
+                      TRUE ~ paste0(aqp_dir,"/",AQP1_Num,".txt.gz")
+                    ),
+                    Order_File_Name = base::basename(Order_Path),
+                    Match_File_Name = base::basename(Match_Path),
+                    AQP_File_Name = base::basename(AQP_Path) )
+    
+    lapply(map_tib$Order_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
+    lapply(map_tib$Match_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
+    lapply(map_tib$AQP_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
+    
+    epic_map_tib <- map_tib %>% dplyr::filter(!Bucket_Name %in% EPIC_bucket)
+    ewas_map_tib <- map_tib %>% dplyr::filter( Bucket_Name %in% EWAS_bucket)
+    
+    if (par$local_runType=='EPIC_v2') {
+      # EPIC v2:: 
+      opt$genome_build <- 'GRCh37'
+      opt$platform <- 'EPIC_v2'
+      opt$version  <- 'v1'
+      
+      opt$ord_dir <- ord_dir
+      opt$mat_dir <- mat_dir
+      opt$aqp_dir <- aqp_dir
+      
+      opt$ord_csv <- paste(epic_map_tib$Order_File_Name, collapse = ",")
+      opt$mat_tsv <- paste(epic_map_tib$Match_File_Name, collapse = ",")
+      opt$aqp_tsv <- paste(epic_map_tib$AQP_File_Name, collapse = ",")
+      
+    } else if (par$local_runType=='EWAS') {
+      opt$genome_build <- 'GRCh37'
+      opt$platform <- 'EWAS'
+      opt$version  <- 'v1'
+      
+      opt$ord_dir <- ord_dir
+      opt$mat_dir <- mat_dir
+      opt$aqp_dir <- aqp_dir
+      
+      opt$ord_csv <- paste(ewas_map_tib$Order_File_Name, collapse = ",")
+      opt$mat_tsv <- paste(ewas_map_tib$Match_File_Name, collapse = ",")
+      opt$aqp_tsv <- paste(ewas_map_tib$AQP_File_Name, collapse = ",")
+    }
+
+    # opt$sesame_manifest_dat <- "EPIC.hg19.manifest,HM450.hg19.manifest"
+    # genome_manifest_dir <- file.path(par$top_dir, "data/manifests/methylation/GenomeStudio")
+    # opt$genome_manifest_csv <- paste(
+    #   file.path(genome_manifest_dir, "MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"),
+    #   file.path(genome_manifest_dir, "HumanMethylation450_15017482_v.1.2.csv.gz"),
+    #   sep = ","
+    # )
     
   } else if (par$local_runType=='McMaster10Kselection') {
     opt$genome_build <- 'GRCh37'
     opt$platform <- 'MCM'
     opt$version  <- 'v3'
     
-    opt$ord_dir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2")
-    opt$mat_dir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2")
-    opt$aqp_dir <- file.path(par$topDir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2")
+    opt$ord_dir <- file.path(par$top_dir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/order")
+    opt$mat_dir <- file.path(par$top_dir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/match")
+    opt$aqp_dir <- file.path(par$top_dir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/aqp")
     
     opt$ord_csv <- paste('McMaster_CpG_DesignFile_v4.csv.gz',sep=',')
     opt$mat_tsv <- paste('20532820_probes1.match.gz',
@@ -370,12 +278,11 @@ if (args.dat[1]=='RStudio') {
     if (FALSE) {
       opt$aqp_tsv <- paste('BS0033057-AQP1.txt.gz',
                            'BS0033090-AQP2.txt.gz',
-                           #'20051339_A_ProductQC.txt.gz',
+                           # '20051339_A_ProductQC.txt.gz',
                            sep=',')
     }
-    
     opt$noob <- paste(
-      file.path(par$topDir, "data/CustomContent/transfer/updated_manifest.csv.gz"),
+      file.path(par$top_dir, "data/CustomContent/transfer/updated_manifest.csv.gz"),
       sep=',')
     
   } else if (par$local_runType=='Chicago') {
@@ -385,106 +292,44 @@ if (args.dat[1]=='RStudio') {
     opt$version  <- 'B3'
     
     opt$idat_dir <- file.path(opt$idat_dir, "idats_Chicago-Ober-Custom")
-    par$ord_dir  <- file.path(par$topDir, 'data/CustomContent/UnivChicago/latest')
-    par$mat_dir  <- file.path(par$topDir, 'data/CustomContent/UnivChicago/latest')
-    par$aqp_dir  <- file.path(par$topDir, 'data/CustomContent/UnivChicago/latest')
+    par$ord_dir  <- file.path(par$top_dir, 'data/CustomContent/UnivChicago/latest')
+    par$mat_dir  <- file.path(par$top_dir, 'data/CustomContent/UnivChicago/latest')
+    par$aqp_dir  <- file.path(par$top_dir, 'data/CustomContent/UnivChicago/latest')
     
     opt$ord_csv <- paste('UofChicago-A_A_Array-CpG-order-FINAL.csv', sep=',')
     opt$mat_tsv <- paste('20504790_probes.match.tsv', sep=',')
     opt$aqp_tsv <- paste('329922X374054_A_ProductQC.txt', sep=',')
     
     # Use this later in the process for picking coordinates::
-    par$ord_pos_csv <- file.path(par$topDir, "data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz")
+    par$ord_pos_csv <- file.path(par$top_dir, "data/CustomContent/UnivChicago/improbe_input/CpGs_UnivChicago_alldesigns_55860sites.cgn-pos-srd-prbs.tsv.gz")
     
   } else {
-    stop(glue::glue("{RET}[{par$prgmTag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
+    stop(glue::glue("{RET}[{par$prgm_tag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
   
   opt$run_name <- paste(par$local_runType,opt$platform,opt$version,opt$genome_build, sep='-')
   
 } else {
   
-  par$runMode <- 'CommandLine'
-  par$exePath <- base::substring(args.dat[grep("--file=", args.dat)], 8)
-  par$prgmTag <- base::sub('\\.R$', '', base::basename(par$exePath))
-  par$locPath <- base::dirname(par$exePath)
-  par$scrDir  <- base::dirname(base::normalizePath(par$locPath) )
-  par$srcDir  <- base::dirname(base::normalizePath(par$scrDir) )
-  par$datDir  <-
-    file.path(base::dirname(base::normalizePath(par$srcDir)), 'dat')
+  par$run_mode <- 'CommandLine'
+  par$exe_path <- args.dat[grep("--file=", args.dat)] %>%
+    stringr::str_remove("^.*=") %>% head( n = 1)
+  # par <- load_source_files(pars = par, verbose = opt$verbose)
+  par <- load_source_files(pars = par, verbose = opt$verbose)
   
-  # arg_exe_path <- "--file=Infinium_Methylation_Workhorse/scripts/R/workhorse/workhorse_main_dev_latest.R"
-  par$exe_path <- head(
-    stringr::str_remove( args.dat[grep("--file=", args.dat)], "^.*=" ), n = 1)
-  par$prgm_tag   <- base::basename( stringr::str_remove( par$exe_path, ".R$") )
-  par$loc_path   <- base::dirname( base::normalizePath( par$exe_path ) )
-  par$prgm_dir   <- base::basename( par$loc_path )
-  par$source_dir <- base::dirname( base::normalizePath( par$loc_path ) )
-  par$script_dir <- base::dirname( base::normalizePath( par$source_dir ) )
-  par$dat_dir    <- 
-    file.path(base::dirname(base::normalizePath(par$script_dir)), 'dat')
-
-  # 
-  # args.dat  <- base::commandArgs(trailingOnly = TRUE)
-  # opt_list  <- workhorse_program_options(verbose = opt$verbose)
-  # opt_parse <- optparse::OptionParser(option_list=opt_list)
-  # 
-  # opt = optparse::parse_args(opt_parse)
-  
-  # cat(glue::glue("[{par$prgmTag}]: par={par}{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: exePath = {par$exePath}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: exePath = {par$exe_path}.{RET2}"))
-  
-  cat(glue::glue("[{par$prgmTag}]: prgmTag = {par$prgmTag}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: prgmTag = {par$prgm_tag}.{RET2}"))
-  
-  cat(glue::glue("[{par$prgmTag}]: prgmDir = {par$prgmDir}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: prgmDir = {par$prgm_dir}.{RET2}"))
-  
-  cat(glue::glue("[{par$prgmTag}]: locPath = {par$locPath}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]: locPath = {par$loc_path}.{RET2}"))
-  
-  cat(glue::glue("[{par$prgmTag}]:  scrDir = {par$scrDir}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]:  scrDir = {par$source_dir}.{RET2}"))
-  
-  cat(glue::glue("[{par$prgmTag}]:  srcDir = {par$srcDir}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]:  srcDir = {par$script_dir}.{RET2}"))
-  
-  cat(glue::glue("[{par$prgmTag}]:  datDir = {par$datDir}.{RET}"))
-  cat(glue::glue("[{par$prgmTag}]:  datDir = {par$dat_dir}.{RET2}"))
-  
-  cat(glue::glue("[{par$prgmTag}]:{RET2}"))
-  print(args.dat)
-  cat(glue::glue("[{par$prgmTag}]:{RET2}"))
-  
-  par$gen_src_dir <-
-    load_source_files(dir=par$source_dir, prgm=par$prgm_dir, verbose=opt$verbose)
-  
-  # par$gen_src_dir <-
-  #   load_source_files(dir=par$scrDir, prgm=par$prgmDir, verbose=opt$verbose)
-  
-  
-  print(args.dat[grep("--file=", args.dat)])
-  
-  args.dat  <- base::commandArgs(trailingOnly = TRUE)
-  opt_list  <- workhorse_program_options(verbose = opt$verbose)
-  opt_parse <- optparse::OptionParser(option_list=opt_list)
-  opt = optparse::parse_args(opt_parse)
-  
+  opt  <- program_options(verbose = opt$verbose)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Program Initialization::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-par_reqs <- c('runMode','prgmTag','scrDir','datDir','exePath')
+par_reqs <- c('run_mode','prgm_tag','source_dir','dat_dir','exe_path')
 opt_reqs <- c('out_dir','imp_dir',
               'genome_build','platform','version','bsmap_exe',
               'Rscript','verbose')
 
-# par$gen_src_dir <- load_source_files(dir=par$scrDir, verbose=opt$verbose)
-
-opt <- program_init(name=par$prgmTag,
+opt <- program_init(name=par$prgm_tag,
                     opts=opt, opt_reqs=opt_reqs, 
                     pars=par, par_reqs=par_reqs,
                     libs=TRUE,rcpp=FALSE,
@@ -508,7 +353,7 @@ pTracker$addFile(opt$time_org_txt)
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Checking pre-defined files...{RET}"))
+  cat(glue::glue("[{par$prgm_tag}]: Checking pre-defined files...{RET}"))
 
 # For error ledger for accumulating failed probes and why::
 error_ledger <- NULL
@@ -522,14 +367,14 @@ run <- get_run_defaults(fresh = opt$fresh,
                         canonical_cgn_csv = opt$canonical_cgn_csv,
                         verbose = opt$verbose )
 
-
 if (opt$verbose>=1)
-  cat(glue::glue("[{par$prgmTag}]: Done. Checking pre-defined files.{RET2}"))
+  cat(glue::glue("[{par$prgm_tag}]: Done. Checking pre-defined files.{RET2}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                        0.0 Validate AQP Inputs::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+valid_files <- NULL
 valid_files <- valid_aqp_inputs(ord_dir = opt$ord_dir, ord_csv = opt$ord_csv,
                                 mat_dir = opt$mat_dir, mat_tsv = opt$mat_tsv,
                                 aqp_dir = opt$aqp_dir, aqp_tsv = opt$aqp_tsv,
@@ -558,6 +403,7 @@ valid_files <- valid_aqp_inputs(ord_dir = opt$ord_dir, ord_csv = opt$ord_csv,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+imGenome_tib <- NULL
 imGenome_tib <- load_imGenomes_table(dir = opt$gen_dir,
                                      genome_build = opt$genome_build, 
                                      ret_list = FALSE, 
@@ -601,6 +447,7 @@ ord_tib <-
 # TBD:: Plot normalized intensity x individual chr hits x binding energy
 #
 
+bsp_tib <- NULL
 bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 ref_tib = imGenome_tib,
                                 can_fas = NULL,
@@ -643,7 +490,7 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-# NOTE: McMaster10Kselection = 822s
+seq_tib <- NULL
 seq_tib <- 
   seq_mapping_workflow(ord_tib = ord_tib,
                        
@@ -681,6 +528,7 @@ seq_tib <-
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+cgn_tib <- NULL
 cgn_tib <- 
   cgn_mapping_workflow(ord_tib = ord_tib,
                        bsp_tib = bsp_tib,

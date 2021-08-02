@@ -59,6 +59,47 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                     Determine Standard Program Parameter::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+process_command_line = function(params, args,
+                                verbose=0,vt=3,tc=1,tt=NULL,
+                                funcTag='process_command_line') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime <- 0
+  
+  params$run_mode <- 'CommandLine'
+  params$exe_path <- base::substring(args[grep("--file=", args)], 8)
+  params$prgm_tag <- base::sub('\\.R$', '', base::basename(params$exe_path))
+  params$loc_path <- base::dirname(params$exe_path)
+  params$source_dir  <- base::dirname(base::normalizePath(params$loc_path) )
+  params$script_dir  <- base::dirname(base::normalizePath(params$source_dir) )
+  params$dat_dir  <- 
+    file.path(base::dirname(base::normalizePath(params$script_dir)), 'dat')
+  
+  params$gen_src_dir <- 
+    load_source_files(dir=params$source_dir, prgm=params$prgm_tag, verbose=opt$verbose)
+  
+  # ret_cnt <- opt %>% length()
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  params
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                         Reload for Common Method::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -261,7 +302,7 @@ makeFieldUnique = function(tib, field, add=NULL,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                          Standard Function Template::
+#                             File Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 get_fileSuffix = function(file,
@@ -356,8 +397,8 @@ program_init = function(name,defs=NULL,
   }
   
   stopifnot(!is.null(opts[['out_dir']]))
-  stopifnot(!is.null(pars[['prgmTag']]))
-  stopifnot(!is.null(pars[['exePath']]))
+  stopifnot(!is.null(pars[['prgm_tag']]))
+  stopifnot(!is.null(pars[['exe_path']]))
   
   if (!is.null(opt[['verbose']])) verbose <- opts$verbose
   
@@ -402,7 +443,7 @@ program_init = function(name,defs=NULL,
   #                            Build Directories::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  # opts$out_dir <- file.path(opts$out_dir, pars$prgmDir, name)
+  # opts$out_dir <- file.path(opts$out_dir, pars$prgm_tag, name)
   opts$out_dir <- file.path(opts$out_dir, name)
   if (!is.null(opts$run_name)) opts$out_dir <- file.path(opts$out_dir, opts$run_name)
   if (!dir.exists(opts$out_dir)) dir.create(opts$out_dir, recursive=TRUE)
@@ -419,9 +460,9 @@ program_init = function(name,defs=NULL,
   if (!file.exists(opts$time_org_txt) || (!is.null(opts[['fresh']]) && opts$fresh) )
     readr::write_lines(x=date(),file=opts$time_org_txt,sep='\n',append=FALSE)
   
-  opts$opt_csv  <- file.path(opts$out_dir, paste(pars$prgmTag,'program-options.csv', sep='.') )
-  opts$par_csv  <- file.path(opts$out_dir, paste(pars$prgmTag,'program-parameters.csv', sep='.') )
-  opts$time_csv <- file.path(opts$out_dir, paste(pars$prgmTag,'time-tracker.csv.gz', sep='.') )
+  opts$opt_csv  <- file.path(opts$out_dir, paste(pars$prgm_tag,'program-options.csv', sep='.') )
+  opts$par_csv  <- file.path(opts$out_dir, paste(pars$prgm_tag,'program-parameters.csv', sep='.') )
+  opts$time_csv <- file.path(opts$out_dir, paste(pars$prgm_tag,'time-tracker.csv.gz', sep='.') )
   if (file.exists(opts$opt_csv))  unlink(opts$opt_csv)
   if (file.exists(opts$par_csv))  unlink(opts$par_csv)
   if (file.exists(opts$time_csv)) unlink(opts$time_csv)
@@ -429,12 +470,12 @@ program_init = function(name,defs=NULL,
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                          Program Command Shell::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  if (pars$prgmTag==name) cmd_shell_name <- name
+  if (pars$prgm_tag==name) cmd_shell_name <- name
   
   pars$cmd_shell <- 
     file.path(opts$out_dir,paste(cmd_shell_name,'command.sh', sep='.'))
   pars$cmd_str <- 
-    optsToCommand(opts=opt_tib, pre=opts$Rscript,exe=pars$exePath, 
+    optsToCommand(opts=opt_tib, pre=opts$Rscript,exe=pars$exe_path, 
                   file=pars$cmd_shell, 
                   verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
   
@@ -474,7 +515,7 @@ program_done = function(opts, pars,
   readr::write_csv(time_tib, opts$time_csv)
   
   sysTime <- Sys.time()
-  cat(glue::glue("{RET}[{pars$prgmTag}]: Finished(time={sysTime}){RET2}"))
+  cat(glue::glue("{RET}[{pars$prgm_tag}]: Finished(time={sysTime}){RET2}"))
   
   return(0)
 }
@@ -491,41 +532,48 @@ load_libraries = function(opts, pars, rcpp=FALSE,
   ret_cnt <- 0
   ret_tib <- NULL
   
-  stopifnot(!is.null(pars$prgmDir))
-  stopifnot(!is.null(pars$scrDir))
+  stopifnot(!is.null(pars$prgm_dir))
+  stopifnot(!is.null(pars$prgm_tag))
+  stopifnot(!is.null(pars$source_dir))
   
-  # list.files("/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R", full.names = TRUE) %>% file.path("functions")
-  # list.files(pars$scrDir, full.names = TRUE) %>% file.path("functions")
-  
-  pars$prgm_src_dir <- file.path(pars$scrDir,pars$prgmDir, 'functions')
-  if (!dir.exists(pars$prgm_src_dir)) stop(glue::glue("[{pars$prgmTag}]: Program Source={pars$prgm_src_dir} does not exist!{RET}"))
-  for (sfile in list.files(path=pars$prgm_src_dir, pattern='.R$', full.names=TRUE, recursive=TRUE)) base::source(sfile)
-  cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source Files form Program Source={pars$prgm_src_dir}!{RET2}") )
+  if (!dir.exists(pars$source_dir)) 
+    stop(glue::glue("[{pars$prgm_tag}]: Program Source={pars$source_dir} ",
+                    "does not exist!{RET}"))
+  if (!dir.exists(pars$prgm_dir)) 
+    stop(glue::glue("[{pars$prgm_tag}]: Program Source={pars$prgm_dir} ",
+                    "does not exist!{RET}"))
   
   # Load All other function methods:: Search Method::
-  src_files <- base::list.files(pars$scrDir, full.names = TRUE) %>% 
-    file.path("functions") %>% base::list.files(pattern='.R$', full.names=TRUE)
+  src_files <- 
+    base::list.files(pars$source_dir, full.names = TRUE) %>% 
+    file.path("functions") %>% 
+    base::list.files(pattern='.R$', full.names=TRUE)
+  # cat(glue::glue("[{pars$prgm_tag}]:{tabs} Sub Function Source Files::{RET}"))
+  # cat(glue::glue("[{pars$prgm_tag}]:{tabs}{TAB} function={src_files}{RET}"))
+
   for (sfile in src_files ) {
     base::source(sfile)
-    cat(glue::glue("[{pars$prgmTag}]: Done. Loading Source File={sfile}!{RET}") )
+    cat(glue::glue("[{pars$prgm_tag}]: Done. Loading Source File={sfile}!{RET}") )
   }
   
   if (rcpp) {
-    pars$sourceCpp <- file.path(pars$scrDir, 'Rcpp/cpgLociVariation.cpp')
+    pars$sourceCpp <- file.path(pars$source_dir, 'Rcpp/cpgLociVariation.cpp')
     
     # Don't care about linux now that we use docker::
     # TBD:: Keeping this next line for now, but should be removed if not used
     opts <- setLaunchExe(opts=opts, pars=pars, verbose=opts$verbose, vt=5,tc=0)
-    # if (!opts$isLinux) {
     if (file.exists(pars$sourceCpp)) {
-      if (!file.exists(pars$sourceCpp)) pars$sourceCpp <- file.path(pars$scrDir, 'Rcpp/cpgLociVariation.cpp')
-      if (!file.exists(pars$sourceCpp)) stop(glue::glue("[{pars$prgmTag}]: Source={pars$sourceCpp} does not exist!{RET}"))
+      if (!file.exists(pars$sourceCpp)) 
+        pars$sourceCpp <- file.path(pars$source_dir,'Rcpp/cpgLociVariation.cpp')
+      if (!file.exists(pars$sourceCpp)) 
+        stop(glue::glue("[{pars$prgm_tag}]: Source={pars$sourceCpp} does not ",
+                        "exist!{RET}"))
+      
       Rcpp::sourceCpp(pars$sourceCpp)
     }
   }
   ret_cnt <- opts %>% names() %>% length()
   
-  # etime <- stime[3] %>% as.double() %>% round(2)
   etime <- 0
   if (verbose>=vt) cat(glue::glue(
     "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
@@ -805,7 +853,7 @@ addColNames = function(tib, add, fix, prefix=TRUE, del='_',
 optsToCommand = function(opts, pre=NULL, exe, rm=NULL, add=NULL, 
                          file=NULL, key="Option", val="Value",
                          cluster=TRUE,
-                         verbose=0,vt=3,tc=1,tt=NULL,
+                         verbose=0,vt=6,tc=1,tt=NULL,
                          funcTag='optsToCommand') {
   
   tabs <- paste0(rep(TAB, tc), collapse='')
@@ -1109,8 +1157,7 @@ guess_file_del = function(file, n_max=100,
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  if (verbose>=vt) 
-    cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -1146,6 +1193,9 @@ guess_file_del = function(file, n_max=100,
       if (med_key=="tab") ret_val=TAB
       if (med_key=="spc") ret_val=" "
     }
+    
+    if (verbose>=vt) 
+      cat(glue::glue("{mssg} med_key='{med_key}'; ret_val='{ret_val}'.{RET}"))
     
     ret_tib <- dplyr::bind_rows(med_tib, sum_tib) %>%
       dplyr::mutate(ret_val=ret_val)

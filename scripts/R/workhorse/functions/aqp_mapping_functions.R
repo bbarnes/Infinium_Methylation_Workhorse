@@ -149,7 +149,8 @@ aqp_mapping_workflow = function(ord_dat,
     #                         Process AQP/PQC Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     if (purrr::is_character(aqp_dat)) {
-      aqp_tib <- load_aqp_files(aqp_dat) %>% 
+      aqp_tib <- load_aqp_files(aqp_dat, 
+                                verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
         dplyr::arrange(-Ord_Idx) %>% 
         dplyr::distinct(Address, .keep_all=TRUE)
     } else {
@@ -170,7 +171,8 @@ aqp_mapping_workflow = function(ord_dat,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     if (purrr::is_character(mat_dat)) {
-      mat_tib <- load_aqp_files(mat_dat) %>% 
+      mat_tib <- load_aqp_files(mat_dat,
+                                verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
         dplyr::arrange(-Ord_Idx) %>% 
         dplyr::distinct(Address, .keep_all=TRUE)
     } else {
@@ -192,7 +194,8 @@ aqp_mapping_workflow = function(ord_dat,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     if (purrr::is_character(ord_dat)) {
-      ord_tib <- load_aqp_files(ord_dat) %>% 
+      ord_tib <- load_aqp_files(ord_dat,
+                                verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
         dplyr::mutate(Ord_Map=Ord_Idx+Ord_Map)
     } else {
       ord_tib <- ord_dat
@@ -252,13 +255,13 @@ aqp_mapping_workflow = function(ord_dat,
     
     # Write Probe and Summary Output::
     sum_cnt <- safe_write(x=aqp_sum, file=sum_csv, done = TRUE,
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     out_cnt <- safe_write(x=ret_tib, file=out_csv, done = TRUE,
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
     tt$addFile(out_csv)
     
     ret_key <- glue::glue("ret-FIN({funcTag})")
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose, vt=vt+4,tc=tc+1, n=ret_key)
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -281,6 +284,8 @@ valid_dir_files = function(dir, csv, type,
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  
   etime   <- 0
   ret_cnt <- 0
   ret_tib <- NULL
@@ -290,6 +295,27 @@ valid_dir_files = function(dir, csv, type,
   csv_vec <- splitStrToVec(csv)
   dir_len <- length(dir_vec)
   csv_len <- length(csv_vec)
+  
+  if (type == "order" && csv_len==0 && dir_len==1) {
+    if (verbose>=vt) cat(glue::glue("{mssg} Search {type} directory = ",
+                                    "{dir_vec} for '.csv.gz' files.{RET}"))
+    csv_vec <- list.files(dir_vec, pattern = ".csv.gz$")
+    csv_len <- length(csv_vec)
+  }
+  
+  if (dir_len == 0) {
+    stop(glue::glue(
+      "{RET}{mssg} ERROR: Must provide at least one directory for {type}. ",
+      "dir_len={dir_len}; csv_len={csv_len}.{RET}"))
+    return(ret_tib)
+  }
+  
+  if (csv_len == 0) {
+    stop(glue::glue(
+      "{RET}{mssg} ERROR: Must provide at least one file name for {type}. ",
+      "dir_len={dir_len}; csv_len={csv_len}.{RET}"))
+    return(ret_tib)
+  }
   
   if (dir_len != 1 && dir_len != csv_len) {
     stop(glue::glue(
@@ -306,7 +332,13 @@ valid_dir_files = function(dir, csv, type,
       return(ret_tib)
     }
   }
+  ret_cnt <- ret_vec %>% length()
+  
   ret_str <- paste(ret_vec, sep=",")
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
 
   ret_str
 }
@@ -336,6 +368,8 @@ valid_aqp_inputs = function(ord_dir, ord_csv,
     cat(glue::glue("{RET}"))
   }
 
+  etime   <- 0
+  ret_cnt <- 0
   ret_dat <- NULL
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -381,6 +415,12 @@ valid_aqp_inputs = function(ord_dir, ord_csv,
   ret_dat$mat_str <- mat_str
   ret_dat$aqp_str <- aqp_str
   
+  ret_cnt <- ret_dat %>% length()
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
+
   return(ret_dat)
 }
 
@@ -420,8 +460,8 @@ load_aqp_files = function(file,
     
     ret_tib <- file_vec %>%
       lapply(load_aqp_file,
-             verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
-      dplyr::bind_rows(.id="Ord_Idx") %>%
+             verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
+      dplyr::bind_rows(.id = "Ord_Idx") %>%
       clean_tibble()
     
     ret_key <- glue::glue("ret-fin({funcTag})")
@@ -454,9 +494,10 @@ load_aqp_file = function(file,
   if (verbose>=vt+4) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
-    cat(glue::glue("{mssg}     idx={idx}.{RET}"))
-    cat(glue::glue("{mssg}   n_max={n_max}.{RET}"))
-    cat(glue::glue("{mssg}   guess={guess}.{RET}"))
+    cat(glue::glue("{mssg}     idx = {idx}.{RET}"))
+    cat(glue::glue("{mssg}    file = {file}.{RET}"))
+    cat(glue::glue("{mssg}   n_max = {n_max}.{RET}"))
+    cat(glue::glue("{mssg}   guess = {guess}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -502,6 +543,16 @@ load_aqp_file = function(file,
       bo_seq        = col_character()
     )
   
+  val_cols$mat4 <- 
+    cols(
+      address_name = col_integer(),
+      probe_id      = col_character(),
+      sequence      = col_character(),
+      type_b        = col_character(),
+      address_name2 = col_integer(),
+      bo_seq        = col_character()
+    )
+  
   val_cols$aqp <- 
     cols(
       Address           = col_integer(),
@@ -528,6 +579,7 @@ load_aqp_file = function(file,
   sel_cols$mat1 <- c("Address","Sequence")
   sel_cols$mat2 <- c("address_names","bo_seq")
   sel_cols$mat3 <- c("address_names","bo_seq")
+  sel_cols$mat4 <- c("address_name","bo_seq")
   sel_cols$aqp  <- c("Address","Decode_Status")
   sel_cols$pqc  <- c("Address","Status")
   
@@ -536,6 +588,7 @@ load_aqp_file = function(file,
   key_cols$mat1 <- c("Address","Sequence")
   key_cols$mat2 <- c("Address","Sequence")
   key_cols$mat3 <- c("Address","Sequence")
+  key_cols$mat4 <- c("Address","Sequence")
   key_cols$aqp  <- c("Address","Decode_Status")
   key_cols$pqc  <- c("Address","Decode_Status")
   
@@ -543,21 +596,26 @@ load_aqp_file = function(file,
   ret_tib <- NULL
   stime <- base::system.time({
     
-    guess_tib <- guess_aqp_file(file, n_max=n_max,
-                                verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    guess_tib <- guess_aqp_file( file, n_max=n_max,
+                                 verbose=verbose, vt=vt+1,tc=tc+1,tt=tt )
     
-    row_num=guess_tib$row_num[1]
-    col_num=guess_tib$col_num[1]
-    del_key=guess_tib$del_key[1]
-    beg_key=guess_tib$beg_key[1]
+    row_num = guess_tib$row_num[1]
+    col_num = guess_tib$col_num[1]
+    del_key = guess_tib$del_key[1]
+    beg_key = guess_tib$beg_key[1]
     
     dat_key <- NULL
     val_col <- NULL
     sel_col <- NULL
     key_col <- NULL
     if (is.null(beg_key) || is.null(col_num)) {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: Either beg_key OR col_num is ",
-                      "NULL!!!{RET}{RET}"))
+      cat(glue::glue("{RET}[{funcTag}]: ERROR: Either beg_key OR col_num is ",
+                      "NULL!{RET}"))
+      cat(glue::glue("{RET}[{funcTag}]: ERROR: file='{file}'{RET}"))
+      cat(glue::glue("[{funcTag}]: ERROR: guess_tib={RET}"))
+      print(guess_tib)
+      stop(glue::glue("{RET2}[{funcTag}]: ERROR: Either beg_key OR col_num is ",
+                      "NULL!{RET}{TAB}file='{file}'!{RET2}"))
       return(ret_tib)
     } else if (beg_key==names(val_cols$ord$cols)[1] && 
                col_num==length(val_cols$ord$cols)) {
@@ -571,6 +629,9 @@ load_aqp_file = function(file,
     } else if (beg_key==names(val_cols$mat3$cols)[1] && 
                col_num==length(val_cols$mat3$cols)) {
       dat_key <- "mat3"
+    } else if (beg_key==names(val_cols$mat4$cols)[1] && 
+               col_num==length(val_cols$mat4$cols)) {
+      dat_key <- "mat4"
     } else if (beg_key==names(val_cols$aqp$cols)[1] && 
                col_num==length(val_cols$aqp$cols)) {
       dat_key <- "aqp"
@@ -603,15 +664,44 @@ load_aqp_file = function(file,
       stop(glue::glue("{RET}[{funcTag}]:ERROR: Unsupported del_key={del_key}!!!{RET}{RET}"))
       return(NULL)
     }
-    ret1_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n="ret1")
+    ret1_key <- glue::glue("ret-tib1({funcTag})")
+    ret1_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+6,tc=tc+1, n=ret1_key)
     
+    # More goofy format verification::
+    if (dat_key=="mat2" || dat_key=="mat4") {
+      if (dat_key=="mat2") {
+        add_mat_tib <- ret_tib %>% dplyr::filter(address_names != address_name)
+        add_mat_cnt <- add_mat_tib %>% base::nrow()
+      }
+      if (dat_key=="mat4") {
+        add_mat_tib <- ret_tib %>% dplyr::filter(address_name != address_name2)
+        add_mat_cnt <- add_mat_tib %>% base::nrow()
+      }
+      if (add_mat_cnt != 0) {
+        cat(glue::glue("{RET}[{funcTag}]: ERROR: Goofy match format ",
+                       "({dat_key}) has non-zero ({add_mat_cnt}) address ",
+                       "miss-matching! add_mat_tib={RET}"))
+        print(add_mat_tib)
+        stop(glue::glue("{RET}[{funcTag}]: ERROR: Goofy match format ",
+                        "({dat_key}) has non-zero ({add_mat_cnt}) address ",
+                        "miss-matching!{RET2}"))
+        return(NULL)
+      }
+      if (verbose>=vt+6)
+        cat(glue::glue("{RET}[{funcTag}]: Success: Goofy match format ",
+                       "({dat_key}) has zero ({add_mat_cnt}) address ",
+                       "miss-matching!{RET2}"))
+    }
+
     # Apply Selected Columns::
     ret_tib  <- ret_tib %>% dplyr::select(dplyr::all_of(sel_col))
-    ret2_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n="ret2")
+    ret2_key <- glue::glue("ret-tib2({funcTag})")
+    ret2_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+6,tc=tc+1, n=ret2_key)
     
     # Apply Canonical-Renamed Columns::
     ret_tib  <- ret_tib %>% purrr::set_names(key_col)
-    ret3_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc, n="ret3")
+    ret3_key <- glue::glue("ret-tib2({funcTag})")
+    ret3_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+6,tc=tc+1, n=ret3_key)
     
     # Apply Formatting Rules:: Order Data Type
     if (dat_key=="ord") {
@@ -678,7 +768,7 @@ load_aqp_file = function(file,
             stringr::str_remove(stringr::str_remove(Address, '^1'), '^0+')) )
       } else {
         stop(glue::glue("{RET}[{funcTag}]: ERROR: Attempting to trim new tango fomrat, ",
-                        "but format doesn't match; trim_cnt={trim_cnt}!!!{RET}{RET}"))
+                        "but format doesn't match; trim_cnt={trim_cnt}!!!{RET2}"))
         return(NULL)
       }
     }
@@ -693,6 +783,10 @@ load_aqp_file = function(file,
         dplyr::select(-Sequence) %>%
         dplyr::filter(!is.na(Address)) %>% 
         dplyr::distinct(Address,Mat_Prb, .keep_all=TRUE)
+      
+      # Verify the goofy naming schemes::
+      add_mat_cnt <- 0
+      add_mat_tib <- NULL
     }
     
     # Add Dat_IDX if provided
@@ -716,10 +810,11 @@ load_aqp_file = function(file,
 
 guess_aqp_file = function(file, 
                           fields=c("Assay_Design_Id","Plate",
-                                   "address_names","Address", "probe_id"),
+                                   "address_names","address_name",
+                                   "Address", "probe_id"),
                           cols=NULL,
                           n_max=100,
-                          verbose=0,vt=6,tc=1,tt=NULL,
+                          verbose=0,vt=4,tc=1,tt=NULL,
                           funcTag='guess_aqp_file') {
   
   tabs <- paste0(rep(TAB, tc), collapse='')
@@ -742,12 +837,14 @@ guess_aqp_file = function(file,
   stime <- base::system.time({
     
     file_del_str <- guess_file_del(file, n_max=n_max,
-                                   verbose=verbose,vt=vt+4)
+                                   verbose=verbose, vt=vt+4,tc=tc+1)
     if (is.null(file_del_str)) {
       stop(glue::glue("{RET}[{funcTag}]: ERROR: file_del_str=NULL!!!{RET}{RET}"))
       return(ret_tib)
     }
-    
+    if (verbose>=vt)
+      cat(glue::glue("{mssg} file_del_strfile={file_del_str}.{RET}"))
+
     dat_tib <- readr::read_lines(file, n_max=n_max) %>%
       tibble::as_tibble() %>% 
       dplyr::mutate(row_num=dplyr::row_number())
@@ -1310,5 +1407,83 @@ aqp_to_sesame2 = function(tib, isMU=FALSE, retData=FALSE,
 #                        and moved to function graveyard!
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                    Order/Match/AQP/PQC Expected Columns::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# NEW SOLUTION FOR FILE HEADERS::
+#  - Store all file headers in a single rData (rds) file. They're 
+#    minature, but required for files without headers and they 
+#    massively speed up reading of very large data files since
+#    variable types can be expected!
+#
+# TBD:: This is copied in the code, so it should be removed from here
+#   or moved to a config file... Maybe a single r-data structure (RDS)
+#   for manifest parameter defaults is the way to go...
+#
+
+# par_cols <- list()
+# par_cols$ord <- 
+#   cols(
+#     Assay_Design_Id        = col_character(),
+#     AlleleA_Probe_Id       = col_character(),
+#     AlleleA_Probe_Sequence = col_character(),
+#     AlleleB_Probe_Id       = col_character(),
+#     AlleleB_Probe_Sequence = col_character(),
+#     Normalization_Bin      = col_character()
+#   )
+# 
+# par_cols$mat <- 
+#   cols(
+#     Plate    = col_character(),
+#     Row      = col_character(),
+#     Col      = col_integer(),
+#     Address  = col_integer(),
+#     Mod5     = col_character(),
+#     Sequence = col_character(),
+#     Mod3     = col_character(),
+#     Comments = col_character()
+#   )
+# 
+# par_cols$ma2 <- 
+#   cols(
+#     address_names = col_integer(),
+#     probe_id      = col_character(),
+#     sequence      = col_character(),
+#     type_b        = col_character(),
+#     address_name  = col_integer(),
+#     bo_seq        = col_character()
+#   )
+# 
+# par_cols$aqp <- 
+#   cols(
+#     Address           = col_integer(),
+#     Decode_Status     = col_integer(),
+#     Decode_Error_Code = col_integer(),
+#     Decode_Score      = col_integer(),
+#     Func_Status       = col_integer(),
+#     Func_Error_Code   = col_integer(),
+#     QC_Action         = col_integer()
+#   )
+# 
+# par_cols$pqc <- 
+#   cols(
+#     Address      = col_integer(),
+#     Status       = col_integer(),
+#     Eval_Code    = col_integer(),
+#     Average_Rep  = col_integer(),
+#     Expected_Rep = col_integer()
+#   )
+# 
+# par$ord_col <- par_cols$ord$cols %>% names()
+# 
+# par$mat_col <- par_cols$mat$cols %>% names()
+# par$ma2_col <- par_cols$ma2$cols %>% names()
+# 
+# par$aqp_col <- par_cols$aqp$cols %>% names()
+# par$pqc_col <- par_cols$pqc$cols %>% names()
+#
 
 # End of file
