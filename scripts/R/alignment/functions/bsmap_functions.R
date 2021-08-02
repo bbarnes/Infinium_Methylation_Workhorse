@@ -531,8 +531,8 @@ run_bsmap = function(ref_fas,
       
       bsp_cmd <- glue::glue(
         "{bsp_exe} -a {can_fas} -d {ref_fas} {bsp_opt} -o {out_bsp}{RET}",
-        "cat {out_bsp} | {add_cmd} gzip -c -> {bsp_tsv}{RET}",
-        "rm -f {out_bsp}{RET}")
+        "cat {out_bsp} | {add_cmd} gzip -c -> {bsp_tsv}{RET}")
+        # "rm -f {out_bsp}{RET}")
       
       out_cnt <- safe_write(bsp_cmd, "line", bsp_ssh, funcTag = funcTag,
                             verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
@@ -638,6 +638,11 @@ load_bsmap = function(file,
         readr::read_tsv(file,col_names=names(bsp_cols$cols),col_types=bsp_cols) %>%
         dplyr::select(-Bsp_Qual) %>%
         dplyr::mutate(Bsp_Chr=paste0('chr',stringr::str_remove(Bsp_Chr,'^chr')))
+    }
+    
+    if (is.null(ret_tib) || length(ret_tib)==0) {
+      stop(glue::glue("{RET}{mssg} ERROR: bsmap results are NULL!{RET2}"))
+      return(NULL)
     }
     
     # Sort by genomic position::
