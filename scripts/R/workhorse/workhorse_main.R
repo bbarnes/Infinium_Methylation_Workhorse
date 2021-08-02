@@ -170,8 +170,8 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'NZT'
   par$local_runType <- 'Chicago'
   par$local_runType <- 'McMaster10Kselection'
-  par$local_runType <- 'EWAS'
   par$local_runType <- 'EPIC_v2'
+  par$local_runType <- 'EWAS'
   
   opt$parallel <- TRUE
   

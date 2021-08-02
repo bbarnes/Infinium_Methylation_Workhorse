@@ -517,6 +517,18 @@ run_bsmap = function(ref_fas,
       add_cmd <- ""
       if (light) add_cmd <- "cut -f 1,2,4-11 | "
       
+      if (!file.exists(bsp_exe)) {
+        cat(glue::glue("{mssg} Warning: Unable to locate bsp_exe={bsp_exe}. ",
+                       "Will try docker version: '/repo/BSMAPz/bsmapz'.{RET2}"))
+        bsp_exe <- '/repo/BSMAPz/bsmapz'
+      }
+      
+      if (!file.exists(bsp_exe)) {
+        stop(glue::glue("{RET}{mssg} ERROR: bsp_exe='{bsp_exe}' does ",
+                        "NOT exist!{RET2}"))
+        return(NULL)
+      }
+      
       bsp_cmd <- glue::glue(
         "{bsp_exe} -a {can_fas} -d {ref_fas} {bsp_opt} -o {out_bsp}{RET}",
         "cat {out_bsp} | {add_cmd} gzip -c -> {bsp_tsv}{RET}",
