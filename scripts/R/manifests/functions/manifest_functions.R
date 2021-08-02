@@ -210,7 +210,8 @@ load_sesame_repo_address = function(
     man_cnt <- print_tib(man_tib,funcTag, verbose, vt=vt+4,tc=tc+1, n=man_key)
     
     mask_cols <- NULL
-    if (add_masks) man_tib %>% dplyr::select(dplyr::starts_with("MASK_"))
+    if (add_masks) mask_cols <- man_tib %>% 
+      dplyr::select( dplyr::starts_with("MASK_") ) %>% names()
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                          Extract/Format Probe A::

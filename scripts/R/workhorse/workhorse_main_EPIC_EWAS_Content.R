@@ -49,7 +49,7 @@ par$lixDir  <- '/illumina/scratch/darkmatter'
 # Program Name Parameters::
 par$code_dir <- 'Infinium_Methylation_Workhorse'
 par$prgm_dir <- 'workhorse'
-par$prgm_tag <- 'workhorse_main'
+par$prgm_tag <- 'workhorse_main_EPIC_EWAS_Content'
 cat(glue::glue("[{par$prgm_tag}]: Starting; {par$prgm_tag}.{RET2}"))
 
 opt$verbose <- 3
@@ -143,7 +143,7 @@ if (args.dat[1]=='RStudio') {
   opt$imp_dir  <- file.path(par$top_dir, 'data/improbe')
   opt$ann_dir  <- file.path(par$top_dir, 'data/annotation')
   opt$man_dir  <- file.path(par$top_dir, 'data/manifests')
-  opt$gen_dir  <- file.path(par$top_dir, 'data/imGenomes/Homo_sapiens/NCBI')
+  opt$gen_dir  <- file.path(par$top_dir, 'data/iGenomes/Homo_sapiens/NCBI')
   opt$idat_dir <- file.path(par$top_dir, 'data/idats')
   
   opt$bsmap_opt <- "-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
@@ -169,9 +169,9 @@ if (args.dat[1]=='RStudio') {
   par$local_runType <- 'GRCm10'
   par$local_runType <- 'NZT'
   par$local_runType <- 'Chicago'
+  par$local_runType <- 'McMaster10Kselection'
   par$local_runType <- 'EPIC_v2'
   par$local_runType <- 'EWAS'
-  par$local_runType <- 'McMaster10Kselection'
   
   opt$parallel <- TRUE
   
@@ -201,28 +201,42 @@ if (args.dat[1]=='RStudio') {
     map_tib <- readr::read_csv(map_csv) %>% 
       purrr::set_names(map_col) %>% 
       tibble::as_tibble() %>% 
-      dplyr::filter(!is.na(AQP1_Num)) %>%
-      dplyr::mutate(Order_Path=Order_Path %>% 
+      tidyr::pivot_longer(cols=c(AQP1_Num,AQP2_Num), names_to="AQP_Num", values_to = "AQP_Name") %>% 
+      dplyr::filter(!is.na(AQP_Name)) %>% 
+      dplyr::filter(stringr::str_starts(AQP_Name, "BS")) %>%
+      dplyr::mutate(AQP_Num=AQP_Num %>%
+                      stringr::str_remove("^AQP") %>% 
+                      stringr::str_remove("_Num$") %>% 
+                      as.integer(),
+                    Order_Path=Order_Path %>% 
                       stringr::str_remove("^.*\\\\") %>% 
                       paste0(ord_dir,'/',.,".gz"),
                     Match_Path=dplyr::case_when(
-                      AQP2_Num != "-" ~ paste0(mat_dir,"/AQP2-",Match_Num,"_probes.match.gz"),
-                      TRUE ~ paste0(mat_dir,"/",Match_Num,"_probes.match.gz")
+                      AQP_Num == 2 ~ paste0(mat_dir,"/AQP2-",Match_Num,"_probes.match.gz"),
+                      AQP_Num == 1 ~ paste0(mat_dir,"/",Match_Num,"_probes.match.gz"),
+                      TRUE ~ NA_character_
                     ),
-                    AQP_Path=dplyr::case_when(
-                      AQP2_Num != "-" ~ paste0(aqp_dir,"/",AQP2_Num,".txt.gz"),
-                      TRUE ~ paste0(aqp_dir,"/",AQP1_Num,".txt.gz")
-                    ),
+                    AQP_Path = paste0(aqp_dir,"/",AQP_Name,".txt.gz"),
+                    # AQP_Path=dplyr::case_when(
+                    #   AQP2_Num != "-" ~ paste0(aqp_dir,"/",AQP2_Num,".txt.gz"),
+                    #   TRUE ~ paste0(aqp_dir,"/",AQP1_Num,".txt.gz")
+                    # ),
                     Order_File_Name = base::basename(Order_Path),
                     Match_File_Name = base::basename(Match_Path),
-                    AQP_File_Name = base::basename(AQP_Path) )
-    
+                    AQP_File_Name = base::basename(AQP_Path) ) %>%
+      dplyr::select(Bead_Pool:Bucket_Name,AQP_Num,AQP_Name,
+                    Order_File_Name,Match_File_Name,AQP_File_Name,
+                    Order_Path,Match_Path,AQP_Path) %>%
+      dplyr::arrange(AQP_Num, Bead_Pool)
+
     lapply(map_tib$Order_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
     lapply(map_tib$Match_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
     lapply(map_tib$AQP_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
     
-    epic_map_tib <- map_tib %>% dplyr::filter(!Bucket_Name %in% EPIC_bucket)
-    ewas_map_tib <- map_tib %>% dplyr::filter( Bucket_Name %in% EWAS_bucket)
+    # epic_map_tib <- map_tib %>% dplyr::filter(!Bucket_Name %in% EPIC_bucket)
+    # ewas_map_tib <- map_tib %>% dplyr::filter( Bucket_Name %in% EWAS_bucket)
+    epic_map_tib <- map_tib %>% dplyr::filter(stringr::str_detect(Bucket_Name, "EPIC") )
+    ewas_map_tib <- map_tib %>% dplyr::filter(stringr::str_detect(Bucket_Name, "EWAS") )
     
     if (par$local_runType=='EPIC_v2') {
       # EPIC v2:: 
@@ -252,18 +266,18 @@ if (args.dat[1]=='RStudio') {
       opt$aqp_tsv <- paste(ewas_map_tib$AQP_File_Name, collapse = ",")
     }
 
-    # opt$sesame_manifest_dat <- "EPIC.hg19.manifest,HM450.hg19.manifest"
-    # genome_manifest_dir <- file.path(par$top_dir, "data/manifests/methylation/GenomeStudio")
-    # opt$genome_manifest_csv <- paste(
-    #   file.path(genome_manifest_dir, "MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"),
-    #   file.path(genome_manifest_dir, "HumanMethylation450_15017482_v.1.2.csv.gz"),
-    #   sep = ","
-    # )
+    opt$sesame_manifest_dat <- "EPIC.hg19.manifest,HM450.hg19.manifest"
+    genome_manifest_dir <- file.path(par$top_dir, "data/manifests/methylation/GenomeStudio")
+    opt$genome_manifest_csv <- paste(
+      file.path(genome_manifest_dir, "MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"),
+      file.path(genome_manifest_dir, "HumanMethylation450_15017482_v.1.2.csv.gz"),
+      sep = ","
+    )
     
   } else if (par$local_runType=='McMaster10Kselection') {
     opt$genome_build <- 'GRCh37'
     opt$platform <- 'MCM'
-    opt$version  <- 'v1'
+    opt$version  <- 'v3'
     
     opt$ord_dir <- file.path(par$top_dir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/order")
     opt$mat_dir <- file.path(par$top_dir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/match")
@@ -410,6 +424,125 @@ imGenome_tib <- load_imGenomes_table(dir = opt$gen_dir,
                                      verbose = opt$verbose, tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#            0.0 Load any pre-defined Standard Manifest to be added::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (!is.null(opt$sesame_manifest_dat)) {
+  
+  sesame_address_list <- get_file_list(files=opt$sesame_manifest_dat, 
+                                       alpha_numeric = TRUE, del = COM)
+  
+  found_all <- TRUE
+  for (sesame_key in names(sesame_address_list)) {
+    out_csv <- file.path(opt$out_dir, "Sesame_Address", paste0(sesame_key,"address.csv.gz"))
+    if (!file.exists(out_csv)) found_all <- FALSE
+  }
+  
+  if (!found_all) {
+    
+    sesame_address_dat  <- lapply(sesame_address_list, load_sesame_repo_address,
+                                  add_decoy = TRUE,
+                                  add_masks = TRUE,
+                                  verbose=opt$verbose, tt=pTracker)
+    
+    sesame_comp_tib <- manifest_column_agreement(
+      sesame_address_dat[[1]], sesame_address_dat[[2]],
+      verbose = opt$verbose, tt = pTracker
+    )
+    
+    for (sesame_key in names(sesame_address_list)) {
+      out_csv <- file.path(opt$out_dir, "Sesame_Address", paste0(sesame_key,"address.csv.gz"))
+      
+      safe_write(sesame_address_dat[[sesame_key]], file = out_csv, done = TRUE,
+                 verbose = opt$verbose, tt = pTracker)
+    }
+  } else {
+    sesame_address_dat <- NULL
+    for (sesame_key in names(sesame_address_list)) {
+      out_csv <- file.path(opt$out_dir, "Sesame_Address", paste0(sesame_key,"address.csv.gz"))
+      sesame_address_dat[[sesame_key]] <- 
+        safe_read(out_csv, verbose = opt$verbose, tt = pTracker)
+    }
+  }
+}
+
+if (FALSE && !is.null(opt$genome_manifest_csv)) {
+  
+  genome_manifest_list <- get_file_list(files=opt$genome_manifest_csv,
+                                        trim = c(".csv.gz"), 
+                                        alpha_numeric = TRUE, del = COM)
+  
+  found_all <- TRUE
+  for (genome_key in names(genome_manifest_list)) {
+    out_csv <- file.path(opt$out_dir, "Genome_Studio_Address", paste0(genome_key,"address.csv.gz"))
+    if (!file.exists(out_csv)) found_all <- FALSE
+  }
+  
+  if (!found_all) {
+    genome_manifest_dat <- lapply(genome_manifest_list, load_genome_studio_address,
+                                  load_clean     = TRUE,
+                                  load_controls  = TRUE,
+                                  write_clean    = TRUE,
+                                  overwrite      = TRUE, 
+                                  add_annotation = TRUE,
+                                  ret_data       = FALSE,
+                                  verbose = opt$verbose, tt = pTracker)
+    
+    genome_studio_comp_tib <- manifest_column_agreement(
+      genome_manifest_dat[[1]], genome_manifest_dat[[2]],
+      verbose = opt$verbose, tt = pTracker
+    )
+    
+    for (genome_key in names(genome_manifest_list)) {
+      out_csv <- file.path(opt$out_dir, "Genome_Studio_Address", paste0(genome_key,"address.csv.gz"))
+      
+      safe_write(genome_manifest_dat[[genome_key]], file = out_csv, done = TRUE,
+                 verbose = opt$verbose, tt = pTracker)
+    }
+  } else {
+    genome_manifest_dat <- NULL
+    for (genome_key in names(genome_manifest_list)) {
+      out_csv <- file.path(opt$out_dir, "Genome_Studio_Address", paste0(genome_key,"address.csv.gz"))
+      genome_manifest_dat[[genome_key]] <- 
+        safe_read(out_csv, verbose = opt$verbose, tt = pTracker)
+    }
+  }
+  
+}
+
+if (FALSE) {
+
+  #
+  # TBD:: Print non-matching columns to find missing matches!
+  #
+  all_manifest_dat   <- c(sesame_address_dat, genome_manifest_dat)
+  all_manifest_len   <- all_manifest_dat %>% length()
+  all_manifest_names <- names(all_manifest_dat)
+  
+  comparison_tib <- NULL
+  for (ii in c(1:all_manifest_len)) {
+    src_a <- all_manifest_names[ii]
+    
+    for (jj in c(1:all_manifest_len)) {
+      
+      if (ii < jj) {
+        src_b <- all_manifest_names[jj]
+        
+        comp_tib <- manifest_column_agreement(
+          all_manifest_dat[[src_a]],
+          all_manifest_dat[[src_b]],
+          src_a, src_b,
+          verbose = opt$verbose, tt = pTracker )
+        
+        comparison_tib <- comparison_tib %>%
+          dplyr::bind_rows(comp_tib)
+      }
+    }
+  }
+  
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #                   1.0 AQP Address Manifest Workflow: 
 #                           Order/Match/AQP/PQC
@@ -435,6 +568,135 @@ ord_tib <-
                        pre_tag = pTracker$file_vec,
                        
                        verbose=opt$verbose, tt=pTracker)
+
+# List of Infinium I Swaped Prb_Des::
+ord_flip_sum <- ord_tib %>% 
+  dplyr::filter( (Ord_Des=="U" & stringr::str_ends(Ord_Prb, "G") | 
+                    (Ord_Des == "M" & stringr::str_ends(Ord_Prb, "A")) ) ) %>% 
+  dplyr::group_by(Ord_Idx) %>% dplyr::summarise(COunt=n(), .groups = "drop")
+
+ord_fix_tib <- ord_tib %>% 
+  dplyr::mutate(Ord_Des_Orign=Ord_Des,
+                Ord_Des=dplyr::case_when(
+                  Ord_Des_Orign=="U" & stringr::str_ends(Ord_Prb, "G") ~ "M",
+                  Ord_Des_Orign=="M" & stringr::str_ends(Ord_Prb, "A") ~ "U",
+                  TRUE ~ Ord_Des
+                ))
+
+ord_fix_tib %>% 
+  dplyr::filter( (Ord_Des=="U" & stringr::str_ends(Ord_Prb, "G") | 
+                    (Ord_Des == "M" & stringr::str_ends(Ord_Prb, "A")) ) ) %>% 
+  dplyr::group_by(Ord_Idx) %>% dplyr::summarise(COunt=n(), .groups = "drop")
+
+#
+# Steps::
+#  - [Done]: Write out intermediates above::
+#  - Intersect with Sesame EPIC
+#  - Intersect remainder with Sesame 450k
+#  - Bsp/Seq/Cgn remainder
+#
+#  - Import Annotation
+#  - Sesame EPIC GRS %in% Annotation
+#
+
+sesame_address_all_dat <- dplyr::bind_rows(
+  sesame_address_dat[["EPIC_hg19_manifest"]],
+  sesame_address_dat[["HM450_hg19_manifest"]] ) %>%
+  dplyr::distinct(Probe_ID, Prb_Des, .keep_all = TRUE)
+
+ses_ord_inn <- sesame_address_all_dat %>% 
+  dplyr::inner_join(ord_fix_tib %>% dplyr::mutate(Ord_Key_Cgn=stringr::str_remove(Ord_Key,"-.*$")), 
+                    by=c("Probe_ID"= "Ord_Key_Cgn",
+                         "Prb_Seq" = "Ord_Prb",
+                         "Prb_Des" = "Ord_Des",
+                         "Prb_Din" = "Ord_Din"),
+                    suffix=c("_ses", "_ord")) %>%
+  dplyr::rename(Address=Address_ord) %>%
+  dplyr::distinct(Address, .keep_all=TRUE) %>%
+  dplyr::mutate(Ord_Unq_Key=paste(Ord_Key,Address,sep="_"))
+# dplyr::distinct(Ord_Key,Address,Prb_Seq, .keep_all=TRUE)
+
+ses_epic_pos_grs <- tib_to_grs(sesame_address_dat[["EPIC_hg19_manifest"]], ids_key="Probe_ID", verbose = 10)
+ses_450k_pos_grs <- tib_to_grs(sesame_address_dat[["HM450_hg19_manifest"]], ids_key="Probe_ID", verbose = 10)
+ses_ord_inn_grs  <- tib_to_grs(ses_ord_inn, ids_key="Ord_Unq_Key", verbose = 10)
+
+if (FALSE) {
+  # Quick Summary on Tri-fecta probes::
+  ses_ord_inn %>% 
+    dplyr::group_by(MASK_typeINextBaseSwitch) %>% 
+    dplyr::summarise(Count=n(), .groups = "drop") %>% print()
+  
+  #
+  # Unique to EPIC_v2:: by CGN Match
+  #
+  ord_ses_ant_cgn <- ord_fix_tib %>% 
+    dplyr::mutate( Ord_Key_Cgn=stringr::str_remove(Ord_Key,"-.*$") ) %>%
+    dplyr::anti_join(sesame_address_all_dat, 
+                     by=c("Ord_Des"="Prb_Des",
+                          "Ord_Key_Cgn"="Probe_ID",
+                          # "Ord_Prb"="Prb_Seq",
+                          "Ord_Din"="Prb_Din") ) # %>% dplyr::select(Ord_Key,Ord_Des,Ord_Din, Ord_Prb,Prb_Seq) %>% dplyr::filter(Ord_Prb != Prb_Seq)
+  ord_ses_ant_cgn %>% 
+    dplyr::group_by(Ord_Des,Ord_Din,Ord_Idx) %>% 
+    dplyr::summarise(Count=n(), .groups = "drop") %>% 
+    dplyr::arrange(-Count) %>% print(n=100)
+  
+  #
+  # Unique to EPIC_v2:: by Prb Match
+  #
+  ord_ses_ant_prb <- ord_fix_tib %>% 
+    dplyr::mutate( Ord_Key_Cgn=stringr::str_remove(Ord_Key,"-.*$") ) %>%
+    dplyr::anti_join(sesame_address_all_dat, 
+                     by=c("Ord_Des"="Prb_Des",
+                          # "Ord_Key_Cgn"="Probe_ID",
+                          "Ord_Prb"="Prb_Seq",
+                          "Ord_Din"="Prb_Din") ) # %>% dplyr::select(Ord_Key,Ord_Des,Ord_Din, Ord_Prb,Prb_Seq) %>% dplyr::filter(Ord_Prb != Prb_Seq)
+  ord_ses_ant_prb %>%
+    dplyr::group_by(Ord_Des,Ord_Din,Ord_Idx) %>% 
+    dplyr::summarise(Count=n(), .groups = "drop") %>% 
+    dplyr::arrange(-Count) %>% print(n=100)
+  
+  #
+  # Unique to EPIC_v2:: by Both Match
+  #
+  ord_ses_ant_both <- ord_fix_tib %>% 
+    dplyr::mutate( Ord_Key_Cgn=stringr::str_remove(Ord_Key,"-.*$") ) %>%
+    dplyr::anti_join(sesame_address_all_dat, 
+                     by=c("Ord_Des"="Prb_Des",
+                          "Ord_Key_Cgn"="Probe_ID",
+                          "Ord_Prb"="Prb_Seq",
+                          "Ord_Din"="Prb_Din") ) # %>% dplyr::select(Ord_Key,Ord_Des,Ord_Din, Ord_Prb,Prb_Seq) %>% dplyr::filter(Ord_Prb != Prb_Seq)
+  ord_ses_ant_both %>%
+    dplyr::group_by(Ord_Des,Ord_Din,Ord_Idx) %>% 
+    dplyr::summarise(Count=n(), .groups = "drop") %>% 
+    dplyr::arrange(-Count) %>% print(n=100)
+  
+  #
+  # Inner Join::CGN
+  #
+  ord_ses_inn_cgn <- ord_fix_tib %>% 
+    dplyr::mutate( Ord_Key_Cgn=stringr::str_remove(Ord_Key,"-.*$") ) %>%
+    dplyr::inner_join(sesame_address_all_dat, 
+                      by=c("Ord_Des"="Prb_Des",
+                           "Ord_Key_Cgn"="Probe_ID",
+                           # "Ord_Prb"="Prb_Seq",
+                           "Ord_Din"="Prb_Din") ) %>% 
+    dplyr::select(Ord_Key,Ord_Des,Ord_Din, Ord_Prb,Prb_Seq) %>% dplyr::filter(Ord_Prb != Prb_Seq)
+  
+  #
+  # Inner Join::Prb
+  #
+  ord_ses_inn_prb <- ord_fix_tib %>% 
+    dplyr::mutate( Ord_Key_Cgn=stringr::str_remove(Ord_Key,"-.*$") ) %>%
+    dplyr::inner_join(sesame_address_all_dat, 
+                      by=c("Ord_Des"="Prb_Des",
+                           # "Ord_Key_Cgn"="Probe_ID",
+                           "Ord_Prb"="Prb_Seq",
+                           "Ord_Din"="Prb_Din") ) %>% 
+    dplyr::select(Ord_Key,Ord_Des,Ord_Din, Ord_Key_Cgn,Probe_ID) %>% dplyr::filter(Ord_Key_Cgn != Probe_ID)
+  
+}
+
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -581,6 +843,66 @@ if (FALSE) {
 #                   5.0 Probe Design Validation via imGenome:: 
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (opt$genome_build=="GRCh37" || opt$genome_build=="GRCh38") {
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #              6.1 Load Annotations:: EPIC_CORE/UPDATE_CORE/CHROM_HMM
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # Could loop over everything and make subdirectories for EPIC,UPDATE,HMM
+  #
+  # epic_ann_file <- list.dirs(epic_ann_path, full.names = TRUE)[-1] 
+  # epic_dir_list <- as.list(epic_ann_file)
+  # names(epic_dir_list) <- base::basename(epic_ann_file)
+  
+  # Candidates:: 
+  can_grs <- NULL
+  can_grs$ses_epic_mask0 <- ses_epic_pos_grs
+  can_grs$ses_450k_mask0 <- ses_450k_pos_grs
+  can_grs$ord_epic_inn_mask0 <- ses_ord_inn_grs
+
+  # Set Up Target
+  core_ann_path <- file.path(par$top_dir, "scratch/annotation_to_workhorse_bed/methylation-Human-GRCh37-v2")
+  # epic_ann_path <- file.path(core_ann_path, "EPIC_CORE/UCSC")
+  epic_ann_path <- file.path(core_ann_path, "EPIC_CORE")
+  epic_ann_file <- list.files(epic_ann_path,pattern=".bed.gz$",full.names=TRUE, recursive = TRUE)
+  epic_fns_list <- as.list(epic_ann_file)
+  names(epic_fns_list) <- base::basename(epic_ann_file) %>% stringr::str_remove(".bed.gz")
+  
+  
+  # TBD:: Load GRS all from list of files with lapply...
+  epic_grs_list <- lapply(epic_fns_list, ann_to_grs, verbose=opt$verbose,tt=pTracker)
+  
+  # tmp_tib <- ann_to_grs(epic_fns_list[[1]], verbose = 10)
+  
+  can_int_list <- NULL
+  can_grs_keys <- names(can_grs)
+  for (can_grs_key in can_grs_keys) {
+    can_key <- "IlmnID"
+    cur_int_list <- NULL
+    cur_int_list <- c(cur_int_list,
+                       lapply(epic_grs_list, intersect_GRS, can=can_grs[[can_grs_key]], 
+                              ref_key=NULL,ref_col=NULL,ref_prefix=NULL,ref_red=TRUE,
+                              can_key=can_key,can_col=can_key,can_prefix=NULL, 
+                              verbose=opt$verbose, tt=pTracker) )
+    
+    can_int_list[[can_grs_key]] <- cur_int_list
+  }
+  
+  # Now write each annotation to run$ann_dir
+  for (name in names(epic_int_list)) {
+    out_csv <- file.path(run$ann_dir, paste(opt$runName,name,'annotation.csv.gz', sep='-'))
+    
+    # TBD:: The writing function should be moved to cgn_mapping_workflow()
+    # TBD:: Generate summary coverage stats. This should be done in the function
+    #  as well
+    
+    safe_write(epic_int_list[[name]],"csv",out_csv, funcTag=par$prgmTag,
+               verbose=opt$verbose)
+  }
+  
+}
 
 #
 #

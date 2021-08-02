@@ -88,6 +88,7 @@ bsp_mapping_workflow =
            reload = FALSE,
            retData = FALSE,
            
+           bsp_dir = NULL,
            bsp_exe,
            bsp_opt = "-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R",
            
@@ -231,6 +232,8 @@ bsp_mapping_workflow =
                              can_fas = can_fas,
                              out_dir = cur_out_dir,
                              bsp_exe = bsp_exe,
+                             bsp_dir = bsp_dir,
+                             bsp_opt = bsp_opt,
                              sort = sort,
                              light = light, 
                              reload = reload,
@@ -477,6 +480,7 @@ run_bsmap = function(ref_fas,
                      reload = FALSE,
                      
                      bsp_exe,
+                     bsp_dir = NULL,
                      bsp_opt = "-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R",
                      
                      verbose=0,vt=3,tc=1,tt=NULL,
@@ -516,6 +520,11 @@ run_bsmap = function(ref_fas,
     if (!reload || !file.exists(bsp_tsv)) {
       add_cmd <- ""
       if (light) add_cmd <- "cut -f 1,2,4-11 | "
+      
+      if (!is.null(bsp_dir)) {
+        bsp_exe_test <- file.path( bsp_dir, base::basename(bsp_exe) )
+        if (file.exists(bsp_exe_test)) bsp_exe_test
+      }
       
       if (!file.exists(bsp_exe)) {
         cat(glue::glue("{mssg} Warning: Unable to locate bsp_exe={bsp_exe}. ",

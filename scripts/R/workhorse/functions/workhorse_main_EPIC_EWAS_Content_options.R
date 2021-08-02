@@ -106,7 +106,6 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   
   opts$Rscript   <- NULL
   opts$bsmap_opt <- "-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
-  opts$bsmap_dir <- NULL
   opts$bsmap_exe <- NULL
   opts$align_chroms <- FALSE
   
@@ -284,12 +283,8 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
       help=paste0("BSMAP Options [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--bsmap_dir"), type="character", default=opt$bsmap_dir, 
-      help=paste0("BSMAP Executable directory path [default= %default]"),
-      metavar="character"),
-    optparse::make_option(
       c("--bsmap_exe"), type="character", default=opt$bsmap_exe, 
-      help=paste0("BSMAP Executable file name [default= %default]"),
+      help=paste0("BSMAP Executable path [default= %default]"),
       metavar="character"),
     optparse::make_option(
       c("--align_chroms"), action="store_true", default=opt$align_chroms, 

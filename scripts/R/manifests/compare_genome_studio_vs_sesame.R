@@ -196,8 +196,6 @@ if (args.dat[1]=='RStudio') {
     opt$platform <- 'EPIC'
     opt$version  <- 'v2'
     
-    
-    
     opt$sesame_manifest_dat <- "EPIC.hg19.manifest,HM450.hg19.manifest"
     genome_manifest_dir <- file.path(par$topDir, "data/manifests/methylation/GenomeStudio")
     opt$genome_manifest_csv <- paste(

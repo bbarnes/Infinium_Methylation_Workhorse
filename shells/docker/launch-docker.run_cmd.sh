@@ -25,9 +25,31 @@ RELOAD=""
 PARALLEL=""
 PARALLEL="--parallel"
 
+if [ -e ${TOP_DIR_A} ]; then
+    TOP_DIR=${TOP_DIR_A}
+
+    SIG_IMAGE="/illumina/scratch/darkmatter/docker/software/${DOC_IMAGE}.sif"
+
+    BSP_DIR="/illumina/scratch/methylation/programs/..."
+    BSP_EXE="bsmap"
+
+    # MAN_LDIR="/illumina/scratch/darkmatter/tools/Infinium_Methylation_Workhorse/dat/manifest/core"
+    # MAN_SDIR="-B ${MAN_LDIR:/tmp}"
+
+elif [ -e ${TOP_DIR_B} ]; then
+    TOP_DIR=${TOP_DIR_B}
+
+    BSP_DIR="${TOP_DIR}/tools/programs/BSMAPz"
+    BSP_EXE="bsmapz"
+
+else
+    echo "Unrecognized Rscript EXE!"
+    exit
+fi
+
 OPT_STR="${PROGRAM} \
   --Rscript='Rscript' \
-  --bsmap_exe='${BSP_EXE}' \
+  --bsmap_exe=${BSP_EXE} \
   --genome_build=GRCh37 \
   --platform=MCM \
   --version=v1 \
@@ -41,22 +63,6 @@ OPT_STR="${PROGRAM} \
 # --memory-swap="[memory_limit]"
 # --memory=${MEM}
 MEM="16g"
-
-if [ -e ${TOP_DIR_A} ]; then
-    TOP_DIR=${TOP_DIR_A}
-
-    SIG_IMAGE="/illumina/scratch/darkmatter/docker/software/${DOC_IMAGE}.sif"
-
-    # MAN_LDIR="/illumina/scratch/darkmatter/tools/Infinium_Methylation_Workhorse/dat/manifest/core"
-    # MAN_SDIR="-B ${MAN_LDIR:/tmp}"
-
-elif [ -e ${TOP_DIR_B} ]; then
-    TOP_DIR=${TOP_DIR_B}
-
-else
-    echo "Unrecognized Rscript EXE!"
-    exit
-fi
 
 ORD_DIR="${TOP_DIR}/data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/order"
 MAT_DIR="${TOP_DIR}/data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/match"
@@ -82,6 +88,7 @@ mkdir -p ${OUT_DIR}
 
 echo "Local Mounted Directoreis::"
 echo "  OUT_DIR = ${OUT_DIR}"
+echo "  BSP_DIR = ${BSP_DIR}"
 echo
 echo "  ORD_DIR = ${ORD_DIR}"
 echo "  MAT_DIR = ${MAT_DIR}"
@@ -107,6 +114,7 @@ if [ -e ${TOP_DIR_A} ]; then
 
     SCMD="singularity exec \
 	 -B ${ORD_DIR}:/order \
+	 -B ${BSP_DIR}:/bsp \
 	 -B ${MAT_DIR}:/match \
 	 -B ${AQP_DIR}:/aqp \
 	 -B ${OUT_DIR}:/output \

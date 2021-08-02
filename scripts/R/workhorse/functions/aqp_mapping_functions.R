@@ -334,7 +334,7 @@ valid_dir_files = function(dir, csv, type,
   }
   ret_cnt <- ret_vec %>% length()
   
-  ret_str <- paste(ret_vec, sep=",")
+  ret_str <- paste(ret_vec, collapse = COM)
   
   if (verbose>=vt) cat(glue::glue(
     "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",

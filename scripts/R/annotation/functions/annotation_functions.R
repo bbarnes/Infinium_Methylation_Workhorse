@@ -17,9 +17,120 @@ suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
 # Parallel Computing Packages
 suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 
-COM <- ","
-TAB <- "\t"
-RET <- "\n"
+COM  <- ","
+TAB  <- "\t"
+RET  <- "\n"
+RET2 <- "\n\n"
+BNG  <- "|"
+BRK  <- paste0("# ",
+               paste(rep("-----",6),collapse=" "),"|",
+               paste(rep("-----",6),collapse=" ")," #")
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                          Standard Function Template::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+template_func = function(tib,
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='template_func') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_tib
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                         Quick Tib to GRS Converter::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# TBD:: NOTE THIS SHOULD BE MOVED AND UPDATED. THIS IS A QUICK FIX!!!
+tib_to_grs = function(tib, ids_key="Probe_ID",
+                         verbose=0,vt=3,tc=1,tt=NULL,
+                         funcTag='tib_to_grs') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    ret_tib <- tib %>% dplyr::filter(! Prb_Des=="M")
+    
+    # Double check unique key:: 
+    tib_tot_cnt <- ret_tib %>% base::nrow()
+    tib_unq_cnt <- ret_tib %>% dplyr::pull(ids_key) %>% unique() %>% length()
+    
+    if (tib_tot_cnt != tib_unq_cnt) {
+      cat(glue::glue("{RET}[{funcTag}]:{tabs} ERROR: Total and Unique ",
+                     "counts done match: tib_tot_cnt={tib_tot_cnt}, ",
+                     "tib_unq_cnt={tib_unq_cnt}.{RET}"))
+      ret_tib <- ret_tib %>% dplyr::add_count(unq_key, name="Unq_Key_Cnt")
+      return(ret_tib)
+    }
+    
+    man_grs <- 
+      GenomicRanges::GRanges(
+        seqnames = Rle(ret_tib$Chromosome),
+        # strand=Rle(ret_tib$Strand_FR),
+        
+        Strand_FR=ret_tib$Strand_FR,
+        Prb_Des=ret_tib$Prb_Des,
+        Prb_Din=ret_tib$Prb_Din,
+        Prb_Seq=ret_tib$Prb_Seq,
+        Address=ret_tib$Address,
+        Prb_Mapq=ret_tib$Prb_Mapq,
+        
+        MASK_general=ret_tib$MASK_general,
+        MASK_mapping=ret_tib$MASK_mapping,
+        MASK_typeINextBaseSwitch=ret_tib$MASK_typeINextBaseSwitch,
+        
+        IRanges(start = ret_tib$Coordinate,
+                width = 2,
+                names=paste(ret_tib %>% dplyr::pull(ids_key)) )
+      )
+    
+    # verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  man_grs
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                               dbSNP Method::
@@ -349,6 +460,20 @@ ann_to_grs = function(x,
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr} Building GRanges...{RET}"))
     
+    tib <- tib %>% dplyr::mutate(unq_key=paste(unq_key,rank,sep="."))
+    
+    # Double check unique key:: 
+    tib_tot_cnt <- tib %>% base::nrow()
+    tib_unq_cnt <- tib$unq_key %>% unique() %>% length()
+    
+    if (tib_tot_cnt != tib_unq_cnt) {
+      cat(glue::glue("{RET}[{funcTag}]:{tabsStr} ERROR: Total and Unique ",
+                     "counts done match: tib_tot_cnt={tib_tot_cnt}, ",
+                     "tib_unq_cnt={tib_unq_cnt}.{RET}"))
+      tib <- tib %>% dplyr::add_count(unq_key, name="Unq_Key_Cnt")
+      return(tib)
+    }
+    
     ret_tib =
       GenomicRanges::GRanges(
         seqnames=Rle(tib$chr),
@@ -364,7 +489,7 @@ ann_to_grs = function(x,
 
         IRanges(start=tib$beg,
                 end=tib$end,
-                names=tib$unq_key)
+                names=paste(tib$source,tib$unq_key, sep="_") )
       )
   })
   etime <- stime[3] %>% as.double() %>% round(2)
