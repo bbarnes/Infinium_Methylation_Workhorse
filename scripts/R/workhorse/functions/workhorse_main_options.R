@@ -591,8 +591,34 @@ get_run_defaults = function(ver = "1.0",
       file.path(cgn_bed_dir, paste(genome_build, ret_dat$bsp_suffix, sep="."))
     ret_dat$canonical_cgn_csv <- file.path(canonical_cgn_dir, canonical_cgn_csv)
     
-    stopifnot( file.exists( ret_dat$cgn_bed_tsv ) )
-    stopifnot( file.exists( ret_dat$canonical_cgn_csv ) )
+    if (!file.exists( ret_dat$cgn_bed_tsv )) {
+      cat(glue::glue("{RET}{mssg} Warning: Failed to find: ",
+                     "ret_dat$cgn_bed_tsv{RET}"))
+      
+      cat(glue::glue("{mssg} Warning: cgn_bed_dir=",
+                     "{cgn_bed_dir}!{RET}"))
+      cat(glue::glue("{mssg} Warning: genome_build=",
+                     "{genome_build}!{RET}"))
+      cat(glue::glue("{mssg} Warning: ret_dat$bsp_suffix=",
+                     "{ret_dat$bsp_suffix}!{RET2}"))
+      
+      cat(glue::glue("{RET}{mssg} Warning: Failed to find: ",
+                     "cgn_bed_tsv={ret_dat$cgn_bed_tsv}!{RET2}"))
+      # stopifnot( file.exists( ret_dat$cgn_bed_tsv ) )
+    }
+    if (!file.exists( ret_dat$canonical_cgn_csv )) {
+      cat(glue::glue("{RET}{mssg} Warning: Failed to find: ",
+                     "ret_dat$canonical_cgn_csv{RET}"))
+      
+      cat(glue::glue("{mssg} Warning: canonical_cgn_dir=",
+                     "{canonical_cgn_dir}!{RET}"))
+      cat(glue::glue("{mssg} Warning: canonical_cgn_csv=",
+                     "{canonical_cgn_csv}!{RET2}"))
+      
+      cat(glue::glue("{mssg} Warning: ret_dat$canonical_cgn_csv=",
+                     "{ret_dat$canonical_cgn_csv}!{RET2}"))
+      # stopifnot( file.exists( ret_dat$canonical_cgn_csv ) )
+    }
     
     ret_dat$re_load <- TRUE
     if (fresh) ret_dat$re_load <- FALSE
