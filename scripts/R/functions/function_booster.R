@@ -1215,6 +1215,10 @@ guess_file_del = function(file, n_max=100,
 #                              String Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+safe_mkdir = function(dir) {
+  if (!dir.exists(dir)) dir.create(dir, recursive=TRUE)
+}
+
 # TBD:: Add all the other options for reading files and add
 #   col_names, col_types options to be passed in. 
 safe_read = function(file, type=NULL, clean=TRUE, guess_max=1000,

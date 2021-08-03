@@ -77,59 +77,39 @@ aqp_mapping_workflow = function(ord_dat,
                                 mat_dat, 
                                 aqp_dat,
 
-                                prb_key = "Ord_Prb",
-                                add_key = "Address",
-                                des_key = "Ord_Des",
-                                din_key = "Ord_Din",
-                                ids_key = "Prb_Key",
-
+                                out_dir,
+                                run_tag,
+                                fun_var,
+                                pre_tag = NULL,
+                                
+                                reload = FALSE,
+                                ret_data = FALSE,
+                                
                                 del = "_",
                                 
-                                out_csv = NULL,
-                                out_dir,
-                                run_tag, 
-                                re_load = FALSE,
-                                pre_tag = NULL,
-                                end_str = 'csv.gz',
-                                sep_chr = '.',
-                                out_col = c("Prb_Key","Address","Ord_Des",
-                                            "Ord_Din","Ord_Map","Ord_Prb"),
-
                                 verbose=0, vt=3,tc=1,tt=NULL,
                                 funcTag='aqp_mapping_workflow') {
   
   tabs <- paste0(rep(TAB, tc), collapse='')
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
-  out_csv <- redata(out_dir, run_tag, funcTag, re_load, 
-                    pre_tag, end_str=end_str, sep=sep_chr,
-                    verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-  if (tibble::is_tibble(out_csv)) return(out_csv)
-  if (is.null(out_csv)) {
-    stop(glue::glue("{RET}{mssg} ERROR: out_csv is NULL!{RET2}"))
-    return(out_csv)
-  }
-  out_dir <- base::dirname(out_csv)
-  
-  sum_csv <- out_csv %>% 
-    stringr::str_remove(paste0(sep_chr,end_str,"$") ) %>%
-    paste("summary.csv.gz", sep=sep_chr)
-  
-  
+  out_dir <- file.path( out_dir,funcTag )
+  sum_csv <- file.path( out_dir, paste(run_tag,funcTag,'sum.csv.gz', sep='.') )
+  aux_csv <- file.path( out_dir, paste(run_tag,funcTag,'aux.csv.gz', sep='.') )
+  out_csv <- file.path( out_dir, paste(run_tag,funcTag,'csv.gz', sep='.') )
+  fin_csv <- paste0(out_csv,'.done.txt')
+  safe_mkdir(out_dir)
+  if ( reload && valid_time_stamp(c(pre_tag,sum_csv,aux_csv,out_csv,fin_csv)) )
+    return( safe_read( out_csv, funcTag="Reloading", verbose = verbose ) )
+
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
     cat(glue::glue("{mssg}       del={del}.{RET}"))
     cat(glue::glue("{mssg}   out_dir={out_dir}.{RET}"))
-    cat(glue::glue("{mssg}   out_csv={out_csv}.{RET}"))
     cat(glue::glue("{mssg}   sum_csv={sum_csv}.{RET}"))
-    cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg}   prb_key={prb_key}.{RET}"))
-    cat(glue::glue("{mssg}   add_key={add_key}.{RET}"))
-    cat(glue::glue("{mssg}   des_key={des_key}.{RET}"))
-    cat(glue::glue("{mssg}   din_key={din_key}.{RET}"))
-    cat(glue::glue("{mssg}   ids_key={ids_key}.{RET}"))
+    cat(glue::glue("{mssg}   out_csv={out_csv}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -139,11 +119,6 @@ aqp_mapping_workflow = function(ord_dat,
   ret_dat <- NULL
 
   stime <- base::system.time({
-    
-    prb_sym <- rlang::sym(prb_key)
-    din_sym <- rlang::sym(din_key)
-    ids_sym <- rlang::sym(ids_key)
-    aln_vec <- c(add_key,des_key)
 
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                         Process AQP/PQC Files::
@@ -151,21 +126,42 @@ aqp_mapping_workflow = function(ord_dat,
     if (purrr::is_character(aqp_dat)) {
       aqp_tib <- load_aqp_files(aqp_dat, 
                                 verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
-        dplyr::arrange(-Ord_Idx) %>% 
+        dplyr::arrange(-idx) %>% 
         dplyr::distinct(Address, .keep_all=TRUE)
     } else {
       aqp_tib <- aqp_dat
     }
     if (!tibble::is_tibble(aqp_tib)) {
-      stop(glue::glue("{RET}[{funcTag}]: AQP/PQC is NOT a tibble!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} AQP/PQC is NOT a tibble!{RET}{RET}"))
       return(ret_tib)
     }
+    aqp_tot_cnt <- aqp_tib %>% base::nrow()
     aqp_dup_cnt <- aqp_tib %>% 
       dplyr::add_count(Address, name="Add_Cnt") %>% 
       dplyr::filter(Add_Cnt!=1) %>% base::nrow()
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: aqp_dup_cnt={aqp_dup_cnt}.{RET}"))
+      cat(glue::glue("{mssg} aqp_dup_cnt={aqp_dup_cnt}/{aqp_tot_cnt}.{RET}"))
     
+    # Build Summary::
+    aqp_sum <- aqp_tib %>% 
+      dplyr::group_by(idx, Decode_Status) %>% 
+      dplyr::summarise(Decode_Count=n(), .groups="drop")
+    print(aqp_sum, n=base::nrow(aqp_sum))
+    
+    sum_key <- glue::glue("aqp-summary({funcTag})")
+    sum_cnt <- print_tib(aqp_sum,funcTag, verbose,vt=vt+4,tc=tc+1, n=sum_key)
+    
+    sum_cnt <- safe_write(x=aqp_sum, file=sum_csv, done = TRUE,
+                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+    
+    
+    aqp_col <- c(fun_var$aqp_file_idx, fun_var$ord_add)
+    aqp_tib <- aqp_tib %>% 
+      dplyr::filter(Decode_Status==0) %>%
+      dplyr::select(-Decode_Status) %>%
+      purrr::set_names(aqp_col)
+    if (ret_data) ret_dat$aqp <- aqp_tib
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                          Process Match Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -173,21 +169,26 @@ aqp_mapping_workflow = function(ord_dat,
     if (purrr::is_character(mat_dat)) {
       mat_tib <- load_aqp_files(mat_dat,
                                 verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
-        dplyr::arrange(-Ord_Idx) %>% 
+        dplyr::arrange(-idx) %>% 
         dplyr::distinct(Address, .keep_all=TRUE)
     } else {
       mat_tib <- mat_dat
     }
     if (!tibble::is_tibble(mat_tib)) {
-      stop(glue::glue("{RET}[{funcTag}]: Match is NOT a tibble!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} Match is NOT a tibble!{RET}{RET}"))
       return(ret_tib)
     }
-    
     mat_dup_cnt <- mat_tib %>% 
       dplyr::add_count(Address, name="Add_Cnt") %>% 
       dplyr::filter(Add_Cnt!=1) %>% base::nrow()
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: mat_dup_cnt={mat_dup_cnt}.{RET}"))
+      cat(glue::glue("{mssg} mat_dup_cnt={mat_dup_cnt}.{RET}"))
+    
+    mat_col <- c(fun_var$mat_file_idx, fun_var$ord_add, 
+                 fun_var$ord_tangoSeq, fun_var$ord_prb)
+    mat_tib <- mat_tib %>% purrr::set_names(mat_col)
+    
+    if (ret_data) ret_dat$mat <- mat_tib
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                          Process Order Files::
@@ -196,70 +197,64 @@ aqp_mapping_workflow = function(ord_dat,
     if (purrr::is_character(ord_dat)) {
       ord_tib <- load_aqp_files(ord_dat,
                                 verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
-        dplyr::mutate(Ord_Map=Ord_Idx+Ord_Map)
+        dplyr::mutate(idx=idx+Ord_Map) %>%
+        dplyr::mutate(Ord_Cgn=Ord_Key %>% 
+                        stringr::str_remove("^[^0-9]+") %>% 
+                        stringr::str_remove("[^0-9]+.*$") %>% 
+                        stringr::str_remove("^0+") )
     } else {
       ord_tib <- ord_dat
     }
     if (!tibble::is_tibble(ord_tib)) {
-      stop(glue::glue("{RET}[{funcTag}]: Order is NOT a tibble!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} Order is NOT a tibble!{RET}{RET}"))
       return(ret_tib)
     }
-    
+    ord_col <- c( fun_var$ord_grp, fun_var$ord_file_idx, fun_var$ord_user_key, 
+                  fun_var$ord_um2, fun_var$ord_din, fun_var$ord_user_col, 
+                  fun_var$ord_prb, fun_var$ord_mate_prb, fun_var$ord_cgn )
+    ord_tib <- ord_tib %>% purrr::set_names(ord_col)
+    if (ret_data) ret_dat$ord <- ord_tib
+
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                        Build Probes/Address Table::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    ret_tib <- aqp_tib %>% 
-      dplyr::filter(Decode_Status==0) %>%
-      dplyr::select(Address,Ord_Idx) %>%
-      dplyr::rename(Aqp_Idx=Ord_Idx) %>%
-      dplyr::inner_join(mat_tib, by=add_key) %>%
-      dplyr::rename(Mat_Idx=Ord_Idx) %>%
-      dplyr::rename_with(~ c(prb_key), dplyr::all_of(c("Mat_Prb")) ) %>%
-      dplyr::inner_join(ord_tib, by=c(prb_key)) %>%
-      tidyr::unite(Tmp_Key, dplyr::all_of(aln_vec), sep=del, remove=FALSE) %>%
-      tidyr::unite(!!ids_sym, Tmp_Key,!!din_sym, sep="", remove=FALSE) %>%
-      dplyr::select(-Tmp_Key) %>%
-      dplyr::mutate(Ord_Cgn=Ord_Key %>% 
-                      stringr::str_remove("^[^0-9]+") %>% 
-                      stringr::str_remove("[^0-9]+.*$") %>% 
-                      stringr::str_remove("^0+") ) %>%
-      dplyr::select(Address,Ord_Des,Ord_Din,Ord_Map,Ord_Prb,Ord_Par,
-                    Ord_Key,Ord_Col,Ord_Idx,Mat_Idx,Aqp_Idx,Mat_Tan,
-                    dplyr::everything())
+    ord_idx <- fun_var$ord_idx
+    by1_vec <- intersect( names(aqp_tib), names(mat_tib) )
+    by2_vec <- intersect( names(mat_tib), names(ord_tib) )
+    ret_tib <-  
+      dplyr::inner_join( aqp_tib, mat_tib, by=by1_vec ) %>%
+      dplyr::inner_join( ord_tib, by=by2_vec )
 
-    prb_dup_cnt <- ret_tib %>% 
-      dplyr::add_count(Address, name="Add_Cnt") %>% 
+    if (ret_data) ret_dat$ret <- ret_tib
+    
+    # - Split Core/Auxiliary
+    top_tib <- ret_tib %>% dplyr::select( dplyr::all_of( fun_var$top_vec ) )
+    aux_tib <- ret_tib %>% dplyr::select(!dplyr::all_of( fun_var$top_vec ) )
+    
+    if (ret_data) ret_dat$top <- top_tib
+    if (ret_data) ret_dat$aux <- aux_tib
+
+    prb_dup_cnt <- top_tib %>% 
+      dplyr::add_count(AddressID, name="Add_Cnt") %>% 
       dplyr::filter(Add_Cnt!=1) %>% base::nrow()
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: prb_dup_cnt={prb_dup_cnt}.{RET}"))
+      cat(glue::glue("{mssg} prb_dup_cnt={prb_dup_cnt}.{RET}"))
     
     par_dup_cnt <- ret_tib %>% 
-      dplyr::add_count(Address,Ord_Prb,Ord_Par, name="Dup_Cnt") %>% 
+      dplyr::add_count(AddressID,Probe_Seq,Mate_Probe_Seq, name="Dup_Cnt") %>% 
       dplyr::filter(Dup_Cnt!=1) %>% base::nrow()
     if (verbose>=vt)
-      cat(glue::glue("[{funcTag}]: par_dup_cnt={par_dup_cnt}.{RET}"))
+      cat(glue::glue("{mssg} par_dup_cnt={par_dup_cnt}.{RET}"))
     
-    # Build Summary::
-    aqp_sum <- aqp_tib %>% 
-      dplyr::group_by(Ord_Idx, Decode_Status) %>% 
-      dplyr::summarise(Decode_Count=n(), .groups="drop")
-    print(aqp_sum, n=base::nrow(aqp_sum))
-    
-    sum_key <- glue::glue("aqp-summary({funcTag})")
-    sum_cnt <- print_tib(aqp_sum,funcTag, verbose,vt=vt+4,tc=tc+1, n=sum_key)
-    
-    # Format Final Output::
-    ret_tib <- ret_tib %>% 
-      dplyr::select(dplyr::all_of(out_col), dplyr::everything())
-    
-    # Write Probe and Summary Output::
-    sum_cnt <- safe_write(x=aqp_sum, file=sum_csv, done = TRUE,
+    # Write Auxiliary Probe Order Output::
+    aux_cnt <- safe_write(x=aux_tib, file=aux_csv, done = TRUE,
                           verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-    out_cnt <- safe_write(x=ret_tib, file=out_csv, done = TRUE,
-                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
-    tt$addFile(out_csv)
     
+    # Write Top Probe Order Fields::
+    out_cnt <- safe_write(x=top_tib, file=out_csv, done = TRUE,
+                          verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
+
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose, vt=vt+4,tc=tc+1, n=ret_key)
   })
@@ -269,7 +264,7 @@ aqp_mapping_workflow = function(ord_dat,
     "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
     "{RET}{mssg}{BRK}{RET}{RET}"))
   
-  ret_tib
+  top_tib
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -461,7 +456,7 @@ load_aqp_files = function(file,
     ret_tib <- file_vec %>%
       lapply(load_aqp_file,
              verbose=verbose, vt=vt+1,tc=tc+1,tt=tt) %>% 
-      dplyr::bind_rows(.id = "Ord_Idx") %>%
+      dplyr::bind_rows(.id = "idx") %>%
       clean_tibble()
     
     ret_key <- glue::glue("ret-fin({funcTag})")
@@ -609,12 +604,12 @@ load_aqp_file = function(file,
     sel_col <- NULL
     key_col <- NULL
     if (is.null(beg_key) || is.null(col_num)) {
-      cat(glue::glue("{RET}[{funcTag}]: ERROR: Either beg_key OR col_num is ",
+      cat(glue::glue("{RET}{mssg} ERROR: Either beg_key OR col_num is ",
                       "NULL!{RET}"))
-      cat(glue::glue("{RET}[{funcTag}]: ERROR: file='{file}'{RET}"))
-      cat(glue::glue("[{funcTag}]: ERROR: guess_tib={RET}"))
+      cat(glue::glue("{RET}{mssg} ERROR: file='{file}'{RET}"))
+      cat(glue::glue("{mssg} ERROR: guess_tib={RET}"))
       print(guess_tib)
-      stop(glue::glue("{RET2}[{funcTag}]: ERROR: Either beg_key OR col_num is ",
+      stop(glue::glue("{RET2}{mssg} ERROR: Either beg_key OR col_num is ",
                       "NULL!{RET}{TAB}file='{file}'!{RET2}"))
       return(ret_tib)
     } else if (beg_key==names(val_cols$ord$cols)[1] && 
@@ -678,17 +673,17 @@ load_aqp_file = function(file,
         add_mat_cnt <- add_mat_tib %>% base::nrow()
       }
       if (add_mat_cnt != 0) {
-        cat(glue::glue("{RET}[{funcTag}]: ERROR: Goofy match format ",
+        cat(glue::glue("{RET}{mssg} ERROR: Goofy match format ",
                        "({dat_key}) has non-zero ({add_mat_cnt}) address ",
                        "miss-matching! add_mat_tib={RET}"))
         print(add_mat_tib)
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Goofy match format ",
+        stop(glue::glue("{RET}{mssg} ERROR: Goofy match format ",
                         "({dat_key}) has non-zero ({add_mat_cnt}) address ",
                         "miss-matching!{RET2}"))
         return(NULL)
       }
       if (verbose>=vt+6)
-        cat(glue::glue("{RET}[{funcTag}]: Success: Goofy match format ",
+        cat(glue::glue("{RET}{mssg} Success: Goofy match format ",
                        "({dat_key}) has zero ({add_mat_cnt}) address ",
                        "miss-matching!{RET2}"))
     }
@@ -767,7 +762,7 @@ load_aqp_file = function(file,
           dplyr::mutate(Address=as.numeric(
             stringr::str_remove(stringr::str_remove(Address, '^1'), '^0+')) )
       } else {
-        stop(glue::glue("{RET}[{funcTag}]: ERROR: Attempting to trim new tango fomrat, ",
+        stop(glue::glue("{RET}{mssg} ERROR: Attempting to trim new tango fomrat, ",
                         "but format doesn't match; trim_cnt={trim_cnt}!!!{RET2}"))
         return(NULL)
       }
@@ -839,7 +834,7 @@ guess_aqp_file = function(file,
     file_del_str <- guess_file_del(file, n_max=n_max,
                                    verbose=verbose, vt=vt+4,tc=tc+1)
     if (is.null(file_del_str)) {
-      stop(glue::glue("{RET}[{funcTag}]: ERROR: file_del_str=NULL!!!{RET}{RET}"))
+      stop(glue::glue("{RET}{mssg} ERROR: file_del_str=NULL!!!{RET}{RET}"))
       return(ret_tib)
     }
     if (verbose>=vt)
@@ -877,68 +872,6 @@ guess_aqp_file = function(file,
     }
     
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+6,tc)
-  })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tt)) tt$addTime(stime,funcTag)
-  if (verbose>=vt) cat(glue::glue(
-    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
-    "{RET}{mssg}{BRK}{RET}{RET}"))
-  
-  ret_tib
-}
-
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-#                       Manifest Mutation Methods::
-# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-
-# TBD:: Pretty Sure this can be removed::
-mutate_probe_id = function(tib, 
-                           
-                           pid="Probe_ID", 
-                           cgn="Imp_Cgn_Seq",
-                           des="Ord_Des",  
-                           din="Ord_Din",
-                           tb="Imp_TB_Seq", 
-                           co="Imp_CO_Seq",
-                           inf="Infinium_Design",
-                           
-                           pad=8,
-                           verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'mutate_probe_id'
-  tabs <- paste0(rep(TAB, tc), collapse='')
-  mssg <- glue::glue("[{funcTag}]:{tabs}")
-  
-  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
-  if (verbose>=vt+2) {
-    cat(glue::glue("{RET}"))
-    cat(glue::glue("{mssg} Function Parameters::{RET}"))
-    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
-    cat(glue::glue("{RET}"))
-  }
-  
-  ret_cnt <- 0
-  ret_tib <- NULL
-  stime <- base::system.time({
-    
-    pid_sym <- rlang::sym(pid)
-    cgn_sym <- rlang::sym(cgn)
-    des_sym <- rlang::sym(des)
-    din_sym <- rlang::sym(din)
-    tb_sym  <- rlang::sym(tb)
-    co_sym  <- rlang::sym(co)
-    inf_sym <- rlang::sym(inf)
-    
-    ret_tib <- tib %>% 
-      dplyr::mutate(
-        !!inf_sym:=dplyr::case_when(
-          !!des_sym=="U" | !!des_sym=="M" ~ 1, 
-          !!des_sym=="2" ~ 2, 
-          TRUE ~ NA_real_) %>% as.integer(), 
-        !!pid_sym:=paste(paste0(!!din_sym,stringr::str_pad(!!cgn_sym,width=pad, side="left", pad="0")), 
-                         paste0(!!tb_sym,!!co_sym,!!inf_sym), sep="_")
-      )
-    
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n="ret")
   })
   etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
@@ -1283,9 +1216,7 @@ aqp_to_sesame2 = function(tib, isMU=FALSE, retData=FALSE,
   ret_tib <- NULL
   ret_dat <- NULL
   stime <- base::system.time({
-    
-    # Ord_Din_sym <- rlang::sym(Ord_Din)
-    
+
     lab_tib <- tib
     # if (!isMU)
     #   lab_tib <- lab_tib %>%

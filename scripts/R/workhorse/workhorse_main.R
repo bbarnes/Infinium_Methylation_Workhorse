@@ -148,10 +148,9 @@ if (args.dat[1]=='RStudio') {
   
   opt$bsmap_opt <- "-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
   opt$bsmap_exe <- "/Users/bretbarnes/Documents/tools/programs/BSMAPz/bsmapz"
-  opt$cgn_seq_dir <- 
+  
+  opt$tag_seq_dir <- 
     file.path(opt$imp_dir, "scratch/cgnDB/dbSNP_Core4/design-output/prbs-p49-split")
-  opt$cgn_bed_dir <- 
-    file.path(opt$imp_dir, "scratch/cgnDB/dbSNP_Core4/design-input/min")
   
   opt$canonical_cgn_dir <- file.path(par$dat_dir, "manifest/cgnDB")
   opt$canonical_cgn_csv <- "canonical.cgn-top-grp.csv.gz"
@@ -183,87 +182,20 @@ if (args.dat[1]=='RStudio') {
   opt$fresh  <- FALSE
   opt$reload <- TRUE
   
+  opt$sesame_manifest_dat <- "EPIC.hg19.manifest,HM450.hg19.manifest"
+  genome_manifest_dir <- file.path(par$top_dir, "data/manifests/methylation/GenomeStudio")
+  opt$genome_manifest_csv <- paste(
+    file.path(genome_manifest_dir, "MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"),
+    file.path(genome_manifest_dir, "HumanMethylation450_15017482_v.1.2.csv.gz"),
+    sep = ","
+  )
+  
   if (FALSE) {
-    
-  } else if (par$local_runType=='EPIC_v2' ||
-             par$local_runType=='EWAS') {
-    
-    map_col <- c("Bead_Pool", "MN", "Match_Num", "Bead_Pool_Name", "Bucket_Name", "Order_Path", "AQP1_Num", "AQP2_Num")
-    top_dir <- "/Users/bretbarnes/Documents/data/CustomContent/EPIC_v2/AQP-Files-EPIC_and_EWAS-Content"
-    ord_dir <- file.path(top_dir, "order")
-    mat_dir <- file.path(top_dir, "match")
-    aqp_dir <- file.path(top_dir, "aqp")
-    
-    EWAS_bucket <- c("EWAS_01", "EWAS_02", "EPICv2_EWAS_1-7_SI")
-    EPIC_bucket <- c("EWAS_01", "EWAS_02")
-    
-    map_csv <- file.path(top_dir, "EPICv2EWAS_screening_master-Input-for-Elisa-V4.csv")
-    map_tib <- readr::read_csv(map_csv) %>% 
-      purrr::set_names(map_col) %>% 
-      tibble::as_tibble() %>% 
-      dplyr::filter(!is.na(AQP1_Num)) %>%
-      dplyr::mutate(Order_Path=Order_Path %>% 
-                      stringr::str_remove("^.*\\\\") %>% 
-                      paste0(ord_dir,'/',.,".gz"),
-                    Match_Path=dplyr::case_when(
-                      AQP2_Num != "-" ~ paste0(mat_dir,"/AQP2-",Match_Num,"_probes.match.gz"),
-                      TRUE ~ paste0(mat_dir,"/",Match_Num,"_probes.match.gz")
-                    ),
-                    AQP_Path=dplyr::case_when(
-                      AQP2_Num != "-" ~ paste0(aqp_dir,"/",AQP2_Num,".txt.gz"),
-                      TRUE ~ paste0(aqp_dir,"/",AQP1_Num,".txt.gz")
-                    ),
-                    Order_File_Name = base::basename(Order_Path),
-                    Match_File_Name = base::basename(Match_Path),
-                    AQP_File_Name = base::basename(AQP_Path) )
-    
-    lapply(map_tib$Order_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
-    lapply(map_tib$Match_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
-    lapply(map_tib$AQP_Path, file.exists) %>% cbind() %>% as.vector() %>% unique()
-    
-    epic_map_tib <- map_tib %>% dplyr::filter(!Bucket_Name %in% EPIC_bucket)
-    ewas_map_tib <- map_tib %>% dplyr::filter( Bucket_Name %in% EWAS_bucket)
-    
-    if (par$local_runType=='EPIC_v2') {
-      # EPIC v2:: 
-      opt$genome_build <- 'GRCh37'
-      opt$platform <- 'EPIC_v2'
-      opt$version  <- 'v1'
-      
-      opt$ord_dir <- ord_dir
-      opt$mat_dir <- mat_dir
-      opt$aqp_dir <- aqp_dir
-      
-      opt$ord_csv <- paste(epic_map_tib$Order_File_Name, collapse = ",")
-      opt$mat_tsv <- paste(epic_map_tib$Match_File_Name, collapse = ",")
-      opt$aqp_tsv <- paste(epic_map_tib$AQP_File_Name, collapse = ",")
-      
-    } else if (par$local_runType=='EWAS') {
-      opt$genome_build <- 'GRCh37'
-      opt$platform <- 'EWAS'
-      opt$version  <- 'v1'
-      
-      opt$ord_dir <- ord_dir
-      opt$mat_dir <- mat_dir
-      opt$aqp_dir <- aqp_dir
-      
-      opt$ord_csv <- paste(ewas_map_tib$Order_File_Name, collapse = ",")
-      opt$mat_tsv <- paste(ewas_map_tib$Match_File_Name, collapse = ",")
-      opt$aqp_tsv <- paste(ewas_map_tib$AQP_File_Name, collapse = ",")
-    }
-
-    # opt$sesame_manifest_dat <- "EPIC.hg19.manifest,HM450.hg19.manifest"
-    # genome_manifest_dir <- file.path(par$top_dir, "data/manifests/methylation/GenomeStudio")
-    # opt$genome_manifest_csv <- paste(
-    #   file.path(genome_manifest_dir, "MethylationEPIC_v-1-0_B4-Beadpool_ID.csv.gz"),
-    #   file.path(genome_manifest_dir, "HumanMethylation450_15017482_v.1.2.csv.gz"),
-    #   sep = ","
-    # )
     
   } else if (par$local_runType=='McMaster10Kselection') {
     opt$genome_build <- 'GRCh37'
     opt$platform <- 'MCM'
-    opt$version  <- 'v1'
+    opt$version  <- 'F1'
     
     opt$ord_dir <- file.path(par$top_dir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/order")
     opt$mat_dir <- file.path(par$top_dir, "data/CustomContent/McMaster/McMaster10Kselection/AQP.v2/match")
@@ -306,6 +238,17 @@ if (args.dat[1]=='RStudio') {
     stop(glue::glue("{RET}[{par$prgm_tag}]: Unsupported pre-options local type: local_runType={par$local_runType}!{RET}{RET}"))
   }
   
+  # Need the Genome Build Definition::
+  #
+  opt$bsp_map_dir <- 
+    file.path(par$top_dir, "data/improbe/scratch/cgnDB/dbSNP_Core4/design-input/min")
+  opt$bsp_map_tsv <- paste(opt$genome_build,"chr-pos-srd.slim.pos-sorted.txt.gz", sep='.')
+  
+  opt$tag_map_dir <- 
+    file.path(par$top_dir, "data/improbe/scratch/cgnDB/dbSNP_Core4/design-input/min")
+  opt$tag_map_tsv <- paste(opt$genome_build,"chr-pos-srd.slim.cgn-sorted.txt.gz", sep='.')
+  
+  # Run Name Default::
   opt$run_name <- paste(par$local_runType,opt$platform,opt$version,opt$genome_build, sep='-')
   
 } else {
@@ -380,6 +323,39 @@ valid_files <- valid_aqp_inputs(ord_dir = opt$ord_dir, ord_csv = opt$ord_csv,
                                 verbose = opt$verbose, tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#            0.0 Load any pre-defined Standard Manifest to be added::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+if (FALSE && !is.null(opt$sesame_manifest_dat)) {
+  sesame_address_list <- get_file_list(files=opt$sesame_manifest_dat, 
+                                       alpha_numeric = TRUE, del = COM)
+  found_all <- TRUE
+  for (sesame_key in names(sesame_address_list)) {
+    out_csv <- file.path(opt$out_dir, "Sesame_Address", paste0(sesame_key,"address.csv.gz"))
+    if (!file.exists(out_csv)) found_all <- FALSE
+  }
+  if (!found_all) {
+    sesame_address_dat  <- lapply(sesame_address_list, load_sesame_repo_address,
+                                  add_decoy = TRUE,
+                                  add_masks = TRUE,
+                                  verbose=opt$verbose, tt=pTracker)
+    for (sesame_key in names(sesame_address_list)) {
+      out_csv <- file.path(opt$out_dir, "Sesame_Address", paste0(sesame_key,"address.csv.gz"))
+      
+      safe_write(sesame_address_dat[[sesame_key]], file = out_csv, done = TRUE,
+                 verbose = opt$verbose, tt = pTracker)
+    }
+  } else {
+    sesame_address_dat <- NULL
+    for (sesame_key in names(sesame_address_list)) {
+      out_csv <- file.path(opt$out_dir, "Sesame_Address", paste0(sesame_key,"address.csv.gz"))
+      sesame_address_dat[[sesame_key]] <- 
+        safe_read(out_csv, verbose = opt$verbose, tt = pTracker)
+    }
+  }
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #          0.1 Load any pre-defined Noob-Masked Manifest to be added::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
@@ -416,25 +392,29 @@ imGenome_tib <- load_imGenomes_table(dir = opt$gen_dir,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+#
+# TBD:: Implement remove failed mates option::
+#
+ord_var <- ord_vars(verbose = opt$verbose)
+
 ord_tib <- NULL
 ord_tib <- 
-  aqp_mapping_workflow(ord = valid_files$ord_str,
-                       mat = valid_files$mat_str,
-                       aqp = valid_files$aqp_str,
-                       
-                       prb_key = run$prb_key,
-                       add_key = run$add_key,
-                       des_key = run$des_key,
-                       din_key = run$din_key,
-                       ids_key = run$ids_key,
+  aqp_mapping_workflow(ord_dat = valid_files$ord_str,
+                       mat_dat = valid_files$mat_str,
+                       aqp_dat = valid_files$aqp_str,
                        
                        out_dir = opt$out_dir,
-                       out_col = run$out_col,
                        run_tag = opt$run_name,
-                       re_load = run$re_load,
-                       pre_tag = pTracker$file_vec,
-                       
+                       fun_var = ord_var,
+                       pre_tag = opt$time_org_txt,
+
+                       reload   = opt$reload,
+                       ret_data = FALSE,
+
                        verbose=opt$verbose, tt=pTracker)
+
+ord_csv <- paste(opt$run_name,'aqp_mapping_workflow','csv.gz', sep='.')
+ord_csv <- file.path( opt$out_dir, 'aqp_mapping_workflow', ord_csv )
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -446,41 +426,63 @@ ord_tib <-
 # TBD:: Plot normalized intensity x individual chr hits x binding energy
 #
 
+# ref_img_tib               - genome (imGenome_tib)
+# dbs_pos_dir, dbs_pos_tsv  - pos-sorted (pos -> cgn)
+# can  - ord_tib
+
+# bsp_idx (ord_idx, bsp_chr, bsp_pos, bsp_srd)
+#
+# bsp_tag
+# bsp_mis
+# bsp_str ...
+#
+# dbs_chr
+# dbs_pos
+# dbs_cgn
+# dbs_top
+#
+# Auxiliary Inferred Fields::
+#
+# bsp_ref_nxb
+# bsp_bsc_nxb
+# bsp_ref_din
+# bsp bsc_din
+# ...
+#
+
+bsp_var <- bsp_vars(verbose = opt$verbose)
+
 bsp_tib <- NULL
 bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 ref_tib = imGenome_tib,
-                                can_fas = NULL,
                                 can_tib = ord_tib,
                                 
-                                cgn_src = run$cgn_bed_tsv,
+                                map_dir = opt$bsp_map_dir,
+                                map_tsv = opt$bsp_map_tsv,
                                 
-                                ids_key = run$ids_key,
-                                unq_key = run$unq_key,
-                                prb_key = run$prb_key,
-                                des_key = run$des_key,
-                                din_key = run$din_key,
+                                out_dir = opt$out_dir,
+                                run_tag = opt$run_name,
+                                fun_var = bsp_var,
+                                ord_var = ord_var,
+                                pre_tag = ord_csv,
+
+                                reload   = opt$reload,
+                                ret_data = TRUE, # FALSE,
                                 
-                                join_key  = run$ids_key,
-                                join_type = "inner",
-                                
-                                sort    = run$bsp_sort,
-                                full    = run$bsp_full,
-                                merge   = run$bsp_merge,
-                                
-                                light   = run$bsp_light,
-                                reload  = opt$reload,
-                                retData = FALSE,
-                                
+                                bsp_dir = opt$bsmap_dir,
                                 bsp_exe = opt$bsmap_exe,
                                 bsp_opt = opt$bsmap_opt,
                                 
-                                out_dir = opt$out_dir,
-                                out_col = run$out_col,
-                                run_tag = opt$run_name,
-                                re_load = run$re_load,
-                                pre_tag = pTracker$file_vec,
-                                
-                                verbose=opt$verbose, tt=pTracker)
+                                # Not sure if we'll allow these...
+                                # join_key  = bsp_var$bsp_key,
+                                # join_type = "inner",
+                                # 
+                                # sort    = run$bsp_sort,
+                                # full    = run$bsp_full,
+                                # merge   = run$bsp_merge,
+                                # light   = run$bsp_light,
+
+                                verbose=opt$verbose + 10, tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -488,6 +490,33 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
 #                         CGN Mapping Workflow()
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# ref_P49_dir, ref_U49_tsv,ref_M49_tsv  - U49/M49 (P49)
+# dbs_cgn_dir, dbs_cgn_tsv              - cgn-sorted (cgn -> pos)
+# can  - ord_tib
+
+#
+# p49_idx (ord_idx, aln_prb)
+#
+# p49_cgn
+# p49_srd
+# p49_nxb
+# p49_cnt
+#
+# dbs_chr
+# dbs_pos
+# dbs_cgn
+# dbs_top
+#
+# Auxiliary Fields::
+#
+# aln_prb
+# aln_n50
+# hit_h38
+# hit_h37
+# hit_h36
+# hit_m10
+#
 
 seq_tib <- NULL
 seq_tib <- 
@@ -526,6 +555,8 @@ seq_tib <-
 #                      CGN-Map/BSMAP/dbGCGN look-up
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# canonical_cgn_dir, canonical_cgn_csv
 
 cgn_tib <- NULL
 cgn_tib <- 

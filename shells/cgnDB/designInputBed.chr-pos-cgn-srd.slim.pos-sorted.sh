@@ -7,7 +7,7 @@ BLD="GRCh37"
 
 DIR="${TOP}/min"
 INP="${TOP}/${BLD}.cgn.bed.gz"
-OUT="${DIR}/${BLD}.cgn.min.txt.gz"
+OUT="${DIR}/${BLD}.chr-pos-srd.slim.pos-sorted.txt.gz"
 
 mkdir -p ${DIR}
 

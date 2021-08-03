@@ -66,7 +66,7 @@ template_func = function(tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 # TBD:: NOTE THIS SHOULD BE MOVED AND UPDATED. THIS IS A QUICK FIX!!!
-tib_to_grs = function(tib, ids_key="Probe_ID",
+tib_to_grs = function(tib, ids_key="Probe_ID", chr_key="Chromosome",
                          verbose=0,vt=3,tc=1,tt=NULL,
                          funcTag='tib_to_grs') {
   
@@ -101,7 +101,8 @@ tib_to_grs = function(tib, ids_key="Probe_ID",
     
     man_grs <- 
       GenomicRanges::GRanges(
-        seqnames = Rle(ret_tib$Chromosome),
+        seqnames = Rle(ret_tib %>% dplyr::pull( chr_key ) ),
+        # seqnames = Rle(ret_tib$Chromosome),
         # strand=Rle(ret_tib$Strand_FR),
         
         Strand_FR=ret_tib$Strand_FR,

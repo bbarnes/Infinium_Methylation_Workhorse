@@ -12,6 +12,67 @@
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                       Manifest Mutation Methods::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+# TBD:: Pretty Sure this can be removed::
+mutate_probe_id = function(tib, 
+                           
+                           pid="Probe_ID", 
+                           cgn="Imp_Cgn_Seq",
+                           des="Ord_Des",  
+                           din="Ord_Din",
+                           tb="Imp_TB_Seq", 
+                           co="Imp_CO_Seq",
+                           inf="Infinium_Design",
+                           
+                           pad=8,
+                           verbose=0,vt=3,tc=1,tt=NULL) {
+  funcTag <- 'mutate_probe_id'
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    pid_sym <- rlang::sym(pid)
+    cgn_sym <- rlang::sym(cgn)
+    des_sym <- rlang::sym(des)
+    din_sym <- rlang::sym(din)
+    tb_sym  <- rlang::sym(tb)
+    co_sym  <- rlang::sym(co)
+    inf_sym <- rlang::sym(inf)
+    
+    ret_tib <- tib %>% 
+      dplyr::mutate(
+        !!inf_sym:=dplyr::case_when(
+          !!des_sym=="U" | !!des_sym=="M" ~ 1, 
+          !!des_sym=="2" ~ 2, 
+          TRUE ~ NA_real_) %>% as.integer(), 
+        !!pid_sym:=paste(paste0(!!din_sym,stringr::str_pad(!!cgn_sym,width=pad, side="left", pad="0")), 
+                         paste0(!!tb_sym,!!co_sym,!!inf_sym), sep="_")
+      )
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{mssg}{BRK}{RET}{RET}"))
+  
+  ret_tib
+}
 
 
 

@@ -143,7 +143,7 @@ if (args.dat[1]=='RStudio') {
   opt$imp_dir  <- file.path(par$top_dir, 'data/improbe')
   opt$ann_dir  <- file.path(par$top_dir, 'data/annotation')
   opt$man_dir  <- file.path(par$top_dir, 'data/manifests')
-  opt$gen_dir  <- file.path(par$top_dir, 'data/iGenomes/Homo_sapiens/NCBI')
+  opt$gen_dir  <- file.path(par$top_dir, 'data/imGenomes/Homo_sapiens/NCBI')
   opt$idat_dir <- file.path(par$top_dir, 'data/idats')
   
   opt$bsmap_opt <- "-s 12 -v 5 -g 0 -p 16 -n 1 -r 2 -R"
@@ -183,11 +183,16 @@ if (args.dat[1]=='RStudio') {
   opt$fresh  <- FALSE
   opt$reload <- TRUE
   
+  par$align  <- NULL
+  
   if (FALSE) {
     
   } else if (par$local_runType=='EPIC_v2' ||
              par$local_runType=='EWAS') {
     
+    par$align <- "p"
+    par$align <- "F"
+
     map_col <- c("Bead_Pool", "MN", "Match_Num", "Bead_Pool_Name", "Bucket_Name", "Order_Path", "AQP1_Num", "AQP2_Num")
     top_dir <- "/Users/bretbarnes/Documents/data/CustomContent/EPIC_v2/AQP-Files-EPIC_and_EWAS-Content"
     ord_dir <- file.path(top_dir, "order")
@@ -242,7 +247,8 @@ if (args.dat[1]=='RStudio') {
       # EPIC v2:: 
       opt$genome_build <- 'GRCh37'
       opt$platform <- 'EPIC_v2'
-      opt$version  <- 'v1'
+      opt$version  <- '1'
+      opt$version <- paste0(par$align,opt$version)
       
       opt$ord_dir <- ord_dir
       opt$mat_dir <- mat_dir
@@ -255,7 +261,8 @@ if (args.dat[1]=='RStudio') {
     } else if (par$local_runType=='EWAS') {
       opt$genome_build <- 'GRCh37'
       opt$platform <- 'EWAS'
-      opt$version  <- 'v1'
+      opt$version  <- '1'
+      opt$version <- paste0(par$align,opt$version)
       
       opt$ord_dir <- ord_dir
       opt$mat_dir <- mat_dir
@@ -618,7 +625,33 @@ ses_ord_inn <- sesame_address_all_dat %>%
 
 ses_epic_pos_grs <- tib_to_grs(sesame_address_dat[["EPIC_hg19_manifest"]], ids_key="Probe_ID", verbose = 10)
 ses_450k_pos_grs <- tib_to_grs(sesame_address_dat[["HM450_hg19_manifest"]], ids_key="Probe_ID", verbose = 10)
-ses_ord_inn_grs  <- tib_to_grs(ses_ord_inn, ids_key="Ord_Unq_Key", verbose = 10)
+ses_ord_inn_grs  <- tib_to_grs(ses_ord_inn, 
+                               ids_key="Ord_Unq_Key", 
+                               chr_key = "Chromosome", verbose = 10)
+
+ord_ses_ant_both <- ord_fix_tib %>% 
+  dplyr::mutate( Ord_Key_Cgn=stringr::str_remove(Ord_Key,"-.*$") ) %>%
+  dplyr::anti_join(sesame_address_all_dat, 
+                   by=c("Ord_Des"="Prb_Des",
+                        "Ord_Key_Cgn"="Probe_ID",
+                        "Ord_Prb"="Prb_Seq",
+                        "Ord_Din"="Prb_Din") ) 
+# %>% dplyr::select(Ord_Key,Ord_Des,Ord_Din, Ord_Prb,Prb_Seq) %>% dplyr::filter(Ord_Prb != Prb_Seq)
+
+ord_ses_ant_both %>%
+  dplyr::group_by(Ord_Des,Ord_Din,Ord_Idx) %>% 
+  dplyr::summarise(Count=n(), .groups = "drop") %>% 
+  dplyr::arrange(-Count) %>% print(n=100)
+
+if (!is.null(par$align)) {
+  if (par$align=="F") {
+    ord_tib <- ord_fix_tib
+  } else if (par$align=="p") {
+    ord_tib <- ord_ses_ant_both
+  } else {
+    # Do nothing for now... this shouldn't happen...
+  }
+}
 
 if (FALSE) {
   # Quick Summary on Tri-fecta probes::
@@ -751,6 +784,13 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+#
+# TBD:: TOP Priority:: small table [cgn_int, chr_let, position] cgn_int sorted
+#   Load into memory and intersect with seq cgns (analogous to bsp position,
+#   mapping).
+# TBD:: Update cgn_mapping_workflow rank with seq position map AND 
+#   bsp cgn/position agreement!
+#
 seq_tib <- NULL
 seq_tib <- 
   seq_mapping_workflow(ord_tib = ord_tib,
@@ -826,6 +866,45 @@ if (FALSE) {
   print(bsp_tib)
   print(seq_tib)
   print(cgn_tib)
+}
+
+
+#
+# Initial Code for Resolving Alignments::
+#   - Should start with a full alignment of ord_tib...
+#
+if (FALSE) {
+
+  bsp_cgn_col <- intersect( names(bsp_tib), names(cgn_tib) )
+  
+  bsp_cgn_inn <- 
+    dplyr::inner_join(bsp_tib, cgn_tib, 
+                      by=bsp_cgn_col,
+                      suffix=c("_bsp","_cgn") 
+    ) %>%
+    dplyr::mutate(
+      Cgn_Mat_Scr=dplyr::case_when(
+        Ord_Key_Cgn == Cgn_Str ~ 0,
+        TRUE ~ 1 )
+    )
+  
+  bsp_cgn_inn %>% dplyr::group_by(Cgn_Mat_Scr, Ord_Des, Ord_Din, Cgn_Tag) %>%
+    dplyr::summarise(Count=n(), .groups = "drop")
+  
+  #
+  # bind_rows(ses_ord_inn, bsp_cgn_inn)
+  #   - First map keys::
+  #
+  
+  dplyr::rename(Chromosome=Bsp_Chr, Coordinate=Bsp_Pos)
+  
+  common_cols <- intersect( names(ses_ord_inn), names(bsp_cgn_inn) )
+  
+  ses_ord_inn_grs  <- tib_to_grs(ses_ord_inn, 
+                                 ids_key="Ord_Unq_Key", 
+                                 chr_key = "Chromosome", verbose = 10)
+  
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

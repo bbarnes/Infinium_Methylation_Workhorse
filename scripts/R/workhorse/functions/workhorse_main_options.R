@@ -66,14 +66,14 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   mssg <- glue::glue("[{funcTag}]:{tabs}")
   
   if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
-
+  
   etime   <- 0
   ret_cnt <- 0
-
+  
   opts <- NULL
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                        Run Time Version Options:: 
+  #                        Run Time Version Options::
   #                       Platform, Genome Build, etc
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
@@ -83,7 +83,7 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$genome_build <- NULL
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                       Run Time User Input Directories:: 
+  #                       Run Time User Input Directories::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   opts$out_dir <- NULL
@@ -93,7 +93,7 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$aqp_dir <- NULL
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                        Run Time User Input Files:: 
+  #                        Run Time User Input Files::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   opts$ord_csv <- NULL
@@ -101,7 +101,7 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$aqp_tsv <- NULL
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     Run Time User Input Executable(s):: 
+  #                     Run Time User Input Executable(s)::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
   opts$Rscript   <- NULL
@@ -111,7 +111,7 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$align_chroms <- FALSE
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                     Pre-defined Static Data Directories:: 
+  #                     Pre-defined Static Data Directories::
   #            improbe, Annotation, Genomic, Manifest, Validation Idats
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
@@ -127,7 +127,7 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$canonical_cgn_dir <- NULL
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-  #                  Pre-defined Static External File Options:: 
+  #                  Pre-defined Static External File Options::
   #                   Manifest, Controls, Design Coordinates
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
@@ -160,7 +160,7 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$reload    <- FALSE
   
   opts$verbose   <- verbose
-
+  
   ret_cnt <- opts %>% length()
   
   if (verbose>=vt) cat(glue::glue(
@@ -194,244 +194,262 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
   
   option_list = list(
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                        Run Time Version Options:: 
+    #                        Run Time Version Options::
     #                       Platform, Genome Build, etc
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     # Run Parameters::
     optparse::make_option(
-      c("--run_name"), type="character", default=opt$run_name, 
-      help=paste0("Run Name [default= %default]"), 
+      c("--run_name"), type="character", default=opt$run_name,
+      help=paste0("Run Name [default= %default]"),
       metavar="character"),
     
     # Platform/Method Options::
     optparse::make_option(
-      c("--platform"), type="character", default=opt$platform, 
+      c("--platform"), type="character", default=opt$platform,
       help=paste0("Platform (e.g. HM450, EPIC, LEGX, NZT, ",
-                  "COVIC) [default= %default]"), 
+                  "COVIC) [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--version"), type="character", default=opt$version, 
+      c("--version"), type="character", default=opt$version,
       help=paste0("Manifest Version (e.g. B0,B1,B2,B3,B4,C0) ",
-                  "[default= %default]"), 
+                  "[default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--genome_build"), type="character", default=opt$genome_build, 
+      c("--genome_build"), type="character", default=opt$genome_build,
       help=paste0("Genome Build (e.g. GRch36, GRCh37, GRCh38, GRCm38) ",
-                  "[default= %default]"), 
+                  "[default= %default]"),
       metavar="character"),
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                       Run Time User Input Directories:: 
+    #                       Run Time User Input Directories::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     optparse::make_option(
-      c("--out_dir"), type="character", default=opt$out_dir, 
-      help=paste0("Output directory [default= %default]"), 
+      c("--out_dir"), type="character", default=opt$out_dir,
+      help=paste0("Output directory [default= %default]"),
       metavar="character"),
     
     # Manufacturing Files:: Required
     optparse::make_option(
-      c("--ord_dir"), type="character", default=opt$ord_dir, 
+      c("--ord_dir"), type="character", default=opt$ord_dir,
       help=paste0("Order directories. Either a single directory or one-to-one ",
                   "pairing with order files (comma seperated list) ",
-                  "[default= %default]"), 
+                  "[default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--mat_dir"), type="character", default=opt$mat_dir, 
+      c("--mat_dir"), type="character", default=opt$mat_dir,
       help=paste0("Biziprobe Match directories. Either a single directory or ",
                   "one-to-one pairing with match files (comma seperated list) ",
-                  "[default= %default]"), 
+                  "[default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--aqp_dir"), type="character", default=opt$aqp_dir, 
+      c("--aqp_dir"), type="character", default=opt$aqp_dir,
       help=paste0("AQP/PQC directories. Either a single directory or ",
                   "one-to-one pairing with AQP/PQC files ",
                   "(comma seperated list) ",
-                  "[default= %default]"), 
+                  "[default= %default]"),
       metavar="character"),
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                        Run Time User Input Files:: 
+    #                        Run Time User Input Files::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     # Manufacturing Files:: Required
     optparse::make_option(
       c("--ord_csv"), type="character", default=opt$ord_csv,
-      help=paste0("Order file(s) (comma seperated list) [default= %default]"), 
+      help=paste0("Order file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--mat_tsv"), type="character", default=opt$mat_tsv, 
+      c("--mat_tsv"), type="character", default=opt$mat_tsv,
       help=paste0("Biziprobe Match file(s) (comma seperated list) ",
-                  "[default= %default]"), 
+                  "[default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--aqp_tsv"), type="character", default=opt$aqp_tsv, 
-      help=paste0("AQP/PQC file(s) (comma seperated list) [default= %default]"), 
+      c("--aqp_tsv"), type="character", default=opt$aqp_tsv,
+      help=paste0("AQP/PQC file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                     Run Time User Input Executable(s):: 
+    #                     Run Time User Input Executable(s)::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     optparse::make_option(
-      c("--Rscript"), type="character", default=opt$Rscript, 
-      help=paste0("Rscript path [default= %default]"), 
+      c("--Rscript"), type="character", default=opt$Rscript,
+      help=paste0("Rscript path [default= %default]"),
       metavar="character"),
     
     optparse::make_option(
-      c("--bsmap_opt"), type="character", default=opt$bsmap_opt, 
+      c("--bsmap_opt"), type="character", default=opt$bsmap_opt,
       help=paste0("BSMAP Options [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--bsmap_dir"), type="character", default=opt$bsmap_dir, 
+      c("--bsmap_dir"), type="character", default=opt$bsmap_dir,
       help=paste0("BSMAP Executable directory path [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--bsmap_exe"), type="character", default=opt$bsmap_exe, 
+      c("--bsmap_exe"), type="character", default=opt$bsmap_exe,
       help=paste0("BSMAP Executable file name [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--align_chroms"), action="store_true", default=opt$align_chroms, 
+      c("--align_chroms"), action="store_true", default=opt$align_chroms,
       help=paste0("Boolean flag to align against individual chromosomes. ",
                   "This provides more alignments than the best hit. ",
                   "[default= %default]"),
       metavar="boolean"),
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                     Pre-defined Static Data Directories:: 
+    #                     Pre-defined Static Data Directories::
     #            improbe, Annotation, Genomic, Manifest, Validation Idats
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     optparse::make_option(
-      c("--imp_dir"), type="character", default=opt$imp_dir, 
+      c("--imp_dir"), type="character", default=opt$imp_dir,
       help=paste0("improbe data directory [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--ann_dir"), type="character", default=opt$ann_dir, 
+      c("--ann_dir"), type="character", default=opt$ann_dir,
       help=paste0("Annotation data directory [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--gen_dir"), type="character", default=opt$gen_dir, 
+      c("--gen_dir"), type="character", default=opt$gen_dir,
       help=paste0("Genomic data directory [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--man_dir"), type="character", default=opt$man_dir, 
+      c("--man_dir"), type="character", default=opt$man_dir,
       help=paste0("Pre-built Manifest data directory [default= %default]"),
       metavar="character"),
     
     # Validation existing idats directory to confirm Addresses against::
     optparse::make_option(
-      c("--idat_dir"), type="character", default=opt$idat_dir, 
+      c("--idat_dir"), type="character", default=opt$idat_dir,
       help=paste0("Validation existing idats directory ",
                   "to confirm Addresses against. ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
+      metavar="character"),
+    
+    # Pre-defined directory with files containing cg numbers to coordinates::
+    #
+    optparse::make_option(
+      c("--tag_map_dir"), type="character", default=opt$tag_map_dir,
+      help=paste0("Pre-defined directory with files containing cg numbers ",
+                  "to coordinates. [default= %default]"),
       metavar="character"),
     
     # Pre-defined directory with files containing coordinates to cg numbers::
     optparse::make_option(
-      c("--cgn_seq_dir"), type="character", default=opt$cgn_seq_dir, 
+      c("--tag_map_tsv"), type="character", default=opt$tag_map_tsv,
+      help=paste0("Pre-defined file names containing cg number mappings ",
+                  "to coordinates. [default= %default]"),
+      metavar="character"),
+    
+    
+    # Pre-defined directory with files containing coordinates to cg numbers::
+    #
+    optparse::make_option(
+      c("--bsp_map_dir"), type="character", default=opt$bsp_map_dir,
       help=paste0("Pre-defined directory with files containing coordinates ",
                   "to cg numbers. [default= %default]"),
       metavar="character"),
     
     # Pre-defined directory with files containing coordinates to cg numbers::
     optparse::make_option(
-      c("--cgn_bed_dir"), type="character", default=opt$cgn_bed_dir, 
-      help=paste0("Pre-defined directory with files containing coordinates ",
-                  "to cg numbers. [default= %default]"), 
+      c("--bsp_map_tsv"), type="character", default=opt$bsp_map_tsv,
+      help=paste0("Pre-defined file names containing coordinates mappings ",
+                  "to cg numbers. [default= %default]"),
       metavar="character"),
-    
+
     # Pre-defined directory with file containing canonical cg number assignments::
+    #
     optparse::make_option(
-      c("--canonical_cgn_dir"), type="character", default=opt$canonical_cgn_dir, 
+      c("--canonical_cgn_dir"), type="character", default=opt$canonical_cgn_dir,
       help=paste0("Pre-defined canonical cg-numbers file used for cg number ",
                   "resolution assignment. Directory path not file name(s)! ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                  Pre-defined Static External File Options:: 
+    #                  Pre-defined Static External File Options::
     #                   Manifest, Controls, Design Coordinates
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     # Pre-defined manifest(s) to be re-built and/or added to new manifest
     #  from Sesame Repo::
     optparse::make_option(
-      c("--sesame_manfiest_dat"), type="character", 
+      c("--sesame_manfiest_dat"), type="character",
       default=opt$sesame_manfiest_dat,
       help=paste0("Sesame Manifest(s) to be re-built and/or added to ",
                   "new manifest from Sesame Repo. ",
                   "Example = 'HM450.hg19.manifest,EPIC.hg19.manifest",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     
     # Pre-defined manifest(s) to be re-built and/or added to new manifest::
     optparse::make_option(
-      c("--sesame_manifest_csv"), type="character", 
+      c("--sesame_manifest_csv"), type="character",
       default=opt$sesame_manifest_csv,
       help=paste0("Sesame Manifest(s) to be re-built and/or added ",
                   "to new manifest. Probe Seq required! ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--genome_manifest_csv"), type="character", 
+      c("--genome_manifest_csv"), type="character",
       default=opt$genome_manifest_csv,
       help=paste0("Genome Studio Manifest(s) to be re-built and/or ",
                   "added to new manifest. Probe Seq required! ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     
     # Pre-defined manifest control(s) to be added to new manifest::
     optparse::make_option(
-      c("--sesame_controls_csv"), type="character", 
-      default=opt$sesame_controls_csv, 
+      c("--sesame_controls_csv"), type="character",
+      default=opt$sesame_controls_csv,
       help=paste0("Sesame Pre-defined manifest control(s)  ",
                   "to be added to new manifest. ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     optparse::make_option(
-      c("--genome_controls_csv"), type="character", 
-      default=opt$genome_controls_csv, 
+      c("--genome_controls_csv"), type="character",
+      default=opt$genome_controls_csv,
       help=paste0("Genome Studio Pre-defined manifest control(s)  ",
                   "to be added to new manifest. ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     
     # Pre-defined noob-masked control(s) to be added to new manifest::
     optparse::make_option(
-      c("--noob_controls_csv"), type="character", 
-      default=opt$noob_controls_csv, 
+      c("--noob_controls_csv"), type="character",
+      default=opt$noob_controls_csv,
       help=paste0("Noob-Masked Pre-defined control(s) ",
                   "to be added to new manifest. ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     
     # Original source design file used for canonical position selection::
     optparse::make_option(
-      c("--source_coordinate_csv"), type="character", 
-      default=opt$source_coordinate_csv, 
+      c("--source_coordinate_csv"), type="character",
+      default=opt$source_coordinate_csv,
       help=paste0("Original source design file used for canonical ",
                   "position selection. ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     
     # Pre-defined file names with canonical cg number assignments::
     optparse::make_option(
-      c("--canonical_cgn_csv"), type="character", 
-      default=opt$canonical_cgn_csv, 
+      c("--canonical_cgn_csv"), type="character",
+      default=opt$canonical_cgn_csv,
       help=paste0("Pre-defined canonical cg-numbers file used for cg number ",
                   "resolution assignment. File(s) name, not path(s)! ",
-                  "CSV file(s) (comma seperated list) [default= %default]"), 
+                  "CSV file(s) (comma seperated list) [default= %default]"),
       metavar="character"),
     
-    # optparse::make_option(c("--cpg_pos_tsv"), type="character", default=opt$cpg_pos_tsv, 
+    # optparse::make_option(c("--cpg_pos_tsv"), type="character", default=opt$cpg_pos_tsv,
     #             help="Null value for passing arguments [default= %default]", metavar="character"),
-    # optparse::make_option(c("--cpg_top_tsv"), type="character", default=opt$cpg_top_tsv, 
+    # optparse::make_option(c("--cpg_top_tsv"), type="character", default=opt$cpg_top_tsv,
     #             help="Null value for passing arguments [default= %default]", metavar="character"),
-    # optparse::make_option(c("--cph_pos_tsv"), type="character", default=opt$cph_pos_tsv, 
+    # optparse::make_option(c("--cph_pos_tsv"), type="character", default=opt$cph_pos_tsv,
     #             help="Null value for passing arguments [default= %default]", metavar="character"),
-    # optparse::make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv, 
+    # optparse::make_option(c("--snp_pos_tsv"), type="character", default=opt$snp_pos_tsv,
     #             help="Null value for passing arguments [default= %default]", metavar="character"),
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -439,7 +457,7 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
     optparse::make_option(
-      c("--time_org_txt"), type="character", default=opt$time_org_txt, 
+      c("--time_org_txt"), type="character", default=opt$time_org_txt,
       help=paste0("Unused variable time_org_txt [default= %default]"),
       metavar="character"),
     
@@ -449,14 +467,14 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
     
     # Process Parallel/Cluster Parameters::
     optparse::make_option(
-      c("--single"), action="store_true", default=opt$single, 
+      c("--single"), action="store_true", default=opt$single,
       help=paste0("Boolean variable to run a single sample on a single-core ",
                   "[default= %default]"),
       metavar="boolean"),
     optparse::make_option(
-      c("--parallel"), action="store_true", default=opt$parallel, 
+      c("--parallel"), action="store_true", default=opt$parallel,
       help=paste0("Boolean variable to run parallel on multi-core ",
-                  "[default= %default]"), 
+                  "[default= %default]"),
       metavar="boolean"),
     optparse::make_option(
       c("--cluster"), action="store_true", default=opt$cluster,
@@ -470,20 +488,20 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
       help=paste0("Boolean variable tack run times [default= %default]"),
       metavar="boolean"),
     optparse::make_option(
-      c("--fresh"), action="store_true", default=opt$fresh, 
+      c("--fresh"), action="store_true", default=opt$fresh,
       help=paste0("Boolean variable to run a fresh build [default= %default]"),
       metavar="boolean"),
     optparse::make_option(
-      c("--reload"), action="store_true", default=opt$reload, 
+      c("--reload"), action="store_true", default=opt$reload,
       help=paste0("Boolean variable reload intermediate files (for testing). ",
                   "[default= %default]"),
       metavar="boolean"),
     
     # Verbosity level::
     optparse::make_option(
-      c("-v", "--verbose"), type="integer", default=opt$verbose, 
+      c("-v", "--verbose"), type="integer", default=opt$verbose,
       help=paste0("Verbosity level: 0-5 (5 is very verbose) ",
-                  "[default= %default]"), 
+                  "[default= %default]"),
       metavar="integer")
   )
   
@@ -494,10 +512,227 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
   
   if (verbose>=vt) cat(glue::glue(
     "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
-
+  
   opt
 }
 
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Order Variables::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+ord_vars = function(verbose=0,vt=3,tc=1,tt=NULL,
+                    funcTag='ord_vars') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime   <- 0
+  ret_cnt <- 0
+  ret_dat <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           ord_tib definition::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # ret_dat$ord_idx <- "Ord_Idx"         # Unique Integer for Address/Probe Pair
+  
+  ret_dat$ord_add <- "AddressID"       # Tango Address
+  ret_dat$ord_prb <- "Probe_Seq"       # Order Probe
+  ret_dat$ord_din <- "TargetDin_Type"  # (cg, ch, rs, etc.) Di-nucleotide
+  ret_dat$ord_um2 <- "Extension_Type"  # (U, M, 2) Extension Type
+  ret_dat$ord_grp <- "GroupName"       # Group Pairings
+  ret_dat$ord_cgn <- "User_iCgn"       # User Cgn Integer
+  
+  # ret_dat$ord_inf <- "Chemistry_Type"  # (1, 2) Chemistry Type I/II
+  
+  ret_dat$ord_mate_prb <- "Mate_Probe_Seq"   # Mate Probe Sequence
+  ret_dat$ord_tangoSeq <- "Order_Tango_Seq"  # Tango Sequence
+  ret_dat$ord_user_key <- "User_Probe_Key"   # Original User Defined Probe Key
+  ret_dat$ord_user_col <- "User_Ext_Color"   # Original User Defined Color
+  ret_dat$aqp_file_idx <- "AQP_File_Index"   # AQP File Index
+  ret_dat$mat_file_idx <- "Match_File_Index" # Match File Index
+  ret_dat$ord_file_idx <- "Order_File_index" # Order File Index
+  
+  ret_dat$top_vec <- 
+    c( ret_dat$ord_add, ret_dat$ord_prb, ret_dat$ord_din, 
+       ret_dat$ord_um2, ret_dat$ord_grp, ret_dat$ord_cgn )
+
+  ret_cnt <- length(ret_dat)
+  # ret_key <- glue::glue("ret-FIN({funcTag})")
+  # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_dat
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             BSMAP Variables::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+bsp_vars = function(verbose=0,vt=3,tc=1,tt=NULL,
+                    funcTag='bsp_vars') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime   <- 0
+  ret_cnt <- 0
+  ret_dat <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           bsp_tib definition::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # Alignment Portion::
+  #
+  ret_dat$bsp_unq <- "Unq_Align"  # Unique Alignment Key
+  ret_dat$bsp_key <- "AddressID"  # Tango Address
+  ret_dat$bsp_prb <- "Probe_Seq"  # Order Probe
+  ret_dat$bsp_aln <- "Probe_Aln"  # Alignment Probe de-methylated
+  
+  ret_dat$bsp_fwd <- "Probe_Fwd"  # Forward Alignment Probe de-methylated
+  ret_dat$bsp_rev <- "Probe_Rev"  # Reverse Alignment Probe de-methylated
+  
+  ret_dat$bsp_tag <- "Align_Tag"  # BSP Align Tag (UM, MA, OF)
+  ret_dat$bsp_chr <- "Chromosome" # Alignment Chromosome
+  ret_dat$bsp_pos <- "Coordinate" # Position of the upstream C in the [CpG]
+  ret_dat$bsp_beg <- "Bsp_Beg"    # Alignment start
+  ret_dat$bsp_srd <- "Bsp_Srd"    # BSC Strance +/-, +/+, -/+, -- (FR/CO)
+  # ret_dat$bsp_FR <- "Bsp_FR"
+  # ret_dat$bsp_CO <- "Bsp_CO"
+  
+  ret_dat$bsp_mis <- "Mismatch_Cnt"  # Number of mismatches
+  ret_dat$bsp_ref <- "Reference_Seq" # Padded Reference Sequence
+  ret_dat$bsp_gap <- "Gap_Cnt"       # Number of gaps
+  ret_dat$bsp_str <- "Mismatch_Str"  # String of mismatch types/counts
+  
+  # Auxiliary Inferred Fields::
+  #
+  ret_dat$ref_nxb <- "Reference_Nxb" # Next Base on Reference Alphabet
+  ret_dat$ref_din <- "Reference_DiN" # Di-nucleotid on Reference Alphabet
+  ret_dat$bsc_nxb <- "BSC_Nxb"       # Next Base on Bisulfite Converted Alpha
+  ret_dat$bsc_din <- "BSC_DiN"       # Di-nucleotide on Bisulfite Converted Alp
+  
+  # Alignment Position -> CGN Mapping:: These should get resolved::
+  #
+  ret_dat$map_chr <- "Bsp_Map_Chr" # Chromosome of map look-up
+  ret_dat$map_pos <- "Bsp_Map_Pos" # Coordinate of map look-up
+  ret_dat$map_cgn <- "Bsp_Map_Cgn" # Integer CGN of map look-up
+  ret_dat$map_top <- "Bsp_Map_Top" # Top strand tag of map look-up
+  
+  ret_dat$top_vec <- 
+    c( ret_dat$bsp_key, ret_dat$bsp_tag, ret_dat$map_cgn, 
+       ret_dat$bsp_chr, ret_dat$bsp_pos, ret_dat$bsp_srd,
+       ret_dat$ref_nxb, ret_dat$ref_din, ret_dat$bsc_nxb, ret_dat$bsc_din)
+  
+  ret_dat$bsp_col <- 
+    c( ret_dat$bsp_key, ret_dat$bsp_aln, ret_dat$bsp_tag, ret_dat$bsp_chr,
+       ret_dat$bsp_beg, ret_dat$bsp_srd, ret_dat$bsp_mis, ret_dat$bsp_ref,
+       ret_dat$bsp_gap, ret_dat$bsp_str )
+
+  ret_cnt <- length(ret_dat)
+  # ret_key <- glue::glue("ret-FIN({funcTag})")
+  # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_dat
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Tag Mapping Variables::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+tag_vars = function(verbose=0,vt=3,tc=1,tt=NULL,
+                    funcTag='tag_vars') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime   <- 0
+  ret_cnt <- 0
+  ret_dat <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           tag_tib definition::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # # Alignment Portion::
+  # #
+  # ret_dat$bsp_key <- "AddressID"  # Tango Address
+  # ret_dat$bsp_prb <- "Probe_Seq"  # Order Probe
+  # ret_dat$bsp_aln <- "Probe_Aln"  # Alignment Probe de-methylated
+  # ret_dat$bsp_rev <- "Probe_Rev"  # Reverse Alignment Probe
+  # 
+  # ret_dat$bsp_tag <- "Align_Tag"  # BSP Align Tag (UM, MA, OF)
+  # ret_dat$bsp_chr <- "Chromosome" # Alignment Chromosome
+  # ret_dat$bsp_pos <- "Coordinate" # Position of the upstream C in the [CpG]
+  # ret_dat$bsp_beg <- "Bsp_Beg"    # Alignment start
+  # ret_dat$bsp_srd <- "Bsp_Srd"    # BSC Strance +/-, +/+, -/+, -- (FR/CO)
+  # # ret_dat$bsp_FR <- "Bsp_FR"
+  # # ret_dat$bsp_CO <- "Bsp_CO"
+  # 
+  # ret_dat$bsp_mis <- "Mismatch_Cnt"  # Number of mismatches
+  # ret_dat$bsp_ref <- "Reference_Seq" # Padded Reference Sequence
+  # ret_dat$bsp_gap <- "Gap_Cnt"       # Number of gaps
+  # ret_dat$bsp_str <- "Mismatch_Str"  # String of mismatch types/counts
+  # 
+  # # Auxiliary Inferred Fields::
+  # #
+  # ret_dat$ref_nxb <- "Reference_Nxb" # Next Base on Reference Alphabet
+  # ret_dat$ref_din <- "Reference_DiN" # Di-nucleotid on Reference Alphabet
+  # ret_dat$bsc_nxb <- "BSC_Nxb"       # Next Base on Bisulfite Converted Alpha
+  # ret_dat$bsc_din <- "BSC_DiN"       # Di-nucleotide on Bisulfite Converted Alp
+  # 
+  # # Alignment Position -> CGN Mapping:: These should get resolved::
+  # #
+  # ret_dat$map_chr <- "Bsp_Map_Chr" # Chromosome of map look-up
+  # ret_dat$map_pos <- "Bsp_Map_Pos" # Coordinate of map look-up
+  # ret_dat$map_cgn <- "Bsp_Map_Cgn" # Integer CGN of map look-up
+  # ret_dat$map_top <- "Bsp_Map_Top" # Top strand tag of map look-up
+  # 
+  # ret_dat$top_vec <- 
+  #   c( ret_dat$bsp_key, ret_dat$bsp_tag, ret_dat$map_cgn, 
+  #      ret_dat$bsp_chr, ret_dat$bsp_pos, ret_dat$bsp_srd,
+  #      ret_dat$ref_nxb, ret_dat$ref_din, ret_dat$bsc_nxb, ret_dat$bsc_din)
+  # 
+  # ret_cnt <- length(ret_dat)
+  # ret_key <- glue::glue("ret-FIN({funcTag})")
+  # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_dat
+}
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                            Workflow Functions::
@@ -506,6 +741,7 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
 #
 # Simple place to store run defaults::
 #
+
 get_run_defaults = function(ver = "1.0",
                             fresh = FALSE,
                             
@@ -548,29 +784,10 @@ get_run_defaults = function(ver = "1.0",
     # ret_tib <- tibble::tribble(
     #   ~name,     ~val,      ~func,
     #   "ids_key", "Prb_Key", "all",
-    #   
+    #
     # )
+
     
-    # Field (key) Parameters:: general
-    ret_dat$ids_key <- "Prb_Key"
-    ret_dat$unq_key <- "Prb_Key_Unq"
-    
-    ret_dat$add_key <- "Address"
-    ret_dat$din_key <- "Ord_Din"
-    ret_dat$des_key <- "Ord_Des"
-    ret_dat$map_key <- "Ord_Map"
-    ret_dat$prb_key <- "Ord_Prb"
-    
-    ret_dat$bsp_srd <- "Bsp_FR"
-    ret_dat$bsp_cos <- "Bsp_CO"
-    ret_dat$pos_key <- "Bsp_Pos"
-    ret_dat$chr_key <- "Bsp_Chr"
-    
-    ret_dat$Cgn_Int <- "Cgn_Int"
-    ret_dat$Can_Cgn <- "Can_Cgn"
-    ret_dat$Ord_Cgn <- "Ord_Cgn"
-    ret_dat$Bsp_Cgn <- "Bsp_Cgn"
-    ret_dat$Imp_Cgn <- "Imp_Cgn"
     
     ret_dat$out_col <- c(ret_dat$ids_key, ret_dat$add_key, ret_dat$des_key,
                          ret_dat$din_key, ret_dat$map_key, ret_dat$prb_key)
@@ -592,7 +809,7 @@ get_run_defaults = function(ver = "1.0",
     ret_dat$seq_pattern_U <- "-probe_U49_cgn-table.tsv.gz"
     ret_dat$seq_pattern_M <- "-probe_M49_cgn-table.tsv.gz"
     
-    ret_dat$cgn_bed_tsv <- 
+    ret_dat$cgn_bed_tsv <-
       file.path(cgn_bed_dir, paste(genome_build, ret_dat$bsp_suffix, sep="."))
     ret_dat$canonical_cgn_csv <- file.path(canonical_cgn_dir, canonical_cgn_csv)
     
