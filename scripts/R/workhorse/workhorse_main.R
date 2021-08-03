@@ -302,7 +302,7 @@ error_ledger <- NULL
 run <- NULL
 run <- get_run_defaults(fresh = opt$fresh,
                         genome_build = opt$genome_build,
-                        cgn_seq_dir  = opt$cgn_seq_dir,
+                        tag_seq_dir  = opt$tag_seq_dir,
                         cgn_bed_dir  = opt$cgn_bed_dir,
                         canonical_cgn_dir = opt$canonical_cgn_dir,
                         canonical_cgn_csv = opt$canonical_cgn_csv,
@@ -466,6 +466,7 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 pre_tag = ord_csv,
 
                                 reload   = opt$reload,
+                                re_load  = FALSE,
                                 ret_data = FALSE,
                                 
                                 bsp_dir = opt$bsmap_dir,
@@ -473,30 +474,6 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 bsp_opt = opt$bsmap_opt,
 
                                 verbose=opt$verbose, tt=pTracker)
-
-
-ret_tib <- load_cgn_map_tsv(file=bsp_map_tsv, tib=bsp_tib, verbose = 10, tt=pTracker)
-
-bsp_map_tsv <- file.path(opt$bsp_map_dir, opt$bsp_map_tsv)
-map_tib <- load_cgn_map_tsv(file = bsp_map_tsv, verbose = 10, tt=pTracker)
-
-bsp_tib %>% dplyr::select(AddressID, Chromosome, Coordinate, 
-                          Strand_FR, Strand_CO)
-
-cur_tib <- bsp_tib %>% 
-  dplyr::rename(Strand_FR=Bsp_FR, Strand_CO=Bsp_CO) %>%
-  dplyr::mutate(Chromosome=Chromosome %>% stringr::str_remove("^chr"),
-                Coordinate2 = Coordinate+1) %>%
-  dplyr::select(AddressID, Chromosome, Coordinate, Coordinate2,
-                Strand_FR, Strand_CO)
-
-map2_tib <- map_tib %>% dplyr::mutate(Pos2=Pos+1)
-
-int1_tib <- map2_tib %>% dplyr::inner_join(cur_tib, by=c("Chr"="Chromosome", "Pos"="Coordinate"))
-
-int1_tib %>% dplyr::mutate(Target_CG_Nuc="up")
-
-int2_tib <- map2_tib %>% dplyr::inner_join(cur_tib, by=c("Chr"="Chromosome", "Pos2"="Coordinate"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
@@ -536,7 +513,7 @@ seq_tib <- NULL
 seq_tib <- 
   seq_mapping_workflow(ord_tib = ord_tib,
                        
-                       seq_dir   = opt$cgn_seq_dir,
+                       seq_dir   = opt$tag_seq_dir,
                        pattern_u = run$seq_pattern_U, 
                        pattern_m = run$seq_pattern_M,
                        

@@ -78,6 +78,7 @@ bsp_mapping_workflow =
            pre_tag = NULL,
            
            reload   = FALSE,
+           re_load  = FALSE,
            ret_data = FALSE,
            
            bsp_dir = NULL,
@@ -105,7 +106,7 @@ bsp_mapping_workflow =
     out_csv <- file.path( out_dir, paste(run_tag,funcTag,'csv.gz', sep='.') )
     fin_csv <- paste0(out_csv,'.done.txt')
     safe_mkdir(out_dir)
-    if ( reload && 
+    if ( reload && re_load &&
          valid_time_stamp(c(pre_tag,sum_csv,top_csv,aux_csv,out_csv,fin_csv)))
       return( safe_read( out_csv, funcTag="Reloading", verbose = verbose ) )
     

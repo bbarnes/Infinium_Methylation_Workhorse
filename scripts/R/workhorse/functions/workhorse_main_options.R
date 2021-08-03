@@ -127,8 +127,9 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$man_dir  <- NULL
   opts$idat_dir <- NULL
   
-  opts$tag_map_tsv <- NULL
-  opts$bsp_map_tsv <- NULL
+  opts$tag_seq_dir <- NULL
+  opts$tag_map_dir <- NULL
+  opts$bsp_map_dir <- NULL
   
   opts$canonical_cgn_dir <- NULL
   
@@ -340,6 +341,12 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
     
     # Pre-defined directory with files containing cg numbers to coordinates::
     #
+    optparse::make_option(
+      c("--tag_seq_dir"), type="character", default=opt$tag_seq_dir,
+      help=paste0("Pre-defined directory with files containing tag probe ",
+                  "sequences to cg numbers. [default= %default]"),
+      metavar="character"),
+    
     optparse::make_option(
       c("--tag_map_dir"), type="character", default=opt$tag_map_dir,
       help=paste0("Pre-defined directory with files containing cg numbers ",
@@ -758,13 +765,6 @@ tag_vars = function(verbose=0,vt=3,tc=1,tt=NULL,
 
 get_run_defaults = function(ver = "1.0",
                             fresh = FALSE,
-                            
-                            genome_build,
-                            cgn_seq_dir,
-                            cgn_bed_dir,
-                            canonical_cgn_dir,
-                            canonical_cgn_csv,
-                            
                             verbose=0,vt=3,tc=1,tt=NULL,
                             funcTag='get_run_defaults') {
   
@@ -777,11 +777,6 @@ get_run_defaults = function(ver = "1.0",
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
     cat(glue::glue("{mssg}                 ver={ver}.{RET}"))
     cat(glue::glue("{mssg}               fresh={fresh}.{RET}"))
-    cat(glue::glue("{mssg}        genome_build={genome_build}.{RET}"))
-    cat(glue::glue("{mssg}         cgn_seq_dir={cgn_seq_dir}.{RET}"))
-    cat(glue::glue("{mssg}         cgn_bed_dir={cgn_bed_dir}.{RET}"))
-    cat(glue::glue("{mssg}   canonical_cgn_dir={canonical_cgn_dir}.{RET}"))
-    cat(glue::glue("{mssg}   canonical_cgn_csv={canonical_cgn_csv}.{RET}"))
     cat(glue::glue("{RET}"))
   }
   
@@ -790,10 +785,6 @@ get_run_defaults = function(ver = "1.0",
   ret_tib <- NULL
   ret_dat <- NULL
   
-  stopifnot( dir.exists( cgn_seq_dir ) )
-  stopifnot( dir.exists( cgn_bed_dir ) )
-  stopifnot( dir.exists( canonical_cgn_dir ) )
-  
   if (ver == "1.0") {
     # ret_tib <- tibble::tribble(
     #   ~name,     ~val,      ~func,
@@ -801,63 +792,6 @@ get_run_defaults = function(ver = "1.0",
     #
     # )
 
-    
-    
-    ret_dat$out_col <- c(ret_dat$ids_key, ret_dat$add_key, ret_dat$des_key,
-                         ret_dat$din_key, ret_dat$map_key, ret_dat$prb_key)
-    ret_dat$unq_col <- c(ret_dat$din_key, ret_dat$map_key, ret_dat$Cgn_Int)
-    
-    # Default run parameters by workflow::
-    ret_dat$bsp_full   <- FALSE
-    ret_dat$bsp_sort   <- TRUE
-    ret_dat$bsp_light  <- TRUE
-    ret_dat$bsp_merge  <- FALSE
-    ret_dat$bsp_suffix <- "cgn.min.txt.gz"
-    
-    ret_dat$cgn_merge  <- FALSE
-    ret_dat$cgn_join   <- "inner"
-    
-    ret_dat$seq_idxA      <- 1
-    ret_dat$seq_idxB      <- 1
-    ret_dat$seq_suffix    <- "probe-subseq"
-    ret_dat$seq_pattern_U <- "-probe_U49_cgn-table.tsv.gz"
-    ret_dat$seq_pattern_M <- "-probe_M49_cgn-table.tsv.gz"
-    
-    ret_dat$cgn_bed_tsv <-
-      file.path(cgn_bed_dir, paste(genome_build, ret_dat$bsp_suffix, sep="."))
-    ret_dat$canonical_cgn_csv <- file.path(canonical_cgn_dir, canonical_cgn_csv)
-    
-    if (!file.exists( ret_dat$cgn_bed_tsv )) {
-      cat(glue::glue("{RET}{mssg} Warning: Failed to find: ",
-                     "ret_dat$cgn_bed_tsv{RET}"))
-      
-      cat(glue::glue("{mssg} Warning: cgn_bed_dir=",
-                     "{cgn_bed_dir}!{RET}"))
-      cat(glue::glue("{mssg} Warning: genome_build=",
-                     "{genome_build}!{RET}"))
-      cat(glue::glue("{mssg} Warning: ret_dat$bsp_suffix=",
-                     "{ret_dat$bsp_suffix}!{RET2}"))
-      
-      cat(glue::glue("{RET}{mssg} Warning: Failed to find: ",
-                     "cgn_bed_tsv={ret_dat$cgn_bed_tsv}!{RET2}"))
-      # stopifnot( file.exists( ret_dat$cgn_bed_tsv ) )
-    }
-    if (!file.exists( ret_dat$canonical_cgn_csv )) {
-      cat(glue::glue("{RET}{mssg} Warning: Failed to find: ",
-                     "ret_dat$canonical_cgn_csv{RET}"))
-      
-      cat(glue::glue("{mssg} Warning: canonical_cgn_dir=",
-                     "{canonical_cgn_dir}!{RET}"))
-      cat(glue::glue("{mssg} Warning: canonical_cgn_csv=",
-                     "{canonical_cgn_csv}!{RET2}"))
-      
-      cat(glue::glue("{mssg} Warning: ret_dat$canonical_cgn_csv=",
-                     "{ret_dat$canonical_cgn_csv}!{RET2}"))
-      # stopifnot( file.exists( ret_dat$canonical_cgn_csv ) )
-    }
-    
-    ret_dat$re_load <- TRUE
-    if (fresh) ret_dat$re_load <- FALSE
   } else {
     stop(glue::glue("{RET}{mssg} ERROR: Only supports version 1.0 NOT ",
                     "{ver}!{RET2}"))
