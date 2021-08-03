@@ -2,7 +2,7 @@
 
 PROGRAM="Infinium_Methylation_Workhorse/scripts/R/workhorse/workhorse_main.R"
 
-DOC_VER="v.1.51"
+DOC_VER="v.1.53"
 DOC_NAME="Infinium_Methylation_Workhorse_Centos"
 DOC_IMAGE="bbarnesimdocker/im_workhorse:${DOC_NAME}.${DOC_VER}"
 DOC_SHELL="run_cmd.sh"
