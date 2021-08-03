@@ -285,105 +285,105 @@ program_options = function(verbose=3, vt=3,tc=1,tt=NULL,
     #                     Run Time User Input Executable(s)::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    optparse::make_option(
-      c("--Rscript"), type="character", default=opt$Rscript,
-      help=paste0("Rscript path [default= %default]"),
-      metavar="character"),
-    
-    optparse::make_option(
-      c("--bsmap_opt"), type="character", default=opt$bsmap_opt,
-      help=paste0("BSMAP Options [default= %default]"),
-      metavar="character"),
-    optparse::make_option(
-      c("--bsmap_dir"), type="character", default=opt$bsmap_dir,
-      help=paste0("BSMAP Executable directory path [default= %default]"),
-      metavar="character"),
-    optparse::make_option(
-      c("--bsmap_exe"), type="character", default=opt$bsmap_exe,
-      help=paste0("BSMAP Executable file name [default= %default]"),
-      metavar="character"),
-    optparse::make_option(
-      c("--align_chroms"), action="store_true", default=opt$align_chroms,
-      help=paste0("Boolean flag to align against individual chromosomes. ",
-                  "This provides more alignments than the best hit. ",
-                  "[default= %default]"),
-      metavar="boolean"),
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                     Pre-defined Static Data Directories::
-    #            improbe, Annotation, Genomic, Manifest, Validation Idats
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    optparse::make_option(
-      c("--imp_dir"), type="character", default=opt$imp_dir,
-      help=paste0("improbe data directory [default= %default]"),
-      metavar="character"),
-    optparse::make_option(
-      c("--ann_dir"), type="character", default=opt$ann_dir,
-      help=paste0("Annotation data directory [default= %default]"),
-      metavar="character"),
-    optparse::make_option(
-      c("--gen_dir"), type="character", default=opt$gen_dir,
-      help=paste0("Genomic data directory [default= %default]"),
-      metavar="character"),
-    optparse::make_option(
-      c("--man_dir"), type="character", default=opt$man_dir,
-      help=paste0("Pre-built Manifest data directory [default= %default]"),
-      metavar="character"),
-    
-    # Validation existing idats directory to confirm Addresses against::
-    optparse::make_option(
-      c("--idat_dir"), type="character", default=opt$idat_dir,
-      help=paste0("Validation existing idats directory ",
-                  "to confirm Addresses against. ",
-                  "CSV file(s) (comma seperated list) [default= %default]"),
-      metavar="character"),
-    
-    # Pre-defined directory with files containing cg numbers to coordinates::
-    #
-    optparse::make_option(
-      c("--tag_seq_dir"), type="character", default=opt$tag_seq_dir,
-      help=paste0("Pre-defined directory with files containing tag probe ",
-                  "sequences to cg numbers. [default= %default]"),
-      metavar="character"),
-    
-    optparse::make_option(
-      c("--tag_map_dir"), type="character", default=opt$tag_map_dir,
-      help=paste0("Pre-defined directory with files containing cg numbers ",
-                  "to coordinates. [default= %default]"),
-      metavar="character"),
-    
-    # Pre-defined directory with files containing coordinates to cg numbers::
-    optparse::make_option(
-      c("--tag_map_tsv"), type="character", default=opt$tag_map_tsv,
-      help=paste0("Pre-defined file names containing cg number mappings ",
-                  "to coordinates. [default= %default]"),
-      metavar="character"),
-    
-    
-    # Pre-defined directory with files containing coordinates to cg numbers::
-    #
-    optparse::make_option(
-      c("--bsp_map_dir"), type="character", default=opt$bsp_map_dir,
-      help=paste0("Pre-defined directory with files containing coordinates ",
-                  "to cg numbers. [default= %default]"),
-      metavar="character"),
-    
-    # Pre-defined directory with files containing coordinates to cg numbers::
-    optparse::make_option(
-      c("--bsp_map_tsv"), type="character", default=opt$bsp_map_tsv,
-      help=paste0("Pre-defined file names containing coordinates mappings ",
-                  "to cg numbers. [default= %default]"),
-      metavar="character"),
-
-    # Pre-defined directory with file containing canonical cg number assignments::
-    #
-    optparse::make_option(
-      c("--canonical_cgn_dir"), type="character", default=opt$canonical_cgn_dir,
-      help=paste0("Pre-defined canonical cg-numbers file used for cg number ",
-                  "resolution assignment. Directory path not file name(s)! ",
-                  "CSV file(s) (comma seperated list) [default= %default]"),
-      metavar="character"),
+    # optparse::make_option(
+    #   c("--Rscript"), type="character", default=opt$Rscript,
+    #   help=paste0("Rscript path [default= %default]"),
+    #   metavar="character"),
+    # 
+    # optparse::make_option(
+    #   c("--bsmap_opt"), type="character", default=opt$bsmap_opt,
+    #   help=paste0("BSMAP Options [default= %default]"),
+    #   metavar="character"),
+    # optparse::make_option(
+    #   c("--bsmap_dir"), type="character", default=opt$bsmap_dir,
+    #   help=paste0("BSMAP Executable directory path [default= %default]"),
+    #   metavar="character"),
+    # optparse::make_option(
+    #   c("--bsmap_exe"), type="character", default=opt$bsmap_exe,
+    #   help=paste0("BSMAP Executable file name [default= %default]"),
+    #   metavar="character"),
+    # optparse::make_option(
+    #   c("--align_chroms"), action="store_true", default=opt$align_chroms,
+    #   help=paste0("Boolean flag to align against individual chromosomes. ",
+    #               "This provides more alignments than the best hit. ",
+    #               "[default= %default]"),
+    #   metavar="boolean"),
+    # 
+    # # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    # #                     Pre-defined Static Data Directories::
+    # #            improbe, Annotation, Genomic, Manifest, Validation Idats
+    # # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+    # 
+    # optparse::make_option(
+    #   c("--imp_dir"), type="character", default=opt$imp_dir,
+    #   help=paste0("improbe data directory [default= %default]"),
+    #   metavar="character"),
+    # optparse::make_option(
+    #   c("--ann_dir"), type="character", default=opt$ann_dir,
+    #   help=paste0("Annotation data directory [default= %default]"),
+    #   metavar="character"),
+    # optparse::make_option(
+    #   c("--gen_dir"), type="character", default=opt$gen_dir,
+    #   help=paste0("Genomic data directory [default= %default]"),
+    #   metavar="character"),
+    # optparse::make_option(
+    #   c("--man_dir"), type="character", default=opt$man_dir,
+    #   help=paste0("Pre-built Manifest data directory [default= %default]"),
+    #   metavar="character"),
+    # 
+    # # Validation existing idats directory to confirm Addresses against::
+    # optparse::make_option(
+    #   c("--idat_dir"), type="character", default=opt$idat_dir,
+    #   help=paste0("Validation existing idats directory ",
+    #               "to confirm Addresses against. ",
+    #               "CSV file(s) (comma seperated list) [default= %default]"),
+    #   metavar="character"),
+    # 
+    # # Pre-defined directory with files containing cg numbers to coordinates::
+    # #
+    # optparse::make_option(
+    #   c("--tag_seq_dir"), type="character", default=opt$tag_seq_dir,
+    #   help=paste0("Pre-defined directory with files containing tag probe ",
+    #               "sequences to cg numbers. [default= %default]"),
+    #   metavar="character"),
+    # 
+    # optparse::make_option(
+    #   c("--tag_map_dir"), type="character", default=opt$tag_map_dir,
+    #   help=paste0("Pre-defined directory with files containing cg numbers ",
+    #               "to coordinates. [default= %default]"),
+    #   metavar="character"),
+    # 
+    # # Pre-defined directory with files containing coordinates to cg numbers::
+    # optparse::make_option(
+    #   c("--tag_map_tsv"), type="character", default=opt$tag_map_tsv,
+    #   help=paste0("Pre-defined file names containing cg number mappings ",
+    #               "to coordinates. [default= %default]"),
+    #   metavar="character"),
+    # 
+    # 
+    # # Pre-defined directory with files containing coordinates to cg numbers::
+    # #
+    # optparse::make_option(
+    #   c("--bsp_map_dir"), type="character", default=opt$bsp_map_dir,
+    #   help=paste0("Pre-defined directory with files containing coordinates ",
+    #               "to cg numbers. [default= %default]"),
+    #   metavar="character"),
+    # 
+    # # Pre-defined directory with files containing coordinates to cg numbers::
+    # optparse::make_option(
+    #   c("--bsp_map_tsv"), type="character", default=opt$bsp_map_tsv,
+    #   help=paste0("Pre-defined file names containing coordinates mappings ",
+    #               "to cg numbers. [default= %default]"),
+    #   metavar="character"),
+    # 
+    # # Pre-defined directory with file containing canonical cg number assignments::
+    # #
+    # optparse::make_option(
+    #   c("--canonical_cgn_dir"), type="character", default=opt$canonical_cgn_dir,
+    #   help=paste0("Pre-defined canonical cg-numbers file used for cg number ",
+    #               "resolution assignment. Directory path not file name(s)! ",
+    #               "CSV file(s) (comma seperated list) [default= %default]"),
+    #   metavar="character"),
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                  Pre-defined Static External File Options::
