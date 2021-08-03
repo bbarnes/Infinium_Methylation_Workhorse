@@ -16,6 +16,112 @@
 #                       Manifest Mutation Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
+
+if (!full) ret_tib <- ret_tib %>% 
+    dplyr::select(- dplyr::all_of(rem_sel_vec))
+
+# Sort by genomic position:: bsp_chr_sym
+#  if (sort) ret_tib <- ret_tib %>% dplyr::arrange(Bsp_Chr, Bsp_Beg)
+if (sort) ret_tib <- ret_tib %>% dplyr::arrange(!!bsp_chr_sym, !!bsp_beg_sym)
+
+ann_key <- glue::glue("ret-annotated({funcTag})")
+ann_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ann_key)
+
+ret_key <- glue::glue("calculated-fields({funcTag})")
+ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+
+if (verbose>=vt)
+  cat(glue::glue("{mssg} Done. Calculating new fields.{RET2}"))
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                      Annotate CGN by Alignment Position::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+map_tib <- 
+  load_cgn_map_tsv(file=cgn_src, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+ret_key <- glue::glue("map_tib({funcTag})")
+ret_cnt <- print_tib(map_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+
+if (!is.null(map_tib)) {
+  if (verbose>=vt)
+    cat(glue::glue("{mssg} Adding cgn by alignment position...{RET}"))
+  
+  # map_tib <- map_tib %>% 
+  #   purrr::set_names(c(chr_key, pos_key, cgn_int_key, top_srd_key))
+  # ret_key <- glue::glue("map_tib; updated-fields({funcTag})")
+  # ret_cnt <- print_tib(map_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  
+  sel_tib <-                 # Address,    # Chromosome   # Coordinate
+    dplyr::select(ret_tib, !!ord_join_sym, !!bsp_chr_sym, !!bsp_pos_sym )
+  sel_col <- sel_tib %>% names()
+  sel_tib <- sel_tib %>% purrr::set_names("Id", "Chr", "Pos")
+  
+  # Chromosome, Coordinate, Cgn_Int, Top_Srd
+  map_col <- map_tib %>% names()
+  map_tib <- purrr::set_names("Chr","Pos","Cgn","Top") %>%
+    dplyr::mutate(CG_Nuc="up")
+  
+  int_col <- c(sel_col[1],sel_col[2],sel_col[3],map_col[3],map_col[4],"Query_CG")
+  ups_tib <- dplyr::inner_join(sel_tib,map_tib, by=c(Chr,Pos)) %>% 
+    purrr::set_names(int_col)
+  print(ups_tib)
+  
+  dns_tib <- dplyr::inner_join(
+    sel_tib, map_tib %>% dplyr::mutate(Pos=Pos+1, CG_Nuc="dn"),
+    by=c(Chr,Pos)) %>% purrr::set_names(int_col)
+  print(dns_tib)
+  
+  # ups_tib <- dplyr::inner_join(
+  #   dplyr::select(ret_tib, !!ord_join_sym, !!bsp_chr_sym, !!bsp_pos_sym ),
+  #   dplyr::mutate(map_tib, !!cg_nuc_sym := "up"),
+  #   by=c(chr_key, pos_key),
+  #   suffix=c("_bsp","_map")
+  # )
+  
+  dns_tib <- dplyr::inner_join(
+    dplyr::select(ret_tib, !!ord_join_sym, !!bsp_chr_sym, !!bsp_pos_sym ),
+    dplyr::mutate(map_tib, 
+                  !!bsp_pos_sym := !!pos_key + 1,
+                  # !!bsp_pos_sym:=!!bsp_pos_sym+1,
+                  !!cg_nuc_sym := "dn"),
+    by=c(chr_key, pos_key),
+    suffix=c("_bsp","_map")
+  )
+  print(dns_tib)
+  
+
+  
+  #
+  #
+  # IMPORTANT:: 
+  #
+  #
+  ret_tib <- ret_tib %>% 
+    # dplyr::left_join(mat_tib, by=c("Aln_Key_Unq","!!bsp_chr_sym","Bsp_Pos")) %>%
+    dplyr::left_join(mat_tib, by=c(unq_key,"!!bsp_chr_sym","Bsp_Pos")) %>%
+    dplyr::mutate(
+      Bsp_TB=dplyr::case_when(
+        Cgd_Top=="+" & Bsp_FR=="F" ~ "T",
+        Cgd_Top=="-" & Bsp_FR=="R" ~ "T",
+        
+        Cgd_Top=="+" & Bsp_FR=="R" ~ "B",
+        Cgd_Top=="-" & Bsp_FR=="F" ~ "B",
+        TRUE ~ NA_character_
+      )
+    )
+  
+  if (verbose>=vt)
+    cat(glue::glue("{mssg} Done. Adding cgn by position.{RET2}"))
+}
+
+
+
+
+
+
+
+
+
 # TBD:: Pretty Sure this can be removed::
 mutate_probe_id = function(tib, 
                            

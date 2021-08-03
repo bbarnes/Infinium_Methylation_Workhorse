@@ -467,22 +467,13 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 pre_tag = ord_csv,
 
                                 reload   = opt$reload,
-                                ret_data = TRUE, # FALSE,
+                                ret_data = FALSE,
                                 
                                 bsp_dir = opt$bsmap_dir,
                                 bsp_exe = opt$bsmap_exe,
                                 bsp_opt = opt$bsmap_opt,
-                                
-                                # Not sure if we'll allow these...
-                                # join_key  = bsp_var$bsp_key,
-                                # join_type = "inner",
-                                # 
-                                # sort    = run$bsp_sort,
-                                # full    = run$bsp_full,
-                                # merge   = run$bsp_merge,
-                                # light   = run$bsp_light,
 
-                                verbose=opt$verbose + 10, tt=pTracker)
+                                verbose=opt$verbose, tt=pTracker)
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #

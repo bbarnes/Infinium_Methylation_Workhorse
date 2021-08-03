@@ -68,7 +68,6 @@ bsp_mapping_workflow =
            ref_tib = NULL,
            can_tib,
            
-           # cgn_src = NULL,
            map_dir = NULL,
            map_tsv = NULL,
            
@@ -249,13 +248,7 @@ bsp_mapping_workflow =
       if (!is.null( map_dir ) && dir.exists( map_dir ) && 
           !is.null( map_tsv ) && file.exists( file.path(map_dir,map_tsv) ) )
         map_tsv <- file.path( map_dir,map_tsv )
-      
-      cat(glue::glue("{mssg}{TAB} ret_tib/bsp_tib pre-join_bsmap::{RET2}"))
-      print(ret_tib)
-      cat(glue::glue("{mssg}{TAB} can_tib/can_tib pre-join_bsmap::{RET2}"))
-      print(can_tib)
-      cat(glue::glue("{RET2}"))
-      
+
       # Need to make a proper handle for unq_key::
       ret_tib <- join_bsmap(bsp_tib = ret_tib,
                             can_tib = can_tib,
@@ -302,7 +295,7 @@ bsp_mapping_workflow =
       
       # Top Ranked Offenders::
       top_hit_sum <- ret_tib %>% 
-        dplyr::group_by(Address) %>% 
+        dplyr::group_by(AddressID) %>% 
         dplyr::summarise(Count=n(), .groups="drop") %>%
         dplyr::filter(Count!=1) %>%
         dplyr::arrange(-Count)
@@ -315,8 +308,8 @@ bsp_mapping_workflow =
                             verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
       
       # - Split Core/Auxiliary
-      top_tib <- ret_tib %>% dplyr::select( dplyr::all_of( fun_var$top_vec ) )
-      aux_tib <- ret_tib %>% dplyr::select(!dplyr::all_of( fun_var$top_vec ) )
+      top_tib <- ret_tib %>% dplyr::select( dplyr::any_of( fun_var$top_vec ) )
+      aux_tib <- ret_tib %>% dplyr::select(!names( top_tib ) )
       
       # Write Auxiliary Probe Order Output::
       aux_cnt <- safe_write(x=aux_tib, file=aux_csv, done = TRUE,
@@ -337,8 +330,9 @@ bsp_mapping_workflow =
     
     if (ret_data) return(ret_dat)
     
-    ret_tib
+    top_tib
   }
+
 
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -769,9 +763,9 @@ join_bsmap = function(bsp_tib,
                       bsp_rev,
                       bsp_ref, # = "Bsp_Ref"
                       
-                      cgn_int_key, # "Map_Cgn"
-                      top_srd_key, # "Top_Srd"
-                      cg_nuc_pos,  # "CG_Nuc_Pos"
+                      cgn_int_key = "Map_Cgn",    # "Map_Cgn"
+                      top_srd_key = "Top_Srd",    # "Top_Srd"
+                      cg_nuc_pos  = "CG_Nuc_Pos", # "CG_Nuc_Pos"
                       
                       join_key,    # This should just be bsp_key
                       join_type = "inner", 
@@ -938,16 +932,8 @@ join_bsmap = function(bsp_tib,
         CG_F1=stringr::str_sub(!!bsp_ref_sym,-4,-3),
         CG_R1=stringr::str_sub(!!bsp_ref_sym, 3, 4),
         CG_F2=stringr::str_sub(!!bsp_ref_sym,-3,-2),
-        CG_R2=stringr::str_sub(!!bsp_ref_sym, 2, 3)
-      )
-    
-    cat(glue::glue("{mssg} ret_tib CURRENT={RET}"))
-    ret_tib %>% head %>% as.data.frame %>% print()
-    cat(glue::glue("{mssg} ret_tib={RET2}"))
-    
-    ret_tib <- ret_tib %>%
-      dplyr::mutate(
-        
+        CG_R2=stringr::str_sub(!!bsp_ref_sym, 2, 3),
+
         # Set Expected target Next Base from Alignment Orientation::
         Bsp_Nxb_Ref=dplyr::case_when(
           !!prb_des_sym=="M" & (Bsp_Srd=="--" | Bsp_Srd=="++") & Bsp_Prb_Dir=="f" ~ NB_F1,
@@ -1036,7 +1022,7 @@ join_bsmap = function(bsp_tib,
         #              [--] => +1
         #
         # Bsp_Pos=dplyr::case_when(
-        bsp_pos_sym := 
+        !!bsp_pos_sym := 
           dplyr::case_when(
             
             #
@@ -1139,96 +1125,14 @@ join_bsmap = function(bsp_tib,
       dplyr::mutate(
         Bsp_Rank=dplyr::row_number(),
         !!aln_unq_sym := paste(!!ord_join_sym, Bsp_Rank, sep="_")
-        # Aln_Key_Unq=paste(!!ord_join_sym, Bsp_Rank, sep="_")
       ) %>%
       dplyr::ungroup() %>%
       clean_tibble()
-    
-    if (!full) ret_tib <- ret_tib %>% 
-      dplyr::select(- dplyr::all_of(rem_sel_vec))
-    
-    # Sort by genomic position:: bsp_chr_sym
-    #  if (sort) ret_tib <- ret_tib %>% dplyr::arrange(Bsp_Chr, Bsp_Beg)
-    if (sort) ret_tib <- ret_tib %>% dplyr::arrange(!!bsp_chr_sym, !!bsp_beg_sym)
-    
-    ann_key <- glue::glue("ret-annotated({funcTag})")
-    ann_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ann_key)
-    
-    ret_key <- glue::glue("calculated-fields({funcTag})")
-    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
-    
-    if (verbose>=vt)
-      cat(glue::glue("{mssg} Done. Calculating new fields.{RET2}"))
-    
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    #                      Annotate CGN by Alignment Position::
-    # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    
-    # if (!is.null(cgn_src) && tibble::is_tibble(cgn_src)) {
-    #   if (verbose>=vt+4) {
-    #     cat(glue::glue("{mssg} Usung tibble={RET}"))
-    #     print(cgn_src)
-    #   }
-    # } else if (!is.null(cgn_src) && 
-    #            file.exists(cgn_src) && 
-    #            !dir.exists(cgn_src)) {
-    #   if (verbose>=vt+4)
-    #     cat(glue::glue("{mssg} Loading from file={cgn_src}.{RET}"))
-    #   cgn_src <- load_cgn_map_tsv(file=cgn_src, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    # } else {
-    #   cat(glue::glue("{RET}{mssg} Warning: Unknown cgn_src type!{RET}"))
-    #   cgn_src <- NULL
-    # }
-    
-    cgn_map_tib <- 
-      load_cgn_map_tsv(file=cgn_src, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    
-    if (!is.null(cgn_src)) {
-      if (verbose>=vt)
-        cat(glue::glue("{mssg} Adding cgn by alignment position...{RET}"))
-      
-      cgn_src <- cgn_src %>% 
-        purrr::set_names(c(chr_key, pos_key, cgn_int_key, top_srd_key))
-        # purrr::set_names(c("Bsp_Chr","Bsp_Pos","Bsp_Cgn","Cgd_Top"))
-      
-      mat_tib <- dplyr::bind_rows(
-        dplyr::inner_join(
-          ret_tib %>% dplyr::select(!!aln_unq_sym,!!bsp_chr_sym,!!bsp_pos_sym),
-          cgn_src %>% dplyr::mutate(!!cg_nuc_sym := "up"),
-          by=c(!!bsp_chr_sym,!!bsp_pos_sym),
-          suffix=c("_bsp","_cgn")),
-        dplyr::inner_join(
-          ret_tib %>% dplyr::select(!!aln_unq_sym, !!bsp_chr_sym,   !!bsp_chr_sym),
-          cgn_src %>% dplyr::mutate(!!bsp_chr_sym:=!!bsp_chr_sym+1, !!cg_nuc_sym := "dn"),
-          by=c(!!bsp_chr_sym,!!bsp_pos_sym),
-          suffix=c("_bsp","_cgn"))
-      ) %>% 
-        dplyr::distinct(!!aln_unq_sym, .keep_all = TRUE)
-      
-      ret_tib <- ret_tib %>% 
-        # dplyr::left_join(mat_tib, by=c("Aln_Key_Unq","!!bsp_chr_sym","Bsp_Pos")) %>%
-        dplyr::left_join(mat_tib, by=c(unq_key,"!!bsp_chr_sym","Bsp_Pos")) %>%
-        dplyr::mutate(
-          Bsp_TB=dplyr::case_when(
-            Cgd_Top=="+" & Bsp_FR=="F" ~ "T",
-            Cgd_Top=="-" & Bsp_FR=="R" ~ "T",
-            
-            Cgd_Top=="+" & Bsp_FR=="R" ~ "B",
-            Cgd_Top=="-" & Bsp_FR=="F" ~ "B",
-            TRUE ~ NA_character_
-          )
-        )
-      
-      if (verbose>=vt)
-        cat(glue::glue("{mssg} Done. Adding cgn by position.{RET2}"))
-    }
-    
+
     ret_tib <- ret_tib %>% clean_tibble()
-      # dplyr::select(dplyr::any_of(imp_col_vec),
-      #               dplyr::everything())
     
-    out_cnt <- safe_write(x=ret_tib, file=out_csv, funcTag=funcTag,
-                          verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+    # out_cnt <- safe_write(x=ret_tib, file=out_csv, funcTag=funcTag,
+    #                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
     
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
@@ -1270,13 +1174,13 @@ load_cgn_map_tsv = function(file,
   }
   if (!is.null(file) && 
       purrr::is_character(file) &&
-      file.exists(cgn_src) && 
-      !dir.exists(cgn_src)) {
+      file.exists(file) && 
+      !dir.exists(file)) {
     if (verbose>=vt+4)
-      cat(glue::glue("{mssg} Loading from file={cgn_src}.{RET}"))
+      cat(glue::glue("{mssg} Loading from file={file}.{RET}"))
   } else {
-    cat(glue::glue("{RET}{mssg} Warning: Unknown cgn_src type!{RET}"))
-    cgn_src <- NULL
+    cat(glue::glue("{RET}{mssg} Warning: Unknown file type!{RET}"))
+    return(NULL)
   }
   
   map_cols <-
@@ -1292,11 +1196,11 @@ load_cgn_map_tsv = function(file,
   stime <- base::system.time({
     
     ret_tib <- suppressMessages(suppressWarnings(
-      readr::read_tsv(run$cgn_bed_tsv, 
+      readr::read_tsv(file,
                       col_names=names(map_cols$cols),
-                      col_types=map_cols) )) %>% 
-      dplyr::mutate(Chromosome=paste0("chr",Chromosome))
-    
+                      col_types=map_cols) )) %>%
+      dplyr::mutate(Chromosome := paste0("chr",Chromosome))
+
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
   })
