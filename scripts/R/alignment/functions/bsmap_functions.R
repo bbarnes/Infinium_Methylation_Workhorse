@@ -565,18 +565,18 @@ run_bsmap = function(ref_fas,
         if (file.exists(bsp_exe_test)) bsp_exe_test
       }
       
-      if (!file.exists(bsp_exe)) {
+      if ( is.null(bsp_exe) || !file.exists(bsp_exe) ) {
         cat(glue::glue("{mssg} Warning: Unable to locate bsp_exe={bsp_exe}. ",
                        "Will try docker version: ",
                        "2.90 '/repo/bsmap-2.90/bsmap'.{RET2}"))
         bsp_exe <- '/repo/bsmap-2.90/bsmap'
       }
       
-      if (!file.exists(bsp_exe)) {
-        cat(glue::glue("{mssg} Warning: Unable to locate bsp_exe={bsp_exe}. ",
-                       "Will try docker version: '/repo/BSMAPz/bsmapz'.{RET2}"))
-        bsp_exe <- '/repo/BSMAPz/bsmapz'
-      }
+      # if (!file.exists(bsp_exe)) {
+      #   cat(glue::glue("{mssg} Warning: Unable to locate bsp_exe={bsp_exe}. ",
+      #                  "Will try docker version: '/repo/BSMAPz/bsmapz'.{RET2}"))
+      #   bsp_exe <- '/repo/BSMAPz/bsmapz'
+      # }
       
       if (!file.exists(bsp_exe)) {
         stop(glue::glue("{RET}{mssg} ERROR: bsp_exe='{bsp_exe}' does ",
