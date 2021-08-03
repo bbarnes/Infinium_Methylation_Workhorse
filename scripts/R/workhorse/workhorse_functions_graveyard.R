@@ -122,6 +122,73 @@ if (!is.null(map_tib)) {
 
 
 
+
+
+load_cgn_map_tsv = function(file,
+                            verbose=0,vt=3,tc=1,tt=NULL,
+                            funcTag='load_cgn_map_tsv') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    if ( purrr::is_character(file) )
+      cat(glue::glue("{mssg}   file={file}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  if (!is.null(file) && tibble::is_tibble(file)) {
+    if (verbose>=vt+4) {
+      cat(glue::glue("{mssg} Usung tibble={RET}"))
+      return(file)
+    }
+  }
+  if (!is.null(file) && 
+      purrr::is_character(file) &&
+      file.exists(file) && 
+      !dir.exists(file)) {
+    if (verbose>=vt+4)
+      cat(glue::glue("{mssg} Loading from file={file}.{RET}"))
+  } else {
+    cat(glue::glue("{RET}{mssg} Warning: Unknown file type!{RET}"))
+    return(NULL)
+  }
+  
+  map_cols <-
+    cols(
+      Chromosome = col_character(),
+      Coordinate = col_integer(),
+      Cgn_Int    = col_integer(),
+      Top_Srd    = col_character()
+    )
+  
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- base::system.time({
+    
+    ret_tib <- suppressMessages(suppressWarnings(
+      readr::read_tsv(file,
+                      col_names=names(map_cols$cols),
+                      col_types=map_cols) )) %>%
+      dplyr::mutate(Chromosome := paste0("chr",Chromosome))
+    
+    ret_key <- glue::glue("ret-FIN({funcTag})")
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET}",
+    "{RET}{tabs}{BRK}{RET2}"))
+  
+  ret_tib
+}
+
+
+
 # TBD:: Pretty Sure this can be removed::
 mutate_probe_id = function(tib, 
                            

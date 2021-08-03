@@ -110,6 +110,12 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$bsmap_exe <- NULL
   opts$align_chroms <- FALSE
   
+  # Set Docker Defaults::
+  bsmap_dir <- '/repo/bsmap-2.90'
+  if ( dir.exists(bsmap_dir ) ) opts$bsmap_dir <- bsmap_dir
+  bsmap_exe <- file.path(bsmap_dir, 'bsmap')
+  if ( file.exists(bsmap_exe) )  opts$bsmap_exe <- bsmap_exe
+  
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                     Pre-defined Static Data Directories::
   #            improbe, Annotation, Genomic, Manifest, Validation Idats
@@ -121,8 +127,8 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$man_dir  <- NULL
   opts$idat_dir <- NULL
   
-  opts$cgn_seq_dir <- NULL
-  opts$cgn_bed_dir <- NULL
+  opts$tag_map_tsv <- NULL
+  opts$bsp_map_tsv <- NULL
   
   opts$canonical_cgn_dir <- NULL
   
@@ -140,7 +146,11 @@ program_default_options = function(verbose=3, vt=6,tc=1,tt=NULL,
   opts$noob_controls_csv     <- NULL
   
   opts$source_coordinate_csv <- NULL
-  opts$canonical_cgn_csv     <- NULL
+  
+  opts$tag_map_tsv <- "GRCh37.chr-pos-srd.slim.cgn-sorted.txt.gz"
+  opts$bsp_map_tsv <- "GRCh37.chr-pos-srd.slim.pos-sorted.txt.gz"
+  
+  opts$canonical_cgn_csv <- "canonical.cgn-top-grp.csv.gz"
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                    Run Time File Options:: Time Stamps
@@ -617,8 +627,9 @@ bsp_vars = function(verbose=0,vt=3,tc=1,tt=NULL,
   ret_dat$bsp_pos <- "Coordinate" # Position of the upstream C in the [CpG]
   ret_dat$bsp_beg <- "Bsp_Beg"    # Alignment start
   ret_dat$bsp_srd <- "Bsp_Srd"    # BSC Strance +/-, +/+, -/+, -- (FR/CO)
-  # ret_dat$bsp_FR <- "Bsp_FR"
-  # ret_dat$bsp_CO <- "Bsp_CO"
+  ret_dat$bsp_FR  <- "Strand_FR"  # Alignment (hyberdization strand FR)
+  ret_dat$bsp_TB  <- "Strand_TB"  # Alignment (hyberdization strand TB)
+  ret_dat$bsp_CO  <- "Strand_CO"  # Alignment (hyberdization strand CO)
   
   ret_dat$bsp_mis <- "Mismatch_Cnt"  # Number of mismatches
   ret_dat$bsp_ref <- "Reference_Seq" # Padded Reference Sequence
@@ -627,21 +638,24 @@ bsp_vars = function(verbose=0,vt=3,tc=1,tt=NULL,
   
   # Auxiliary Inferred Fields::
   #
-  ret_dat$ref_nxb <- "Reference_Nxb" # Next Base on Reference Alphabet
-  ret_dat$ref_din <- "Reference_DiN" # Di-nucleotid on Reference Alphabet
-  ret_dat$bsc_nxb <- "BSC_Nxb"       # Next Base on Bisulfite Converted Alpha
-  ret_dat$bsc_din <- "BSC_DiN"       # Di-nucleotide on Bisulfite Converted Alp
+  ret_dat$ref_nxb <- "Bsp_Nxb_Ref" # Next Base on Reference Alphabet
+  ret_dat$ref_din <- "Bsp_Din_Ref" # Di-nucleotid on Reference Alphabet
+  ret_dat$bsc_nxb <- "Bsp_Nxb_Bsc" # Next Base on Bisulfite Converted Alpha
+  ret_dat$bsc_din <- "Bsp_Din_Bsc" # Di-nucleotide on Bisulfite Converted Alp
   
   # Alignment Position -> CGN Mapping:: These should get resolved::
   #
   ret_dat$map_chr <- "Bsp_Map_Chr" # Chromosome of map look-up
   ret_dat$map_pos <- "Bsp_Map_Pos" # Coordinate of map look-up
-  ret_dat$map_cgn <- "Bsp_Map_Cgn" # Integer CGN of map look-up
-  ret_dat$map_top <- "Bsp_Map_Top" # Top strand tag of map look-up
+  ret_dat$Cgn_Int <- "Bsp_Map_Cgn" # Integer CGN of map look-up
+  ret_dat$Top_Srd <- "Bsp_Map_Top" # Top strand tag of map look-up
+  ret_dat$Tar_Nuc <- "Tar_Cgn_Nuc" # Upstream of downstream [C or G]
   
   ret_dat$top_vec <- 
-    c( ret_dat$bsp_key, ret_dat$bsp_tag, ret_dat$map_cgn, 
+    c( ret_dat$bsp_key, ret_dat$bsp_tag, ret_dat$Cgn_Int, 
        ret_dat$bsp_chr, ret_dat$bsp_pos, ret_dat$bsp_srd,
+       ret_dat$bsp_FR,  ret_dat$bsp_TB, ret_dat$bsp_CO,
+       ret_dat$Tar_Nuc, ret_dat$Mismatch_Str,
        ret_dat$ref_nxb, ret_dat$ref_din, ret_dat$bsc_nxb, ret_dat$bsc_din)
   
   ret_dat$bsp_col <- 

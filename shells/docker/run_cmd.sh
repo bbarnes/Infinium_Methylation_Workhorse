@@ -71,8 +71,8 @@ if [ -e ${EXE_A} ]; then
     		    --mat_dir=${MAT} \
     		    --aqp_dir=${AQP} \
 		    --out_dir=${OUT} \
-		    --cgn_seq_dir=${SEQ} \
-		    --cgn_bed_dir=${POS} \
+		    --tag_map_dir=${SEQ} \
+		    --bsp_map_dir=${POS} \
 		    --canonical_cgn_dir=${CAN} \
 		    --gen_dir=${GEN} \
 		    --man_dir=${MAN} \

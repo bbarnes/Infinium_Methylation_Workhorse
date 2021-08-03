@@ -256,10 +256,9 @@ if (args.dat[1]=='RStudio') {
   par$run_mode <- 'CommandLine'
   par$exe_path <- args.dat[grep("--file=", args.dat)] %>%
     stringr::str_remove("^.*=") %>% head( n = 1)
-  # par <- load_source_files(pars = par, verbose = opt$verbose)
-  par <- load_source_files(pars = par, verbose = opt$verbose)
   
-  opt  <- program_options(verbose = opt$verbose)
+  par <- load_source_files(pars = par, verbose = opt$verbose)
+  opt <- program_options(verbose = opt$verbose)
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -474,6 +473,30 @@ bsp_tib <- bsp_mapping_workflow(ref_fas = NULL,
                                 bsp_opt = opt$bsmap_opt,
 
                                 verbose=opt$verbose, tt=pTracker)
+
+
+ret_tib <- load_cgn_map_tsv(file=bsp_map_tsv, tib=bsp_tib, verbose = 10, tt=pTracker)
+
+bsp_map_tsv <- file.path(opt$bsp_map_dir, opt$bsp_map_tsv)
+map_tib <- load_cgn_map_tsv(file = bsp_map_tsv, verbose = 10, tt=pTracker)
+
+bsp_tib %>% dplyr::select(AddressID, Chromosome, Coordinate, 
+                          Strand_FR, Strand_CO)
+
+cur_tib <- bsp_tib %>% 
+  dplyr::rename(Strand_FR=Bsp_FR, Strand_CO=Bsp_CO) %>%
+  dplyr::mutate(Chromosome=Chromosome %>% stringr::str_remove("^chr"),
+                Coordinate2 = Coordinate+1) %>%
+  dplyr::select(AddressID, Chromosome, Coordinate, Coordinate2,
+                Strand_FR, Strand_CO)
+
+map2_tib <- map_tib %>% dplyr::mutate(Pos2=Pos+1)
+
+int1_tib <- map2_tib %>% dplyr::inner_join(cur_tib, by=c("Chr"="Chromosome", "Pos"="Coordinate"))
+
+int1_tib %>% dplyr::mutate(Target_CG_Nuc="up")
+
+int2_tib <- map2_tib %>% dplyr::inner_join(cur_tib, by=c("Chr"="Chromosome", "Pos2"="Coordinate"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #

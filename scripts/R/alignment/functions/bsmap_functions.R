@@ -245,10 +245,6 @@ bsp_mapping_workflow =
       #                      Join Address and Alignment Data::
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       
-      if (!is.null( map_dir ) && dir.exists( map_dir ) && 
-          !is.null( map_tsv ) && file.exists( file.path(map_dir,map_tsv) ) )
-        map_tsv <- file.path( map_dir,map_tsv )
-
       # Need to make a proper handle for unq_key::
       ret_tib <- join_bsmap(bsp_tib = ret_tib,
                             can_tib = can_tib,
@@ -278,6 +274,20 @@ bsp_mapping_workflow =
                             verbose=verbose, vt=vt+1,tc=tc+1,tt=tt )
       
       if (ret_data) ret_dat$bsp_join <- ret_tib
+      
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      #                             Add CGN Map Data::
+      # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+      
+      if (!is.null( map_dir ) && dir.exists( map_dir ) && 
+          !is.null( map_tsv ) && file.exists( file.path(map_dir,map_tsv) ) )
+        map_tsv <- file.path( map_dir,map_tsv )
+      
+      ret_tib <- load_cgn_map_tsv(map_tsv, ret_tib, 
+                                  verbose=verbose, vt=vt+1,tc=tc+1,tt=tt )
+      
+      ret_tib <- ret_tib %>% 
+        dplyr::rename( Strand_FR=Bsp_FR, Strand_CO=Bsp_CO )
       
       # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
       #                           Alignment Summary::
@@ -311,6 +321,9 @@ bsp_mapping_workflow =
       top_tib <- ret_tib %>% dplyr::select( dplyr::any_of( fun_var$top_vec ) )
       aux_tib <- ret_tib %>% dplyr::select(!names( top_tib ) )
       
+      if (ret_data) ret_dat$aux <- aux_tib
+      if (ret_data) ret_dat$top <- top_tib
+      
       # Write Auxiliary Probe Order Output::
       aux_cnt <- safe_write(x=aux_tib, file=aux_csv, done = TRUE,
                             verbose=verbose, vt=vt+1,tc=tc+1,tt=tt)
@@ -332,8 +345,6 @@ bsp_mapping_workflow =
     
     top_tib
   }
-
-
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Pre-processing BSMAP Methods::
@@ -361,10 +372,6 @@ format_reference_bsmap = function(fas = NULL,
     cat(glue::glue("{mssg}        bsc_key = {bsc_key}.{RET}"))
     cat(glue::glue("{mssg}        frs_key = {frs_key}.{RET}"))
     cat(glue::glue("{mssg}   alphabet_key = {alphabet_key}.{RET}"))
-    # if (verbose>=vt+4) {
-    #   cat(glue::glue("{RET}"))
-    #   cat(glue::glue("{mssg}   tib = {tib}.{RET}"))
-    # }
     cat(glue::glue("{RET}"))
   }
   
@@ -448,10 +455,6 @@ format_candidate_bsmap = function(fas,
     cat(glue::glue("{mssg}   aln_key = {aln_key}.{RET}"))
     cat(glue::glue("{mssg}   fwd_key = {fwd_key}.{RET}"))
     cat(glue::glue("{mssg}   rev_key = {rev_key}.{RET}"))
-    # if (verbose>=vt+4) {
-    #   cat(glue::glue("{RET}"))
-    #   cat(glue::glue("{mssg}   tib = {tib}.{RET}"))
-    # }
     cat(glue::glue("{RET}"))
   }
   
@@ -534,11 +537,7 @@ run_bsmap = function(ref_fas,
     cat(glue::glue("{mssg}    reload={reload}.{RET}"))
     cat(glue::glue("{RET}"))
   }
-  
-  cat(glue::glue("{RET2}"))
-  cat(glue::glue("{mssg}    ret_col={ret_col}.{RET}"))
-  cat(glue::glue("{RET2}"))
-  
+
   ret_cnt <- 0
   ret_tib <- NULL
   stime <- base::system.time({
@@ -716,8 +715,7 @@ load_bsmap = function(file,
     } else {
       ret_tib <- 
         readr::read_tsv(file,col_names=names(bsp_cols$cols),col_types=bsp_cols) %>%
-        dplyr::select(-dplyr::all_of(qual_key) ) # %>%
-      # dplyr::mutate(Bsp_Chr=paste0('chr',stringr::str_remove(Bsp_Chr,'^chr')))
+        dplyr::select(-dplyr::all_of(qual_key) )
     }
     ret_key <- glue::glue("after-loading-before-chr-modification({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
@@ -1158,6 +1156,9 @@ join_bsmap = function(bsp_tib,
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 load_cgn_map_tsv = function(file,
+                            tib = NULL,
+                            ret_data = FALSE,
+                            
                             verbose=0,vt=3,tc=1,tt=NULL,
                             funcTag='load_cgn_map_tsv') {
   
@@ -1168,45 +1169,56 @@ load_cgn_map_tsv = function(file,
   if (verbose>=vt+2) {
     cat(glue::glue("{RET}"))
     cat(glue::glue("{mssg} Function Parameters::{RET}"))
-    if ( purrr::is_character(file) )
-      cat(glue::glue("{mssg}   file={file}.{RET}"))
+    cat(glue::glue("{mssg}   file={file}.{RET}"))
     cat(glue::glue("{RET}"))
-  }
-  
-  if (!is.null(file) && tibble::is_tibble(file)) {
-    if (verbose>=vt+4) {
-      cat(glue::glue("{mssg} Usung tibble={RET}"))
-      return(file)
-    }
-  }
-  if (!is.null(file) && 
-      purrr::is_character(file) &&
-      file.exists(file) && 
-      !dir.exists(file)) {
-    if (verbose>=vt+4)
-      cat(glue::glue("{mssg} Loading from file={file}.{RET}"))
-  } else {
-    cat(glue::glue("{RET}{mssg} Warning: Unknown file type!{RET}"))
-    return(NULL)
   }
   
   map_cols <-
     cols(
-      Chromosome = col_character(),
-      Coordinate = col_integer(),
-      Cgn_Int    = col_integer(),
-      Top_Srd    = col_character()
+      Chr  = col_character(),
+      Pos1 = col_integer(),
+      Bsp_Map_Cgn  = col_integer(),
+      Top_Srd  = col_character()
     )
   
   ret_cnt <- 0
   ret_tib <- NULL
+  ret_dat <- NULL
   stime <- base::system.time({
     
-    ret_tib <- suppressMessages(suppressWarnings(
+    map_tib <- suppressMessages(suppressWarnings(
       readr::read_tsv(file,
                       col_names=names(map_cols$cols),
-                      col_types=map_cols) )) %>%
-      dplyr::mutate(Chromosome := paste0("chr",Chromosome))
+                      col_types=map_cols) )
+    ) %>% dplyr::mutate(Pos2=Pos1+1)
+    # print(map_tib)
+    
+    can_tib <- tib %>% 
+      dplyr::mutate(Chr=Chromosome %>% stringr::str_remove("^chr"))
+    # print(can_tib)
+
+    ret_tib <- dplyr::bind_rows(
+      dplyr::inner_join(can_tib, map_tib,
+                        by=c("Chr", "Coordinate"="Pos1"),
+                        suffix=c("_can","_map") ) %>%
+        dplyr::mutate(Tar_Cgn_Nuc="up"),
+      dplyr::inner_join(can_tib, map_tib,
+                        by=c("Chr", "Coordinate"="Pos2"),
+                        suffix=c("_can","_map") ) %>%
+        dplyr::mutate(Tar_Cgn_Nuc="dn")
+    ) %>%
+      dplyr::distinct() %>%
+      dplyr::mutate(
+      Strand_TB=dplyr::case_when(
+        Top_Srd=="+" & Bsp_FR=="F" ~ "T",
+        Top_Srd=="-" & Bsp_FR=="R" ~ "T",
+        
+        Top_Srd=="+" & Bsp_FR=="R" ~ "B",
+        Top_Srd=="-" & Bsp_FR=="F" ~ "B",
+        TRUE ~ NA_character_
+      )
+    )
+    ret_tib <- ret_tib %>% dplyr::select(-Pos1, Pos2)
 
     ret_key <- glue::glue("ret-FIN({funcTag})")
     ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
