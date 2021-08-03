@@ -66,6 +66,65 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             Order Variables::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+ord_vars = function(verbose=0,vt=3,tc=1,tt=NULL,
+                    funcTag='ord_vars') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime   <- 0
+  ret_cnt <- 0
+  ret_dat <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           ord_tib definition::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # ret_dat$ord_idx <- "Ord_Idx"         # Unique Integer for Address/Probe Pair
+  
+  ret_dat$ord_add <- "AddressID"       # Tango Address
+  ret_dat$ord_prb <- "Probe_Seq"       # Order Probe
+  ret_dat$ord_din <- "TargetDin_Type"  # (cg, ch, rs, etc.) Di-nucleotide
+  ret_dat$ord_um2 <- "Extension_Type"  # (U, M, 2) Extension Type
+  ret_dat$ord_grp <- "GroupName"       # Group Pairings
+  ret_dat$ord_cgn <- "User_iCgn"       # User Cgn Integer
+  
+  # ret_dat$ord_inf <- "Chemistry_Type"  # (1, 2) Chemistry Type I/II
+  
+  ret_dat$ord_mate_prb <- "Mate_Probe_Seq"   # Mate Probe Sequence
+  ret_dat$ord_tangoSeq <- "Order_Tango_Seq"  # Tango Sequence
+  ret_dat$ord_user_key <- "User_Probe_Key"   # Original User Defined Probe Key
+  ret_dat$ord_user_col <- "User_Ext_Color"   # Original User Defined Color
+  ret_dat$aqp_file_idx <- "AQP_File_Index"   # AQP File Index
+  ret_dat$mat_file_idx <- "Match_File_Index" # Match File Index
+  ret_dat$ord_file_idx <- "Order_File_index" # Order File Index
+  
+  ret_dat$top_vec <- 
+    c( ret_dat$ord_add, ret_dat$ord_prb, ret_dat$ord_din, 
+       ret_dat$ord_um2, ret_dat$ord_grp, ret_dat$ord_cgn )
+  
+  ret_cnt <- length(ret_dat)
+  # ret_key <- glue::glue("ret-FIN({funcTag})")
+  # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_dat
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #                   1.0 AQP Address Manifest Workflow: 
 #                           Order/Match/AQP/PQC

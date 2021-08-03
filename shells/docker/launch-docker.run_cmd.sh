@@ -2,7 +2,7 @@
 
 PROGRAM="Infinium_Methylation_Workhorse/scripts/R/workhorse/workhorse_main.R"
 
-DOC_VER="v.1.54"
+DOC_VER="v.1.55"
 DOC_NAME="Infinium_Methylation_Workhorse_Centos"
 DOC_IMAGE="bbarnesimdocker/im_workhorse:${DOC_NAME}.${DOC_VER}"
 DOC_SHELL="run_cmd.sh"
@@ -53,19 +53,19 @@ TAG_MAP_TSV="GRCh37.chr-pos-srd.slim.cgn-sorted.txt.gz"
 BSP_MAP_TSV="GRCh37.chr-pos-srd.slim.pos-sorted.txt.gz"
 
 OPT_STR="${PROGRAM} \
---run_name=${RUN_NAME} \
---platform=MCM \
---version=v1 \
---genome_build=GRCh37 \
---ord_csv=${ORD_CSV} \
---mat_tsv=${MAT_TSV} \
---aqp_tsv=${AQP_TSV} \
---canonical_cgn_csv=canonical.cgn-top-grp.csv.gz \
---tag_map_tsv=${TAG_MAP_TSV} \
---bsp_map_tsv=${BSP_MAP_TSV} \
---trackTime \
---Rscript=Rscript \
---bsmap_exe=${BSP_EXE} \
+  --run_name=${RUN_NAME} \
+  --platform=MCM \
+  --version=v1 \
+  --genome_build=GRCh37 \
+  --ord_csv=${ORD_CSV} \
+  --mat_tsv=${MAT_TSV} \
+  --aqp_tsv=${AQP_TSV} \
+  --canonical_cgn_csv=canonical.cgn-top-grp.csv.gz \
+  --tag_map_tsv=${TAG_MAP_TSV} \
+  --bsp_map_tsv=${BSP_MAP_TSV} \
+  --trackTime \
+  --Rscript=Rscript \
+  --bsmap_exe=${BSP_EXE} \
 ${RELOAD} ${PARALLEL} --verbose=${VERBOSE} "
 
 # --memory-swap="[memory_limit]"

@@ -57,6 +57,93 @@ template_func = function(tib,
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+#                             BSMAP Variables::
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+bsp_vars = function(verbose=0,vt=3,tc=1,tt=NULL,
+                    funcTag='bsp_vars') {
+  
+  tabs <- paste0(rep(TAB, tc), collapse='')
+  mssg <- glue::glue("[{funcTag}]:{tabs}")
+  
+  if (verbose>=vt) cat(glue::glue("{mssg} Starting...{RET}"))
+  if (verbose>=vt+2) {
+    cat(glue::glue("{RET}"))
+    cat(glue::glue("{mssg} Function Parameters::{RET}"))
+    cat(glue::glue("{mssg}   funcTag={funcTag}.{RET}"))
+    cat(glue::glue("{RET}"))
+  }
+  
+  etime   <- 0
+  ret_cnt <- 0
+  ret_dat <- NULL
+  
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                           bsp_tib definition::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # Alignment Portion::
+  #
+  ret_dat$bsp_unq <- "Unq_Align"  # Unique Alignment Key
+  ret_dat$bsp_key <- "AddressID"  # Tango Address
+  ret_dat$bsp_prb <- "Probe_Seq"  # Order Probe
+  ret_dat$bsp_aln <- "Probe_Aln"  # Alignment Probe de-methylated
+  
+  ret_dat$bsp_fwd <- "Probe_Fwd"  # Forward Alignment Probe de-methylated
+  ret_dat$bsp_rev <- "Probe_Rev"  # Reverse Alignment Probe de-methylated
+  
+  ret_dat$bsp_tag <- "Align_Tag"  # BSP Align Tag (UM, MA, OF)
+  ret_dat$bsp_chr <- "Chromosome" # Alignment Chromosome
+  ret_dat$bsp_pos <- "Coordinate" # Position of the upstream C in the [CpG]
+  ret_dat$bsp_beg <- "Bsp_Beg"    # Alignment start
+  ret_dat$bsp_srd <- "Bsp_Srd"    # BSC Strance +/-, +/+, -/+, -- (FR/CO)
+  ret_dat$bsp_FR  <- "Strand_FR"  # Alignment (hyberdization strand FR)
+  ret_dat$bsp_TB  <- "Strand_TB"  # Alignment (hyberdization strand TB)
+  ret_dat$bsp_CO  <- "Strand_CO"  # Alignment (hyberdization strand CO)
+  
+  ret_dat$bsp_mis <- "Mismatch_Cnt"  # Number of mismatches
+  ret_dat$bsp_ref <- "Reference_Seq" # Padded Reference Sequence
+  ret_dat$bsp_gap <- "Gap_Cnt"       # Number of gaps
+  ret_dat$bsp_str <- "Mismatch_Str"  # String of mismatch types/counts
+  
+  # Auxiliary Inferred Fields::
+  #
+  ret_dat$ref_nxb <- "Bsp_Nxb_Ref" # Next Base on Reference Alphabet
+  ret_dat$ref_din <- "Bsp_Din_Ref" # Di-nucleotid on Reference Alphabet
+  ret_dat$bsc_nxb <- "Bsp_Nxb_Bsc" # Next Base on Bisulfite Converted Alpha
+  ret_dat$bsc_din <- "Bsp_Din_Bsc" # Di-nucleotide on Bisulfite Converted Alp
+  
+  # Alignment Position -> CGN Mapping:: These should get resolved::
+  #
+  ret_dat$map_chr <- "Bsp_Map_Chr" # Chromosome of map look-up
+  ret_dat$map_pos <- "Bsp_Map_Pos" # Coordinate of map look-up
+  ret_dat$Cgn_Int <- "Bsp_Map_Cgn" # Integer CGN of map look-up
+  ret_dat$Top_Srd <- "Bsp_Map_Top" # Top strand tag of map look-up
+  ret_dat$Tar_Nuc <- "Tar_Cgn_Nuc" # Upstream of downstream [C or G]
+  
+  ret_dat$top_vec <- 
+    c( ret_dat$bsp_key, ret_dat$bsp_tag, ret_dat$Cgn_Int, 
+       ret_dat$bsp_chr, ret_dat$bsp_pos, ret_dat$bsp_srd,
+       ret_dat$bsp_FR,  ret_dat$bsp_TB, ret_dat$bsp_CO,
+       ret_dat$Tar_Nuc, ret_dat$Mismatch_Str,
+       ret_dat$ref_nxb, ret_dat$ref_din, ret_dat$bsc_nxb, ret_dat$bsc_din)
+  
+  ret_dat$bsp_col <- 
+    c( ret_dat$bsp_key, ret_dat$bsp_aln, ret_dat$bsp_tag, ret_dat$bsp_chr,
+       ret_dat$bsp_beg, ret_dat$bsp_srd, ret_dat$bsp_mis, ret_dat$bsp_ref,
+       ret_dat$bsp_gap, ret_dat$bsp_str )
+  
+  ret_cnt <- length(ret_dat)
+  # ret_key <- glue::glue("ret-FIN({funcTag})")
+  # ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt=vt+4,tc=tc+1, n=ret_key)
+  
+  if (verbose>=vt) cat(glue::glue(
+    "{mssg} Done; Count={ret_cnt}; elapsed={etime}.{RET2}{tabs}{BRK}{RET2}"))
+  
+  ret_dat
+}
+
+# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #
 #                    2.0 Align All Probe Sequence:: BSMAP
 #                           Main Workflow Driver

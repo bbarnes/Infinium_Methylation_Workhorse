@@ -93,6 +93,7 @@ load_source_files = function(pars, verbose = 0, funcTag = "load_source_files") {
   
   opts_source <- 
     file.path(pars$prgm_dir, 'functions', paste0(pars$prgm_tag,"_options.R"))
+  
   if (!file.exists(opts_source)) {
     stop(glue::glue("{RET}[{funcTag}]: ERROR: Program Options Source File ",
                     "{opts_source} does NOT exist!{RET2}"))
@@ -257,6 +258,7 @@ if (args.dat[1]=='RStudio') {
   par$exe_path <- args.dat[grep("--file=", args.dat)] %>%
     stringr::str_remove("^.*=") %>% head( n = 1)
   
+  args.dat <- commandArgs(trailingOnly = TRUE)
   par <- load_source_files(pars = par, verbose = opt$verbose)
   opt <- program_options(verbose = opt$verbose)
 }
@@ -266,9 +268,10 @@ if (args.dat[1]=='RStudio') {
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
 par_reqs <- c('run_mode','prgm_tag','source_dir','dat_dir','exe_path')
-opt_reqs <- c('out_dir','imp_dir',
-              'genome_build','platform','version','bsmap_exe',
-              'Rscript','verbose')
+opt_reqs <- c('out_dir')
+# ,'imp_dir',
+#               'genome_build','platform','version','bsmap_exe',
+#               'Rscript','verbose')
 
 opt <- program_init(name=par$prgm_tag,
                     opts=opt, opt_reqs=opt_reqs, 
@@ -300,13 +303,13 @@ if (opt$verbose>=1)
 error_ledger <- NULL
 
 run <- NULL
-run <- get_run_defaults(fresh = opt$fresh,
-                        genome_build = opt$genome_build,
-                        tag_seq_dir  = opt$tag_seq_dir,
-                        cgn_bed_dir  = opt$cgn_bed_dir,
-                        canonical_cgn_dir = opt$canonical_cgn_dir,
-                        canonical_cgn_csv = opt$canonical_cgn_csv,
-                        verbose = opt$verbose )
+# run <- get_run_defaults(fresh = opt$fresh,
+#                         genome_build = opt$genome_build,
+#                         tag_seq_dir  = opt$tag_seq_dir,
+#                         cgn_bed_dir  = opt$cgn_bed_dir,
+#                         canonical_cgn_dir = opt$canonical_cgn_dir,
+#                         canonical_cgn_csv = opt$canonical_cgn_csv,
+#                         verbose = opt$verbose )
 
 if (opt$verbose>=1)
   cat(glue::glue("[{par$prgm_tag}]: Done. Checking pre-defined files.{RET2}"))
@@ -376,6 +379,8 @@ if (FALSE && !is.null(opt$sesame_manifest_dat)) {
 #                        dbCGN, improbe, imGenomes data::
 #
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+
+opt$align_chroms <- FALSE
 
 imGenome_tib <- NULL
 imGenome_tib <- load_imGenomes_table(dir = opt$gen_dir,
