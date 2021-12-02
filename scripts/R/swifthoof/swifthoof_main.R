@@ -5,45 +5,17 @@
 
 rm(list=ls(all=TRUE))
 
-# Without Warnings for Testing::
-#
-# base::require("sesame")
-# base::require("dbplyr")
-# 
-# base::require("optparse",quietly=TRUE)
-# 
-# base::require("tidyverse")
-# base::require("plyr")
-# base::require("stringr")
-# base::require("readr")
-# base::require("glue")
-# 
-# base::require("matrixStats")
-# base::require("scales")
-#
-# base::require("doParallel")
-
-# suppressPackageStartupMessages(base::require() )
-# Load sesame:: This causes issues with "ExperimentHub Caching causes a warning"
-suppressWarnings(suppressPackageStartupMessages( base::require("sesame") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("dbplyr") ))
-
+# Load Core Packages::
 suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("minfi",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("readr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
+# Load Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-
-# Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
-
-# tidyverse_update(recursive = FALSE, repos = getOption("repos"))
-# install.packages("lubridate")
+# Load Performance Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("profmem",quietly=TRUE) ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -56,6 +28,7 @@ num_workers <- getDoParWorkers()
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                      Define Default Params and Options::
@@ -78,31 +51,36 @@ par$prgmDir <- 'swifthoof'
 par$prgmTag <- paste(par$prgmDir,'main', sep='_')
 cat(glue::glue("[{par$prgmTag}]: Starting; {par$prgmTag}.{RET}{RET}"))
 
-par$retData     <- FALSE
+par$retData <- FALSE
+par$manDir  <- NULL
 
 # Executables::
 opt$Rscript <- NULL
 
 # Directories::
-opt$outDir     <- NULL
-opt$idatsDir   <- NULL
+opt$outDir <- NULL
+opt$datDir <- NULL
+
+# Platform/Method Options::
+opt$manifest <- NULL
+opt$platform <- NULL
+opt$version  <- NULL
+opt$percent  <- NULL
 
 # Optional Files::
 opt$subManifest  <- FALSE
-opt$manifestPath <- 'auto'
 opt$auto_sam_csv <- NULL
-
-# Platform/Method Options::
-opt$platform  <- NULL
-opt$manifest  <- NULL
 
 # Run Options::
 opt$fresh        <- FALSE
 opt$buildSubDir  <- FALSE
 opt$auto_detect  <- FALSE
 
-opt$workflow    <- NULL
-opt$manDirName  <- 'core'
+opt$workflow   <- NULL
+opt$manDirPath <- NULL
+opt$manDirName <- 'core'
+opt$forcedPlat <- NULL
+opt$man_suffix <- ".manifest.sesame-base.cpg-sorted.csv.gz"
 
 # Output Options::
 opt$load_idat    <- FALSE
@@ -164,6 +142,7 @@ opt$plotMax <- 10000
 opt$plotSub <- 5000
 
 opt$time_org_txt <- NULL
+opt$trackTime    <- FALSE
 
 # verbose Options::
 opt$verbose <- 3
@@ -219,11 +198,9 @@ if (args.dat[1]=='RStudio') {
   opt$buildSubDir  <- FALSE
   opt$auto_detect   <- FALSE
   
-  opt$runName    <- NULL
-  opt$platform   <- 'EPIC'
-  opt$manifest   <- 'B4'
-  opt$platform   <- NULL
-  opt$manifest   <- NULL
+  opt$runName  <- NULL
+  opt$platform <- NULL
+  opt$version  <- NULL
   
   par$expChipNum <- NULL
   par$expSampNum <- NULL
@@ -241,9 +218,6 @@ if (args.dat[1]=='RStudio') {
   opt$write_call  <- TRUE
   opt$write_csum  <- TRUE
   
-  opt$workflow <- "nd,ind"
-  opt$workflow <- 'ind'
-  
   opt$auto_detect <- TRUE
   
   par$retData  <- TRUE
@@ -257,47 +231,137 @@ if (args.dat[1]=='RStudio') {
   opt$cluster  <- TRUE
   opt$cluster  <- FALSE
   
-  opt$manDirName  <- 'base'
-  opt$manDirName  <- 'core'
+  opt$save_idat <- TRUE
+  opt$load_idat <- TRUE
   
-  opt$verbose  <- 6
+  opt$save_sset <- TRUE
+  opt$load_sset <- TRUE
+  
+  opt$manDirPath <- NULL
+  opt$manDirName <- 'base'
+  opt$manDirName <- 'core'
+  
+  opt$verbose  <- 3
+  
+  par$local_runType <- 'VA-MVP-Akesogen_Batch3'
+  par$local_runType <- 'VA-MVP-IBX_Batch3'
   
   par$local_runType <- 'CORE'
   par$local_runType <- 'EXCBR'
   par$local_runType <- 'GRCm38'
   par$local_runType <- 'COVID'
   par$local_runType <- 'GRCm38'
-  par$local_runType <- 'DELTA'
+  par$local_runType <- 'DELTA-8x1-EPIC-Core'
   par$local_runType <- 'DKFZ'
   par$local_runType <- 'qcMVP'
   par$local_runType <- 'COVIC'
+  par$local_runType <- "EPIC-8x1-EM-Sample-Prep"
+  par$local_runType <- 'qcMVP2'
+  par$local_runType <- 'NA12878'
+  par$local_runType <- 'Chicago-Ober-Custom'
+  par$local_runType <- 'NZT'
+  par$local_runType <- 'COVIC-NZT_23092020'
   
   opt$fresh <- TRUE
   
-  if (par$local_runType=='COVID') {
-    opt$runName  <- 'COVID-Direct-Set1'
+  opt$auto_sam_csv <- 
+    file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+  
+  opt$auto_detect <- TRUE
+  opt$workflow    <- "ind"
+  opt$manDirName  <- 'core'
+  
+  # opt$write_snps  <- TRUE
+  opt$write_snps  <- FALSE
+  
+  opt$single   <- TRUE
+  opt$single   <- FALSE
+  
+  opt$parallel <- FALSE
+  opt$parallel <- TRUE
+  
+  opt$fresh <- TRUE
+  opt$trackTime <- TRUE
+  
+  opt$runName  <- par$local_runType
+  
+  if (FALSE) {
+  } else if (par$local_runType=='NZT' || par$local_runType=="COVIC-NZT_23092020") {
+    
+    opt$single   <- TRUE
+    opt$single   <- FALSE
+    opt$parallel <- FALSE
+    opt$parallel <- TRUE
+    opt$fresh    <- TRUE
+    
+    # For sub manifest testing::
+    opt$platform   <- "NZT"
+    opt$version    <- "C2"
+    opt$version    <- "B1"
+    
+    opt$manDirName  <- 'base'
+    # opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Sesame/NZT")
+    
+    # opt$auto_sam_csv <- "/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz"
+    
+  } else if (par$local_runType=='Chicago-Ober-Custom') {
+    
+    opt$single   <- TRUE
+    opt$parallel <- FALSE
+    opt$fresh    <- TRUE
+    
+    opt$workflow    <- "d,ind"
+    
+    # For sub manifest testing::
+    opt$platform   <- "Chicago"
+    opt$version    <- "S38"
+    opt$version    <- "S39"
+    opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/Chicago-Ober-Custom")
+    opt$auto_sam_csv <- "/Users/bretbarnes/Documents/data/CustomContent/Chicago-Ober-Custom/AutoDetect/v1/AutoSampleDetection_Chicago-Ober-Custom-v1.csv.gz"
+    
+  } else if (par$local_runType=='EPIC-8x1-EM-Sample-Prep') {
+    
+  } else if (par$local_runType=='NA12878') {
+    
+    opt$single   <- TRUE
+    opt$parallel <- FALSE
+    opt$fresh    <- TRUE
+
+    # For sub manifest testing::
+    opt$platform   <- "Rand1"
+    opt$version    <- 20
+    opt$percent    <- 10
+    # opt$version    <- "S20"
+    
+    # opt$manDirPath <- file.path(par$topDir, "data/manifests/methylation/McMaster10Kselection", opt$platform)
+    # opt$manDirPath <- file.path(par$topDir, "scratch/RStudio/manifest_subset_noob/EPIC-noob-BP4/man", opt$platform)
+    opt$manDirPath <- file.path(par$topDir, "scratch/RStudio/manifest_subset_noob/EPIC-noob-BP4/man")
+    
+    opt$forcedPlat <- "EPIC"
+    
+  } else if (par$local_runType=='qcMVP2') {
+    
+    opt$runName  <- 'AKE-Zymogen'
+    opt$runName  <- 'AKE-EPIDX'
+    
+    opt$runName  <- 'IBX-Zymogen'
+    opt$runName  <- 'IBX-EPIDX'
+    
+  } else if (par$local_runType=='COVID') {
     par$expChipNum <- '204756130014'
-    
-    opt$auto_detect <- FALSE
-    # opt$single   <- FALSE
-    par$retData  <- TRUE
-    
-    opt$workflow <- "nd,ind"
     
   } else if (par$local_runType=='COVIC') {
     opt$runName  <- 'COVIC-Set1-15052020'
     par$expChipNum <- '204500250013'
-    opt$auto_detect <- TRUE
-    opt$workflow <- "ind"
-    opt$workflow <- "nd,ind"
     
-    opt$manDirName  <- 'covic'
     opt$manDirName  <- 'core'
+    opt$manDirName  <- 'covic'
     
   } else if (par$local_runType=='GRCm38') {
     opt$runName <- 'MURMETVEP_mm10_betaTest_06082020'
     opt$runName <- 'VanAndel_mm10_betaTest_31082020'
     opt$runName <- 'ILMN_mm10_betaTest_17082020'
+    
     opt$auto_detect <- FALSE
   } else if (par$local_runType=='qcMVP') {
     opt$runName  <- 'CNTL-Samples_VendA_10092020'
@@ -314,12 +378,9 @@ if (args.dat[1]=='RStudio') {
     par$expChipNum <- "203962710025"
     par$expSampNum <- "203962710025_R01C01"
     
-    opt$auto_detect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='DKFZ') {
-    opt$runName  <- 'DKFZ'
     
-    opt$auto_detect <- TRUE
     opt$dpi <- 72
   } else if (par$local_runType=='CORE') {
     opt$runName  <- 'BETA-8x1-EPIC-Core'
@@ -333,7 +394,7 @@ if (args.dat[1]=='RStudio') {
     
     opt$runName  <- 'EPIC-BETA-8x1-CoreCancer'
     par$expChipNum <- '201502830033'
-    opt$auto_detect <- TRUE
+    
   } else if (par$local_runType=='EXCBR') {
     opt$runName  <- 'Excalibur-Old-1609202'
     par$expChipNum <- '204076530053'
@@ -341,9 +402,8 @@ if (args.dat[1]=='RStudio') {
     
     opt$runName  <- 'Excalibur-New-1609202'
     par$expChipNum <- '202915460071'
-    opt$auto_detect <- TRUE
-  } else if (par$local_runType=='DELTA') {
-    opt$runName    <- 'DELTA-8x1-EPIC-Core'
+    
+  } else if (par$local_runType=='DELTA-8x1-EPIC-Core') {
     par$expChipNum <- '203319730022'
     par$expSampNum <- '203319730022_R07C01'
     
@@ -357,18 +417,9 @@ if (args.dat[1]=='RStudio') {
     stop(glue::glue("{RET}[{par$prgmTag}]: Unrecognized local_runType={par$local_runType}.{RET}{RET}"))
   }
   
-  opt$save_idat <- TRUE
-  opt$load_idat <- TRUE
-  
-  opt$save_sset <- TRUE
-  opt$load_sset <- TRUE
-  
-  opt$auto_detect <- FALSE
-  opt$auto_detect <- TRUE
-  
-  opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
-  if (!is.null(par$expChipNum)) opt$idatsDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
-  opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
+  opt$datDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_') )
+  if (!is.null(par$expChipNum)) 
+    opt$datDir <- file.path(locIdatDir, paste('idats',opt$runName, sep='_'),  par$expChipNum)
   
   # opt$outDir <- file.path(par$topDir, 'scratch', par$local_runType, par$prgmTag, opt$runName)
   opt$outDir <- file.path(par$topDir, 'scratch',par$runMode)
@@ -394,24 +445,26 @@ if (args.dat[1]=='RStudio') {
     # Directories::
     make_option(c("--outDir"), type="character", default=opt$outDir, 
                 help="Output directory [default= %default]", metavar="character"),
-    make_option(c("--idatsDir"), type="character", default=opt$idatsDir, 
-                help="idats directory [default= %default]", metavar="character"),
-    
-    # Optional Files::
-    make_option(c("--manifestPath"), type="character", default=opt$manifestPath,
-                help="Path to manfifest (CSV) otherwise use dat [default= %default]", metavar="character"),
-    make_option(c("--subManifest"), action="store_true", default=opt$subManifest,
-                help="Boolean variable to use subset manifest instead of subset. [default= %default]", metavar="boolean"),
-    make_option(c("--auto_sam_csv"), type="character", default=opt$auto_sam_csv,
-                help="Path to auto detect beta values (CSV) [default= %default]", metavar="character"),
+    make_option(c("-d","--datDir"), type="character", default=opt$datDir, 
+                help="List of idats directory(s), commas seperated [default= %default]", metavar="character"),
     
     # Platform/Method Parameters::
     make_option(c("--runName"), type="character", default=opt$runName, 
                 help="Run Name [default= %default]", metavar="character"),
+    make_option(c("--manifest"), type="character", default=opt$manifest,
+                help="Path to manfifest (CSV) otherwise auto-detect [default= %default]", metavar="character"),
     make_option(c("--platform"), type="character", default=opt$platform, 
                 help="Forced platform [EPIC, 450k, 27k, NZT] otherwise auto-detect [default= %default]", metavar="character"),
-    make_option(c("--manifest"), type="character", default=opt$manifest, 
-                help="Forced manifest [B1, B2, B4] otherwise auto-detect [default= %default]", metavar="character"),
+    make_option(c("--version"), type="character", default=opt$version, 
+                help="Forced version [B1, B2, B4, etc.] otherwise auto-detect [default= %default]", metavar="character"),
+    make_option(c("--percent"), type="character", default=opt$percent, 
+                help="Forced percent [B1, B2, B4, etc.] otherwise auto-detect [default= %default]", metavar="character"),
+    
+    # Optional Files::
+    make_option(c("--subManifest"), action="store_true", default=opt$subManifest,
+                help="Boolean variable to use subset manifest instead of subset. [default= %default]", metavar="boolean"),
+    make_option(c("--auto_sam_csv"), type="character", default=opt$auto_sam_csv,
+                help="Path to auto detect beta values (CSV) [default= %default]", metavar="character"),
     
     # Run Parameters::
     make_option(c("--fresh"), action="store_true", default=opt$fresh,
@@ -423,8 +476,14 @@ if (args.dat[1]=='RStudio') {
     
     make_option(c("--workflow"), type="character", default=opt$workflow,
                 help="Workflows to run i.e. order of operations comma seperated [ raw,ind,ndi,din, etc. ] [default= %default]", metavar="character"),
+    make_option(c("--manDirPath"), type="character", default=opt$manDirPath,
+                help="Manifest directory path otherwise use default dat/manifest directory [default= %default]", metavar="character"),
     make_option(c("--manDirName"), type="character", default=opt$manDirName,
                 help="Manifest directory name [default= %default]", metavar="character"),
+    make_option(c("--forcedPlat"), type="character", default=opt$forcedPlat,
+                help="Forced Manifest name to use in Sesame calculations [default= %default]", metavar="character"),
+    make_option(c("--man_suffix"), type="character", default=opt$man_suffix,
+                help="Manifest suffix search name. Default is set to predefined Sesame suffix. [default= %default]", metavar="character"),
     
     # Output Options::
     make_option(c("--load_idat"), action="store_true", default=opt$load_idat,
@@ -482,18 +541,6 @@ if (args.dat[1]=='RStudio') {
     make_option(c("--minPerc"), type="character", default=opt$minPerc, 
                 help="Minimum percentage of loci passing detection p-value for each pval method (commas seperated list)  [default= %default]", metavar="character"),
     
-    # Old methods::
-    #
-    # make_option(c("--minNegPval"), type="double", default=opt$minNegPval, 
-    #             help="Minimum passing detection p-value using Negative Controls [default= %default]", metavar="double"),
-    # make_option(c("--minOobPval"), type="double", default=opt$minOobPval,
-    #             help="Minimum passing detection p-value using Negative Out-Of-Band [default= %default]", metavar="double"),
-    # 
-    # make_option(c("--minNegPerc"), type="double", default=opt$minNegPerc, 
-    #             help="Minimum percentage of loci passing detection p-value using Negative Controls to flag Requeue of sample. [default= %default]", metavar="double"),
-    # make_option(c("--minOobPerc"), type="double", default=opt$minOobPerc, 
-    #             help="Minimum percentage of loci passing detection p-value using Out-Of-Band to flag Requeue of sample. [default= %default]", metavar="double"),
-    
     make_option(c("--minDeltaBeta"), type="double", default=opt$minDeltaBeta,
                 help="Minimum passing delta-beta. Used in AutoSampleSheet cacluclations [default= %default]", metavar="double"),
     
@@ -539,6 +586,9 @@ if (args.dat[1]=='RStudio') {
     
     make_option(c("--time_org_txt"), type="character", default=opt$time_org_txt, 
                 help="Unused variable time_org_txt [default= %default]", metavar="character"),
+    make_option(c("--trackTime"), action="store_true", default=opt$trackTime,
+                help="Boolean variable tack run times [default= %default]", metavar="boolean"),
+    
     # verbose::
     make_option(c("-v", "--verbose"), type="integer", default=opt$verbose, 
                 help="0-5 (5 is very verbose) [default= %default]", metavar="integer")
@@ -560,23 +610,14 @@ if (!dir.exists(par$gen_src_dir))
 
 for (sfile in list.files(path=par$gen_src_dir, pattern='.R$', 
                          full.names=TRUE, recursive=TRUE)) base::source(sfile)
-if (opt$verbose>=0)
+if (opt$verbose>0)
   cat(glue::glue("[{par$prgmTag}]: Done. Loading Source Files form ",
                  "General Source={par$gen_src_dir}!{RET}{RET}") )
 
-# TestCase::
-if (FALSE && is.null(opt$idatsDir) || !dir.exists(opt$idatsDir)) {
-  opt$runName  <- "TestCase"
-  opt$idatsDir <- file.path(par$datDir,"idats_TestCase")
-  
-  if (opt$verbose>0) {
-    cat(glue::glue("[{par$prgmTag}]: idatsDir does not exist or ",
-                   "is missing will use TestData={opt$idatsDir}!!!{RET}"))
-    cat(glue::glue("[{par$prgmTag}]: Overriding runName={opt$runName}.{RET}{RET}"))
-  }
-  
-  # stop(glue::glue("{RET}[{par$prgmTag}]: idatsDir={opt$idatsDir} does not exist!!!{RET}{RET}"))
-}
+# TBD:: Make sure we load this::
+#  library(Rcpp)
+#  source("/Users/bretbarnes/Documents/tools/Infinium_Methylation_Workhorse/scripts/R/Rcpp/cpgLociVariation.cpp")
+#
 
 opt <- program_init(name=par$prgmTag,
                     opts=opt, opt_reqs=opt_reqs, 
@@ -602,25 +643,28 @@ workflow_vec <- splitStrToVec(opt$workflow)
 # Remove "r/raw" and force "raw" to be first::
 workflow_vec <- c("raw",workflow_vec[!workflow_vec %in% c("r","raw")])
 
-cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Done. Parsing Inputs.{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #             Select Chips from idats and/or Target Manifest::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 chipPrefixes <- NULL
-chipPrefixes <- sesame::searchIDATprefixes(opt$idatsDir)
+chipPrefixes <- sesame::searchIDATprefixes(opt$datDir)
 sampleCounts <- chipPrefixes %>% names() %>% length()
 
 if (is.null(chipPrefixes) || length(chipPrefixes)==0)
   stop(glue::glue("{RET}[{par$prgmTag}]: chipPrefixes is null or length=0!!!{RET}{RET}"))
 
-cat(glue::glue("[{par$prgmTag}]: Found sample counts={sampleCounts}!{RET}{RET}"))
+if (opt$verbose>0)
+  cat(glue::glue("[{par$prgmTag}]: Found sample counts={sampleCounts}!{RET}{RET}"))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                                  Main::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 if (opt$cluster) {
-  cat(glue::glue("[{par$prgmTag}]: Launching Chips in Cluster Mode! isSingle={opt$single}"),"\n", sep='')
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Launching Chips in Cluster Mode! isSingle={opt$single}"),"\n", sep='')
   
   par$lan_exe <- ''
   par$isLinux <- FALSE
@@ -632,16 +676,20 @@ if (opt$cluster) {
   chip_list <- prefixesToChipTib(chipPrefixes) %>% split(.$barcode)
   chip_cnts <- chip_list %>% names() %>% length()
   
-  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Chip counts={chip_cnts}!{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Chip counts={chip_cnts}!{RET}"))
   
   par$shellDir <- file.path(opt$outDir, 'shells')
   if (!dir.exists(par$shellDir)) dir.create(par$shellDir, recursive=TRUE)
-  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; shellDir={par$shellDir}.{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; shellDir={par$shellDir}.{RET}"))
   
   for (chipName in names(chip_list)) { # break }
     runShell <- file.path(par$shellDir, paste0('run_',par$prgmTag,'_',chipName,'.sh'))
     lanShell <- file.path(par$shellDir, paste0('lan_',par$prgmTag,'_',chipName,'.sh'))
-    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; runShell={runShell}.{RET}"))
+    
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; runShell={runShell}.{RET}"))
     
     # Remove Cluster Option
     cmd_bool <- opt %>% bind_rows() %>% gather("Options", "Value") %>% 
@@ -661,7 +709,10 @@ if (opt$cluster) {
       dplyr::pull() %>% paste(collapse=" ")
     
     cmd_full <- paste(opt$Rscript, par$exePath, cmd_bool, cmd_strs,"\n", sep=' ')
-    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Writing cmd_full={cmd_full}.{RET}"))
+    
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Writing cmd_full={cmd_full}.{RET}"))
+    
     # readr::write_file(x=cmd_full, file=runShell)
     readr::write_lines(x=cmd_full, file=runShell)
     Sys.chmod(runShell, mode="0777")
@@ -674,12 +725,14 @@ if (opt$cluster) {
     Sys.chmod(lanShell, mode="0777")
     
     # Launch Script
-    cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; Launching chip={chipName}, shell={lanShell}.{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB}{TAB}Cluster Mode; Launching chip={chipName}, shell={lanShell}.{RET}"))
     system(lanShell)
     
     if (opt$single) break
   }
-  cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Done.{RET}"))
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]:{TAB}Cluster Mode; Done.{RET}"))
   
 } else {
   
@@ -687,15 +740,89 @@ if (opt$cluster) {
   #                             Load Manifest(s)::
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   
-  cat(glue::glue("[{par$prgmTag}]: Launching Samples in Linear Mode! isSingle={opt$single}"),"\n", sep='')
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Launching Samples in Linear Mode! isSingle={opt$single}"),"\n", sep='')
   
   pTracker <- NULL
   # pTracker <- timeTracker$new(verbose=opt$verbose)
   
-  mans <- NULL
-  opt$manDir <- file.path(par$datDir, 'manifest',opt$manDirName)
-  mans <- getManifestList(path=opt$manifestPath, platform=opt$platform, manifest=opt$manifest, 
-                          dir=opt$manDir, verbose=opt$verbose, tt=pTracker)
+  par$manDir <- NULL
+  if (!is.null(opt$manDirPath) && length(opt$manDirPath)>0 && dir.exists(opt$manDirPath)) {
+    par$manDir <- opt$manDirPath
+  } else if (!is.null(opt$manDirName)) {
+    par$manDir <- file.path(par$datDir, 'manifest',opt$manDirName)
+  } else {
+    stop(glue::glue("{RET}[{par$prgmTag}]: Both manDirPath and manDirName are NULL!!!{RET}{RET}"))
+  }
+  if (opt$verbose>0)
+    cat(glue::glue("[{par$prgmTag}]: Set manifest search directory={par$manDir}.{RET}"))
+  
+  if (!is.null(opt$version) && !is.null(opt$percent)) {
+    # opt$version <- paste(opt$version, opt$percent, sep='-')
+    opt$version <- paste(opt$version, opt$percent, sep='.')
+  }
+  
+  tar_man_tib <- NULL
+  tar_man_tib <- get_manifest_list(
+    file=opt$manifest, dir=par$manDir,
+    platform=opt$platform, version=opt$version,
+    suffix=opt$man_suffix,
+    verbose=opt$verbose, tt=pTracker)
+  
+  tar_man_dat <- NULL
+  tar_man_dat <- load_manifest_list(
+    tib = tar_man_tib, field="path",
+    verbose=opt$verbose, tt=pTracker)
+  
+  # Scratch Space on Manifests::
+  if (FALSE) {
+    tar_man_tibC <- get_manifest_list(
+      file=opt$manifest, dir=file.path(par$datDir, 'manifest',opt$manDirName),
+      suffix=opt$man_suffix,
+      verbose=opt$verbose, tt=pTracker)
+    
+    tar_man_datC <- NULL
+    tar_man_datC <- load_manifest_list(
+      tib = tar_man_tibC, field="path",
+      verbose=opt$verbose, tt=pTracker)
+    
+    # Compare Summaries::  1,081 don't have reference Next_Base/Color_Channel...
+    tar_man_dat$`Chicago-S38` %>% 
+      dplyr::filter(Probe_Type == "cg") %>%
+      dplyr::group_by(Probe_Type,Probe_Design,DESIGN,col,COLOR_CHANNEL) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+    
+    tar_man_datC$`EPIC-B4` %>% 
+      dplyr::group_by(Probe_Type,col,COLOR_CHANNEL) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>% print(n=1000)
+
+    # Build pseudo Chicago with EPIC controls
+    core_man_names_vec <- tar_man_datC$`EPIC-B4` %>% 
+      dplyr::filter(Probe_Type=="NEGATIVE") %>% names()
+    
+    epic_ctl_man_tib <- tar_man_datC$`EPIC-B4` %>% 
+      dplyr::filter(Probe_Type != "cg") %>% 
+      dplyr::filter(Probe_Type != "ch") %>% 
+      dplyr::filter(Probe_Type != "rs") %>%
+      dplyr::select(dplyr::all_of(core_man_names_vec)) %>%
+      clean_tibble()
+    
+    chic_cpg_man_tib <- tar_man_dat$`Chicago-S38` %>% 
+      dplyr::filter(Probe_Type == "cg") %>%
+      dplyr::select(dplyr::all_of(core_man_names_vec)) %>%
+      clean_tibble()
+    
+    chic_out_man_csv <- "/Users/bretbarnes/Documents/data/manifests/methylation/Chicago-Ober-Custom/Chicago-S38.manifest.sesame-base.cpg-sorted.csv.gz"
+    chic_out_man_tib <- dplyr::bind_rows(chic_cpg_man_tib,epic_ctl_man_tib)
+    
+    chic_out_man_tib %>% 
+      dplyr::group_by(Probe_Source,Probe_Type,Probe_Design,DESIGN,COLOR_CHANNEL) %>% 
+      dplyr::summarise(Count=n(), .groups="drop") %>%
+      print(n=1000)
+    
+    readr::write_csv(chic_out_man_tib, chic_out_man_csv)
+    
+  }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
   #                             Load Auto Detection::
@@ -706,20 +833,35 @@ if (opt$cluster) {
     if (is.null(opt$auto_sam_csv))
       opt$auto_sam_csv <- file.path(par$datDir, 'ref/AutoSampleDetection_EPIC-B4_8x1_pneg98_Median_beta_noPval_BETA-Zymo_Mean-COVIC-280-NP-ind_negs-0.02.csv.gz')
     
-    cat(glue::glue("[{par$prgmTag}]:{TAB} Loading auto_sam_csv={opt$auto_sam_csv}...{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Loading auto_sam_csv={opt$auto_sam_csv}...{RET}"))
     auto_sam_tib <- suppressMessages(suppressWarnings(readr::read_csv(opt$auto_sam_csv) ))
-    cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}{RET}"))
+  } else {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Will not Auto-Detect Sample.{RET}{RET}"))
   }
   
-  # TBD::
-  #   - mask pass_perc
-  #   - R2/dB returned by Infinium Design
-  #
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  #                    Load Pre-Defined Sesame Mask Probes::
+  # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
+  
+  # NOTE:: Pretty sure this is just for EPIC
+  #  TBD:: Should load all pre-defined masked CpGs by manifest and pass that
+  #   in as a list rather than vector and only mask if the manifest matches...
   mask_cpg_vec <- NULL
   mask_cpg_csv <- file.path(par$datDir, 'manifest/mask/sesame-general-mask.cpg.csv.gz')
   if (opt$mask_general) {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Loading mask_cpg_csv={mask_cpg_csv}...{RET}"))
     mask_cpg_vec <- suppressMessages(suppressWarnings( 
       readr::read_csv(mask_cpg_csv) )) %>% dplyr::pull(Probe_ID)
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Done.{RET}{RET}"))
+  } else {
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]:{TAB} Will not Mask Sample CpGs.{RET}{RET}"))
   }
   
   # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -734,18 +876,18 @@ if (opt$cluster) {
     par$funcTag <- 'sesamizeSingleSample-Parallel'
     par$retData <- FALSE
     
-    if (opt$verbose>=1) 
+    if (opt$verbose>0)
       cat(glue::glue("[{par$prgmTag}]: parallelFunc={par$funcTag}: samples={sample_cnt}; ",
                      "num_cores={num_cores}, num_workers={num_workers}, Starting...{RET}"))
     
-    par$retData <- FALSE
     # chipTimes <- foreach (prefix=prefixe_names, .inorder=T, .final = function(x) setNames(x, prefixe_names)) %dopar% {
     chipTimes <- foreach (prefix=prefixe_names, .combine = rbind) %dopar% {
       
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
-                                   man=mans, ref=auto_sam_tib, opts=opt, defs=def,
-                                   mask=mask_cpg_vec,
+                                   man=tar_man_dat, ref=auto_sam_tib, 
+                                   opts=opt, defs=def,
+                                   mask=mask_cpg_vec, platform=opt$forcedPlat,
                                    
                                    pvals=pval_vec,
                                    min_pvals=min_pval_vec,
@@ -753,36 +895,31 @@ if (opt$cluster) {
                                    workflows=workflow_vec,
                                    
                                    retData=par$retData,
+                                   trackTime=opt$trackTime,
                                    verbose=opt$verbose, vt=3,tc=1)
       rdat
     }
-    cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   } else {
     par$funcTag <- 'sesamizeSingleSample-Linear'
     
-    cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: samples={sample_cnt}.{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: samples={sample_cnt}.{RET}"))
     
     rdat <- NULL
     for (prefix in prefixe_names) {
+      if (opt$verbose>0)
+        cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
       
-      # Testing code only::
-      #
-      if (FALSE && par$runMode=='RStudio' && !is.null(par$expSampNum)) {
-        prefix <- par$expSampNum
-        opt$single <- TRUE
-        opt$fresh  <- TRUE
-        # opt$fresh  <- FALSE
-        
-        # workflow_vec <- c('raw')
-        # workflow_vec <- c('raw','ind')
-        # opt$make_pred <- FALSE
-      }
-      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: Starting; prefix={prefix}...{RET}"))
-      
+      # par$retData <- TRUE
+      # opt$verbose <- 40
+      # ram_performance <- profmem({
       rdat <- NULL
       rdat <- sesamizeSingleSample(prefix=chipPrefixes[[prefix]],
-                                   man=mans, ref=auto_sam_tib, opts=opt, defs=def,
-                                   mask=mask_cpg_vec,
+                                   man=tar_man_dat, ref=auto_sam_tib, 
+                                   opts=opt, defs=def,
+                                   mask=mask_cpg_vec, platform=opt$forcedPlat,
                                    
                                    pvals=pval_vec,
                                    min_pvals=min_pval_vec,
@@ -790,12 +927,17 @@ if (opt$cluster) {
                                    workflows=workflow_vec,
                                    
                                    retData=par$retData,
+                                   trackTime=opt$trackTime,
                                    verbose=opt$verbose, vt=3,tc=1)
+      # })
       
-      cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+      if (opt$verbose>0)
+        cat(glue::glue("[{par$prgmTag}]: linearFunc={par$funcTag}: try_str={try_str}. Done.{RET}{RET}"))
+      
       if (opt$single) break
     }
-    cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
+    if (opt$verbose>0)
+      cat(glue::glue("[{par$prgmTag}] parallelFunc={par$funcTag}: Done.{RET}{RET}"))
   }
   
   opt_csv <- file.path(opt$outDir, paste(par$prgmTag,'program-options.csv', sep='.') )
@@ -806,6 +948,43 @@ if (opt$cluster) {
   
   readr::write_csv(opt_tib, opt_csv)
   readr::write_csv(par_tib, par_csv)
+}
+
+# Example of perfromance memory usage::
+# p <- profmem({
+#   x <- integer(1000)
+#   Y <- matrix(rnorm(n = 10000), nrow = 100)
+# })
+
+if (FALSE) {
+  # For sset conversion::
+  #  sset_tib <- ssetToTib(sset=rdat$new_sset, source = "sigs", verbose = 10)
+  #
+  # Current ERROR::
+  # 
+  # Error in { : task 1 failed - "'x' must have 1 or more non-missing values"
+  #   In addition: Warning message:
+  #     Unknown or uninitialised column: `percent`. 
+    
+  ram_performance$bytes %>% as.vector() %>% sum(na.rm=TRUE)
+  ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE)
+  ram_performance$bytes %>% as.vector() %>% mean(na.rm=TRUE)
+  ram_performance$bytes %>% as.vector() %>% median(na.rm=TRUE)
+  which(ram_performance$bytes == ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE))
+  ram_performance$trace[which(ram_performance$bytes == ram_performance$bytes %>% as.vector() %>% max(na.rm=TRUE))]
+  
+  #
+  # Metric for Reference Sample Comparison::
+  #
+  rdat$cur_list$call_dat %>% 
+    dplyr::summarise(raw_avg=mean(abs(raw_dB_ref), na.rm=TRUE), 
+                     ind_avg=mean(abs(ind_dB_ref), na.rm=TRUE), 
+                     raw_med=median(abs(raw_dB_ref), na.rm=TRUE), 
+                     ind_med=median(abs(ind_dB_ref), na.rm=TRUE), 
+                     raw_sd=sd(abs(raw_dB_ref), na.rm=TRUE), 
+                     ind_sd=sd(abs(ind_dB_ref), na.rm=TRUE)
+    )
+  
 }
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #

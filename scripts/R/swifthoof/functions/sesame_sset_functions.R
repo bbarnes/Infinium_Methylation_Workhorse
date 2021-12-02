@@ -3,22 +3,18 @@
 #                              Source Packages::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+# Load Core Packages::
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("minfi",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-
-# Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
+# Load Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                           Calls Summary Methods::
@@ -60,7 +56,6 @@ callToPassPerc = function(tib=NULL, file=NULL, key, name=NULL, idx=NULL,
     
     ret_tib <- tibble(
       pass_perc=pas_per,
-      pass_count=pas_cnt,
       mins_count=min_cnt,
       total_count=tot_cnt,
       min_cutoff=min,
@@ -98,6 +93,12 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
   funcTag <- 'ssetToPassPercSsheet'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
+  if (verbose>=vt+4) {
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  min={min}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  per={per}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB}  idx={idx}{RET}"))
+    cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} type={type}{RET}{RET}"))
+  }
   
   ret_cnt <- 0
   ret_tib <- NULL
@@ -119,7 +120,7 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
     #
     if (is.null(man)) {
       if (verbose>=vt+4) {
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest present; pval_tib={RET}"))
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Manifest present (type={type}); pval_tib={RET}"))
         pval_tib %>% 
           dplyr::filter(stringr::str_starts(Probe_ID,type)) %>% print()
       }
@@ -127,8 +128,7 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
       ret_tab <- pval_tib %>% 
         dplyr::filter(stringr::str_starts(Probe_ID,type)) %>% 
         dplyr::summarise(total_cnt=n(),
-                         pass_count=count(pvals<=min, na.rm=TRUE),
-                         pass_cnt=sum(pvals<=min, na.rm=TRUE),
+                         pass_cnt=base::sum(pvals<=min, na.rm=TRUE),
                          pass_perc=round(100*pass_cnt/total_cnt, 3),
                          .groups='drop')
       
@@ -148,7 +148,7 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
         dplyr::filter(Probe_Type==type) %>%
         dplyr::group_by(Probe_Type,Probe_Design) %>% 
         dplyr::summarise(total_cnt=n(),
-                         pass_cnt=count(pvals<=min, na.rm=TRUE),
+                         pass_cnt=base::sum(pvals<=min, na.rm=TRUE),
                          pass_perc=round(100*pass_cnt/total_cnt, 3),
                          .groups='drop')
 
@@ -190,7 +190,7 @@ ssetToPassPercSsheet = function(sset, man=NULL, min, per, idx=0, type='cg',
 #                    Sesame SSET Prediction Methods::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-ssetToPredictions = function(sset, del='_', fresh=FALSE,
+ssetToPredictions = function(sset, del='_', platform=NULL, fresh=FALSE,
                              quality.mask = FALSE, sum.TypeI = FALSE,
                              verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'ssetToPredictions'
@@ -201,8 +201,8 @@ ssetToPredictions = function(sset, del='_', fresh=FALSE,
   ret_tib <- NULL
   stime <- system.time({
     
-    platform <- NULL
-    platform <- sset@platform
+    if (is.null(platform)) platform <- sset@platform
+    
     if (verbose>=vt+1)
       cat(glue::glue("[{funcTag}]:{tabsStr} Using platform={platform} for Inference/Prediction calls.{RET}{RET}"))
     
@@ -311,6 +311,7 @@ safeVCF = function(sset, vcf, verbose=0,vt=3,tc=1,tt=NULL) {
     ret_val = tryCatch({
       try_str <- 'Pass'
       suppressMessages(suppressWarnings(sesame::formatVCF(sset=sset, vcf=vcf) ))
+      if (verbose>=vt) cat("\n")
       
       #
       # TBD:: Use bgzip and tabix to compress VCF
@@ -883,8 +884,8 @@ ssetToTib = function(sset, source, name=NULL, man=NULL, mask=NULL,
                      percision=-1, sort=FALSE, 
                      fresh=FALSE, save=FALSE, csv=NULL, del='_',
                      by="Probe_ID", type="Probe_Type", des="Probe_Design", 
-                     verbose=0,vt=3,tc=1,tt=NULL) {
-  funcTag <- 'ssetToTib'
+                     verbose=0,vt=3,tc=1,tt=NULL,
+                     funcTag='ssetToTib') {
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting...{RET}"))
   
@@ -913,14 +914,15 @@ ssetToTib = function(sset, source, name=NULL, man=NULL, mask=NULL,
             dplyr::rename(M=G,U=R) %>% dplyr::select(Probe_ID,!!des_sym,M,U)
         }
       ) %>% dplyr::select(!!by, !!des, dplyr::everything())
-      
+
       # Add sig to the names::
       #
       ret_tib <- ret_tib %>% dplyr::rename(sig_M=M, sig_U=U)
       
       # Old Code to record original manifest reference designs::
       #   man_tib <- man_tib %>% dplyr::rename(Manifest_Design=!!des)
-      man_tib <- man_tib %>% dplyr::select(!!by, !!type)
+      if (!is.null(man_tib)) man_tib <- man_tib %>% dplyr::select(!!by, !!type)
+
     } else {
       if (is.null(name)) {
         if (fresh || is.null(sesame::extra(sset)[[source]]) ) {
@@ -950,11 +952,13 @@ ssetToTib = function(sset, source, name=NULL, man=NULL, mask=NULL,
     if (sort) ret_tib <- dplyr::arrange(ret_tib, !!by_sym)
     
     if (save && !is.null(csv)) {
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
-      csv_dir <- base::dirname(csv)
-      if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
-      readr::write_csv(ret_tib, csv)
+      safe_write(x=ret_tib,type="csv",file=csv,funcTag=funcTag,
+                 verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      # if (verbose>=vt) 
+      #   cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing (percision={percision}) CSV={csv}.{RET}"))
+      # csv_dir <- base::dirname(csv)
+      # if (!dir.exists(csv_dir)) dir.create(csv_dir, recursive=TRUE)
+      # readr::write_csv(ret_tib, csv)
     }
     
     ret_cnt <- ret_tib %>% base::nrow()
@@ -1076,7 +1080,8 @@ mutateSset = function(sset, method, full=TRUE,
     } else if (method=='open') {
       sset <- sset %>% 
         sesame::pOOBAH(force=force) %>% 
-        sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids) %>% 
+        # sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids) %>% 
+        sesame::noob(bgR=oobR_ids, bgG=oobG_ids) %>% 
         sesame::dyeBiasCorrTypeINorm()
     } else if (method=='dyeBiasCorrTypeINorm') {
       sset <- sset %>% sesame::dyeBiasCorrTypeINorm()
@@ -1088,7 +1093,7 @@ mutateSset = function(sset, method, full=TRUE,
       # sset <- noob2(sset=sset,
       #               oobRprobes=oobR_ids, oobGprobes=oobG_ids,
       #               verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-      sset <- sset %>% sesame::noob(oobRprobes=oobR_ids, oobGprobes=oobG_ids)
+      sset <- sset %>% sesame::noob(bgR=oobR_ids, bgG=oobG_ids)
     } else if (method=='noobsb') {
       sset <- sset %>% sesame::noobsb()
     } else if (method=='inferTypeIChannel') {
@@ -1176,8 +1181,8 @@ getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE, extra=TRUE)
                                  sum.TypeI = sum.TypeI)))
   }
   stopifnot(is(sset, "SigSet"))
-  IGs <- IG(sset)
-  IRs <- IR(sset)
+  IGs <- sesame::IG(sset)
+  IRs <- sesame::IR(sset)
   if (sum.TypeI) {
     IGs <- IGs + oobR2(sset)
     IRs <- IRs + oobG2(sset)
@@ -1186,15 +1191,16 @@ getBetas2 = function (sset, mask = FALSE, sum.TypeI = FALSE, extra=TRUE)
     IGs[!sset@extra$IGG, ] <- sset@oobR[!sset@extra$IGG, ]
     IRs[!sset@extra$IRR, ] <- sset@oobG[!sset@extra$IRR, ]
   }
-  betas <- c(pmax(IGs[, "M"], 1)/pmax(IGs[, "M"] + IGs[, "U"], 2), 
-             pmax(IRs[, "M"], 1)/pmax(IRs[, "M"] + IRs[, "U"], 2), 
-             pmax(II(sset)[, "M"], 1)/pmax(II(sset)[, "M"] + II(sset)[, "U"], 2))
+  betas <- c(pmax(IGs[,"M"], 1)/pmax(IGs[,"M"] + IGs[, "U"], 2),
+             pmax(IRs[,"M"], 1)/pmax(IRs[,"M"] + IRs[, "U"], 2),
+             pmax(sesame::II(sset)[,"M"], 1)/
+               pmax(sesame::II(sset)[,"M"] + sesame::II(sset)[,"U"], 2))
   if (mask) 
     betas[!is.na(match(names(betas), sset@extra$mask))] <- NA
   betas
 }
 
-pOOBAH2 = function (sset, force = FALSE) 
+sset_pOOBAH2 = function (sset, force = FALSE) 
 {
   stopifnot(is(sset, "SigSet"))
   method <- "pOOBAH"
@@ -1202,30 +1208,30 @@ pOOBAH2 = function (sset, force = FALSE)
     # cat("Retuning original sset\n")
     return(sset)
   }
-  funcG <- ecdf(oobG(sset))
-  funcR <- ecdf(oobR(sset))
+  funcG <- ecdf(sesame::oobG(sset))
+  funcR <- ecdf(sesame::oobR(sset))
   # funcR <- ecdf(oobR(sset) %>% head())
   
-  pIR <- 1 - apply(cbind(funcR(IR(sset)[, "M"]), funcR(IR(sset)[, 
-                                                                "U"])), 1, max)
-  pIG <- 1 - apply(cbind(funcG(IG(sset)[, "M"]), funcG(IG(sset)[, 
-                                                                "U"])), 1, max)
-  pII <- 1 - apply(cbind(funcG(II(sset)[, "M"]), funcR(II(sset)[, 
-                                                                "U"])), 1, max)
-  names(pIR) <- rownames(IR(sset))
-  names(pIG) <- rownames(IG(sset))
-  names(pII) <- rownames(II(sset))
-  if (!("pvals" %in% names(extra(sset)))) {
+  pIR <- 1 - apply(cbind(funcR(sesame::IR(sset)[,"M"]), 
+                         funcR(sesame::IR(sset)[,"U"])), 1, max)
+  pIG <- 1 - apply(cbind(funcG(sesame::IG(sset)[,"M"]), 
+                         funcG(sesame::IG(sset)[,"U"])), 1, max)
+  pII <- 1 - apply(cbind(funcG(sesame::II(sset)[,"M"]), 
+                         funcR(sesame::II(sset)[,"U"])), 1, max)
+  names(pIR) <- rownames(sesame::IR(sset))
+  names(pIG) <- rownames(sesame::IG(sset))
+  names(pII) <- rownames(sesame::II(sset))
+  if (!("pvals" %in% names(sesame::extra(sset)))) {
     # cat("Creating fresh list\n")
-    extra(sset)[["pvals"]] <- list()
+    sesame::extra(sset)[["pvals"]] <- list()
   }
   # cat(glue::glue("Setting method={method}{RET}{RET}"))
   pIR %>% head() %>% print()
-  IR(sset) %>% head() %>% print()
+  sesame::IR(sset) %>% head() %>% print()
   # oobR(sset) %>% head() %>% print()
   print(funcR)
   
-  extra(sset)[["pvals"]][[method]] <- c(pIR, pIG, pII)
+  sesame::extra(sset)[["pvals"]][[method]] <- c(pIR, pIG, pII)
   sset
 }
 

@@ -12,21 +12,24 @@ timeTracker <- R6Class("timeTracker", list(
   time  = NULL,
   begTime = NULL,
   runTime = 0,
+  file_vec = NULL,
   
   vt = 4,
   verbose = 0,
 
   initialize = function(verbose=0,vt=8) {
     stime <- system.time({
-      self$time  <- NULL
-      self$begTime <- Sys.time()
-      self$runTime <- 0
+      self$time     <- NULL
+      self$begTime  <- Sys.time()
+      self$runTime  <- 0
+      self$file_vec <- NULL
       
       self$vt <- vt
       self$verbose <- verbose
     })
     self$addTime(stime, 'init')
   },
+  
   
   addTime = function(time, key) {
     self$time <- self$time %>% dplyr::bind_rows( self$formatSysTime(time,key) )
@@ -38,6 +41,12 @@ timeTracker <- R6Class("timeTracker", list(
     invisible(self)
   },
   
+  addFile = function(path) {
+    self$file_vec <- c(self$file_vec, path) %>% unique()
+
+    invisible(self)
+  },
+
   addSummary = function() {
     if (!is.null(self$time)) {
       self$time <- self$time %>% dplyr::bind_rows(

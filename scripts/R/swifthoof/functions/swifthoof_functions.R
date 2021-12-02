@@ -3,18 +3,13 @@
 #                              Source Packages::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 
-suppressWarnings(suppressPackageStartupMessages( base::require("optparse",quietly=TRUE) ))
+# Load Core Packages::
+suppressWarnings(suppressPackageStartupMessages( base::require("sesame",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("minfi",quietly=TRUE) ))
+suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse",quietly=TRUE) ))
 
-suppressWarnings(suppressPackageStartupMessages( base::require("tidyverse") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("plyr")) )
-suppressWarnings(suppressPackageStartupMessages( base::require("stringr") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("glue") ))
-
-suppressWarnings(suppressPackageStartupMessages( base::require("matrixStats") ))
-suppressWarnings(suppressPackageStartupMessages( base::require("scales") ))
-
-# Parallel Computing Packages
-suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
+# Load Parallel Computing Packages
+suppressWarnings(suppressPackageStartupMessages( base::require("doParallel",quietly=TRUE) ))
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                              Global Params::
@@ -23,12 +18,13 @@ suppressWarnings(suppressPackageStartupMessages( base::require("doParallel") ))
 COM <- ","
 TAB <- "\t"
 RET <- "\n"
+BNG <- "|"
 
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 #                       Single Sample Workflow::
 # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
 sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
-                                mask=NULL,
+                                mask=NULL, platform=NULL,
                                 pvals=NULL, min_pvals=NULL, min_percs=NULL,
                                 workflows=NULL, 
                                 
@@ -36,9 +32,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
                                 report_vec=c("Requeue","pass_perc","mean"),
                                 
                                 retData=FALSE, retData2=FALSE, non_ref=FALSE, 
+                                trackTime=FALSE,
                                 del='_', 
-                                verbose=0, vt=3,tc=0) {
-  funcTag <- 'sesamizeSingleSample'
+                                verbose=0, vt=3,tc=0,
+                                funcTag='sesamizeSingleSample') {
+  
   tabsStr <- paste0(rep(TAB, tc), collapse='')
   
   if (verbose>=vt) 
@@ -48,25 +46,33 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
   # opt_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
   # def_tib <- dplyr::bind_rows(defs) %>% tidyr::gather("Option", "Value")
   
-  # Retrun Value::
+  # Return Values::
   ret_cnt <- 0
   ret_dat <- NULL
+  ret_tib <- NULL
+  
+  ssheet_tib <- NULL
+  dsheet_tab <- NULL
+
+  etime <- NA
+  stime <- NULL
   stime <- system.time({
-    
-    tTracker <- timeTracker$new()
-    if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
-    if (opt$fresh) {
-      if (verbose>=vt) 
-        cat(glue::glue("[{funcTag}]:{tabsStr} Cleaning; prefix={prefix}.{RET}{RET}"))
-      cleaned_files <- lapply(list.files(opt$outDir, pattern=prefix, full.names=TRUE), unlink)
-    }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                     Initialize Starting Outputs::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    basecode <- basename(prefix)
-    out_name <- paste(basecode, sep=del)
+    
+    tTracker <- NULL
+    if (trackTime) tTracker <- timeTracker$new()
+    out_name <- basename(prefix)
     out_prefix <- file.path(opts$outDir, out_name)
+    
+    if (!dir.exists(opts$outDir)) dir.create(opts$outDir, recursive=TRUE)
+    if (opts$fresh) {
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr} Cleaning; dir={opts$outDir}, pattern={out_name}...{RET}"))
+      cleaned_files <- lapply(list.files(opts$outDir, pattern=out_name, full.names=TRUE), unlink)
+    }
     
     stampBeg_txt <- file.path(opts$outDir, paste(out_name, 'timestamp.beg.txt', sep=del) )
     stampEnd_txt <- file.path(opts$outDir, paste(out_name, 'timestamp.end.txt', sep=del) )
@@ -76,7 +82,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                      Write Run Options/Defaults::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
-    opts_csv <- file.path(opt$outDir, paste(out_name,'program-options.csv', sep=del) )
+    opts_csv <- file.path(opts$outDir, paste(out_name,'program-options.csv', sep=del) )
     opts_tib <- dplyr::bind_rows(opts) %>% tidyr::gather("Option", "Value")
     if (!is.null(defs)) {
       opts_tib <- opts_tib %>% dplyr::left_join(
@@ -88,6 +94,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr} Writing opts_csv={opts_csv}...{RET}"))
     readr::write_csv(opts_tib, opts_csv)
     
+    opt_ssh_tib <- NULL
     opt_ssh_tib <- tibble::tibble(
       Min_DeltaBeta = opts$minDeltaBeta,
       Sesame_Version=as.character( packageVersion("sesame") )
@@ -99,10 +106,13 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     
     idat_sigs_csv <- paste(out_prefix, 'idat.sigs.csv.gz', sep=del)
     idat_info_csv <- paste(out_prefix, 'idat.info.csv.gz', sep=del)
+    idat_sigs_tib <- NULL
     idat_sigs_tib <- 
       prefixToIdat(prefix=prefix, load=opts$load_idat, save=opts$save_idat, 
                    csv=idat_sigs_csv, ssh=idat_info_csv,
                    verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
+    
+    idat_info_tib <- NULL
     idat_info_tib <- 
       suppressMessages(suppressWarnings( readr::read_csv(idat_info_csv) ))
     
@@ -113,37 +123,42 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     #                     Get Sesame Manifest/Address Tables::
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     
-    man_map_tib <- idatToManifestMap(tib=idat_sigs_tib, mans=mans, sortMax=TRUE,
-                                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
+    man_map_tib <- NULL
+    man_map_tib <- idatToManifestMap(
+      tib=idat_sigs_tib, mans=man, sortMax=TRUE,
+      verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
-    top_man_tib <- mans[[man_map_tib[1,]$manifest]] %>% 
+    top_man_tib <- NULL
+    top_man_tib <- man[[man_map_tib[1,]$manifest]] %>% 
       dplyr::distinct(Probe_ID, .keep_all=TRUE)
     
-    bead_sum_tib <- 
-      getManifestBeadStats(dat=idat_sigs_tib, man=top_man_tib, types=btypes, 
-                           verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
+    bead_sum_tib <- NULL
+    bead_sum_tib <- getManifestBeadStats(
+      dat=idat_sigs_tib, man=top_man_tib, types=btypes, 
+      verbose=verbose,vt=vt+3,tc=tc+1,tt=tTracker)
     
     #
     # TBD:: Replace or improve addBeadPoolToSampleSheet()
     #
+    bead_ssh_tib <- NULL
     bead_ssh_tib <- bead_sum_tib %>% 
       tidyr::spread(name, value) %>%
       addBeadPoolToSampleSheet(field="Loci_Count_cg",
                                verbose=verbose,vt=vt+4,tc=tc+1,tt=tTracker)
     
     if (retData) {
-      ret_dat$prefix <- prefix
+      if (!is.null(prefix)) ret_dat$prefix <- prefix
       
-      ret_dat$ossh <- opt_ssh_tib
+      if (!is.null(opt_ssh_tib)) ret_dat$ossh <- opt_ssh_tib
       
-      ret_dat$isig <- idat_sigs_tib
-      ret_dat$issh <- idat_info_tib
+      if (!is.null(idat_sigs_tib)) ret_dat$isig <- idat_sigs_tib
+      if (!is.null(idat_info_tib)) ret_dat$issh <- idat_info_tib
       
-      ret_dat$mmap <- man_map_tib
-      ret_dat$sman <- top_man_tib
+      if (!is.null(man_map_tib)) ret_dat$mmap <- man_map_tib
+      if (!is.null(top_man_tib)) ret_dat$sman <- top_man_tib
       
-      ret_dat$bsum <- bead_sum_tib
-      ret_dat$bssh <- bead_ssh_tib
+      if (!is.null(bead_sum_tib)) ret_dat$bsum <- bead_sum_tib
+      if (!is.null(bead_ssh_tib)) ret_dat$bssh <- bead_ssh_tib
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -155,10 +170,18 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     open_sum1_ssh <- NULL
     open_sum2_ssh <- NULL
     if (man_map_tib$platform[1]=='EPIC' ||
-        man_map_tib$platform[1]=='HM450') {
+        man_map_tib$platform[1]=='HM450' ||
+        (!is.null(platform) && 
+         (platform=="EPIC" || platform=="HM450") ) ) {
+      
+      if (verbose>=vt) 
+        cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Detection p-value for ",
+                       "manifest={man_map_tib$platform[1]}.{RET}"))
+      
       open_sset_dat <- sesame::openSesame(x=prefix, what = 'sigset')
       open_beta_tib <- sesame::getBetas(sset = open_sset_dat, 
-                                        mask=FALSE, sum.TypeI=FALSE)
+                                        mask=FALSE, sum.TypeI=FALSE) %>%
+        tibble::enframe(name="Probe_ID", value="betas")
       
       open_sum1_ssh <- 
         ssetToPassPercSsheet(sset=open_sset_dat, man=NULL,
@@ -173,11 +196,12 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
                              verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
       if (retData) {
-        ret_dat$open_sset_dat <- open_sset_dat
-        ret_dat$open_beta_tib <- open_beta_tib
-        ret_dat$open_sum1_ssh <- open_sum1_ssh
-        ret_dat$open_sum2_ssh <- open_sum2_ssh
+        if (!is.null(open_sset_dat)) ret_dat$open_sset_dat <- open_sset_dat
+        if (!is.null(open_beta_tib)) ret_dat$open_beta_tib <- open_beta_tib
+        if (!is.null(open_sum1_ssh)) ret_dat$open_sum1_ssh <- open_sum1_ssh
+        if (!is.null(open_sum2_ssh)) ret_dat$open_sum2_ssh <- open_sum2_ssh
       }
+      rm(open_sset_dat)
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -259,7 +283,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     new_sset <- NULL
     new_sset <- newSset(prefix=prefix, 
                         platform=platform_key, manifest=top_man_tib,
-                        load=opts$load_sset,save=opt$save_sset,rds=new_sset_rds,
+                        load=opts$load_sset,save=opts$save_sset,rds=new_sset_rds,
                         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
     
     if (retData) {
@@ -276,7 +300,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Starting Workflows...{RET}{RET}"))
     }
     
-    org_dat_bool <- TRUE
     cur_dat_list <- NULL
     workflow_cnt <- length(workflows)
     for (idx in seq(1,workflow_cnt)) {
@@ -298,19 +321,19 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         
         cur_sset <- mutateSSET_workflow(
           sset=new_sset, workflow=cur_workflow, pvals=pvals,
-          save=opt$save_sset, rds=cur_sset_rds,
+          save=opts$save_sset, rds=cur_sset_rds,
           verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       }
       stopifnot(!is.null(cur_sset))
       
       cur_dat_list = ssetToSummary(
-        sset=cur_sset, man=top_man_tib, idx=idx, workflow=cur_workflow,
-        name=out_name, outDir=opts$outDir, pre=cur_dat_list, ref=ref,
-        mask=mask,
+        sset=cur_sset, man=top_man_tib, idx=idx, workflow=cur_workflow, 
+        name=out_name, platform=platform,
+        outDir=opts$outDir, pre=cur_dat_list, ref=ref, mask=mask,
         pvals=pvals, min_pvals=min_pvals, min_percs=min_percs,
         basic=open_beta_tib,
         
-        write_sset=opt$save_sset, sset_rds=NULL, ret_sset=retData2,
+        write_sset=opts$save_sset, sset_rds=NULL, ret_sset=retData2,
         
         write_beta=opts$write_beta, beta_csv=NULL, ret_beta=retData2,
         write_bsum=opts$write_bsum, bsum_csv=NULL, ret_bsum=retData2,
@@ -337,9 +360,8 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
         datIdx=5, non_ref=FALSE, fresh=opts$fresh,
         verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
       
-      if (retData && org_dat_bool) {
-        org_dat_bool <- FALSE
-        ret_dat$org_list <- cur_dat_list
+      if (retData) {
+        if (!is.null(cur_dat_list)) ret_dat$org_list <- cur_dat_list
       }
       
       if (verbose>=vt) {
@@ -355,8 +377,7 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     }
     
     if (retData) {
-      ret_dat$cur_list <- cur_dat_list
-      # return(ret_dat)
+      if (!is.null(cur_dat_list)) ret_dat$cur_list <- cur_dat_list
     }
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
@@ -377,9 +398,6 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
       minNegPval=min_pvals[2], minNegPerc=min_percs[2],
       minDb=opts$minDeltaBeta,
       verbose=verbose,vt=vt+1,tc=tc+1,tt=tTracker)
-    
-    # Format Time Table
-    time_tib <- tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
     
     # ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #
     #                         Write Basic Requeue File::
@@ -406,6 +424,11 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     if (verbose>=vt)
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Writing Outputs.{RET}"))
     
+    # Format Time Table
+    time_tib <- NULL
+    if (!is.null(tTracker)) time_tib <- 
+      tTracker$time %>% dplyr::mutate_if(base::is.numeric, round, 4)
+    
     if (!is.null(ssheet_tib)) readr::write_csv(ssheet_tib, ssheet_csv)
     if (!is.null(dsheet_tab)) readr::write_csv(dsheet_tab, dsheet_csv)
     if (!is.null(time_tib))   readr::write_csv(time_tib, times_csv)
@@ -416,24 +439,24 @@ sesamizeSingleSample = function(prefix, man, add, ref, opts, defs=NULL,
     # if (verbose>=vt)
     #   cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Compressing Outputs (CSV)...{RET}"))
     #
-    # gzip_list <- lapply(list.files(opt$outDir, pattern='.csv$', full.names=TRUE), 
+    # gzip_list <- lapply(list.files(opts$outDir, pattern='.csv$', full.names=TRUE), 
     #                     function(x) { system(glue::glue("gzip -f {x}")) } )
     
     readr::write_lines(x=date(),file=stampEnd_txt,sep='\n',append=FALSE)
     
     ret_cnt <- ssheet_tib %>% base::ncol()
   })
-  etime <- stime[3] %>% as.double() %>% round(2)
-  if (!is.null(tTracker)) tTracker$addTime(stime,funcTag)
+  if (!is.null(stime)) etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tTracker) && !is.null(stime)) tTracker$addTime(stime,funcTag)
   if (verbose>=vt)
     cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
                    "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
   if (retData) {
-    ret_dat$req_tib    <- req_tib
-    ret_dat$ssheet_tib <- ssheet_tib
-    ret_dat$dsheet_tab <- dsheet_tab
-    ret_dat$time       <- tTracker$time
+    if (!is.null(req_tib)) ret_dat$req_tib    <- req_tib
+    if (!is.null(ssheet_tib)) ret_dat$ssheet_tib <- ssheet_tib
+    if (!is.null(dsheet_tab)) ret_dat$dsheet_tab <- dsheet_tab
+    if (!is.null(tTracker)) ret_dat$time <- tTracker$time
     return(ret_dat)
   }
   
@@ -449,24 +472,40 @@ maskTibs = function(tib, id, field, pval, minPval, del='_',
                     verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'maskTibs'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting; field={field}, pval={pval}, minPval={minPval}.{RET}"))
-  if (!no.mask) {
-    pval_del <- paste0(del,pval)
-    snames <- tib %>% dplyr::select(ends_with(pval_del)) %>% names() %>% stringr::str_remove(pval_del)
-    for (sname in snames) {
-      fstr <- paste(sname,field, sep=del)
-      pstr <- paste(sname,pval, sep=del)
-      tib <- maskTib(tib, field=fstr, id=id, pval=pstr, minPval=minPval, 
-                     verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
-    }
-  }
-  if (only.field) tib <- tib %>% dplyr::select(1,ends_with(field))
-  if (rm.suffix) tib  <- tib %>% purrr::set_names(stringr::str_remove(names(.), paste0(del,field) ) )
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting; field={field}, pval={pval}, minPval={minPval}.{RET}"))
   
-  tib
+  ret_cnt <- 0
+  ret_tib <- NULL
+  stime <- system.time({
+    
+    if (!no.mask) {
+      pval_del <- paste0(del,pval)
+      snames <- tib %>% dplyr::select(ends_with(pval_del)) %>% names() %>% stringr::str_remove(pval_del)
+      for (sname in snames) {
+        fstr <- paste(sname,field, sep=del)
+        pstr <- paste(sname,pval, sep=del)
+        tib <- maskTib(tib, field=fstr, id=id, pval=pstr, minPval=minPval, 
+                       verbose=verbose,vt=vt+1,tc=tc+1,tt=tt)
+      }
+    }
+    if (only.field) tib <- tib %>% dplyr::select(1,ends_with(field))
+    if (rm.suffix) tib  <- tib %>% purrr::set_names(stringr::str_remove(names(.), paste0(del,field) ) )
+    
+    ret_tib <- tib
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
+  })
+  etime <- stime[3] %>% as.double() %>% round(2)
+  if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
+  
+  ret_tib
 }
 
-maskTib = function(tib, id, field, pval, minPval, rm.pval=FALSE, only.field=FALSE, mask.controls=FALSE,
+maskTib = function(tib, id, field, pval, minPval, 
+                   rm.pval=FALSE, only.field=FALSE, mask.controls=FALSE,
                    verbose=0,vt=3,tc=1,tt=NULL) {
   funcTag <- 'maskTib'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
@@ -477,21 +516,28 @@ maskTib = function(tib, id, field, pval, minPval, rm.pval=FALSE, only.field=FALS
   id    <- id %>% rlang::sym()
   # minPval <- minPval %>% rlang::sym()
   
+  ret_cnt <- 0
+  ret_tib <- NULL
   stime <- system.time({
     if (mask.controls) {
-      tib <- tib %>% dplyr::mutate(!!field := case_when(!!pval > !!minPval ~ NA_real_, TRUE ~ !!field))
+      ret_tib <- tib %>% dplyr::mutate(!!field := case_when(!!pval > !!minPval ~ NA_real_, TRUE ~ !!field))
     } else {
-      tib <- tib %>% dplyr::mutate(!!field := case_when(
+      ret_tib <- tib %>% dplyr::mutate(!!field := case_when(
         !stringr::str_starts(!!id, 'ctl_') & !!pval > !!minPval ~ NA_real_, 
         TRUE ~ !!field))
     }
-    if (rm.pval) tib <- tib %>% dplyr::select(-!!pval)
-    if (only.field) tib <- tib %>% dplyr::select(!!field)
+    if (rm.pval) ret_tib <- ret_tib %>% dplyr::select(-!!pval)
+    if (only.field) ret_tib <- ret_tib %>% dplyr::select(!!field)
+    
+    ret_cnt <- print_tib(ret_tib,funcTag, verbose,vt+4,tc, n="ret")
   })
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Done.{RET}{RET}"))
+  etime <- stime[3] %>% as.double() %>% round(2)
   if (!is.null(tt)) tt$addTime(stime,funcTag)
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Done; Return Count={ret_cnt}; elapsed={etime}.{RET}{RET}",
+                   "{tabsStr}# ----- ----- ----- ----- ----- -----|----- ----- ----- ----- ----- ----- #{RET}{RET}"))
   
-  tib
+  ret_tib
 }
 
 maskCall = function(tib, field, minKey, minVal, verbose=0,vt=3,tc=1,tt=NULL) {
@@ -535,12 +581,12 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
     } else {
       tib <- suppressMessages(suppressWarnings(readr::read_csv(file)) )
     }
-    if (verbose>=vt+4) tib %>% print()
+    ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="file_tib")
     
     if (retRaw && !is.null(datKey)) {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} IS_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       tib <- tib %>% dplyr::select(!!selKey,ends_with(paste0(del,datKey)) )
-      if (verbose>=vt+4) tib %>% print()
+      ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="raw_tib")
     } else {
       if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NOT_RAW retRaw={retRaw}, datKey={datKey}.{RET}"))
       
@@ -549,7 +595,7 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
         if (verbose>=vt+4) {
           cat(glue::glue("[{funcTag}]:{tabsStr} USE_PVAL minVal={minVal}, ",
                          "SELECT=[selKey={selKey}, minKey={minKey}, datKey={datKey}].{RET}"))
-          tib %>% print()
+          ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="not_raw_tib")
         }
         
         tot_cnt  <- tib %>% base::nrow()
@@ -566,7 +612,7 @@ loadCallFile = function(file, selKey, datKey=NULL, minKey=NULL, minVal=NULL, pre
       } else {
         if (verbose>=vt+4) cat(glue::glue("[{funcTag}]:{tabsStr} NO_PVAL.{RET}"))
         if (!is.null(datKey)) tib <- tib %>% dplyr::select(!!selKey,!!datKey)
-        if (verbose>=vt+4) tib %>% print()
+        ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="no_pval_tib")
       }
       if (!is.null(prefix)) tib <- tib %>% purrr::set_names(paste(prefix,names(tib), sep='.') ) %>% dplyr::rename(!!selKey := 1)
     }
@@ -647,14 +693,14 @@ autoDetect_Wrapper = function(can, ref, man, mask=NULL,
       # dplyr::select(Probe_ID, Design_Type, Probe_Type) %>%
       dplyr::select(dplyr::all_of( c(!!jval, !!dname, !!pname) ) ) %>%
       dplyr::left_join(can, by="Probe_ID")
-    # print(auto_can)
+    ret_cnt <- print_tib(auto_can,funcTag, verbose,vt+4,tc, n="auto_can")
     
     auto_ref <- ref
     if (grep("_beta", names(ref)) %>% length() == 0) {
       auto_ref <- ref %>% purrr::set_names(paste(names(.),'beta', sep=del) )
       names(auto_ref)[1] <- 'Probe_ID'
     }
-    # print(auto_ref)
+    ret_cnt <- print_tib(auto_ref,funcTag, verbose,vt+4,tc, n="auto_ref")
     
     ret_tib <- sampleDetect(
       can=auto_can, ref=auto_ref, minPval=minPval, minDelta=minDelta,
@@ -768,12 +814,13 @@ rsquaredMatrix = function(mat, verbose=0,vt=3,tc=1,tt=NULL) {
 sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
                         jval, pval, field, suffix, del='_',
                         outDir=NULL, sname=NULL, plotMatrix=FALSE, writeMatrix=FALSE,
-                        dpi=120, format='png', datIdx=4, roundData=TRUE, non.ref=TRUE,
+                        dpi=120, format='png', datIdx=6, roundData=TRUE, non.ref=TRUE,
                         verbose=0,vt=4,tc=1,tt=NULL) {
   funcTag <- 'sampleDetect'
   tabsStr <- paste0(rep(TAB, tc), collapse='')
-  if (verbose>=vt) cat(glue::glue("[{funcTag}]:{tabsStr} Starting. dname={dname}, pname={pname},",
-                                  "field={field}, jval={jval}, pval={pval}.{RET}"))
+  if (verbose>=vt) 
+    cat(glue::glue("[{funcTag}]:{tabsStr} Starting. dname={dname}, pname={pname},",
+                   "field={field}, jval={jval}, pval={pval}.{RET}"))
   
   if (verbose>=vt+4) {
     cat(glue::glue("[{funcTag}]:{tabsStr} CAN::{RET}") )
@@ -811,7 +858,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     if (verbose>=vt+6) {
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} Pre-join. dname={dname}, pname={pname}, pval={pval}, field={field}, jval={jval}.{RET}"))
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} ref=={RET}"))
-      head(ref) %>% print()
+      ret_cnt <- print_tib(ref,funcTag, verbose,vt+4,tc, n="ref")
       
       cat(glue::glue("[{funcTag}]:{tabsStr}{TAB} tib1=={RET}"))
       can %>% dplyr::select(!!jval,!!dname,!!pname,!!pval,!!field) %>% print()
@@ -871,11 +918,9 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
     
     if (TRUE) {
       if (verbose>=vt+6) {
-        cat(glue::glue("{RET}{RET}{RET}{RET}"))
-        cat(glue::glue("[{funcTag}]:{tabsStr} TIB={RET}"))
-        print(tib)
-        cat(glue::glue("[{funcTag}]:{tabsStr} done(TIB){RET}"))
-        cat(glue::glue("{RET}{RET}{RET}{RET}"))
+        cat(glue::glue("{RET}[{funcTag}]:{tabsStr} TIB={RET}"))
+        ret_cnt <- print_tib(tib,funcTag, verbose,vt+4,tc, n="tib")
+        cat(glue::glue("[{funcTag}]:{tabsStr} done(TIB){RET}{RET}"))
       }
       
       # 4.1 Build matrix
@@ -918,7 +963,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
           purrr::set_names('AutoSample_dB_1_Key', 'AutoSample_Total_1_Cnt', 'AutoSample_dB_1_Cnt', 'AutoSample_dB_1_Val')
       ) %>% dplyr::select(AutoSample_Total_1_Cnt, AutoSample_R2_1_Key, AutoSample_R2_1_Val, 
                           AutoSample_dB_1_Key, AutoSample_dB_1_Cnt, AutoSample_dB_1_Val)
-      if (verbose>=vt+6) print(sss_1_tib)
+      ret_cnt <- print_tib(sss_1_tib,funcTag, verbose,vt+6,tc, n="sss_1_tib")
       
       # 4.2 Build matrix
       #
@@ -933,7 +978,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
       r2m_2_tib <- 
         rsquaredMatrix(mat2, verbose=verbose,vt=vt+1,tc=tc+1,tt=tt) %>% 
         tibble::as_tibble(rownames='Sample')
-      if (verbose>=vt+6) r2m_2_tib %>% head(n=2) %>% print()
+      ret_cnt <- print_tib(r2m_2_tib,funcTag, verbose,vt+6,tc, n="r2m_2_tib")
       
       # 6.2 Build Deleta Matrix
       dbm_2_tib <- 
@@ -960,7 +1005,7 @@ sampleDetect = function(can, ref, minPval, minDelta, dname, pname, ptype=NULL,
           purrr::set_names('AutoSample_dB_2_Key', 'AutoSample_Total_2_Cnt', 'AutoSample_dB_2_Cnt', 'AutoSample_dB_2_Val')
       ) %>% dplyr::select(AutoSample_Total_2_Cnt, AutoSample_R2_2_Key, AutoSample_R2_2_Val, 
                           AutoSample_dB_2_Key, AutoSample_dB_2_Cnt, AutoSample_dB_2_Val)
-      if (verbose>=vt+6) print(sss_2_tib)
+      ret_cnt <- print_tib(sss_2_tib,funcTag, verbose,vt+6,tc, n="sss_2_tib")
       
       sss <- sss %>% dplyr::bind_cols(sss_1_tib) %>% dplyr::bind_cols(sss_2_tib)
     }
